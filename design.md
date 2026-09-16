@@ -71,13 +71,13 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Security | Spring Security 7 + JJWT 0.12+ | Access token + refresh token |
 | Persistence | Spring Data JPA (Hibernate 7) | |
 | Database | MySQL 8.0 | |
-| Migration | Flyway | Versioned SQL, không dùng ddl-auto ngoài môi trường test |
+| Migration | Flyway | Versioned SQL. Hibernate `ddl-auto: validate` ở mọi môi trường (kể cả test), schema chỉ do Flyway tạo |
 | Cache / rate limit | Redis 7 + Spring Data Redis + Bucket4j | |
 | Realtime | Spring WebSocket + STOMP | |
 | Mapping | MapStruct 1.6 | Entity ↔ DTO, compile-time |
 | Boilerplate | Lombok | |
 | Validation | Jakarta Bean Validation (Hibernate Validator) | |
-| API Docs | springdoc-openapi 3.x | Bản hỗ trợ Spring Boot 4. Swagger UI tại `/swagger-ui.html` |
+| API Docs | springdoc-openapi 3.1.x | Dòng 3.1 build trên Spring Boot 4.1. Không nằm trong BOM của Boot → khai báo version ở `libs.versions.toml`. Swagger UI tại `/swagger-ui.html` |
 | Payment | Stripe Java SDK | |
 | Resilience | Resilience4j | Circuit breaker + retry cho provider ngoài |
 | Test | JUnit 5, Mockito, AssertJ, Testcontainers, Rest Assured | |
@@ -164,7 +164,8 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 com.trieu.tripplanner
 ├── TripPlannerApplication.java
 ├── common
-│   ├── ApiResponse.java              // envelope chuẩn
+│   ├── ApiResponse.java              // envelope thành công
+│   ├── ErrorResponse.java            // envelope lỗi
 │   ├── PageResponse.java
 │   ├── constant/                     // AppConstants, CacheNames, ErrorCode
 │   └── util/                         // DateUtils, SlugUtils, TokenUtils, GeoUtils
@@ -546,7 +547,11 @@ HTTP 402 Payment Required + `errorCode: QUOTA_EXCEEDED` + `upgradeUrl` để fro
 ### 10.1. Quy ước chung
 
 - Base path: `/api/v1`
-- Envelope thống nhất:
+- Hai envelope tách riêng, mỗi loại là **một record riêng** để tránh tạo response sai (ví dụ `success: true` kèm `errorCode`) và để OpenAPI schema / type TypeScript sinh bằng `gen:api` chính xác:
+  - Thành công → `ApiResponse<T>` (4 field: `success`, `data`, `message`, `timestamp`). Controller luôn bọc kết quả trong record này.
+  - Lỗi → `ErrorResponse` (6 field: `success`, `errorCode`, `message`, `details`, `timestamp`, `path`). Chỉ `GlobalExceptionHandler` tạo record này.
+
+Thành công (`ApiResponse`):
 
 ```json
 {
@@ -557,20 +562,25 @@ HTTP 402 Payment Required + `errorCode: QUOTA_EXCEEDED` + `upgradeUrl` để fro
 }
 ```
 
-Lỗi:
+Lỗi (`ErrorResponse`):
 
 ```json
 {
   "success": false,
-  "errorCode": "TRIP_NOT_FOUND",
-  "message": "Không tìm thấy chuyến đi",
+  "errorCode": "VALIDATION_ERROR",
+  "message": "Dữ liệu không hợp lệ",
   "details": [
     { "field": "startDate", "message": "phải sau ngày hiện tại" }
   ],
   "timestamp": "2026-09-13T10:00:00Z",
-  "path": "/api/v1/trips/12"
+  "path": "/api/v1/trips"
 }
 ```
+
+- `errorCode` luôn là một giá trị trong bảng 10.3. `details` chỉ có khi lỗi gắn với field cụ thể (validate), không có thì bị ẩn khỏi JSON.
+- Response thành công không có dữ liệu (ví dụ `DELETE`) vẫn giữ `"data": null` để format ổn định.
+- Lỗi 402 bổ sung field `upgradeUrl` vào `ErrorResponse` (mục 9) — thêm ở Phase 6.
+- Message tiếng Việt lấy từ `messages.properties` theo `messageKey` của `ErrorCode`, không viết cứng trong code.
 
 - Phân trang: `?page=0&size=20&sort=createdAt,desc` → `PageResponse<T>` gồm `items, page, size, totalElements, totalPages, hasNext`
 - Ngày: ISO-8601. Giờ: `HH:mm`. Tiền: DECIMAL, không dùng float.
@@ -677,15 +687,32 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | `TOKEN_EXPIRED` | 401 | Access token hết hạn (client tự refresh) |
 | `FORBIDDEN` | 403 | Không đủ quyền trên resource |
 | `EMAIL_NOT_VERIFIED` | 403 | |
-| `RESOURCE_NOT_FOUND` | 404 | |
+| `RESOURCE_NOT_FOUND` | 404 | Không có resource, hoặc URL không tồn tại |
+| `METHOD_NOT_ALLOWED` | 405 | Sai HTTP method (ví dụ `POST` vào endpoint chỉ có `GET`) |
 | `EMAIL_ALREADY_EXISTS` | 409 | |
 | `ACTIVITY_TIME_CONFLICT` | 409 | Trùng giờ trong cùng ngày |
+| `STALE_VERSION` | 409 | Optimistic lock: dữ liệu đã bị người khác sửa (mục 11.3) |
 | `QUOTA_EXCEEDED` | 402 | Vượt hạn mức gói FREE |
 | `PREMIUM_REQUIRED` | 402 | Tính năng chỉ dành cho Premium |
 | `RATE_LIMIT_EXCEEDED` | 429 | |
 | `PROVIDER_UNAVAILABLE` | 503 | Third-party lỗi |
 | `PAYMENT_FAILED` | 502 | |
-| `INTERNAL_ERROR` | 500 | |
+| `INTERNAL_ERROR` | 500 | Mọi lỗi không lường trước. Log full stacktrace, **không** trả chi tiết nội bộ ra ngoài |
+
+**Ánh xạ exception của framework** (trong `GlobalExceptionHandler`). Exception nào không có trong danh sách sẽ rơi vào `Exception` → 500, nên các lỗi do client gây ra phải được bắt riêng:
+
+| Exception | errorCode | HTTP |
+|---|---|---|
+| `AppException` (và lớp con) | theo `ErrorCode` mang theo | theo `ErrorCode` |
+| `MethodArgumentNotValidException` (`@Valid @RequestBody`) | `VALIDATION_ERROR` + `details` | 400 |
+| `HandlerMethodValidationException` (validate `@RequestParam`/`@PathVariable` — Spring 7) | `VALIDATION_ERROR` + `details` | 400 |
+| `ConstraintViolationException` (validate ở tầng service `@Validated`) | `VALIDATION_ERROR` + `details` | 400 |
+| `HttpMessageNotReadableException` (JSON sai cú pháp / sai kiểu) | `VALIDATION_ERROR` | 400 |
+| `MethodArgumentTypeMismatchException` (`/trips/abc` khi cần số) | `VALIDATION_ERROR` | 400 |
+| `NoResourceFoundException` (URL không tồn tại) | `RESOURCE_NOT_FOUND` | 404 |
+| `HttpRequestMethodNotSupportedException` | `METHOD_NOT_ALLOWED` | 405 |
+| `AccessDeniedException` (Spring Security — thêm khi bật Security ở Task 1.2) | `FORBIDDEN` | 403 |
+| `Exception` | `INTERNAL_ERROR` | 500 |
 
 ---
 
@@ -863,7 +890,9 @@ job deploy (chỉ main):
 | `test` | Testcontainers | tất cả `mock` | |
 | `prod` | MySQL managed | osm / open-meteo / stripe / claude | Secret qua env |
 
-Biến môi trường chính: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `MAIL_HOST`, `APP_FRONTEND_URL`.
+Biến môi trường chính: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `MAIL_HOST`, `MAIL_PORT`, `APP_FRONTEND_URL`. Chỉ docker-compose dùng: `MYSQL_ROOT_PASSWORD`.
+
+Ở profile `local`, Spring đọc các biến này từ file `.env` ở gốc repo (`spring.config.import: optional:file:../.env[.properties]`); biến môi trường thật của hệ điều hành luôn được ưu tiên hơn `.env`.
 
 ---
 
@@ -910,5 +939,5 @@ Biến môi trường chính: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, 
 | Mapper | `<Entity>Mapper` | `TripMapper` |
 | Migration | `V{n}__{mo_ta}.sql` | `V3__create_trip_tables.sql` |
 | Endpoint | kebab-case, danh từ số nhiều | `/share-links` |
-| Branch | `feat/`, `fix/`, `refactor/`, `chore/` | `feat/trip-sharing` |
+| Branch | `feat/`, `fix/`, `refactor/`, `chore/`, `docs/` + mã task | `feat/T4.1-trip-members` |
 | Commit | Conventional Commits | `feat(trip): add reorder activities API` |

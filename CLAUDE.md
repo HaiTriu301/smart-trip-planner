@@ -14,7 +14,7 @@ Hướng dẫn cho Claude Code khi làm việc trên repository này.
 - **`WORKFLOW.md` là lịch trình thực hiện.** Task được làm theo đúng thứ tự trong đó. Nếu tôi nhờ làm một task thuộc phase sau khi phase trước chưa xong, nhắc tôi.
 
 > ⚠️ Dự án dùng **Spring Boot 4 / Spring Framework 7 / Spring Security 7 / Jakarta EE 11 / Jackson 3**.
-> Không sinh code theo cú pháp Spring Boot 3.x. Cụ thể: không dùng `WebSecurityConfigurerAdapter`, không dùng package `com.fasterxml.jackson` (Jackson 3 là `tools.jackson`), không dùng API đã bị gỡ ở 4.0. Nếu không chắc một API còn tồn tại ở Boot 4 hay không, kiểm tra tài liệu chính thức trước khi dùng.
+> Không sinh code theo cú pháp Spring Boot 3.x. Cụ thể: không dùng `WebSecurityConfigurerAdapter`, không dùng `com.fasterxml.jackson.databind` / `com.fasterxml.jackson.core` (Jackson 3 là `tools.jackson.databind` / `tools.jackson.core`) — **ngoại lệ:** annotation (`@JsonInclude`, `@JsonProperty`, `@JsonIgnore`...) vẫn nằm ở `com.fasterxml.jackson.annotation` vì Jackson 3 tiếp tục dùng `jackson-annotations` 2.x, không dùng API đã bị gỡ ở 4.0. Nếu không chắc một API còn tồn tại ở Boot 4 hay không, kiểm tra tài liệu chính thức trước khi dùng.
 
 ---
 
@@ -61,17 +61,17 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 5. Service khai báo interface + `Impl` cho các service có business phức tạp (Trip, Activity, Subscription, Auth). Service đơn giản có thể là class trực tiếp.
 
 ### Database
-6. **Mọi thay đổi schema đều qua Flyway migration mới.** Không sửa file migration đã commit. `ddl-auto` luôn là `validate` (trừ profile test).
+6. **Mọi thay đổi schema đều qua Flyway migration mới.** Không sửa file migration đã commit. `ddl-auto` luôn là `validate` ở **mọi** profile, kể cả `test` (test dùng Testcontainers + Flyway nên schema thật luôn có sẵn, `validate` giúp bắt lệch entity/migration ngay trong test).
 7. Đặt tên migration `V{n}__{snake_case_mo_ta}.sql`. Kiểm tra số thứ tự lớn nhất hiện có trước khi tạo file.
 8. Không dùng `EAGER` fetch. Mặc định `LAZY`, dùng `@EntityGraph` hoặc `JOIN FETCH` khi cần.
 9. Tiền tệ dùng `BigDecimal` + `DECIMAL(15,2)`. Không dùng `double`/`float`.
 10. Soft delete qua `deleted_at` + `@SQLRestriction`.
 
 ### Lỗi & validate
-11. Không `throw new RuntimeException(...)`. Dùng exception trong `exception/` với `ErrorCode` tương ứng (bảng mã lỗi ở `design.md` mục 10.3).
+11. Không `throw new RuntimeException(...)`. Dùng exception trong `exception/` với `ErrorCode` tương ứng (bảng mã lỗi ở `design.md` mục 10.3). Controller/service **không** tự dựng `ErrorResponse` — chỉ ném exception, `GlobalExceptionHandler` chuyển thành `ErrorResponse`.
 12. Không bắt exception rồi nuốt. Nếu bắt, phải log kèm ngữ cảnh hoặc bọc lại thành `AppException`.
 13. Mọi request DTO phải có Bean Validation annotation. Validate business (ví dụ trùng giờ) nằm ở service, không ở DTO.
-14. Message lỗi trả về người dùng viết tiếng Việt, đặt trong `messages.properties`. Log viết tiếng Anh.
+14. Message lỗi trả về người dùng viết tiếng Việt, đặt trong `messages.properties` (UTF-8). `ErrorCode` chỉ giữ `httpStatus` + `messageKey`, **không** chứa câu chữ. Log viết tiếng Anh.
 
 ### Bảo mật
 15. Mọi endpoint thao tác trên trip phải có `@PreAuthorize` dùng `TripPermissionEvaluator`. Không tự viết lại logic kiểm quyền trong service.
@@ -144,11 +144,13 @@ smart-trip-planner/
 │       ├── common/ config/ security/ exception/
 │       ├── model/ repository/ dto/ mapper/
 │       ├── service/ provider/ controller/ websocket/ scheduler/
-│   └── src/main/resources/
-│       ├── application.yml, application-local.yml, application-prod.yml
-│       ├── db/migration/V*.sql
-│       ├── messages.properties
-│       └── mock/places.json
+│   ├── src/main/resources/
+│   │   ├── application.yml, application-local.yml, application-prod.yml
+│   │   ├── db/migration/V*.sql
+│   │   ├── messages.properties
+│   │   └── mock/places.json
+│   └── src/test/resources/
+│       └── application-test.yml      ← chỉ nằm trên test classpath, không đóng vào jar
 └── frontend/
     └── src/{api,components,features,hooks,layouts,pages,stores,types,lib}
 ```
@@ -196,7 +198,7 @@ Khi review code, kiểm tra lại các điểm này:
 > Thay đổi chỉ thuộc cài đặt/tài liệu, không đụng code chức năng (docker-compose, `.env.example`, `.gitignore`, `*.md`) → commit thẳng lên `main`, không đề xuất tạo nhánh. Phạm vi chính xác ở `WORKFLOW.md` mục A.2. Có đụng `backend/src`, `frontend/src`, dependency/build hoặc migration → vẫn phải có nhánh + PR.
 > Khi kết thúc task (bước 7 mục 4), Claude đưa ra **danh sách commit đề xuất**: mỗi commit gồm các file cần `git add` + commit message theo Conventional Commits, đúng các mốc commit ghi trong `WORKFLOW.md`.
 
-- Branch: `feat/`, `fix/`, `refactor/`, `chore/` + mô tả kebab-case
+- Branch: `feat/`, `fix/`, `refactor/`, `chore/`, `docs/` + mã task + mô tả kebab-case, ví dụ `feat/T1.2-registration`
 - Commit: Conventional Commits — `feat(trip): add activity reorder endpoint`
 - Không commit `.env`, `uploads/`, `backend/build/`, `backend/.gradle/`, `node_modules/`
 - **Có commit** `gradlew`, `gradlew.bat` và `gradle/wrapper/` — thiếu wrapper thì người khác clone về không build được

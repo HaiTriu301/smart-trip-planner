@@ -198,13 +198,18 @@ curl http://localhost:8080/actuator/health   # {"status":"UP"}
 
 Nhánh: `feat/T0.4-common-layer`
 
-Đọc trước: **design.md mục 10.1 và 10.3**
+Đọc trước: **design.md mục 10.1 và 10.3** (gồm bảng "Ánh xạ exception của framework")
+
+> ⚙️ Trước khi tạo `messages.properties`: IntelliJ → Settings → Editor → File Encodings → *Default encoding for properties files* = **UTF-8**, bỏ tick *Transparent native-to-ascii conversion*. Nếu không, tiếng Việt sẽ bị lỗi font.
 
 **File tạo theo thứ tự:**
 ```
-common/ApiResponse.java              ← record: success, data, message, timestamp + static ok()/error()
+common/ApiResponse.java              ← record chỉ cho THÀNH CÔNG: success, data, message, timestamp + static ok()
+common/ErrorResponse.java            ← record chỉ cho LỖI: success, errorCode, message, details, timestamp, path + static of()
+                                        (details = List<FieldError>, FieldError là record lồng {field, message})
 common/PageResponse.java
-common/constant/ErrorCode.java       ← enum, mỗi hằng có httpStatus + defaultMessage
+common/constant/ErrorCode.java       ← enum, mỗi hằng có httpStatus + messageKey (KHÔNG chứa câu chữ)
+src/main/resources/messages.properties  ← message tiếng Việt theo messageKey, UTF-8
 exception/AppException.java          ← abstract, giữ ErrorCode
 exception/ResourceNotFoundException.java
 exception/BusinessRuleException.java
@@ -214,11 +219,16 @@ config/CorsConfig.java
 controller/HealthController.java     ← endpoint tạm GET /api/v1/ping để test
 ```
 
-`GlobalExceptionHandler` phải bắt tối thiểu: `AppException`, `MethodArgumentNotValidException` (→ list field error), `ConstraintViolationException`, `AccessDeniedException`, `Exception` (→ 500, log full stacktrace, trả message chung chung không lộ nội bộ).
+`GlobalExceptionHandler` trả về `ErrorResponse` (không dùng `ApiResponse` cho lỗi), phải bắt tối thiểu: `AppException`, `MethodArgumentNotValidException` (→ list field error), `ConstraintViolationException`, `Exception` (→ 500, log full stacktrace, trả message chung chung không lộ nội bộ).
+
+> `AccessDeniedException` **chưa** bắt ở task này vì Spring Security đang tạm gỡ (Task 0.3) → class không tồn tại, code sẽ không compile. Handler này được thêm ở **Task 1.2** cùng lúc bật lại Security.
+
+Bắt thêm các exception của Spring 7 — nếu thiếu, chúng rơi vào `Exception` và thành **500** (mapping đầy đủ ở design.md 10.3):
+`NoResourceFoundException` (→ 404, **bắt buộc** để đạt nghiệm thu `/khong-ton-tai`), `HttpRequestMethodNotSupportedException` (→ 405), `HttpMessageNotReadableException` (→ 400), `MethodArgumentTypeMismatchException` (→ 400), `HandlerMethodValidationException` (→ 400).
 
 **Nghiệm thu:**
 - `GET /api/v1/ping` trả đúng envelope `{success, data, message, timestamp}`
-- `GET /api/v1/khong-ton-tai` trả 404 đúng format, không phải trang lỗi mặc định của Spring
+- `GET /api/v1/khong-ton-tai` trả 404 đúng format `ErrorResponse` (`errorCode: RESOURCE_NOT_FOUND`), không phải trang lỗi mặc định của Spring
 - Mở `http://localhost:8080/swagger-ui.html` thấy endpoint ping
 
 **Commit (3 mốc):**
@@ -294,6 +304,7 @@ Nhánh: `feat/T1.2-registration`
 3. mapper/UserMapper.java               MapStruct
 4. config/SecurityConfig.java           tạm thời permitAll cho /api/v1/auth/**, /actuator/health, /actuator/info; khai báo bean PasswordEncoder
    ⚠️ Trước bước này: thêm lại spring-boot-starter-security + spring-boot-starter-security-test vào build.gradle (đã tạm gỡ ở Task 0.3)
+   ⚠️ Cùng lúc: thêm handler AccessDeniedException → 403 FORBIDDEN (trả ErrorResponse) vào GlobalExceptionHandler + test (hoãn từ Task 0.4)
 5. service/AuthService.java + AuthServiceImpl.java
 6. controller/AuthController.java
 7. test/service/AuthServiceTest.java    trùng email → ném EmailAlreadyExistsException
