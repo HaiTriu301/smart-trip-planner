@@ -1,0 +1,36 @@
+# Shared configuration for every profile.
+# Environment-specific values (datasource, secrets, URLs) live in application-{profile}.yml.
+
+spring:
+  application:
+    name: trip-planner
+  jpa:
+    hibernate:
+      ddl-auto: validate      # schema is owned by Flyway - never update/create here
+    open-in-view: false       # no lazy loading outside transactions
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  # Third-party implementations, selected by config (design.md 7.1).
+  # Every profile defaults to mock so the app runs without any API key.
+  providers:
+    map: mock        # mock | osm
+    weather: mock    # mock | open-meteo
+    payment: mock    # mock | stripe
+    ai: mock         # mock | claude
+    storage: local   # local | cloudinary

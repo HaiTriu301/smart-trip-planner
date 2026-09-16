@@ -1,0 +1,19 @@
+# Local development profile: ./gradlew bootRun --args='--spring.profiles.active=local'
+# Values come from the repo-root .env file (copy .env.example -> .env).
+# Real OS environment variables take precedence over the .env file.
+
+spring:
+  config:
+    # bootRun's working directory is backend/, so the repo-root .env is one level up
+    import: optional:file:../.env[.properties]
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true   # log query count per session to catch N+1 (design.md 19)
+
+app:
+  frontend-url: ${APP_FRONTEND_URL}
