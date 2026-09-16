@@ -1,0 +1,3 @@
+-- V1: baseline migration.
+-- Intentionally contains no DDL. It proves Flyway can connect and creates flyway_schema_history.
+-- Domain tables start from V2 (Phase 1 - users).

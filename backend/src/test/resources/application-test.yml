@@ -1,0 +1,11 @@
+# Test profile: activated with @ActiveProfiles("test").
+# The datasource is provided by Testcontainers through @ServiceConnection (TestcontainersConfiguration),
+# so no connection settings or secrets are needed here.
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate      # keep validate so tests catch entity/migration mismatches
+
+app:
+  frontend-url: http://localhost:5173
