@@ -163,7 +163,7 @@ backend/gradle/libs.versions.toml                                (version catalo
 backend/build.gradle                                          (bổ sung: testcontainers, mapstruct, annotation processor, cấu hình test { useJUnitPlatform() })
 backend/src/main/resources/application.yml
 backend/src/main/resources/application-local.yml
-backend/src/main/resources/application-test.yml
+backend/src/test/resources/application-test.yml                 (test classpath, không đóng vào jar)
 backend/src/main/resources/db/migration/V1__init_schema.sql     (tạo bảng flyway_history trống, hoặc chỉ 1 comment)
 backend/src/main/java/com/trieu/tripplanner/config/properties/AppProperties.java
 ```
@@ -292,7 +292,8 @@ Nhánh: `feat/T1.2-registration`
 1. dto/request/RegisterRequest.java     @Email, @NotBlank, @Size(min=8) + regex mật khẩu mạnh
 2. dto/response/UserResponse.java
 3. mapper/UserMapper.java               MapStruct
-4. config/SecurityConfig.java           tạm thời permitAll cho /api/v1/auth/**, khai báo bean PasswordEncoder
+4. config/SecurityConfig.java           tạm thời permitAll cho /api/v1/auth/**, /actuator/health, /actuator/info; khai báo bean PasswordEncoder
+   ⚠️ Trước bước này: thêm lại spring-boot-starter-security + spring-boot-starter-security-test vào build.gradle (đã tạm gỡ ở Task 0.3)
 5. service/AuthService.java + AuthServiceImpl.java
 6. controller/AuthController.java
 7. test/service/AuthServiceTest.java    trùng email → ném EmailAlreadyExistsException
@@ -963,8 +964,8 @@ Nhánh: `docs/T8.5-final-readme`
 
 | Phase | Task | Xong | Ngày |
 |---|---|:--:|---|
-| 0 | 0.1 Repo + Spring Initializr | ☐ | |
-| 0 | 0.2 Docker Compose | ☐ | |
+| 0 | 0.1 Repo + Spring Initializr | ☑ | 2026-09-13 |
+| 0 | 0.2 Docker Compose | ☑ | 2026-09-16 |
 | 0 | 0.3 Config + Flyway | ☐ | |
 | 0 | 0.4 ApiResponse + Exception + Swagger | ☐ | |
 | 0 | 0.5 Init frontend | ☐ | |
