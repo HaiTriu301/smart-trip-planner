@@ -20,10 +20,18 @@
 8. Tick [x] vào bảng theo dõi ở mục cuối file này
 ```
 
+> **Ai làm gì:** các bước Git (3, 6, 7) do **tôi tự chạy**. Claude Code không tự tạo nhánh, không tự `git add` / `commit` / `push`, không mở PR — chỉ đưa ra lệnh tạo nhánh (nếu đang sai nhánh) và danh sách commit đề xuất (file cần add + message) để tôi tự commit. Chi tiết ở `CLAUDE.md` mục 9.
+
 ### A.2. Quy ước Git dùng xuyên suốt
 
 - Nhánh chính: `main` (luôn chạy được, luôn xanh CI)
 - Mỗi Task = 1 nhánh = 1 Pull Request. **Đừng commit thẳng vào `main`** — lịch sử PR trên GitHub là thứ nhà tuyển dụng nhìn thấy.
+- **Ngoại lệ — được push thẳng lên `main`, không cần nhánh/PR:** thay đổi chỉ thuộc phần cài đặt/tài liệu, **không đụng code chức năng**:
+  - Hạ tầng local: `docker-compose.yml`, `.env.example`, `.gitignore`
+  - Tài liệu: `*.md` (`README.md`, `CLAUDE.md`, `WORKFLOW.md`, `design.md`), tick bảng theo dõi, tick phase
+  - Điều kiện: không sửa gì trong `backend/src/`, `frontend/src/`, không đổi dependency/build (`build.gradle`, `libs.versions.toml`, `package.json`), không thêm migration
+  - Nếu một task có cả cài đặt lẫn code (ví dụ Task 0.3 có `AppProperties.java` + `build.gradle`, Task 0.5 có `client.ts` + `package.json`) → vẫn tạo nhánh + PR như bình thường
+  - Nhánh ghi trong task nào thuộc ngoại lệ này thì bỏ qua, commit message giữ nguyên
 - Tên nhánh: `feat/T1.2-jwt-authentication`
 - Commit message theo Conventional Commits:
 
@@ -72,6 +80,7 @@ Dùng Spring Boot 4.1 / Spring Security 7, không dùng cú pháp Boot 3.x.
 Liệt kê file sẽ tạo trước, sau đó code đầy đủ không để TODO.
 Viết kèm unit test cho service và test 403 cho phân quyền.
 Cuối cùng chạy ./gradlew build và sửa tới khi xanh.
+Không tự tạo nhánh, không tự commit — chỉ đưa ra danh sách commit đề xuất để tôi tự commit.
 ```
 
 ---

@@ -112,6 +112,7 @@ Làm theo đúng thứ tự:
 5. **Viết test** cùng lúc, không để lại sau.
 6. **Chạy `./gradlew build`** và sửa cho tới khi xanh.
 7. **Báo cáo**: file đã đổi, endpoint mới (method + path), cách test thủ công bằng curl hoặc Swagger.
+8. **Đề xuất commit** (không tự commit, không tự tạo nhánh — xem mục 9): liệt kê lệnh `git add <file>` + `git commit -m "..."` cho từng mốc để tôi tự chạy.
 
 ---
 
@@ -188,6 +189,12 @@ Khi review code, kiểm tra lại các điểm này:
 ---
 
 ## 9. Git
+
+> **Tôi tự thao tác Git.** Claude **không** tự chạy `git checkout -b` / `git switch -c` / `git branch`, `git add`, `git commit`, `git push`, không tạo Pull Request — kể cả khi task đã xong và build xanh.
+> Claude chỉ được dùng lệnh Git **chỉ đọc** (`git status`, `git diff`, `git log`, `git branch --show-current`...) để kiểm tra.
+> Nếu đang đứng sai nhánh so với task trong `WORKFLOW.md`, Claude nhắc tôi và đưa lệnh tạo nhánh để tôi tự chạy.
+> Thay đổi chỉ thuộc cài đặt/tài liệu, không đụng code chức năng (docker-compose, `.env.example`, `.gitignore`, `*.md`) → commit thẳng lên `main`, không đề xuất tạo nhánh. Phạm vi chính xác ở `WORKFLOW.md` mục A.2. Có đụng `backend/src`, `frontend/src`, dependency/build hoặc migration → vẫn phải có nhánh + PR.
+> Khi kết thúc task (bước 7 mục 4), Claude đưa ra **danh sách commit đề xuất**: mỗi commit gồm các file cần `git add` + commit message theo Conventional Commits, đúng các mốc commit ghi trong `WORKFLOW.md`.
 
 - Branch: `feat/`, `fix/`, `refactor/`, `chore/` + mô tả kebab-case
 - Commit: Conventional Commits — `feat(trip): add activity reorder endpoint`
