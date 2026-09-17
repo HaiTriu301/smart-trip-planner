@@ -978,7 +978,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 0 | 0.1 Repo + Spring Initializr | ☑ | 2026-09-13 |
 | 0 | 0.2 Docker Compose | ☑ | 2026-09-16 |
 | 0 | 0.3 Config + Flyway | ☑ | 2026-09-16 |
-| 0 | 0.4 ApiResponse + Exception + Swagger | ☐ | |
+| 0 | 0.4 ApiResponse + Exception + Swagger | ☑ | 2026-09-17 |
 | 0 | 0.5 Init frontend | ☐ | |
 | 1 | 1.1 User entity | ☐ | |
 | 1 | 1.2 Đăng ký | ☐ | |
