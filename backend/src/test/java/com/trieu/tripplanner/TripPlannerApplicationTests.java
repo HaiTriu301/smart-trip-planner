@@ -39,4 +39,20 @@ class TripPlannerApplicationTests {
 				.hasStatus(HttpStatus.NOT_FOUND);
 	}
 
+	@Test
+	void unknownApiPathReturnsErrorEnvelope(@Autowired MockMvcTester mvc) {
+		assertThat(mvc.get().uri("/api/v1/khong-ton-tai"))
+				.hasStatus(HttpStatus.NOT_FOUND)
+				.bodyJson()
+				.extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+	}
+
+	@Test
+	void openApiDocumentsPingEndpoint(@Autowired MockMvcTester mvc) {
+		assertThat(mvc.get().uri("/v3/api-docs"))
+				.hasStatusOk()
+				.bodyJson()
+				.hasPath("$.paths['/api/v1/ping'].get");
+	}
+
 }
