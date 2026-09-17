@@ -26,6 +26,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation libs.mapstruct.core
+	implementation libs.springdoc.openapi.webmvc.ui
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

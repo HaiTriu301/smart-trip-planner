@@ -15,9 +15,21 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  messages:
+    basename: messages                # src/main/resources/messages.properties
+    encoding: UTF-8                   # Vietnamese user-facing messages (CLAUDE.md rule 14)
+    fallback-to-system-locale: false  # unknown locale -> messages.properties, not the server OS locale
 
 server:
   port: 8080
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  default-produces-media-type: application/json
+  paths-to-match: /api/**             # document the public API only, hide actuator
 
 management:
   endpoints:

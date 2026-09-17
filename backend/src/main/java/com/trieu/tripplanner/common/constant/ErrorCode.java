@@ -1,0 +1,30 @@
+package com.trieu.tripplanner.common.constant;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "error.validation"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.unauthorized"),
+    TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "error.token-expired"),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "error.forbidden"),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "error.email-not-verified"),
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.resource-not-found"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "error.method-not-allowed"),
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.email-already-exists"),
+    ACTIVITY_TIME_CONFLICT(HttpStatus.CONFLICT, "error.activity-time-conflict"),
+    STALE_VERSION(HttpStatus.CONFLICT, "error.stale-version"),
+    QUOTA_EXCEEDED(HttpStatus.PAYMENT_REQUIRED, "error.quota-exceeded"),
+    PREMIUM_REQUIRED(HttpStatus.PAYMENT_REQUIRED, "error.premium-required"),
+    RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "error.rate-limit-exceeded"),
+    PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "error.provider-unavailable"),
+    PAYMENT_FAILED(HttpStatus.BAD_GATEWAY, "error.payment-failed"),
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "error.internal");
+
+    private final HttpStatus httpStatus;
+    private final String messageKey;
+}
