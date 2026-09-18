@@ -105,17 +105,26 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 
 | Thành phần | Lựa chọn |
 |---|---|
-| Framework | React 18 + Vite + TypeScript |
-| Styling | TailwindCSS + shadcn/ui |
+| Framework | React 19 + Vite 8 + TypeScript |
+| Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`) + shadcn/ui |
 | Server state | TanStack Query v5 |
 | Client state | Zustand |
-| Routing | React Router v6 |
+| Routing | React Router v7 (package `react-router-dom`) |
 | Form | react-hook-form + zod |
 | Map | Leaflet + react-leaflet + OpenStreetMap tiles (free, không cần API key) |
 | Realtime | @stomp/stompjs + sockjs-client |
 | HTTP | axios + interceptor tự refresh token |
 | Drag & drop | dnd-kit |
 | Chart | recharts (trang expense + admin dashboard) |
+| Lint | ESLint (flat config do create-vite sinh: typescript-eslint, react-hooks, react-refresh) |
+
+> Phiên bản chốt ngày 2026-09-18 theo bản scaffold thực tế của Task 0.5 (React 19.2, React Router 7.18, Tailwind 4.3, Vite 8.3). Các thư viện còn lại cài ở task nào thì lấy bản mới nhất tương thích React 19 tại thời điểm đó.
+
+**Quy ước gọi API từ frontend:**
+- Một axios instance duy nhất ở `src/api/client.ts`, `baseURL` đọc từ `VITE_API_URL`, mặc định `/api/v1` (đường dẫn **tương đối**). Dev đi qua proxy `/api` của Vite (`vite.config.ts`, `strictPort: true` để luôn đúng origin `localhost:5173` mà CORS backend cho phép), prod đi qua nginx. Không hardcode `http://localhost:8080` trong code frontend.
+- `withCredentials: true` vì refresh token nằm trong httpOnly cookie (mục 6.1).
+- Mỗi module API là một file trong `src/api/` (`health.ts`, `auth.ts`, `trips.ts`...), trả về body đã có type, component không gọi axios trực tiếp.
+- Type `ApiResponse<T>` / `ErrorResponse` tạm viết tay ở `src/types/api.ts`, sẽ thay bằng type sinh từ OpenAPI (`npm run gen:api`) khi có.
 
 ### 3.3. Infrastructure
 
@@ -893,6 +902,8 @@ job deploy (chỉ main):
 Biến môi trường chính: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `MAIL_HOST`, `MAIL_PORT`, `APP_FRONTEND_URL`. Chỉ docker-compose dùng: `MYSQL_ROOT_PASSWORD`.
 
 Ở profile `local`, Spring đọc các biến này từ file `.env` ở gốc repo (`spring.config.import: optional:file:../.env[.properties]`); biến môi trường thật của hệ điều hành luôn được ưu tiên hơn `.env`.
+
+Frontend có file env riêng `frontend/.env` (copy từ `frontend/.env.example`, git-ignored). Vite chỉ nhúng vào bundle các biến có tiền tố `VITE_`; hiện có `VITE_API_URL=/api/v1`. Đây là biến **build-time**, đổi giá trị phải build lại.
 
 ---
 

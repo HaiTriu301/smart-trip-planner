@@ -9,7 +9,7 @@ Hướng dẫn cho Claude Code khi làm việc trên repository này.
 **Smart Trip Planner** — web app lên kế hoạch du lịch: tạo lịch trình theo ngày, gắn địa điểm lên bản đồ, xem thời tiết, chia sẻ & đồng chỉnh sửa real-time, theo dõi chi phí, nâng cấp Premium qua Stripe.
 
 - Backend: **Spring Boot 4.1.x / Java 21** / MySQL 8 / Redis 7 — thư mục `backend/`
-- Frontend: React 18 + Vite + TypeScript + Tailwind — thư mục `frontend/`
+- Frontend: **React 19 + Vite 8 + TypeScript + Tailwind v4** (React Router v7, TanStack Query v5, Zustand, react-hook-form + zod) — thư mục `frontend/`. Phiên bản chốt ở `design.md` mục 3.2.
 - **`design.md` ở thư mục gốc là nguồn sự thật.** Trước khi implement bất kỳ tính năng nào, đọc mục tương ứng trong `design.md`. Nếu yêu cầu của tôi mâu thuẫn với `design.md`, dừng lại và hỏi, đừng tự chọn.
 - **`WORKFLOW.md` là lịch trình thực hiện.** Task được làm theo đúng thứ tự trong đó. Nếu tôi nhờ làm một task thuộc phase sau khi phase trước chưa xong, nhắc tôi.
 
@@ -35,19 +35,24 @@ cd backend
 ./gradlew clean build --refresh-dependencies # khi đổi dependency mà IDE không nhận
 ./gradlew dependencies --configuration runtimeClasspath   # xem cây dependency
 
-# Frontend
+# Frontend (cần frontend/.env — copy từ frontend/.env.example)
 cd frontend
-npm run dev        # http://localhost:5173
-npm run build
-npm run lint
-npm run test       # vitest
-npm run gen:api    # sinh type TS từ OpenAPI schema của backend
+npm install
+npm run dev        # http://localhost:5173, proxy /api → localhost:8080, strictPort (5173 bận thì báo lỗi, không tự nhảy port)
+npm run build      # tsc -b && vite build → dist/
+npm run lint       # eslint .
+npm run test       # vitest — CHƯA CÓ, thêm ở task frontend sau
+npm run gen:api    # sinh type TS từ OpenAPI schema của backend — CHƯA CÓ, thêm ở task frontend sau
 
 # Toàn hệ thống
 docker compose up --build
 ```
 
 Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:8025`
+
+> **Test API bằng dòng lệnh trên Windows:** trong PowerShell 5.1, `curl` là bí danh của `Invoke-WebRequest` và **ném exception với mọi mã 4xx/5xx** nên không xem được body `ErrorResponse`. Dùng `curl.exe -s -i <url>` để gọi curl thật.
+> `./gradlew bootRun` dừng ở `80% EXECUTING` là bình thường: app đang chạy, không bao giờ lên 100%. Dừng bằng Ctrl+C.
+> Port 5173/8080 bị chiếm: `Get-NetTCPConnection -LocalPort 5173 -State Listen | Select-Object OwningProcess` rồi `Stop-Process -Id <PID> -Force`.
 
 ---
 
@@ -91,6 +96,13 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 23. Mỗi API mới cần tối thiểu: 1 test happy path + 1 test lỗi phân quyền + 1 test validate.
 24. Test không phụ thuộc thứ tự chạy, không dùng DB thật, không gọi mạng ngoài.
 25. Không viết test chỉ để tăng coverage (test getter/setter, test mock trả về chính mock).
+
+### Frontend
+31. Mọi lời gọi HTTP đi qua `apiClient` trong `src/api/client.ts`. Component không import `axios` trực tiếp; mỗi module API là một file trong `src/api/` trả về body đã có type.
+32. `baseURL` là đường dẫn **tương đối** (`VITE_API_URL`, mặc định `/api/v1`) để đi qua proxy Vite (dev) / nginx (prod). Không hardcode `http://localhost:8080` trong `frontend/src`.
+33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand.
+34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
+35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
 
 ### Build (Gradle)
 26. Dùng **Groovy DSL** (`build.gradle`, `settings.gradle`), không dùng Kotlin DSL. Cú pháp dependency dạng chuỗi: `implementation 'group:artifact:version'`.
@@ -152,7 +164,19 @@ smart-trip-planner/
 │   └── src/test/resources/
 │       └── application-test.yml      ← chỉ nằm trên test classpath, không đóng vào jar
 └── frontend/
-    └── src/{api,components,features,hooks,layouts,pages,stores,types,lib}
+    ├── package.json, vite.config.ts     ← plugin react + tailwind, proxy /api → :8080
+    ├── tsconfig.json, tsconfig.app.json (src/), tsconfig.node.json (vite.config.ts)
+    ├── eslint.config.js
+    ├── .env.example                      ← VITE_API_URL=/api/v1 (copy thành .env, git-ignored)
+    ├── index.html
+    └── src/
+        ├── main.tsx                      ← QueryClientProvider bọc App
+        ├── App.tsx
+        ├── index.css                     ← chỉ có @import "tailwindcss"
+        ├── vite-env.d.ts                 ← type cho import.meta.env.VITE_*
+        ├── api/                          ← client.ts (axios instance) + 1 file mỗi module (health.ts, auth.ts...)
+        ├── types/                        ← api.ts (ApiResponse/ErrorResponse viết tay, sau thay bằng gen:api)
+        └── components/ features/ hooks/ layouts/ pages/ stores/ lib/   (tạo dần theo task)
 ```
 
 ---
@@ -161,7 +185,7 @@ smart-trip-planner/
 
 Cập nhật mục này sau mỗi phase hoàn thành.
 
-- [ ] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler
+- [x] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler, init frontend (2026-09-18)
 - [ ] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password
 - [ ] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder
 - [ ] Phase 3 — Place + Weather (mock provider + Redis cache)
@@ -186,6 +210,8 @@ Khi review code, kiểm tra lại các điểm này:
 - Broadcast WebSocket trước khi commit
 - `catch (Exception e) { }` rỗng
 - Hardcode `localhost:5173` trong code backend thay vì đọc từ `app.frontend-url`
+- Hardcode `localhost:8080` trong code frontend thay vì dùng `apiClient` với `baseURL` tương đối
+- Sửa `frontend/.env` bằng cách dán nhầm lệnh shell vào file (nội dung phải là `KEY=value`)
 - Dùng `String` cho tiền hoặc `double` cho amount
 
 ---

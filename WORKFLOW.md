@@ -244,20 +244,59 @@ chore(docs): configure springdoc openapi
 
 Nhánh: `chore/T0.5-init-frontend`
 
+Đọc trước: **design.md mục 3.2** (stack + quy ước gọi API từ frontend)
+
+Chạy ở **thư mục gốc repo** (thư mục `frontend/` rỗng có sẵn, create-vite dùng luôn):
 ```bash
 npm create vite@latest frontend -- --template react-ts
+#   → hỏi "Which linter to use?"          → ESLint
+#   → hỏi "Install with npm and start now?" → No (cài tay bên dưới)
 cd frontend && npm install
 npm install -D tailwindcss @tailwindcss/vite
 npm install axios @tanstack/react-query react-router-dom zustand react-hook-form zod @hookform/resolvers
 ```
 
-**File tạo:** `frontend/src/api/client.ts` (axios instance, baseURL từ `import.meta.env.VITE_API_URL`), `frontend/.env.example`, cấu hình proxy `/api` trong `vite.config.ts`.
+> Scaffold kéo về bản mới nhất: React 19, React Router 7, Tailwind 4, Vite 8 (đã chốt trong design.md 3.2). Tailwind v4 **không** cần `tailwind.config.js`/`postcss.config.js`.
 
-**Nghiệm thu:** `npm run dev` → trang Vite mở được, gọi thử `/api/v1/ping` từ frontend thấy dữ liệu.
+**File sửa / tạo / xoá (theo thứ tự):**
+```
+SỬA  vite.config.ts              plugins: [react(), tailwindcss()]; server.port 5173 + strictPort: true;
+                                 server.proxy '/api' → http://localhost:8080 (changeOrigin)
+SỬA  src/index.css               chỉ còn: @import "tailwindcss";
+XOÁ  src/App.css, src/assets/*, public/icons.svg      ← rác template
+SỬA  index.html                  lang="vi", <title>Smart Trip Planner</title>
+MỚI  .env.example                VITE_API_URL=/api/v1  (đường dẫn tương đối → đi qua proxy)
+     → copy thành .env:  Copy-Item .env.example .env   (chạy lệnh này trong terminal, KHÔNG dán vào file)
+MỚI  src/vite-env.d.ts           /// <reference types="vite/client" /> + interface ImportMetaEnv { VITE_API_URL?: string }
+MỚI  src/types/api.ts            ApiResponse<T>, FieldError, ErrorResponse (khớp backend common/)
+MỚI  src/api/client.ts           axios.create({ baseURL: VITE_API_URL || '/api/v1', timeout, withCredentials: true })
+MỚI  src/api/health.ts           ping(): GET /ping → ApiResponse<string>
+SỬA  src/main.tsx                bọc <App/> trong QueryClientProvider
+SỬA  src/App.tsx                 useQuery(['ping'], ping) → hiện 3 trạng thái: đang tải / lỗi đỏ / "pong" xanh lá
+```
 
-**Commit:** `chore(frontend): init vite react typescript project`
+**Nghiệm thu** (3 terminal: `docker compose up -d mysql redis mailhog` · `./gradlew bootRun --args='--spring.profiles.active=local'` · `npm run dev`):
+1. `npm run lint` và `npm run build` trong `frontend/` không lỗi.
+2. Mở `http://localhost:5173` → card trắng trên nền xám nhạt, dòng **"Backend trả về: pong"** màu xanh lá (xanh = Tailwind đã nạp).
+3. F12 → Network: request `ping` có host `localhost:5173` (đi qua proxy), không phải `8080`.
+4. Tắt backend, reload → dòng đỏ "Không gọi được backend". Bật lại → về xanh.
+5. Dòng lệnh (PowerShell dùng `curl.exe`, vì `curl` = `Invoke-WebRequest` sẽ ném lỗi ở mã 4xx):
+   ```powershell
+   curl.exe -s -i http://localhost:5173/api/v1/ping            # HTTP 200 + {"success":true,"data":"pong",...}
+   curl.exe -s -i http://localhost:5173/api/v1/khong-ton-tai   # HTTP 404 + errorCode RESOURCE_NOT_FOUND
+   curl.exe -s -i -X POST http://localhost:5173/api/v1/ping    # HTTP 405 + errorCode METHOD_NOT_ALLOWED
+   ```
 
-> ✅ Hết Phase 0 → sửa `CLAUDE.md` mục 7 tick `[x] Phase 0`, commit `docs: mark phase 0 complete`
+> Lỗi hay gặp: `Port 5173 is already in use` → có tiến trình Vite cũ còn sống. `Get-NetTCPConnection -LocalPort 5173 -State Listen | Select-Object OwningProcess` rồi `Stop-Process -Id <PID> -Force`. Không hạ `strictPort` để né lỗi này vì CORS backend chỉ cho phép đúng `localhost:5173`.
+> `bootRun` đứng ở `80% EXECUTING` là app đang chạy bình thường.
+> Sửa `App.tsx` mà trang không đổi → file chưa được lưu (Ctrl+S); terminal Vite phải in `hmr update /src/App.tsx`.
+
+**Commit** (1 mốc, `git add frontend` — kiểm tra `git status` không có `node_modules/`, `dist/`, `.env`):
+```
+chore(frontend): init vite react typescript project
+```
+
+> ✅ Hết Phase 0 → sau khi merge PR, trên `main`: tick ☑ 0.5 ở bảng B, `CLAUDE.md` mục 7 tick `[x] Phase 0`, cập nhật phiên bản frontend trong `design.md` 3.2 / `CLAUDE.md` / `README.md` → commit `docs: mark phase 0 complete`
 
 ---
 
@@ -979,7 +1018,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 0 | 0.2 Docker Compose | ☑ | 2026-09-16 |
 | 0 | 0.3 Config + Flyway | ☑ | 2026-09-16 |
 | 0 | 0.4 ApiResponse + Exception + Swagger | ☑ | 2026-09-17 |
-| 0 | 0.5 Init frontend | ☐ | |
+| 0 | 0.5 Init frontend | ☑ | 2026-09-18 |
 | 1 | 1.1 User entity | ☐ | |
 | 1 | 1.2 Đăng ký | ☐ | |
 | 1 | 1.3 JWT + refresh rotation | ☐ | |
