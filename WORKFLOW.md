@@ -111,11 +111,12 @@ Nhánh: `chore/T0.1-init-repo`
 README.md
 ```
 
-`.env.example`:
+`.env.example` (khớp file thật ở gốc repo; `MYSQL_ROOT_PASSWORD` bắt buộc vì docker-compose dùng `${VAR:?}` — thiếu là compose từ chối chạy; `allowPublicKeyRetrieval=true` cần cho MySQL 8 caching_sha2_password khi không dùng SSL):
 ```
-DB_URL=jdbc:mysql://localhost:3306/tripplanner?useSSL=false&serverTimezone=UTC
+DB_URL=jdbc:mysql://localhost:3306/tripplanner?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
 DB_USER=tripuser
 DB_PASSWORD=trippass
+MYSQL_ROOT_PASSWORD=doi-mat-khau-root-nay
 REDIS_HOST=localhost
 REDIS_PORT=6379
 JWT_SECRET=doi-chuoi-nay-thanh-chuoi-ngau-nhien-toi-thieu-64-ky-tu

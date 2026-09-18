@@ -29,11 +29,13 @@ cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ./gradlew test                               # unit + slice test
 ./gradlew build                              # compile + toàn bộ test + đóng gói jar
-./gradlew check jacocoTestCoverageVerification   # test + kiểm tra ngưỡng coverage
 ./gradlew test --tests "*TripServiceTest"    # chạy 1 class
-./gradlew flywayInfo                         # trạng thái migration
 ./gradlew clean build --refresh-dependencies # khi đổi dependency mà IDE không nhận
 ./gradlew dependencies --configuration runtimeClasspath   # xem cây dependency
+./gradlew check jacocoTestCoverageVerification   # CHƯA CÓ — plugin JaCoCo thêm ở Phase 8
+./gradlew flywayInfo                             # CHƯA CÓ — plugin org.flywaydb.flyway chưa apply (chỉ có dependency flyway-mysql).
+                                                 # Xem trạng thái migration hiện tại: log lúc bootRun ("Successfully applied N migrations")
+                                                 # hoặc SELECT * FROM flyway_schema_history; trong MySQL
 
 # Frontend (cần frontend/.env — copy từ frontend/.env.example)
 cd frontend
@@ -44,7 +46,7 @@ npm run lint       # eslint .
 npm run test       # vitest — CHƯA CÓ, thêm ở task frontend sau
 npm run gen:api    # sinh type TS từ OpenAPI schema của backend — CHƯA CÓ, thêm ở task frontend sau
 
-# Toàn hệ thống
+# Toàn hệ thống — CHƯA CÓ: compose hiện chỉ có mysql/redis/mailhog; service backend + frontend (Dockerfile) thêm ở Phase 8
 docker compose up --build
 ```
 
@@ -97,19 +99,19 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 24. Test không phụ thuộc thứ tự chạy, không dùng DB thật, không gọi mạng ngoài.
 25. Không viết test chỉ để tăng coverage (test getter/setter, test mock trả về chính mock).
 
-### Frontend
-31. Mọi lời gọi HTTP đi qua `apiClient` trong `src/api/client.ts`. Component không import `axios` trực tiếp; mỗi module API là một file trong `src/api/` trả về body đã có type.
-32. `baseURL` là đường dẫn **tương đối** (`VITE_API_URL`, mặc định `/api/v1`) để đi qua proxy Vite (dev) / nginx (prod). Không hardcode `http://localhost:8080` trong `frontend/src`.
-33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand.
-34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
-35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
-
 ### Build (Gradle)
 26. Dùng **Groovy DSL** (`build.gradle`, `settings.gradle`), không dùng Kotlin DSL. Cú pháp dependency dạng chuỗi: `implementation 'group:artifact:version'`.
 27. Version của dependency khai báo tập trung ở `gradle/libs.versions.toml` (version catalog), không rải số version khắp `build.gradle`.
 28. Không khai báo version cho các thư viện đã nằm trong BOM của Spring Boot — để plugin `io.spring.dependency-management` tự quản. Chỉ ghi version cho thư viện bên thứ ba (jjwt, mapstruct, bucket4j, stripe...).
 29. Thứ tự annotation processor bắt buộc: `lombok` → `lombok-mapstruct-binding` → `mapstruct-processor`. Sai thứ tự thì MapStruct sinh mapper rỗng (xem design.md mục 3.1).
 30. Không sửa `gradle-wrapper.properties` thủ công. Nâng Gradle bằng `./gradlew wrapper --gradle-version <x.y>`.
+
+### Frontend
+31. Mọi lời gọi HTTP đi qua `apiClient` trong `src/api/client.ts`. Component không import `axios` trực tiếp; mỗi module API là một file trong `src/api/` trả về body đã có type.
+32. `baseURL` là đường dẫn **tương đối** (`VITE_API_URL`, mặc định `/api/v1`) để đi qua proxy Vite (dev) / nginx (prod). Không hardcode `http://localhost:8080` trong `frontend/src`.
+33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand.
+34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
+35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
 
 ---
 
@@ -139,6 +141,8 @@ Làm theo đúng thứ tự:
 ---
 
 ## 6. Cấu trúc thư mục
+
+Cây **mục tiêu cuối dự án**; các package/file chưa có (`security/`, `websocket/`, `scheduler/`, `application-prod.yml`, `mock/places.json`...) được tạo dần theo task trong `WORKFLOW.md`. Hiện trạng thật: xem `git ls-files`.
 
 ```
 smart-trip-planner/

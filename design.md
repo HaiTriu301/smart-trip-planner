@@ -87,16 +87,29 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 > **Lưu ý Gradle — thứ tự annotation processor.** Lombok và MapStruct phải khai báo đúng thứ tự, nếu không MapStruct sẽ sinh mapper rỗng vì không thấy getter/setter do Lombok tạo:
 >
 > ```groovy
+> // build.gradle — version lấy từ gradle/libs.versions.toml (CLAUDE.md rule 27), không ghi số inline
 > dependencies {
->     compileOnly 'org.projectlombok:lombok'
+>     implementation libs.mapstruct.core
+>
+>     compileOnly 'org.projectlombok:lombok'                 // version do Spring Boot BOM quản
 >     annotationProcessor 'org.projectlombok:lombok'
->     annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
->     implementation 'org.mapstruct:mapstruct:1.6.3'
->     annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+>     annotationProcessor libs.lombok.mapstruct.binding
+>     annotationProcessor libs.mapstruct.processor
 >
 >     testCompileOnly 'org.projectlombok:lombok'
 >     testAnnotationProcessor 'org.projectlombok:lombok'
 > }
+> ```
+>
+> ```toml
+> # gradle/libs.versions.toml
+> [versions]
+> mapstruct = "1.6.3"
+> lombok-mapstruct-binding = "0.2.0"
+> [libraries]
+> mapstruct-core = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+> mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+> lombok-mapstruct-binding = { module = "org.projectlombok:lombok-mapstruct-binding", version.ref = "lombok-mapstruct-binding" }
 > ```
 >
 > Thứ tự bắt buộc: `lombok` → `lombok-mapstruct-binding` → `mapstruct-processor`.
@@ -862,12 +875,14 @@ Test case bắt buộc phải có (thường được hỏi khi phỏng vấn):
 
 ```
 services:
-  mysql     :3306   volume mysql_data
-  redis     :6379
-  mailhog   :1025 / :8025
-  backend   :8080   depends_on mysql, redis
-  frontend  :5173   (dev) | nginx :80 (prod)
+  mysql     :3306   volume mysql_data          ← có từ Task 0.2
+  redis     :6379                              ← có từ Task 0.2
+  mailhog   :1025 / :8025                      ← có từ Task 0.2
+  backend   :8080   depends_on mysql, redis    ← Phase 8 (Dockerfile). Trước đó chạy bằng ./gradlew bootRun
+  frontend  nginx :80 (prod)                   ← Phase 8. Dev chạy bằng npm run dev ở :5173, không qua Docker
 ```
+
+Port của 3 service hạ tầng bind vào `127.0.0.1` để không lộ ra mạng LAN.
 
 Backend Dockerfile: multi-stage (`gradle:9-jdk21` build → `eclipse-temurin:21-jre-alpine` run), chạy bằng user non-root, có `HEALTHCHECK` gọi `/actuator/health`. Ở stage build, copy `build.gradle`, `settings.gradle`, `gradle/` trước rồi chạy `gradle dependencies` để tận dụng layer cache, sau đó mới copy `src/`.
 
@@ -911,7 +926,7 @@ Frontend có file env riêng `frontend/.env` (copy từ `frontend/.env.example`,
 
 | Phase | Nội dung | Kết quả kiểm chứng được |
 |---|---|---|
-| **0. Setup** | Gradle project, docker-compose, Flyway V1, Swagger, ApiResponse, GlobalExceptionHandler | `GET /actuator/health` OK, Swagger mở được |
+| **0. Setup** | Gradle project, docker-compose, Flyway V1, Swagger, ApiResponse/ErrorResponse, GlobalExceptionHandler, CORS, init frontend (Vite + proxy `/api`) | `GET /actuator/health` OK, Swagger mở được, trang `localhost:5173` gọi `/api/v1/ping` thấy "pong" |
 | **1. Auth** | User, JWT, refresh rotation, verify email, reset password | Đăng ký → nhận mail ở MailHog → login → gọi `/users/me` |
 | **2. Trip + Itinerary** | Trip CRUD, TripDay auto-gen, Activity CRUD + reorder + validate giờ | Tạo trip 3 ngày → thêm 5 activity → kéo thả |
 | **3. Place + Weather (mock)** | Provider abstraction, mock data, cache Redis | Search "Đà Nẵng" → marker trên map, forecast hiện ra |
