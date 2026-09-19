@@ -29,7 +29,9 @@ cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ./gradlew test                               # unit + slice test
 ./gradlew build                              # compile + toàn bộ test + đóng gói jar
-./gradlew test --tests "*TripServiceTest"    # chạy 1 class
+./gradlew test --tests "*TripServiceTest"    # chạy 1 class; 1 method: --tests "*TripServiceTest.tenMethod"
+#   Gradle chỉ in test ĐỎ ra console; test xanh im lặng. Chi tiết từng test: build/reports/tests/test/index.html
+#   Test repository/@SpringBootTest dùng Testcontainers → Docker Desktop phải đang chạy
 ./gradlew clean build --refresh-dependencies # khi đổi dependency mà IDE không nhận
 ./gradlew dependencies --configuration runtimeClasspath   # xem cây dependency
 ./gradlew check jacocoTestCoverageVerification   # CHƯA CÓ — plugin JaCoCo thêm ở Phase 8
@@ -72,7 +74,9 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 7. Đặt tên migration `V{n}__{snake_case_mo_ta}.sql`. Kiểm tra số thứ tự lớn nhất hiện có trước khi tạo file.
 8. Không dùng `EAGER` fetch. Mặc định `LAZY`, dùng `@EntityGraph` hoặc `JOIN FETCH` khi cần.
 9. Tiền tệ dùng `BigDecimal` + `DECIMAL(15,2)`. Không dùng `double`/`float`.
-10. Soft delete qua `deleted_at` + `@SQLRestriction`.
+10. Soft delete qua `deleted_at` + `@SQLRestriction("deleted_at IS NULL")` + `@SQLDelete` để `repository.delete()` chỉ đóng dấu, không xoá row.
+    - Kiểu cột chuẩn (design.md 5.2 "Quy ước kiểu cột"): thời gian `DATETIME(6)` ↔ `Instant`; enum dùng `ENUM(...)` gốc MySQL ↔ `@Enumerated(EnumType.STRING)`; **thêm/đổi giá trị enum Java phải kèm migration ALTER cột ENUM**, validate không bắt được lỗi này.
+    - Mọi entity kế thừa `model/BaseEntity` (id, createdAt, updatedAt); không khai báo lại 3 field này.
 
 ### Lỗi & validate
 11. Không `throw new RuntimeException(...)`. Dùng exception trong `exception/` với `ErrorCode` tương ứng (bảng mã lỗi ở `design.md` mục 10.3). Controller/service **không** tự dựng `ErrorResponse` — chỉ ném exception, `GlobalExceptionHandler` chuyển thành `ErrorResponse`.
@@ -209,7 +213,9 @@ Khi review code, kiểm tra lại các điểm này:
 - Thiếu `@Transactional` khi ghi nhiều bảng trong một thao tác
 - Query N+1 ở `GET /trips/{id}` (kiểm tra số câu SQL trong log)
 - Quên `@PreAuthorize` trên endpoint thao tác trip
-- Sửa file migration cũ thay vì tạo file mới
+- Sửa file migration cũ thay vì tạo file mới (Flyway báo `checksum mismatch`, app không lên)
+- Thêm hằng vào enum Java mà không `ALTER TABLE ... MODIFY col ENUM(...)` → `Data truncated for column` lúc INSERT
+- Assert so sánh chuỗi phân biệt hoa thường qua JPA trong khi collation MySQL là `_ci` (so sánh không phân biệt)
 - Gọi Stripe/Map SDK trực tiếp trong service thay vì qua provider
 - Broadcast WebSocket trước khi commit
 - `catch (Exception e) { }` rỗng

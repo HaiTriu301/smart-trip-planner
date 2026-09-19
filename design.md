@@ -316,7 +316,14 @@ erDiagram
 | created_at / updated_at | DATETIME | |
 | deleted_at | DATETIME | soft delete |
 
-Index: `idx_users_email(email)`, `idx_users_plan(plan)`
+Index: `UNIQUE uk_users_email(email)` (UNIQUE key đã là index nên kiêm luôn vai trò `idx_users_email`, không tạo thêm), `idx_users_plan(plan)`
+
+> **Quy ước kiểu cột áp dụng cho mọi bảng** (chốt ở Task 1.1, migration `V2__create_users_table.sql`):
+> - `DATETIME` trong tài liệu = `DATETIME(6)` trong SQL, vì Hibernate ghi `java.time.Instant` với micro giây.
+> - `ENUM` = kiểu `ENUM('A','B')` gốc của MySQL; entity dùng `@Enumerated(EnumType.STRING)`, Hibernate 7 map thẳng sang ENUM nên `ddl-auto=validate` khớp. Thêm/đổi giá trị enum Java **phải** kèm migration `ALTER TABLE ... MODIFY col ENUM(...)`, vì validate không so danh sách giá trị, lỗi chỉ lộ lúc INSERT (`Data truncated`).
+> - `BOOLEAN` = `TINYINT(1)`, driver MySQL báo về là BIT nên khớp `boolean` Java.
+> - Collation `utf8mb4_unicode_ci` **không phân biệt hoa thường** khi so chuỗi; email vẫn được chuẩn hoá lowercase ở entity (`@PrePersist`) để giá trị lưu nhất quán.
+> - Soft delete: `@SQLDelete("UPDATE ... SET deleted_at = NOW(6) WHERE id = ?")` + `@SQLRestriction("deleted_at IS NULL")`. Hệ quả: UNIQUE `email` vẫn chặn đăng ký lại email đã xoá mềm — chấp nhận, xử lý ở Phase 8 nếu cần (admin khôi phục hoặc anonymize).
 
 #### `refresh_tokens`
 | Cột | Kiểu | Ghi chú |

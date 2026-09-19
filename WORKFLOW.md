@@ -311,19 +311,34 @@ chore(frontend): init vite react typescript project
 
 Nhánh: `feat/T1.1-user-entity`
 
+Đọc trước: **design.md mục 5.2 bảng `users`** (gồm khối "Quy ước kiểu cột") và **mục 20** (đặt tên).
+
 **Thứ tự file:**
 ```
-1. model/BaseEntity.java                    @MappedSuperclass: id, createdAt, updatedAt (@CreationTimestamp)
+1. model/BaseEntity.java                    @MappedSuperclass: id (IDENTITY), createdAt (@CreationTimestamp), updatedAt (@UpdateTimestamp),
+                                            equals/hashCode theo id
 2. model/enums/Role.java, Plan.java, UserStatus.java
-3. model/User.java
-4. resources/db/migration/V2__create_users_table.sql
-5. repository/UserRepository.java           findByEmail, existsByEmail
-6. test: repository/UserRepositoryTest.java (@DataJpaTest + Testcontainers)
+3. model/User.java                          @Table("users"), @SQLDelete + @SQLRestriction (soft delete), @Enumerated(STRING),
+                                            @Builder + @Builder.Default cho giá trị mặc định trùng DEFAULT trong SQL,
+                                            @PrePersist/@PreUpdate trim + lowercase email, isPremium() tính cả planExpiresAt
+4. resources/db/migration/V2__create_users_table.sql   DATETIME(6), ENUM gốc MySQL, UNIQUE uk_users_email, KEY idx_users_plan
+5. repository/UserRepository.java           Optional<User> findByEmail, boolean existsByEmail
+6. test: repository/UserRepositoryTest.java @DataJpaTest + @ActiveProfiles("test") + @Import(TestcontainersConfiguration)
+                                            9 test: default value, đọc enum từ cột ENUM, không tìm thấy, email lowercase,
+                                            existsByEmail, UNIQUE chặn trùng, soft delete (row còn, JPA không thấy), update giữ createdAt, isPremium
+7. sửa TripPlannerApplicationTests           assert Flyway đã apply "1" và "2"
 ```
 
 **Luồng tư duy:** viết SQL migration **trước hay sau** entity đều được, nhưng hai bên phải khớp tuyệt đối vì `ddl-auto=validate` sẽ báo lỗi khi khởi động nếu lệch. Đây là cơ chế bảo vệ, đừng tắt nó đi.
 
-**Nghiệm thu:** app khởi động không lỗi validate, `UserRepositoryTest` xanh, kiểm tra bảng `users` tồn tại trong MySQL.
+> Package test của Boot 4 đã đổi chỗ: `@DataJpaTest` ở `org.springframework.boot.data.jpa.test.autoconfigure`, `TestEntityManager` ở `org.springframework.boot.jpa.test.autoconfigure`. `@DataJpaTest` không thay DataSource bằng H2 khi có `@ServiceConnection`, nên test chạy trên MySQL 8 thật (H2 không có kiểu ENUM).
+
+**Nghiệm thu:**
+1. `./gradlew test --tests "*UserRepositoryTest"` xanh (cần Docker). Xem chi tiết: `build/reports/tests/test/index.html`.
+2. `./gradlew bootRun --args='--spring.profiles.active=local'` → log có `Successfully applied 1 migration` (lần đầu) hoặc `Schema tripplanner is up to date`, và `Started TripPlannerApplication`, không có `Schema-validation`.
+3. `docker exec -it tripplanner-mysql mysql -utripuser -p tripplanner` → `SELECT version, description, success FROM flyway_schema_history;` có dòng `2 | create users table | 1`; `SHOW CREATE TABLE users\G` đúng 15 cột.
+
+> Bẫy đã gặp: (1) collation `utf8mb4_unicode_ci` làm `WHERE email = 'UPPER@..'` vẫn khớp row lowercase → muốn kiểm tra giá trị lưu thật phải đọc thô bằng `JdbcTemplate`; (2) `JdbcTemplate.queryForObject(..., Instant.class)` với cột DATETIME ném `TypeMismatchDataAccessException`, phải đọc `LocalDateTime`; (3) backend đang chạy có DevTools sẽ tự restart khi `./gradlew build` ghi class mới và apply migration luôn vào MySQL local.
 
 **Commit:**
 ```
@@ -1020,7 +1035,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 0 | 0.3 Config + Flyway | ☑ | 2026-09-16 |
 | 0 | 0.4 ApiResponse + Exception + Swagger | ☑ | 2026-09-17 |
 | 0 | 0.5 Init frontend | ☑ | 2026-09-18 |
-| 1 | 1.1 User entity | ☐ | |
+| 1 | 1.1 User entity | ☑ | 2026-09-19 |
 | 1 | 1.2 Đăng ký | ☐ | |
 | 1 | 1.3 JWT + refresh rotation | ☐ | |
 | 1 | 1.4 Verify email + reset password | ☐ | |
