@@ -19,10 +19,10 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 class TripPlannerApplicationTests {
 
 	@Test
-	void appliesBaselineFlywayMigration(@Autowired Flyway flyway) {
+	void appliesAllFlywayMigrations(@Autowired Flyway flyway) {
 		assertThat(flyway.info().applied())
 				.extracting(migration -> migration.getVersion().getVersion())
-				.contains("1");
+				.contains("1", "2");
 	}
 
 	@Test
