@@ -15,6 +15,7 @@ import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -114,6 +115,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(errorCode.getHttpStatus())
                 .headers(ex.getHeaders())
                 .body(ErrorResponse.of(errorCode, message(errorCode.getMessageKey()), request.getRequestURI()));
+    }
+
+    /**
+     * Thrown by method security (@PreAuthorize) inside a controller, so it reaches this advice.
+     * Denials at the filter level never get here; RestAccessDeniedHandler covers those.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Access denied on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        ErrorCode errorCode = ErrorCode.FORBIDDEN;
+        return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
     }
 
     @ExceptionHandler(Exception.class)
