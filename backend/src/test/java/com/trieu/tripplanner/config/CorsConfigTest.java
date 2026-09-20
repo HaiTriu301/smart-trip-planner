@@ -15,7 +15,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 @WebMvcTest(HealthController.class)
-@Import(CorsConfig.class)
+// SecurityConfig included so the preflight travels through the real filter chain (cors() before authorization)
+@Import({CorsConfig.class, SecurityConfig.class})
 // Slice tests skip @ConfigurationPropertiesScan, so register the properties CorsConfig needs
 @EnableConfigurationProperties(AppProperties.class)
 @ActiveProfiles("test")

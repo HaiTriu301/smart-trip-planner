@@ -2,13 +2,17 @@ package com.trieu.tripplanner.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.trieu.tripplanner.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
+// Without the real SecurityConfig, @WebMvcTest falls back to Spring Security defaults and /ping would be 401
 @WebMvcTest(HealthController.class)
+@Import(SecurityConfig.class)
 class HealthControllerTest {
 
     @Autowired

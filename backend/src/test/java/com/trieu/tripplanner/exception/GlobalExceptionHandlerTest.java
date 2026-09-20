@@ -3,6 +3,7 @@ package com.trieu.tripplanner.exception;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
+import com.trieu.tripplanner.config.SecurityConfig;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
@@ -15,6 +16,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +28,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTest.ThrowingController.class)
-@Import(GlobalExceptionHandlerTest.ThrowingController.class)
+@Import({GlobalExceptionHandlerTest.ThrowingController.class, SecurityConfig.class})
+// /test/** is not public, so act as a logged-in user; the handler itself is auth-agnostic
+@WithMockUser
 class GlobalExceptionHandlerTest {
 
     @Autowired

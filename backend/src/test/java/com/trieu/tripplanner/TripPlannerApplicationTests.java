@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
@@ -34,17 +35,29 @@ class TripPlannerApplicationTests {
 	}
 
 	@Test
+	@WithMockUser
 	void actuatorEndpointsOutsideWhitelistAreNotExposed(@Autowired MockMvcTester mvc) {
+		// Logged in so we get past security and prove the endpoint itself is not registered
 		assertThat(mvc.get().uri("/actuator/env"))
 				.hasStatus(HttpStatus.NOT_FOUND);
 	}
 
 	@Test
-	void unknownApiPathReturnsErrorEnvelope(@Autowired MockMvcTester mvc) {
+	@WithMockUser
+	void unknownApiPathReturnsNotFoundEnvelopeForLoggedInUser(@Autowired MockMvcTester mvc) {
 		assertThat(mvc.get().uri("/api/v1/khong-ton-tai"))
 				.hasStatus(HttpStatus.NOT_FOUND)
 				.bodyJson()
 				.extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+	}
+
+	@Test
+	void unknownApiPathReturnsUnauthorizedEnvelopeForAnonymous(@Autowired MockMvcTester mvc) {
+		// Since Task 1.2 the filter chain answers before routing: anonymous callers get 401, never 404
+		assertThat(mvc.get().uri("/api/v1/khong-ton-tai"))
+				.hasStatus(HttpStatus.UNAUTHORIZED)
+				.bodyJson()
+				.extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
 	}
 
 	@Test
