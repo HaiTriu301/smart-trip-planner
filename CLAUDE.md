@@ -54,7 +54,8 @@ docker compose up --build
 
 Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:8025`
 
-> **Test API bằng dòng lệnh trên Windows:** trong PowerShell 5.1, `curl` là bí danh của `Invoke-WebRequest` và **ném exception với mọi mã 4xx/5xx** nên không xem được body `ErrorResponse`. Dùng `curl.exe -s -i <url>` để gọi curl thật.
+> **Test API bằng dòng lệnh trên Windows:** trong PowerShell 5.1, `curl` là bí danh của `Invoke-WebRequest` và **ném exception với mọi mã 4xx/5xx** nên không xem được body `ErrorResponse`. Dùng `curl.exe -s -i <url>` để gọi curl thật. Body JSON trong `-d` chỉ dùng ASCII: Git Bash và PowerShell 5.1 làm hỏng UTF-8 khiến backend trả 400 "không đúng định dạng JSON" dù code đúng. Cần tiếng Việt thì test qua Swagger UI.
+> Từ Task 1.2, mọi URL ngoài `SecurityConfig.PUBLIC_PATHS` trả **401** khi chưa đăng nhập, kể cả URL không tồn tại (404 chỉ khi đã đăng nhập). Log `Using generated security password` khi khởi động là bình thường cho tới Task 1.3.
 > `./gradlew bootRun` dừng ở `80% EXECUTING` là bình thường: app đang chạy, không bao giờ lên 100%. Dừng bằng Ctrl+C.
 > Port 5173/8080 bị chiếm: `Get-NetTCPConnection -LocalPort 5173 -State Listen | Select-Object OwningProcess` rồi `Stop-Process -Id <PID> -Force`.
 
@@ -86,6 +87,8 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 
 ### Bảo mật
 15. Mọi endpoint thao tác trên trip phải có `@PreAuthorize` dùng `TripPermissionEvaluator`. Không tự viết lại logic kiểm quyền trong service.
+    - Endpoint public phải được thêm vào `SecurityConfig.PUBLIC_PATHS` (mặc định mọi thứ bị khoá). `@WebMvcTest` mới phải `@Import(SecurityConfig.class)`; test URL cần đăng nhập dùng `@WithMockUser`.
+    - Mật khẩu chỉ đi qua `PasswordEncoder` bean (BCrypt 12); DTO response không bao giờ có field password/hash.
 16. Không bao giờ tin `userId` từ request body — luôn lấy từ `SecurityContext`.
 17. Không log password, token, JWT, Stripe secret, payload thẻ.
 18. Secret chỉ đọc từ biến môi trường. Không hardcode, kể cả trong test.

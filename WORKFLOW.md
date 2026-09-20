@@ -352,19 +352,37 @@ test(user): add user repository tests
 
 Nhánh: `feat/T1.2-registration`
 
+Đọc trước: **design.md mục 6.3** (danh sách trắng + entry point), **mục 14 luật 13–14** (mật khẩu, email), **mục 10.2 Auth**.
+
 **Thứ tự file:**
 ```
-1. dto/request/RegisterRequest.java     @Email, @NotBlank, @Size(min=8) + regex mật khẩu mạnh
-2. dto/response/UserResponse.java
-3. mapper/UserMapper.java               MapStruct
-4. config/SecurityConfig.java           tạm thời permitAll cho /api/v1/auth/**, /actuator/health, /actuator/info; khai báo bean PasswordEncoder
-   ⚠️ Trước bước này: thêm lại spring-boot-starter-security + spring-boot-starter-security-test vào build.gradle (đã tạm gỡ ở Task 0.3)
-   ⚠️ Cùng lúc: thêm handler AccessDeniedException → 403 FORBIDDEN (trả ErrorResponse) vào GlobalExceptionHandler + test (hoãn từ Task 0.4)
-5. service/AuthService.java + AuthServiceImpl.java
-6. controller/AuthController.java
-7. test/service/AuthServiceTest.java    trùng email → ném EmailAlreadyExistsException
-8. test/controller/AuthControllerTest.java  @WebMvcTest, body sai → 400 kèm details
+0. build.gradle                          + spring-boot-starter-security, + spring-boot-starter-security-test (đã tạm gỡ ở Task 0.3)
+1. common/validation/PasswordConfirmed + PasswordConfirmedValidator + PasswordConfirmation   class-level constraint: confirmPassword == password
+   dto/request/RegisterRequest.java      @PasswordConfirmed; email (@NotBlank @Email @Size(max=255)), password (@NotBlank @Size(8..72) @Pattern hoa+thường+số, ASCII),
+                                         confirmPassword (@NotBlank, không lưu), fullName (@NotBlank @Size(max=120)); message = "{validation.*}" từ messages.properties
+2. dto/response/UserResponse.java        record 12 field, KHÔNG có password
+3. mapper/UserMapper.java                @Mapper(unmappedTargetPolicy = ERROR) — toResponse(User)
+4. exception/EmailAlreadyExistsException.java   extends AppException(EMAIL_ALREADY_EXISTS); ctor (Throwable) cho race UNIQUE
+5. exception/GlobalExceptionHandler.java + handler AccessDeniedException → 403 FORBIDDEN (hoãn từ 0.4)
+6. resources/messages.properties         + 8 key validation.* tiếng Việt
+7. security/SecurityErrorResponses.java (helper ghi JSON) + RestAuthenticationEntryPoint (401) + RestAccessDeniedHandler (403)
+                                         ← kéo từ Task 1.3 lên để lỗi ở filter cũng trả ErrorResponse. KHÔNG @Component, SecurityConfig @Import
+8. config/SecurityConfig.java            @EnableWebSecurity @EnableMethodSecurity; csrf off, cors(withDefaults) dùng bean corsFilter, STATELESS,
+                                         formLogin/httpBasic/logout off, entryPoint + accessDeniedHandler, PUBLIC_PATHS permitAll, anyRequest authenticated;
+                                         @Bean PasswordEncoder = BCryptPasswordEncoder(12)
+9. service/AuthService.java + AuthServiceImpl.java   register(): normalize email → existsByEmail → encode → saveAndFlush
+                                         (catch DataIntegrityViolationException → EmailAlreadyExistsException) → mapper
+10. controller/AuthController.java       POST /api/v1/auth/register, @Valid, @ResponseStatus(CREATED), trả ApiResponse<UserResponse>
+11. test/service/AuthServiceTest.java    Mockito thuần: hash $2a$12$ + matches, default USER/FREE/ACTIVE, normalize email, 409, race
+12. test/controller/AuthControllerTest.java   @WebMvcTest(AuthController) @Import(SecurityConfig) @MockitoBean AuthService: 201, 400 details, 400 confirm lệch, 400 thiếu confirm, 409
+13. test/config/SecurityConfigTest.java  ping public; 401 envelope; URL lạ chưa login → 401; @WithMockUser 200; POST không CSRF OK;
+                                         @PreAuthorize sai role → 403 envelope; đúng role → 200; RestAccessDeniedHandler ghi JSON; BCrypt 12
+14. test/integration/AuthRegistrationIntegrationTest.java   @SpringBootTest + MySQL thật: 201 + hash trong DB + email lowercase; 409 + vẫn 1 row
+15. sửa test cũ: HealthControllerTest, CorsConfigTest → @Import(SecurityConfig); GlobalExceptionHandlerTest → + @WithMockUser;
+    TripPlannerApplicationTests → /actuator/env và URL lạ cần @WithMockUser mới ra 404, thêm test anonymous → 401
 ```
+
+> **Vì sao test cũ phải sửa:** có `spring-boot-starter-security` trên classpath, `@WebMvcTest` tự bật Security với cấu hình **mặc định** (khoá hết + CSRF) nếu không `@Import(SecurityConfig)`. Và vì filter chạy trước routing, mọi URL không nằm trong PUBLIC_PATHS đều 401 khi chưa login — kể cả URL không tồn tại.
 
 > ⚠️ Đây là lần đầu dùng MapStruct. Nếu mapper sinh ra rỗng (các field đều null), nguyên nhân gần như chắc chắn là thứ tự `annotationProcessor` trong `build.gradle` sai — xem design.md mục 3.1. Sau khi sửa, chạy `./gradlew clean build` rồi kiểm tra file sinh ra ở `build/generated/sources/annotationProcessor/java/main/`.
 
@@ -380,7 +398,23 @@ POST /api/v1/auth/register {email, password, fullName}
   → trả 201 + UserResponse (KHÔNG bao giờ trả passwordHash)
 ```
 
-**Nghiệm thu:** đăng ký thành công → 201; đăng ký lại cùng email → 409 `EMAIL_ALREADY_EXISTS`; kiểm tra DB thấy `password_hash` bắt đầu bằng `$2a$12$`.
+**Nghiệm thu** (backend chạy `local`; dùng `curl.exe`, body chỉ ASCII vì Git Bash/PowerShell 5.1 làm hỏng UTF-8 trong `-d`):
+```powershell
+curl.exe -s -i -X POST localhost:8080/api/v1/auth/register -H "Content-Type: application/json" -d "{\"email\":\"Demo@Example.com\",\"password\":\"MatKhau123\",\"confirmPassword\":\"MatKhau123\",\"fullName\":\"Demo\"}"
+#   → 201, data.email = "demo@example.com" (lowercase), không có passwordHash
+# gọi lại y nguyên              → 409 EMAIL_ALREADY_EXISTS "Email đã được sử dụng"
+# password "matkhau123"         → 400 VALIDATION_ERROR, details[0].field = "password"
+# confirmPassword khác password → 400 VALIDATION_ERROR, details[0].field = "confirmPassword", "Mật khẩu xác nhận không khớp"
+curl.exe -s -i localhost:8080/api/v1/khong-ton-tai     → 401 UNAUTHORIZED (chưa login), body ErrorResponse
+curl.exe -s -i localhost:8080/api/v1/ping              → 200 (public)
+# Swagger http://localhost:8080/swagger-ui.html có nhóm Auth → POST /register
+```
+```sql
+SELECT id, email, LEFT(password_hash,7), role, plan, status, email_verified FROM users;   -- $2a$12$ | USER | FREE | ACTIVE | 0
+```
+
+> Log lúc khởi động có `Using generated security password: ...` là **bình thường** cho tới Task 1.3: Boot tự tạo user in-memory khi chưa có `UserDetailsService`. formLogin/httpBasic đã tắt nên mật khẩu này không dùng được vào đâu. Task 1.3 thêm `CustomUserDetailsService` thì dòng này biến mất.
+> Kiểm tra mapper MapStruct: `build/generated/sources/annotationProcessor/java/main/com/trieu/tripplanner/mapper/UserMapperImpl.java` phải có 12 dòng `user.getXxx()`; nếu chỉ `new UserResponse(null, ...)` là sai thứ tự annotationProcessor.
 
 **Commit:**
 ```
@@ -1036,7 +1070,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 0 | 0.4 ApiResponse + Exception + Swagger | ☑ | 2026-09-17 |
 | 0 | 0.5 Init frontend | ☑ | 2026-09-18 |
 | 1 | 1.1 User entity | ☑ | 2026-09-19 |
-| 1 | 1.2 Đăng ký | ☐ | |
+| 1 | 1.2 Đăng ký | ☑ | 2026-09-20 |
 | 1 | 1.3 JWT + refresh rotation | ☐ | |
 | 1 | 1.4 Verify email + reset password | ☐ | |
 | 1 | 1.5 Auth UI | ☐ | |

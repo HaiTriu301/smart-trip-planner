@@ -216,6 +216,7 @@ com.trieu.tripplanner
 │   ├── AppException.java             // base, chứa ErrorCode
 │   ├── ResourceNotFoundException.java
 │   ├── BusinessRuleException.java
+│   ├── EmailAlreadyExistsException.java   // 409, ném từ AuthService.register (Task 1.2)
 │   ├── QuotaExceededException.java
 │   └── PaymentException.java
 ├── model                             // JPA entities
@@ -472,6 +473,8 @@ Kết quả quyền của (userId, tripId) được **cache Redis TTL 5 phút**,
 - Escape output ở frontend (React mặc định an toàn, không dùng `dangerouslySetInnerHTML`)
 - Secret nằm ở biến môi trường, `.env` trong `.gitignore`, có `.env.example`
 - Actuator chỉ expose `health`, `info`; các endpoint khác yêu cầu ADMIN
+- **Mặc định khoá** (`anyRequest().authenticated()`), chỉ mở danh sách trắng trong `SecurityConfig.PUBLIC_PATHS`: `/api/v1/auth/**`, `/api/v1/ping`, `/actuator/health(/**)`, `/actuator/info`, `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`. Stateless, CSRF tắt (token đi trong header), formLogin/httpBasic tắt.
+- Lỗi ở tầng filter cũng trả `ErrorResponse`: `RestAuthenticationEntryPoint` → 401 `UNAUTHORIZED`, `RestAccessDeniedHandler` → 403 `FORBIDDEN`. Hệ quả: URL không tồn tại khi **chưa đăng nhập** trả 401 (không lộ URL nào có thật), đã đăng nhập mới trả 404. `@PreAuthorize` bị từ chối trong controller → `GlobalExceptionHandler` → 403 cùng envelope.
 
 ---
 
@@ -831,6 +834,8 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 10. Tổng `expense_shares.amount` phải bằng `expense.amount` (sai lệch cho phép 0.01 do làm tròn).
 11. Hạ cấp Premium → FREE: **không** xoá dữ liệu vượt hạn mức, chỉ chặn tạo mới (read-only phần vượt).
 12. Email chỉ gửi khi `email_verified = true` (trừ mail verify và mail mời).
+13. **Mật khẩu** (chốt Task 1.2): dài 8–72 ký tự, có ít nhất 1 chữ hoa, 1 chữ thường, 1 chữ số; chỉ gồm ký tự ASCII in được (`\x21`–`\x7E`, cho phép ký tự đặc biệt, không khoảng trắng). Giới hạn 72 vì BCrypt chỉ dùng 72 byte đầu; giới hạn ASCII để 72 ký tự luôn ≤ 72 byte. Regex: `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[\x21-\x7E]+$` + `@Size(min=8,max=72)`. Áp dụng cho đăng ký, đổi mật khẩu, đặt lại mật khẩu. Request có mật khẩu mới phải kèm `confirmPassword` bằng đúng `password` (class-level constraint `@PasswordConfirmed`, lỗi báo trên field `confirmPassword`); `confirmPassword` chỉ để kiểm tra, **không** lưu, không hash.
+14. **Email** chuẩn hoá `trim().toLowerCase()` trước khi kiểm tra trùng và lưu (entity `@PrePersist` + service). Trùng email → 409 `EMAIL_ALREADY_EXISTS`; race giữa `existsByEmail` và `INSERT` được UNIQUE index bắt và dịch sang cùng mã lỗi.
 
 ---
 
