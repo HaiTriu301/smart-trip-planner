@@ -91,6 +91,9 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
     - Mật khẩu chỉ đi qua `PasswordEncoder` bean (BCrypt 12); DTO response không bao giờ có field password/hash.
 16. Không bao giờ tin `userId` từ request body — luôn lấy từ `SecurityContext`.
 17. Không log password, token, JWT, Stripe secret, payload thẻ.
+    - Refresh token chỉ lưu **SHA-256 hex** trong DB, token thô chỉ nằm trong cookie `refresh_token` (HttpOnly, SameSite=Lax, Path=/api/v1/auth). Access token không lưu server.
+    - JWT hết hạn → `TOKEN_EXPIRED`, JWT sai/thiếu → `UNAUTHORIZED`, sai mật khẩu → `INVALID_CREDENTIALS`. Không trộn ba mã này: frontend dựa vào `TOKEN_EXPIRED` để tự refresh.
+    - JJWT dùng `jjwt-api` + `jjwt-impl` với `security/JwtJsonCodec` (Jackson 3). Không thêm `jjwt-jackson` (kéo Jackson 2).
 18. Secret chỉ đọc từ biến môi trường. Không hardcode, kể cả trong test.
 
 ### Third-party

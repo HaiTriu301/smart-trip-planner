@@ -68,7 +68,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 |---|---|---|
 | Language | Java 21 | Record, pattern matching, virtual thread cho @Async |
 | Framework | Spring Boot 4.1.x | Spring Framework 7, Jakarta EE 11, Jackson 3 |
-| Security | Spring Security 7 + JJWT 0.12+ | Access token + refresh token |
+| Security | Spring Security 7 + JJWT 0.12+ (`jjwt-api` + `jjwt-impl`, **không** dùng `jjwt-jackson` vì nó kéo Jackson 2) | Access token + refresh token. JSON cho JJWT do `security/JwtJsonCodec` tự cài bằng Jackson 3 (`tools.jackson.databind.ObjectMapper`) |
 | Persistence | Spring Data JPA (Hibernate 7) | |
 | Database | MySQL 8.0 | |
 | Migration | Flyway | Versioned SQL. Hibernate `ddl-auto: validate` ở mọi môi trường (kể cả test), schema chỉ do Flyway tạo |
@@ -192,17 +192,17 @@ com.trieu.tripplanner
 │   ├── constant/                     // AppConstants, CacheNames, ErrorCode
 │   └── util/                         // DateUtils, SlugUtils, TokenUtils, GeoUtils
 ├── config
-│   ├── SecurityConfig.java
-│   ├── JwtConfig.java
+│   ├── SecurityConfig.java           // filter chain, PasswordEncoder, AuthenticationManager
 │   ├── RedisConfig.java
 │   ├── CacheConfig.java
 │   ├── WebSocketConfig.java
 │   ├── OpenApiConfig.java
 │   ├── AsyncConfig.java
 │   ├── CorsConfig.java
-│   └── properties/                   // @ConfigurationProperties: AppProperties, StripeProperties...
+│   └── properties/                   // @ConfigurationProperties + @Validated: AppProperties (app), JwtProperties (app.jwt), StripeProperties...
 ├── security
 │   ├── JwtTokenProvider.java
+│   ├── JwtJsonCodec.java             // Serializer/Deserializer của JJWT chạy trên Jackson 3
 │   ├── JwtAuthenticationFilter.java
 │   ├── CustomUserDetails.java
 │   ├── CustomUserDetailsService.java
@@ -329,12 +329,16 @@ Index: `UNIQUE uk_users_email(email)` (UNIQUE key đã là index nên kiêm luô
 #### `refresh_tokens`
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
-| id | BIGINT PK | |
-| user_id | BIGINT FK | |
-| token_hash | CHAR(64) | SHA-256, **không lưu token thô** |
+| id | BIGINT PK AI | |
+| user_id | BIGINT FK → users.id | `ON DELETE CASCADE` |
+| token_hash | CHAR(64) | SHA-256 hex, **không lưu token thô** |
 | expires_at | DATETIME | |
 | revoked_at | DATETIME | nullable |
-| user_agent / ip_address | VARCHAR | phục vụ màn "thiết bị đăng nhập" |
+| user_agent | VARCHAR(255) | nullable, cắt ngắn nếu dài hơn |
+| ip_address | VARCHAR(45) | nullable, đủ cho IPv6 |
+| created_at / updated_at | DATETIME | từ BaseEntity |
+
+Index: `UNIQUE uk_refresh_tokens_token_hash(token_hash)`, `idx_refresh_tokens_user_id(user_id)`. Không soft delete: token hết hạn/revoke được scheduler xoá cứng sau 30 ngày (Phase 8).
 
 #### `verification_tokens`
 `id, user_id, token_hash, type ENUM(EMAIL_VERIFY, PASSWORD_RESET), expires_at, used_at`
@@ -439,6 +443,16 @@ UNIQUE `(trip_id, user_id)`, UNIQUE `(trip_id, invited_email)`
 Claims: `sub` (userId), `email`, `role`, `plan`, `iat`, `exp`, `jti`.
 
 **Rotation:** mỗi lần gọi `/auth/refresh` → revoke token cũ, phát token mới. Nếu nhận refresh token đã bị revoke → coi là token theft, revoke **toàn bộ** token của user đó.
+
+**Cookie refresh token** (chốt Task 1.3): tên `refresh_token`, `HttpOnly`, `SameSite=Lax` (chặn site khác POST kèm cookie, thay cho CSRF token đã tắt), `Path=/api/v1/auth` (chỉ gửi kèm khi gọi refresh/logout), `Max-Age` = TTL refresh, `Secure` khi profile `prod`. Token thô chỉ tồn tại trong cookie; DB giữ SHA-256.
+
+**Kết quả login** (`AuthResponse`): `{ accessToken, tokenType: "Bearer", expiresIn (giây), user: UserResponse }`. Refresh trả cùng cấu trúc. Logout: revoke token trong cookie + xoá cookie (`Max-Age=0`), trả `data: null`.
+
+**Thứ tự kiểm tra khi login:** email không tồn tại hoặc sai mật khẩu → 401 `INVALID_CREDENTIALS` (một message chung, không tiết lộ email có tồn tại); `status = BLOCKED` → 403 `ACCOUNT_BLOCKED`; `email_verified = false` → 403 `EMAIL_NOT_VERIFIED`. Tài khoản soft-delete không tìm thấy → 401 `INVALID_CREDENTIALS`.
+
+**Access token ở filter:** thiếu/sai chữ ký → 401 `UNAUTHORIZED`; đúng chữ ký nhưng hết hạn → 401 `TOKEN_EXPIRED` (frontend interceptor thấy mã này mới gọi refresh, tránh refresh vô ích khi token sai). `JwtAuthenticationFilter` ghi lỗi vào request attribute, `RestAuthenticationEntryPoint` đọc để chọn mã.
+
+**Cấu hình `app.jwt.*`** (`JwtProperties`, `@Validated`): `secret` (≥ 64 ký tự, từ env `JWT_SECRET`), `access-ttl` (mặc định `15m`), `refresh-ttl` (`7d`), `issuer` (`smart-trip-planner`). Profile `test` dùng chuỗi giả ghi rõ "test-only" trong `application-test.yml`; đó là dữ liệu test, không phải secret.
 
 ### 6.2. Ma trận quyền trên Trip
 
@@ -632,7 +646,7 @@ Lỗi (`ErrorResponse`):
 | POST | `/reset-password` | `{token, newPassword}` | Public |
 
 **User** `/api/v1/users`
-| GET | `/me` | Thông tin + plan + quota hiện tại | Auth |
+| GET | `/me` | Thông tin + plan (Task 1.3); + quota hiện tại (Phase 6) | Auth |
 | PATCH | `/me` | Cập nhật profile | Auth |
 | POST | `/me/avatar` | Upload ảnh (multipart) | Auth |
 | PATCH | `/me/password` | Đổi mật khẩu | Auth |
@@ -717,8 +731,10 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | `VALIDATION_ERROR` | 400 | Input sai |
 | `UNAUTHORIZED` | 401 | Thiếu/hết hạn token |
 | `TOKEN_EXPIRED` | 401 | Access token hết hạn (client tự refresh) |
+| `INVALID_CREDENTIALS` | 401 | Sai email hoặc mật khẩu khi login. Một message chung, không nói rõ cái nào sai |
 | `FORBIDDEN` | 403 | Không đủ quyền trên resource |
-| `EMAIL_NOT_VERIFIED` | 403 | |
+| `EMAIL_NOT_VERIFIED` | 403 | Login khi chưa xác thực email |
+| `ACCOUNT_BLOCKED` | 403 | Login khi `status = BLOCKED` |
 | `RESOURCE_NOT_FOUND` | 404 | Không có resource, hoặc URL không tồn tại |
 | `METHOD_NOT_ALLOWED` | 405 | Sai HTTP method (ví dụ `POST` vào endpoint chỉ có `GET`) |
 | `EMAIL_ALREADY_EXISTS` | 409 | |

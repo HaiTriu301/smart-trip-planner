@@ -32,7 +32,7 @@
   - Điều kiện: không sửa gì trong `backend/src/`, `frontend/src/`, không đổi dependency/build (`build.gradle`, `libs.versions.toml`, `package.json`), không thêm migration
   - Nếu một task có cả cài đặt lẫn code (ví dụ Task 0.3 có `AppProperties.java` + `build.gradle`, Task 0.5 có `client.ts` + `package.json`) → vẫn tạo nhánh + PR như bình thường
   - Nhánh ghi trong task nào thuộc ngoại lệ này thì bỏ qua, commit message giữ nguyên
-- Tên nhánh: `feat/T1.2-jwt-authentication`
+- Tên nhánh: `feat/T1.3-jwt-authentication`
 - Commit message theo Conventional Commits:
 
 ```
@@ -428,33 +428,67 @@ test(auth): add registration service and controller tests
 
 Nhánh: `feat/T1.3-jwt-authentication`
 
-**Thứ tự file:**
+Đọc trước: **design.md 6.1** (toàn bộ, gồm cookie, AuthResponse, thứ tự kiểm tra login, TOKEN_EXPIRED), **5.2 `refresh_tokens`**, **10.2 Auth + User**, **10.3** (2 mã mới `INVALID_CREDENTIALS`, `ACCOUNT_BLOCKED`).
+
+> Đã có sẵn từ Task 1.2, **không làm lại**: `RestAuthenticationEntryPoint`, `RestAccessDeniedHandler`, `SecurityConfig` (stateless, CSRF off, PUBLIC_PATHS, PasswordEncoder). Task này chỉ **thêm** vào SecurityConfig: JWT filter, `AuthenticationManager`, và làm entry point phân biệt `TOKEN_EXPIRED`.
+
+**Thứ tự file (theo 4 mốc commit):**
 ```
-1. model/RefreshToken.java + V3__create_refresh_tokens.sql + RefreshTokenRepository
-2. config/properties/JwtProperties.java     secret, accessTtl, refreshTtl
-3. security/JwtTokenProvider.java           generate, parse, validate
-4. security/CustomUserDetails.java
-5. security/CustomUserDetailsService.java
-6. security/JwtAuthenticationFilter.java    OncePerRequestFilter
-7. security/RestAuthenticationEntryPoint.java + RestAccessDeniedHandler.java
-8. config/SecurityConfig.java               cập nhật: stateless, thêm filter, khai báo route public
-9. dto/request/LoginRequest.java, dto/response/AuthResponse.java
-10. service/RefreshTokenService.java
-11. AuthService: login(), refresh(), logout()
-12. controller: thêm 3 endpoint
-13. test: login sai mật khẩu → 401; gọi /users/me không token → 401; refresh token đã revoke → revoke toàn bộ
+Mốc 1 — feat(auth): add jwt token provider and security config
+ 1. build.gradle + libs.versions.toml         jjwt-api (implementation), jjwt-impl (runtimeOnly), version 0.12.6 ở catalog. KHÔNG jjwt-jackson
+ 2. common/constant/ErrorCode.java            + INVALID_CREDENTIALS (401), ACCOUNT_BLOCKED (403); messages.properties + 2 key; ErrorCodeTest
+ 3. config/properties/JwtProperties.java      @ConfigurationProperties("app.jwt") @Validated: secret ≥ 64, accessTtl, refreshTtl (Duration), issuer
+    application.yml (app.jwt.secret: ${JWT_SECRET}, ttl mặc định) + application-test.yml (secret test-only)
+ 4. security/JwtJsonCodec.java                Serializer/Deserializer cho JJWT dùng tools.jackson ObjectMapper (design 3.1)
+ 5. security/JwtTokenProvider.java            generateAccessToken(user) với claims sub/email/role/plan/jti/iss; parse → trả record JwtClaims;
+                                              phân biệt ExpiredJwtException với JwtException khác
+ 6. security/CustomUserDetails.java           implements UserDetails: id, email, role, plan, emailVerified, status; isEnabled/isAccountNonLocked theo status
+ 7. security/CustomUserDetailsService.java    loadUserByUsername(email) → UserRepository.findByEmail → UsernameNotFoundException
+ 8. security/JwtAuthenticationFilter.java     OncePerRequestFilter: đọc "Authorization: Bearer", parse, đặt Authentication vào SecurityContext;
+                                              lỗi → request.setAttribute("jwt.error", TOKEN_EXPIRED | UNAUTHORIZED), KHÔNG ném, để filter sau trả 401
+ 9. security/RestAuthenticationEntryPoint.java  sửa: đọc attribute "jwt.error" để chọn ErrorCode, mặc định UNAUTHORIZED
+10. config/SecurityConfig.java                + addFilterBefore(JwtAuthenticationFilter, UsernamePasswordAuthenticationFilter)
+                                              + @Bean AuthenticationManager = ProviderManager(DaoAuthenticationProvider(userDetailsService, passwordEncoder))
+    config/OpenApiConfig.java                 + SecurityScheme bearer để Swagger có nút Authorize
+    test: JwtTokenProviderTest (round-trip claims, hết hạn, sai secret), JwtAuthenticationFilterTest/SecurityConfigTest (token hợp lệ 200,
+          hết hạn → 401 TOKEN_EXPIRED, giả → 401 UNAUTHORIZED)
+
+Mốc 2 — feat(auth): add login endpoint with refresh token
+11. model/RefreshToken.java + V3__create_refresh_tokens.sql + repository/RefreshTokenRepository.java
+    (findByTokenHash, revoke theo user: @Modifying UPDATE ... SET revoked_at WHERE user_id = ? AND revoked_at IS NULL)
+12. dto/request/LoginRequest.java (email, password @NotBlank), dto/response/AuthResponse.java (accessToken, tokenType, expiresIn, user)
+13. service/RefreshTokenService.java          issue(user, userAgent, ip) → trả token thô + lưu hash; hash SHA-256 hex; revokeAll(userId)
+14. exception/InvalidCredentialsException, AccountBlockedException, EmailNotVerifiedException (extends AppException)
+15. AuthService.login(LoginRequest, HttpServletRequest meta) → AuthenticationManager.authenticate → kiểm tra BLOCKED → chưa verify → phát cặp token
+16. controller/AuthController: POST /login set cookie (design 6.1) + trả AuthResponse
+17. service/UserService + UserServiceImpl (getCurrentUser từ SecurityContext) + controller/UserController GET /api/v1/users/me
+    test: AuthServiceTest (sai mật khẩu → INVALID_CREDENTIALS, BLOCKED → ACCOUNT_BLOCKED, chưa verify → EMAIL_NOT_VERIFIED, happy path),
+          UserControllerTest (không token 401, có token 200)
+
+Mốc 3 — feat(auth): add refresh token rotation and theft detection
+18. AuthService.refresh(cookie) theo "Luồng refresh" bên dưới; AuthService.logout(cookie) revoke + xoá cookie
+19. AuthController: POST /refresh, POST /logout (đọc @CookieValue("refresh_token"))
+    test: RefreshTokenServiceTest, AuthServiceTest refresh (revoked → revokeAll, hết hạn → 401, hợp lệ → token cũ revoked + token mới)
+
+Mốc 4 — test(auth): add authentication integration tests
+20. integration/AuthFlowIntegrationTest (@SpringBootTest + MySQL): register → bật email_verified bằng JdbcTemplate → login → /users/me 200
+    → refresh OK → dùng lại cookie cũ → 401 + mọi token của user revoked → login lại được
 ```
+
+> Nghiệm thu tay cần user đã verify (Task 1.4 mới có luồng verify): `UPDATE users SET email_verified = 1 WHERE email = '...';`
 
 **Luồng login:**
 ```
 POST /auth/login {email, password}
   → AuthenticationManager.authenticate()
-  → nếu chưa verify email → 403 EMAIL_NOT_VERIFIED
-  → sinh access token (JWT 15 phút)
+      → BadCredentialsException (không có user, soft-deleted, hoặc sai mật khẩu) → 401 INVALID_CREDENTIALS
+  → status BLOCKED → 403 ACCOUNT_BLOCKED
+  → chưa verify email → 403 EMAIL_NOT_VERIFIED
+  → sinh access token (JWT HS256, 15 phút, claims sub/email/role/plan/jti/iss)
   → sinh refresh token random 64 ký tự
       → lưu SHA-256 hash vào DB kèm expiresAt, userAgent, ip
-      → set vào httpOnly cookie, SameSite=Lax, Secure ở prod
-  → trả { accessToken, expiresIn, user }
+      → set cookie refresh_token: HttpOnly, SameSite=Lax, Path=/api/v1/auth, Max-Age=7d, Secure ở prod
+  → trả { accessToken, tokenType: "Bearer", expiresIn, user }
 ```
 
 **Luồng refresh (phần hay bị làm sai):**
@@ -468,7 +502,29 @@ POST /auth/refresh (đọc cookie)
   → hợp lệ → revoke token cũ + phát cặp token mới (rotation)
 ```
 
-**Nghiệm thu:** chuỗi curl login → lấy accessToken → gọi `/users/me` có token → 200; không token → 401; refresh 2 lần với cùng token cũ → lần 2 bị 401 và session bị xoá sạch.
+**Nghiệm thu** (`curl.exe`, dùng cookie jar để giữ refresh cookie giữa các lệnh):
+```powershell
+# 0. đăng ký (Task 1.2) rồi bật cờ verify bằng SQL ở trên
+# 1. login, lưu cookie
+curl.exe -s -c cookies.txt -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "{\"email\":\"demo@example.com\",\"password\":\"MatKhau123\"}"
+#    → 200, data.accessToken (dán vào jwt.io: sub, email, role, plan, exp = iat + 900), header Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax
+# 2. gọi /users/me
+curl.exe -s -i localhost:8080/api/v1/users/me -H "Authorization: Bearer <accessToken>"     → 200 UserResponse
+curl.exe -s -i localhost:8080/api/v1/users/me                                              → 401 UNAUTHORIZED
+curl.exe -s -i localhost:8080/api/v1/users/me -H "Authorization: Bearer abc"               → 401 UNAUTHORIZED
+#    (token hết hạn → 401 TOKEN_EXPIRED: test tự động kiểm tra, tay thì đợi 15 phút hoặc hạ app.jwt.access-ttl=5s trong .env tạm)
+# 3. refresh: lần 1 OK, lưu cookie mới sang file khác để giữ lại cookie cũ
+curl.exe -s -b cookies.txt -c cookies2.txt -X POST localhost:8080/api/v1/auth/refresh      → 200, accessToken mới, Set-Cookie mới
+curl.exe -s -i -b cookies.txt -X POST localhost:8080/api/v1/auth/refresh                   → 401 (token cũ đã revoke → nghi trộm)
+curl.exe -s -i -b cookies2.txt -X POST localhost:8080/api/v1/auth/refresh                  → 401 (token mới cũng bị revoke theo)
+# 4. login sai mật khẩu → 401 INVALID_CREDENTIALS "Email hoặc mật khẩu không đúng"
+# 5. logout với cookie hợp lệ → 200, Set-Cookie refresh_token=; Max-Age=0
+```
+```sql
+SELECT id, user_id, LEFT(token_hash,8), expires_at, revoked_at, user_agent, ip_address FROM refresh_tokens;
+-- sau bước 3 mọi dòng của user đều có revoked_at
+```
+Log khởi động **không còn** `Using generated security password` (đã có CustomUserDetailsService). Swagger có nút Authorize → dán access token → gọi /users/me.
 
 **Commit (4 mốc):**
 ```
