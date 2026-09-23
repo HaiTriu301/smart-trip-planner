@@ -19,7 +19,9 @@ import com.trieu.tripplanner.exception.AccountBlockedException;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
 import com.trieu.tripplanner.exception.EmailNotVerifiedException;
 import com.trieu.tripplanner.exception.InvalidCredentialsException;
+import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
 import com.trieu.tripplanner.mapper.UserMapper;
+import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.Plan;
 import com.trieu.tripplanner.model.enums.Role;
@@ -198,6 +200,113 @@ class AuthServiceTest {
 
     }
 
+    @Nested
+    class Refresh {
+
+        private final User user = TestUsers.verified(7L, "an@example.com");
+
+        @Test
+        void missingCookieIsRejected() {
+            assertThatThrownBy(() -> authService.refresh(null, CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
+            assertThatThrownBy(() -> authService.refresh("  ", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
+            verifyNoInteractions(refreshTokenService);
+        }
+
+        @Test
+        void unknownTokenIsRejected() {
+            when(refreshTokenService.findByRawToken("ghost")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> authService.refresh("ghost", CLIENT))
+                    .isInstanceOf(InvalidRefreshTokenException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.UNAUTHORIZED);
+        }
+
+        @Test
+        void reusedRevokedTokenIsTreatedAsTheftAndKillsAllSessions() {
+            RefreshToken revoked = liveToken(user);
+            revoked.revoke(Instant.now().minusSeconds(30));
+            when(refreshTokenService.findByRawToken("old")).thenReturn(Optional.of(revoked));
+
+            assertThatThrownBy(() -> authService.refresh("old", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
+
+            verify(refreshTokenService).revokeAll(7L);
+            verify(refreshTokenService, never()).issue(any(), any());
+            verifyNoInteractions(jwtTokenProvider);
+        }
+
+        @Test
+        void expiredTokenIsRevokedAndRejected() {
+            RefreshToken expired = RefreshToken.builder().user(user).tokenHash("h")
+                    .expiresAt(Instant.now().minusSeconds(1)).build();
+            when(refreshTokenService.findByRawToken("stale")).thenReturn(Optional.of(expired));
+
+            assertThatThrownBy(() -> authService.refresh("stale", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
+
+            verify(refreshTokenService).revoke(expired);
+            verify(refreshTokenService, never()).issue(any(), any());
+        }
+
+        @Test
+        void blockedUserCannotRefreshAndLosesAllSessions() {
+            User blocked = TestUsers.blocked(8L, "blocked@example.com");
+            when(refreshTokenService.findByRawToken("ok")).thenReturn(Optional.of(liveToken(blocked)));
+
+            assertThatThrownBy(() -> authService.refresh("ok", CLIENT)).isInstanceOf(AccountBlockedException.class);
+
+            verify(refreshTokenService).revokeAll(8L);
+            verify(refreshTokenService, never()).issue(any(), any());
+        }
+
+        @Test
+        void validTokenIsRotatedIntoANewPair() {
+            RefreshToken current = liveToken(user);
+            when(refreshTokenService.findByRawToken("current")).thenReturn(Optional.of(current));
+            stubTokenIssuing(user, "jwt-2", "raw-refresh-2");
+
+            AuthTokens tokens = authService.refresh("current", CLIENT);
+
+            verify(refreshTokenService).revoke(current);
+            verify(refreshTokenService).issue(user, CLIENT);
+            verify(refreshTokenService, never()).revokeAll(any());
+            assertThat(tokens.refreshToken()).isEqualTo("raw-refresh-2");
+            assertThat(tokens.response().accessToken()).isEqualTo("jwt-2");
+            assertThat(tokens.response().user().email()).isEqualTo("an@example.com");
+        }
+
+    }
+
+    @Nested
+    class Logout {
+
+        @Test
+        void missingCookieIsANoOp() {
+            authService.logout(null);
+            authService.logout("");
+
+            verifyNoInteractions(refreshTokenService);
+        }
+
+        @Test
+        void unknownTokenIsSilentlyIgnored() {
+            when(refreshTokenService.findByRawToken("ghost")).thenReturn(Optional.empty());
+
+            authService.logout("ghost");
+
+            verify(refreshTokenService, never()).revoke(any());
+        }
+
+        @Test
+        void knownTokenIsRevoked() {
+            RefreshToken token = liveToken(TestUsers.verified(7L, "an@example.com"));
+            when(refreshTokenService.findByRawToken("current")).thenReturn(Optional.of(token));
+
+            authService.logout("current");
+
+            verify(refreshTokenService).revoke(token);
+        }
+
+    }
+
     private void stubSuccessfulAuthentication(User user) {
         CustomUserDetails principal = CustomUserDetails.from(user);
         Authentication authenticated = UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
@@ -211,6 +320,12 @@ class AuthServiceTest {
                 .thenReturn(new JwtTokenProvider.AccessToken(accessToken, issuedAt, issuedAt.plus(Duration.ofMinutes(15))));
         when(refreshTokenService.issue(user, CLIENT))
                 .thenReturn(new RefreshTokenService.IssuedRefreshToken(rawRefreshToken, Instant.now().plus(Duration.ofDays(7))));
+    }
+
+    private static RefreshToken liveToken(User user) {
+        RefreshToken token = RefreshToken.builder().user(user).tokenHash("h").expiresAt(Instant.now().plus(Duration.ofDays(1))).build();
+        org.springframework.test.util.ReflectionTestUtils.setField(token, "id", 100L);
+        return token;
     }
 
     private static RegisterRequest registerRequest(String email, String fullName) {

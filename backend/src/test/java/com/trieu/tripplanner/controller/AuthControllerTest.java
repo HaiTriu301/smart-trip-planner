@@ -3,6 +3,7 @@ package com.trieu.tripplanner.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -16,10 +17,12 @@ import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
 import com.trieu.tripplanner.exception.InvalidCredentialsException;
+import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
 import com.trieu.tripplanner.model.enums.Plan;
 import com.trieu.tripplanner.model.enums.Role;
 import com.trieu.tripplanner.model.enums.UserStatus;
 import com.trieu.tripplanner.service.AuthService;
+import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +31,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -43,6 +47,8 @@ class AuthControllerTest {
 
     private static final String REGISTER_URL = "/api/v1/auth/register";
     private static final String LOGIN_URL = "/api/v1/auth/login";
+    private static final String REFRESH_URL = "/api/v1/auth/refresh";
+    private static final String LOGOUT_URL = "/api/v1/auth/logout";
 
     private static final UserResponse USER = new UserResponse(1L, "an@example.com", "Nguyễn An", null,
             "Asia/Ho_Chi_Minh", "vi", Role.USER, Plan.FREE, null, true, UserStatus.ACTIVE,
@@ -205,6 +211,55 @@ class AuthControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[*].field").asArray().containsExactly("email", "password");
         verifyNoInteractions(authService);
+    }
+
+    // ---------- refresh ----------
+
+    @Test
+    void refreshReadsCookieAndSetsTheRotatedOne() {
+        when(authService.refresh(eq("old-refresh"), any(ClientInfo.class))).thenReturn(TOKENS);
+
+        MvcTestResult result = mvc.post().uri(REFRESH_URL).cookie(new Cookie("refresh_token", "old-refresh")).exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.accessToken").isEqualTo("jwt-access");
+        assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE)).startsWith("refresh_token=raw-refresh;");
+    }
+
+    @Test
+    void refreshWithoutCookieReturns401() {
+        when(authService.refresh(isNull(), any(ClientInfo.class))).thenThrow(new InvalidRefreshTokenException("cookie missing"));
+
+        assertThat(mvc.post().uri(REFRESH_URL))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+    }
+
+    // ---------- logout ----------
+
+    @Test
+    void logoutRequiresAnAccessToken() {
+        assertThat(mvc.post().uri(LOGOUT_URL).cookie(new Cookie("refresh_token", "x")))
+                .hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    @WithMockUser
+    void logoutRevokesCookieTokenAndClearsCookie() {
+        MvcTestResult result = mvc.post().uri(LOGOUT_URL).cookie(new Cookie("refresh_token", "current")).exchange();
+
+        assertThat(result)
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null, "message": "OK" }
+                        """);
+        assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                .startsWith("refresh_token=;")
+                .contains("Max-Age=0")
+                .contains("Path=/api/v1/auth");
+        verify(authService).logout("current");
     }
 
     private MvcTestResult postJson(String url, String body) {

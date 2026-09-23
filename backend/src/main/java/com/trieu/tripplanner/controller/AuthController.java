@@ -18,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,8 +26,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Auth endpoints (design.md 10.2). Whitelisted in SecurityConfig.
- * The controller's only extra job is moving the refresh token from the service into the cookie.
+ * Auth endpoints (design.md 10.2). Whitelisted in SecurityConfig except /logout, which needs a valid access token.
+ * The controller's only extra job is moving the refresh token between the service and the cookie.
  */
 @Tag(name = "Auth", description = "Đăng ký, đăng nhập, quản lý phiên")
 @RestController
@@ -53,6 +54,24 @@ public class AuthController {
                                                            HttpServletRequest httpRequest) {
         AuthTokens tokens = authService.login(request, ClientInfo.from(httpRequest));
         return withCookie(refreshTokenCookies.create(tokens.refreshToken()), tokens.response());
+    }
+
+    @Operation(summary = "Xoay token",
+               description = "Đọc cookie refresh_token, thu hồi nó và phát cặp token mới. Dùng lại token cũ → 401 và mọi phiên bị thu hồi.")
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+            @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken,
+            HttpServletRequest httpRequest) {
+        AuthTokens tokens = authService.refresh(refreshToken, ClientInfo.from(httpRequest));
+        return withCookie(refreshTokenCookies.create(tokens.refreshToken()), tokens.response());
+    }
+
+    @Operation(summary = "Đăng xuất", description = "Thu hồi refresh token trong cookie và xoá cookie. Cần access token.")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken) {
+        authService.logout(refreshToken);
+        return withCookie(refreshTokenCookies.clear(), null);
     }
 
     private static <T> ResponseEntity<ApiResponse<T>> withCookie(ResponseCookie cookie, T body) {

@@ -10,12 +10,15 @@ import com.trieu.tripplanner.exception.AccountBlockedException;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
 import com.trieu.tripplanner.exception.EmailNotVerifiedException;
 import com.trieu.tripplanner.exception.InvalidCredentialsException;
+import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
 import com.trieu.tripplanner.mapper.UserMapper;
+import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.UserStatus;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.security.JwtTokenProvider;
+import java.time.Instant;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -86,15 +89,64 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(principal.getId()).orElseThrow(InvalidCredentialsException::new);
 
         // Only after the password matched, so a wrong password never reveals the account state
-        if (user.getStatus() == UserStatus.BLOCKED) {
-            throw new AccountBlockedException(user.getId());
-        }
+        assertCanUseAccount(user);
         if (!user.isEmailVerified()) {
             throw new EmailNotVerifiedException(user.getId());
         }
 
         log.info("User id={} logged in", user.getId());
         return issueTokens(user, client);
+    }
+
+    /**
+     * noRollbackFor: when we reject the request AFTER revoking sessions (theft, expiry, blocked account),
+     * those revocations must still be committed. Without it the exception would roll the UPDATE back and
+     * the stolen token's siblings would stay alive.
+     */
+    @Override
+    @Transactional(noRollbackFor = {InvalidRefreshTokenException.class, AccountBlockedException.class})
+    public AuthTokens refresh(String rawRefreshToken, ClientInfo client) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            throw new InvalidRefreshTokenException("cookie missing");
+        }
+
+        RefreshToken stored = refreshTokenService.findByRawToken(rawRefreshToken)
+                .orElseThrow(() -> new InvalidRefreshTokenException("unknown token"));
+        User user = stored.getUser();
+        Instant now = Instant.now();
+
+        if (stored.isRevoked()) {
+            // A token we already rotated away is being presented again: someone else holds a copy.
+            // We cannot tell which party is the attacker, so every session of this user is terminated.
+            int revoked = refreshTokenService.revokeAll(user.getId());
+            log.warn("Reuse of revoked refresh token id={} for user id={}; revoked {} live session(s)",
+                    stored.getId(), user.getId(), revoked);
+            throw new InvalidRefreshTokenException("token already used");
+        }
+        if (stored.isExpired(now)) {
+            refreshTokenService.revoke(stored);
+            throw new InvalidRefreshTokenException("token expired");
+        }
+        if (user.getStatus() == UserStatus.BLOCKED) {
+            refreshTokenService.revokeAll(user.getId());
+            throw new AccountBlockedException(user.getId());
+        }
+
+        // Rotation: the old session ends, a brand-new one starts
+        refreshTokenService.revoke(stored);
+        return issueTokens(user, client);
+    }
+
+    @Override
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            return;
+        }
+        refreshTokenService.findByRawToken(rawRefreshToken).ifPresent(token -> {
+            refreshTokenService.revoke(token);
+            log.info("User id={} logged out session id={}", token.getUser().getId(), token.getId());
+        });
     }
 
     private AuthTokens issueTokens(User user, ClientInfo client) {
@@ -104,6 +156,12 @@ public class AuthServiceImpl implements AuthService {
         AuthResponse response = new AuthResponse(access.token(), AuthResponse.BEARER, access.expiresInSeconds(),
                 userMapper.toResponse(user));
         return new AuthTokens(response, refresh.rawToken());
+    }
+
+    private static void assertCanUseAccount(User user) {
+        if (user.getStatus() == UserStatus.BLOCKED) {
+            throw new AccountBlockedException(user.getId());
+        }
     }
 
     private static String normalizeEmail(String email) {
