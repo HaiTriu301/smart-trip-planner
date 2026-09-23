@@ -9,3 +9,6 @@ spring:
 
 app:
   frontend-url: http://localhost:5173
+  jwt:
+    # Test fixture, not a secret: it signs tokens that only live inside a test JVM
+    secret: test-only-not-a-secret-0123456789abcdef0123456789abcdef0123456789abcdef

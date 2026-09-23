@@ -20,6 +20,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -27,9 +28,11 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 /**
  * Web slice: real controller, validation, exception handler and security rules; the service is a mock.
  * No @WithMockUser anywhere: /api/v1/auth/** must work without a token.
+ * The test profile supplies app.jwt.secret that SecurityConfig's JwtProperties requires.
  */
 @WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
+@ActiveProfiles("test")
 class AuthControllerTest {
 
     private static final String REGISTER_URL = "/api/v1/auth/register";
