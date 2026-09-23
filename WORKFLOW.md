@@ -477,6 +477,12 @@ Mốc 4 — test(auth): add authentication integration tests
 
 > Nghiệm thu tay cần user đã verify (Task 1.4 mới có luồng verify): `UPDATE users SET email_verified = 1 WHERE email = '...';`
 
+> **Bẫy đã gặp khi làm 1.3** (chỉ integration test trên MySQL thật mới lộ, unit test với mock đều xanh):
+> 1. **`@Transactional` rollback nuốt lệnh revoke.** `refresh()` gọi `revokeAll()` rồi ném `InvalidRefreshTokenException` → Spring rollback cả transaction, token bị trộm vẫn sống. Phải `@Transactional(noRollbackFor = {InvalidRefreshTokenException.class, AccountBlockedException.class})`. Quy tắc: **ghi DB rồi cố ý ném exception = phải khai báo noRollbackFor** (hoặc tách REQUIRES_NEW).
+> 2. **`expiresIn` ra 899 thay vì 900**: tính `Duration.between(Instant.now(), expiresAt)` sau khi vài ms đã trôi. Tính từ `issuedAt` lưu trong `AccessToken`, không tính từ "bây giờ".
+> 3. **Nano-giây vs `DATETIME(6)`**: `Instant.now()` có nano, MySQL giữ micro và **làm tròn** → test so `Instant` sau round-trip lúc xanh lúc đỏ. Trong test `truncatedTo(ChronoUnit.MICROS)` trước khi lưu.
+> 4. `getContentAsString()` của `MockHttpServletResponse` ném checked `UnsupportedEncodingException`; lấy giá trị JSON bằng `bodyJson().extractingPath(...)` khi có thể.
+
 **Luồng login:**
 ```
 POST /auth/login {email, password}
@@ -526,13 +532,17 @@ SELECT id, user_id, LEFT(token_hash,8), expires_at, revoked_at, user_agent, ip_a
 ```
 Log khởi động **không còn** `Using generated security password` (đã có CustomUserDetailsService). Swagger có nút Authorize → dán access token → gọi /users/me.
 
-**Commit (4 mốc):**
+**Commit (4 mốc, mỗi mốc build xanh — 86 / 109 / 122 / 126 test):**
 ```
 feat(auth): add jwt token provider and security config
 feat(auth): add login endpoint with refresh token
 feat(auth): add refresh token rotation and theft detection
 test(auth): add authentication integration tests
 ```
+> Cách làm đúng là **từng mốc một**: code mốc N → build → commit → mới sang mốc N+1 (CLAUDE.md mục 4). File dùng chung
+> (`AuthService`, `AuthServiceImpl`, `AuthController`, `AuthServiceTest`, `AuthControllerTest`) ở mốc 2 chỉ có `login()`,
+> mốc 3 mới thêm `refresh()`/`logout()`. Làm cả task một lượt rồi mới chia commit sẽ không tách được vì các file này
+> chứa code của nhiều mốc.
 
 ---
 
@@ -1127,7 +1137,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 0 | 0.5 Init frontend | ☑ | 2026-09-18 |
 | 1 | 1.1 User entity | ☑ | 2026-09-19 |
 | 1 | 1.2 Đăng ký | ☑ | 2026-09-20 |
-| 1 | 1.3 JWT + refresh rotation | ☐ | |
+| 1 | 1.3 JWT + refresh rotation | ☑ | 2026-09-23 |
 | 1 | 1.4 Verify email + reset password | ☐ | |
 | 1 | 1.5 Auth UI | ☐ | |
 | 2 | 2.1 Trip CRUD | ☐ | |

@@ -135,6 +135,7 @@ Làm theo đúng thứ tự:
 4. **Code theo thứ tự**: entity → repository → dto → mapper → service → controller → test.
 5. **Viết test** cùng lúc, không để lại sau.
 6. **Chạy `./gradlew build`** và sửa cho tới khi xanh.
+   - **Làm theo từng mốc commit của `WORKFLOW.md`, không làm cả task một lượt.** Xong mốc N → build xanh → đưa lệnh commit của mốc N → **dừng chờ tôi commit** → mới sang mốc N+1. File dùng chung (service impl, controller, test cũ) chỉ viết phần mốc đó cần, mốc sau mở rộng thêm. Nếu một mốc không thể tách độc lập, nói trước khi code, không âm thầm gộp.
 7. **Báo cáo**: file đã đổi, endpoint mới (method + path), cách test thủ công bằng curl hoặc Swagger.
 8. **Đề xuất commit** (không tự commit, không tự tạo nhánh — xem mục 9): liệt kê lệnh `git add <file>` + `git commit -m "..."` cho từng mốc để tôi tự chạy.
 
@@ -222,6 +223,8 @@ Khi review code, kiểm tra lại các điểm này:
 - Sửa file migration cũ thay vì tạo file mới (Flyway báo `checksum mismatch`, app không lên)
 - Thêm hằng vào enum Java mà không `ALTER TABLE ... MODIFY col ENUM(...)` → `Data truncated for column` lúc INSERT
 - Assert so sánh chuỗi phân biệt hoa thường qua JPA trong khi collation MySQL là `_ci` (so sánh không phân biệt)
+- Ghi DB rồi cố ý ném `AppException` trong cùng `@Transactional` mà quên `noRollbackFor` → lệnh ghi bị rollback âm thầm (ví dụ revoke token khi phát hiện trộm). Unit test với mock không bắt được, chỉ integration test mới lộ
+- So `Instant` trước/sau round-trip DB mà không `truncatedTo(ChronoUnit.MICROS)`: `DATETIME(6)` làm tròn nano → test lúc xanh lúc đỏ
 - Gọi Stripe/Map SDK trực tiếp trong service thay vì qua provider
 - Broadcast WebSocket trước khi commit
 - `catch (Exception e) { }` rỗng
