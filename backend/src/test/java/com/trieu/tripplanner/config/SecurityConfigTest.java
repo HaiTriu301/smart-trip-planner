@@ -16,6 +16,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @WebMvcTest(controllers = {HealthController.class, SecurityConfigTest.ProtectedController.class})
 @Import({SecurityConfig.class, SecurityConfigTest.ProtectedController.class})
+@ActiveProfiles("test")
 class SecurityConfigTest {
 
     @Autowired

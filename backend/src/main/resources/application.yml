@@ -38,6 +38,12 @@ management:
         include: health,info
 
 app:
+  jwt:
+    secret: ${JWT_SECRET}        # >= 64 chars, never committed (see .env.example)
+    access-ttl: 15m
+    refresh-ttl: 7d
+    issuer: smart-trip-planner
+    cookie-secure: false         # prod profile sets true (cookie only over HTTPS)
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:

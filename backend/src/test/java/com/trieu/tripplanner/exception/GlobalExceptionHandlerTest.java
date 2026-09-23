@@ -17,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Import({GlobalExceptionHandlerTest.ThrowingController.class, SecurityConfig.class})
 // /test/** is not public, so act as a logged-in user; the handler itself is auth-agnostic
 @WithMockUser
+@ActiveProfiles("test")
 class GlobalExceptionHandlerTest {
 
     @Autowired

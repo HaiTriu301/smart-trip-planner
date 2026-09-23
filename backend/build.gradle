@@ -28,6 +28,8 @@ dependencies {
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation libs.mapstruct.core
 	implementation libs.springdoc.openapi.webmvc.ui
+	implementation libs.jjwt.api
+	runtimeOnly libs.jjwt.impl
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

@@ -14,6 +14,8 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Called when an unauthenticated request hits a protected URL. Replaces Spring Security's default
  * (empty body + WWW-Authenticate header) with a 401 {@code ErrorResponse}.
+ * If {@link JwtAuthenticationFilter} rejected a bearer token, its reason wins: an expired token answers
+ * TOKEN_EXPIRED so the frontend knows to call /auth/refresh instead of sending the user to the login page.
  * Registered by SecurityConfig via @Import, not component scanning.
  */
 @Slf4j
@@ -26,10 +28,13 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException exception) throws IOException {
+        ErrorCode errorCode = request.getAttribute(JwtAuthenticationFilter.ERROR_ATTRIBUTE) instanceof ErrorCode marker
+                ? marker
+                : ErrorCode.UNAUTHORIZED;
         // Only the exception type: its message may echo credentials
-        log.debug("Unauthenticated request {} {}: {}", request.getMethod(), request.getRequestURI(),
-                exception.getClass().getSimpleName());
-        SecurityErrorResponses.write(request, response, ErrorCode.UNAUTHORIZED, objectMapper, messageSource);
+        log.debug("Unauthenticated request {} {} → {}: {}", request.getMethod(), request.getRequestURI(),
+                errorCode, exception.getClass().getSimpleName());
+        SecurityErrorResponses.write(request, response, errorCode, objectMapper, messageSource);
     }
 
 }

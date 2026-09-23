@@ -7,12 +7,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-// Without the real SecurityConfig, @WebMvcTest falls back to Spring Security defaults and /ping would be 401
+// Without the real SecurityConfig, @WebMvcTest falls back to Spring Security defaults and /ping would be 401.
+// The test profile supplies app.jwt.secret that SecurityConfig's JwtProperties requires.
 @WebMvcTest(HealthController.class)
 @Import(SecurityConfig.class)
+@ActiveProfiles("test")
 class HealthControllerTest {
 
     @Autowired
