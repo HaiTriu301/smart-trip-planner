@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -18,6 +19,7 @@ import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
 import com.trieu.tripplanner.exception.InvalidCredentialsException;
 import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
+import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.model.enums.Plan;
 import com.trieu.tripplanner.model.enums.Role;
 import com.trieu.tripplanner.model.enums.UserStatus;
@@ -260,6 +262,68 @@ class AuthControllerTest {
                 .contains("Max-Age=0")
                 .contains("Path=/api/v1/auth");
         verify(authService).logout("current");
+    }
+
+    // ---------- verify-email / resend-verification (Task 1.4) ----------
+
+    @Test
+    void verifyEmailReturns200AndPassesTokenToService() {
+        assertThat(postJson("/api/v1/auth/verify-email", """
+                {"token": "tok-123"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null, "message": "OK" }
+                        """);
+        verify(authService).verifyEmail("tok-123");
+    }
+
+    @Test
+    void verifyEmailWithBadTokenReturns400InvalidToken() {
+        doThrow(new InvalidTokenException("expired")).when(authService).verifyEmail("bad");
+
+        assertThat(postJson("/api/v1/auth/verify-email", """
+                {"token": "bad"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "INVALID_TOKEN",
+                          "message": "Liên kết không hợp lệ hoặc đã hết hạn, vui lòng yêu cầu lại" }
+                        """);
+    }
+
+    @Test
+    void verifyEmailWithBlankTokenReturns400ValidationAndSkipsService() {
+        assertThat(postJson("/api/v1/auth/verify-email", """
+                {"token": ""}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR", "details": [ { "field": "token", "message": "Thiếu mã xác thực" } ] }
+                        """);
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void resendVerificationAlwaysReturns200() {
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "an@example.com"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null, "message": "OK" }
+                        """);
+        verify(authService).resendVerification("an@example.com");
+    }
+
+    @Test
+    void resendVerificationWithMalformedEmailReturns400() {
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "khong-phai-email"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("email");
+        verifyNoInteractions(authService);
     }
 
     private MvcTestResult postJson(String url, String body) {

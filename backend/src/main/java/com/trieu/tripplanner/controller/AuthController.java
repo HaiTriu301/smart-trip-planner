@@ -5,6 +5,8 @@ import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResendVerificationRequest;
+import com.trieu.tripplanner.dto.request.VerifyEmailRequest;
 import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.security.RefreshTokenCookies;
@@ -72,6 +74,22 @@ public class AuthController {
             @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken) {
         authService.logout(refreshToken);
         return withCookie(refreshTokenCookies.clear(), null);
+    }
+
+    @Operation(summary = "Xác thực email",
+               description = "Nhận token từ link trong mail. 400 INVALID_TOKEN nếu token sai, hết hạn hoặc đã dùng.")
+    @PostMapping("/verify-email")
+    public ApiResponse<Void> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request.token());
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "Gửi lại mail xác thực",
+               description = "Luôn trả 200 dù email có tồn tại hay không. Chỉ gửi khi tài khoản tồn tại và chưa xác thực.")
+    @PostMapping("/resend-verification")
+    public ApiResponse<Void> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerification(request.email());
+        return ApiResponse.ok(null);
     }
 
     private static <T> ResponseEntity<ApiResponse<T>> withCookie(ResponseCookie cookie, T body) {

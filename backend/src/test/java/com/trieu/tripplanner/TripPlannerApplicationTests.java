@@ -23,7 +23,7 @@ class TripPlannerApplicationTests {
 	void appliesAllFlywayMigrations(@Autowired Flyway flyway) {
 		assertThat(flyway.info().applied())
 				.extracting(migration -> migration.getVersion().getVersion())
-				.contains("1", "2", "3");
+				.contains("1", "2", "3", "4");
 	}
 
 	@Test

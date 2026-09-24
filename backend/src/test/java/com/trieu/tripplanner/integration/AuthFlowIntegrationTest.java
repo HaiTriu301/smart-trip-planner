@@ -1,9 +1,15 @@
 package com.trieu.tripplanner.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.provider.mail.MailMessage;
+import com.trieu.tripplanner.provider.mail.MockMailProvider;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,8 +26,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
- * The whole Phase 1.3 story against real MySQL: register → verify (by SQL until Task 1.4) → login → /users/me
- * → refresh → replay the old cookie → every session dies → login again.
+ * The whole Phase 1 story against real MySQL: register → verification mail (MockMailProvider) → verify → login
+ * → /users/me → refresh → replay the old cookie → every session dies → login again.
+ * Mail is sent @Async, so the test waits for it with Awaitility instead of sleeping.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -34,6 +41,7 @@ class AuthFlowIntegrationTest {
     private static final String LOGIN_BODY = """
             {"email": "%s", "password": "%s"}
             """.formatted(EMAIL, PASSWORD);
+    private static final Pattern VERIFY_LINK = Pattern.compile("verify-email\\?token=([A-Za-z0-9_-]{64})");
 
     @Autowired
     private MockMvcTester mvc;
@@ -41,19 +49,69 @@ class AuthFlowIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private MockMailProvider mailProvider;
+
     @BeforeEach
-    void registerAndVerifyUser() {
-        assertThat(postJson("/api/v1/auth/register", """
-                {"email": "%s", "password": "%s", "confirmPassword": "%s", "fullName": "Flow User"}
-                """.formatted(EMAIL, PASSWORD, PASSWORD))).hasStatus(HttpStatus.CREATED);
-        // Task 1.4 introduces the real verification flow; until then flip the flag directly
-        jdbcTemplate.update("UPDATE users SET email_verified = 1 WHERE email = ?", EMAIL);
+    void registerAndVerifyThroughTheMailedLink() {
+        mailProvider.clear();
+        register(EMAIL);
+        String token = verificationTokenFromMail(1, EMAIL);
+
+        assertThat(postJson("/api/v1/auth/verify-email", tokenBody(token))).hasStatusOk();
+        Boolean verified = jdbcTemplate.queryForObject("SELECT email_verified FROM users WHERE email = ?", Boolean.class, EMAIL);
+        assertThat(verified).isTrue();
     }
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("DELETE FROM verification_tokens");
         jdbcTemplate.update("DELETE FROM refresh_tokens");
         jdbcTemplate.update("DELETE FROM users");
+        mailProvider.clear();
+    }
+
+    @Test
+    void verificationLinkWorksOnlyOnce() {
+        String token = verificationTokenFromMail(1, EMAIL);   // the link already used in @BeforeEach
+
+        assertThat(postJson("/api/v1/auth/verify-email", tokenBody(token)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+        Integer used = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM verification_tokens WHERE used_at IS NOT NULL", Integer.class);
+        assertThat(used).isEqualTo(1);
+    }
+
+    @Test
+    void resendInvalidatesTheOldLinkAndTheNewOneVerifies() {
+        register("second@example.com");
+        String first = verificationTokenFromMail(2, "second@example.com");
+
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "Second@Example.com"}
+                """)).hasStatusOk();
+        String second = verificationTokenFromMail(3, "second@example.com");
+        assertThat(second).isNotEqualTo(first);
+
+        assertThat(postJson("/api/v1/auth/verify-email", tokenBody(first)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+        assertThat(postJson("/api/v1/auth/verify-email", tokenBody(second))).hasStatusOk();
+    }
+
+    @Test
+    void resendForUnknownOrVerifiedEmailAnswers200ButSendsNothing() {
+        int mailsBefore = mailProvider.sent().size();
+
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "nobody@example.com"}
+                """)).hasStatusOk();
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "%s"}
+                """.formatted(EMAIL))).hasStatusOk();   // already verified in @BeforeEach
+
+        assertThat(mailProvider.sent()).hasSize(mailsBefore);
     }
 
     @Test
@@ -61,7 +119,8 @@ class AuthFlowIntegrationTest {
         MvcTestResult login = postJson("/api/v1/auth/login", LOGIN_BODY);
         assertThat(login).hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
-                        { "success": true, "data": { "tokenType": "Bearer", "expiresIn": 900, "user": { "email": "flow@example.com" } } }
+                        { "success": true, "data": { "tokenType": "Bearer", "expiresIn": 900,
+                          "user": { "email": "flow@example.com", "emailVerified": true } } }
                         """);
         String accessToken = accessToken(login);
         Cookie refreshCookie = login.getResponse().getCookie("refresh_token");
@@ -76,7 +135,6 @@ class AuthFlowIntegrationTest {
         assertThat(mvc.get().uri("/api/v1/users/me"))
                 .hasStatus(HttpStatus.UNAUTHORIZED);
 
-        // DB holds only the hash, never the cookie value
         String storedHash = jdbcTemplate.queryForObject("SELECT token_hash FROM refresh_tokens", String.class);
         assertThat(storedHash).hasSize(64).matches("[0-9a-f]+").isNotEqualTo(refreshCookie.getValue());
     }
@@ -85,23 +143,19 @@ class AuthFlowIntegrationTest {
     void refreshRotatesAndReplayingTheOldCookieKillsEverySession() {
         Cookie first = login().getResponse().getCookie("refresh_token");
 
-        // 1. legitimate rotation
         MvcTestResult refreshed = mvc.post().uri("/api/v1/auth/refresh").cookie(first).exchange();
         assertThat(refreshed).hasStatusOk();
         Cookie second = refreshed.getResponse().getCookie("refresh_token");
         assertThat(second.getValue()).isNotEqualTo(first.getValue());
         assertThat(liveSessions()).isEqualTo(1);
 
-        // 2. attacker (or stale tab) replays the first cookie → theft detected
         assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(first))
                 .hasStatus(HttpStatus.UNAUTHORIZED)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
         assertThat(liveSessions()).isZero();
 
-        // 3. the legitimate second cookie is dead too
         assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(second)).hasStatus(HttpStatus.UNAUTHORIZED);
 
-        // 4. but the user can simply log in again
         assertThat(postJson("/api/v1/auth/login", LOGIN_BODY)).hasStatusOk();
         assertThat(liveSessions()).isEqualTo(1);
     }
@@ -140,7 +194,6 @@ class AuthFlowIntegrationTest {
                 .hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("ACCOUNT_BLOCKED");
 
-        // Blocked + wrong password must still look like plain bad credentials (no state leak)
         assertThat(postJson("/api/v1/auth/login", """
                 {"email": "flow@example.com", "password": "SaiMatKhau1"}
                 """))
@@ -148,6 +201,30 @@ class AuthFlowIntegrationTest {
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_CREDENTIALS");
 
         assertThat(liveSessions()).isZero();
+    }
+
+    // ---------- helpers ----------
+
+    private void register(String email) {
+        assertThat(postJson("/api/v1/auth/register", """
+                {"email": "%s", "password": "%s", "confirmPassword": "%s", "fullName": "Flow User"}
+                """.formatted(email, PASSWORD, PASSWORD))).hasStatus(HttpStatus.CREATED);
+    }
+
+    /** Waits for the n-th mail (1-based) to arrive on the async thread and pulls the token out of its link. */
+    private String verificationTokenFromMail(int expectedCount, String expectedRecipient) {
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(mailProvider.sent()).hasSize(expectedCount));
+        MailMessage mail = mailProvider.sent().get(expectedCount - 1);
+        assertThat(mail.to()).isEqualTo(expectedRecipient);
+        Matcher matcher = VERIFY_LINK.matcher(mail.htmlBody());
+        assertThat(matcher.find()).as("verification link in mail body").isTrue();
+        return matcher.group(1);
+    }
+
+    private static String tokenBody(String token) {
+        return """
+                {"token": "%s"}
+                """.formatted(token);
     }
 
     private MvcTestResult login() {

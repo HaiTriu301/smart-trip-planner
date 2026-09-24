@@ -42,4 +42,17 @@ public interface AuthService {
      */
     void logout(String rawRefreshToken);
 
+    /**
+     * Consumes an EMAIL_VERIFY token from the mailed link and marks the account verified.
+     *
+     * @throws com.trieu.tripplanner.exception.InvalidTokenException unknown, expired, used or wrong-type token (400)
+     */
+    void verifyEmail(String rawToken);
+
+    /**
+     * Sends a fresh verification mail when the email belongs to an ACTIVE, still unverified account.
+     * Never throws for unknown / verified / blocked emails (design.md 14.15): the caller always answers 200.
+     */
+    void resendVerification(String email);
+
 }
