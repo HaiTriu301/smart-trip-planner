@@ -550,22 +550,61 @@ test(auth): add authentication integration tests
 
 Nhánh: `feat/T1.4-email-verification`
 
-**Thứ tự file:**
+Đọc trước: **design.md 5.2 `verification_tokens`**, **7.1** (provider `mail`), **10.2** (4 endpoint đều Public), **10.3** (`INVALID_TOKEN`), **14 luật 12, 15–17**.
+
+> Quyết định 2026-09-24: `resend-verification` là **Public + `{email}`** (người chưa verify không có access token nên không thể là Auth); mail đi qua **`provider/mail`** (smtp/mock) theo 7.1; token sai → **`INVALID_TOKEN` 400**.
+
+**Thứ tự file (theo 2 mốc commit, làm từng mốc):**
 ```
-1. model/VerificationToken.java + V4__create_verification_tokens.sql + repository
-2. config/AsyncConfig.java              @EnableAsync, dùng virtual thread executor
-3. service/MailService.java             @Async, Thymeleaf template
-4. resources/templates/mail/verify-email.html, reset-password.html
-5. AuthService: verifyEmail(), resendVerification(), forgotPassword(), resetPassword()
-6. controller: thêm 4 endpoint
-7. test: token hết hạn → 400; token đã dùng → 400
+Mốc 1 — feat(auth): add email verification flow
+ 1. build.gradle                          + spring-boot-starter-mail, + spring-boot-starter-thymeleaf (cả hai trong BOM, không ghi version)
+ 2. common/constant/ErrorCode              + INVALID_TOKEN (400); messages.properties + error.invalid-token + validation.token.required
+    exception/InvalidTokenException        extends AppException(INVALID_TOKEN, reason chỉ ghi log)
+ 3. config/properties/AppProperties        Providers + mail (@Pattern "mock|smtp"); AppPropertiesTest thêm case
+    application.yml                        app.providers.mail: mock; spring.mail.host/port: ${MAIL_HOST}/${MAIL_PORT}; spring.threads.virtual.enabled: true
+    application-local.yml                  app.providers.mail: smtp (MailHog)         application-test.yml: mock (mặc định, ghi rõ cho dễ đọc)
+ 4. provider/mail/MailMessage (record to, subject, htmlBody), MailProvider (interface send(MailMessage)),
+    MockMailProvider (@ConditionalOnProperty mail=mock: log + List<MailMessage> sent() cho test),
+    SmtpMailProvider (@ConditionalOnProperty mail=smtp: JavaMailSender, MimeMessageHelper, from = app.mail-from)
+ 5. config/AsyncConfig                     @EnableAsync + AsyncConfigurer.getAsyncUncaughtExceptionHandler → log lỗi gửi mail (rule 12: không nuốt)
+ 6. service/MailService                    @Async sendVerificationMail(User, rawToken), sendPasswordResetMail(User, rawToken):
+                                           render Thymeleaf (SpringTemplateEngine) → MailProvider.send. Link = appProperties.frontendUrl() + "/verify-email?token="
+    resources/templates/mail/verify-email.html, reset-password.html   (tiếng Việt, inline CSS)
+ 7. model/VerificationToken (+ enums/VerificationTokenType) + V4__create_verification_tokens.sql + repository/VerificationTokenRepository
+    (findByTokenHash; @Modifying UPDATE ... SET used_at WHERE user_id AND type AND used_at IS NULL)
+ 8. service/VerificationTokenService       issue(user, type) → hash + TTL theo type + vô hiệu token cũ, trả raw; consume(raw, type) → token hợp lệ hoặc InvalidTokenException
+ 9. dto/request/VerifyEmailRequest {token @NotBlank}, ResendVerificationRequest {email @NotBlank @Email}
+10. AuthService: verifyEmail(token), resendVerification(email); register() gọi mailService.sendVerificationMail sau saveAndFlush
+11. AuthController: POST /verify-email → 200 data null; POST /resend-verification → 200 data null (luôn, rule 14.15)
+    test: VerificationTokenServiceTest (hash, TTL theo loại, vô hiệu token cũ, consume sai/hết hạn/đã dùng/sai loại → INVALID_TOKEN),
+          MailServiceTest (render template có link đúng, gọi provider), AuthServiceTest verify/resend (đúng → emailVerified true + used_at;
+          resend cho email lạ / đã verify → không gửi, không ném), AuthControllerTest 2 endpoint, VerificationTokenRepositoryTest,
+          integration: register → MockMailProvider.sent() có mail → lấy token từ link → verify → login 200 (thay bước UPDATE SQL ở 1.3)
+
+Mốc 2 — feat(auth): add forgot and reset password flow
+12. dto/request/ForgotPasswordRequest {email}, ResetPasswordRequest {token, newPassword (luật 13), confirmPassword} implements PasswordConfirmation + @PasswordConfirmed
+13. AuthService: forgotPassword(email) — chỉ gửi khi user tồn tại + verified + ACTIVE (rule 14.12), luôn im lặng;
+    resetPassword(request) — consume token PASSWORD_RESET → encode mật khẩu mới → refreshTokenService.revokeAll(userId)
+14. AuthController: POST /forgot-password, POST /reset-password → 200 data null
+    test: AuthServiceTest forgot (email lạ / chưa verify → không gửi, không ném; hợp lệ → gửi) + reset (đổi hash, revokeAll, token dùng lần 2 → INVALID_TOKEN),
+          AuthControllerTest (400 confirmPassword lệch, 400 INVALID_TOKEN), integration: forgot → mail → reset → login mật khẩu mới OK, mật khẩu cũ 401, refresh cookie cũ 401
 ```
 
-**Lưu ý:** token lưu dạng hash, TTL 24h cho verify / 1h cho reset, dùng xong đánh dấu `usedAt`. Mail gửi `@Async` để không chặn response — nhưng nhớ rằng `@Async` không chạy nếu gọi nội bộ trong cùng class.
+**Lưu ý kỹ thuật:**
+- `@Async` không có tác dụng khi gọi nội bộ trong cùng class (proxy); `MailService` là bean riêng, `AuthServiceImpl` gọi qua bean. Không đặt `@Async` trong `AuthServiceImpl`.
+- Test luồng có mail: `MailService` chạy thread khác → dùng Awaitility (`await().untilAsserted(...)`, có sẵn trong starter-test) để chờ `MockMailProvider.sent()`; không `Thread.sleep`.
+- `spring.threads.virtual.enabled: true` làm executor mặc định của `@Async` là virtual thread (design 3.1), không cần tự tạo executor.
+- Token trong link là base64url 48 byte → 64 ký tự, hash SHA-256 như refresh token; dùng lại `RefreshTokenService.hash()` hoặc tách `common/util/TokenHashes`.
+- `register()` vẫn 201 dù SMTP lỗi (mail async, lỗi vào log); nghiệm thu tay khi MailHog tắt vẫn tạo được user.
 
-**Nghiệm thu:** đăng ký → mở MailHog thấy mail → bấm link → `emailVerified = true` → login được.
+**Nghiệm thu** (`docker compose up -d mysql redis mailhog`, backend profile `local`):
+1. `POST /auth/register` → 201 → mở `http://localhost:8025` thấy mail "Xác thực email", link `http://localhost:5173/verify-email?token=...`.
+2. Copy token → `curl.exe -s -i -X POST localhost:8080/api/v1/auth/verify-email -H "Content-Type: application/json" -d "{\"token\":\"...\"}"` → 200; gọi lại → 400 `INVALID_TOKEN`; MySQL `email_verified = 1`, `verification_tokens.used_at` có giá trị.
+3. Login → 200 (không còn phải UPDATE SQL tay).
+4. `POST /auth/resend-verification {"email":"khong-ton-tai@x.com"}` → 200 cùng message, MailHog không có mail mới; với email thật chưa verify → có mail mới, token cũ 400.
+5. `POST /auth/forgot-password` → mail reset → `POST /auth/reset-password {token, newPassword, confirmPassword}` → 200 → login mật khẩu mới OK, mật khẩu cũ 401, cookie refresh cũ → 401.
 
-**Commit:**
+**Commit (2 mốc):**
 ```
 feat(auth): add email verification flow
 feat(auth): add forgot and reset password flow
@@ -588,6 +627,11 @@ Nhánh: `feat/T1.5-auth-ui`
 7. src/components/ProtectedRoute.tsx
 8. src/App.tsx                        cấu hình router
 ```
+
+> Kế thừa từ 1.3, interceptor ở `client.ts` phải:
+> 1. Chỉ gọi `/auth/refresh` khi lỗi là **401 `TOKEN_EXPIRED`**; 401 `UNAUTHORIZED`/`INVALID_CREDENTIALS` → về login, không refresh.
+> 2. **Single-flight**: nhiều request cùng nhận TOKEN_EXPIRED (mở nhiều tab, F5 nhiều lần) chỉ được gọi refresh **một** lần và xếp hàng chờ. Backend xoay token mỗi lần refresh; hai lần refresh song song bằng cùng cookie → lần sau bị coi là dùng lại token đã revoke → **mọi phiên bị thu hồi** và user bị đăng xuất khỏi tất cả tab.
+> 3. Logout: `POST /auth/logout` cần access token còn hạn; nếu đã hết hạn thì refresh trước rồi logout, hoặc nếu refresh cũng 401 thì chỉ xoá state local (server đã không còn phiên).
 
 **Nghiệm thu:** đăng ký → verify → login → vào được `/trips` (trang rỗng); F5 vẫn giữ đăng nhập nhờ refresh cookie; logout xoá sạch.
 
@@ -1061,6 +1105,13 @@ Backend: AdminController + AdminService (stats, users, payment events, retry)
 Frontend: pages/admin/* + guard theo role ADMIN
 ```
 
+> ⚠️ **Nợ kỹ thuật hoãn từ 1.3 (quyết định 2026-09-24), phải xử lý trong task này khi thêm block/xoá user:**
+> `AuthServiceImpl.refresh()`/`logout()` gọi `stored.getUser()` (lazy). User bị **soft-delete** thì `@SQLRestriction` làm Hibernate
+> không load được → `EntityNotFoundException` → **500** thay vì 401. Sửa: lấy `userId` qua proxy (`stored.getUser().getId()`,
+> không trigger load), `userRepository.findById(userId)` rỗng → `revokeAll(userId)` + `InvalidRefreshTokenException("user gone")`.
+> Đồng thời AdminService khi block/xoá user phải gọi `refreshTokenService.revokeAll(userId)` để phiên đang sống chết ngay,
+> không đợi access token hết hạn 15 phút. Test: soft-delete user bằng SQL rồi refresh → 401, 0 phiên sống.
+
 **Commit:** `feat(admin): add admin dashboard endpoints and pages`
 
 ---
@@ -1097,6 +1148,11 @@ Nhánh: `chore/T8.4-ci-cd`
                                → ./gradlew build → ./gradlew jacocoTestReport
 6. .github/workflows/cd.yml    build image → push GHCR → ssh deploy
 ```
+
+> Kế thừa từ 1.3, khi tạo `application-prod.yml` và `nginx.conf`:
+> - `app.jwt.cookie-secure: true` (cookie refresh chỉ đi qua HTTPS); `local` để `false`.
+> - `ClientInfo.from()` tin `X-Forwarded-For` đầu tiên. Nginx phải **ghi đè** header này (`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`) để client không tự điền IP giả; backend đặt `server.forward-headers-strategy: native`.
+> - `refresh_tokens` chưa có dọn dẹp: thêm scheduler xoá dòng `revoked_at`/`expires_at` quá 30 ngày (design 5.2).
 
 **Nghiệm thu:** mở PR bất kỳ → thấy CI chạy và tick xanh trên GitHub.
 

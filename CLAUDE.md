@@ -97,7 +97,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 18. Secret chỉ đọc từ biến môi trường. Không hardcode, kể cả trong test.
 
 ### Third-party
-19. Mọi lời gọi ra ngoài phải đi qua interface trong `provider/`. Service **không** import SDK của Stripe/Google/Anthropic trực tiếp.
+19. Mọi lời gọi ra ngoài phải đi qua interface trong `provider/`. Service **không** import SDK của Stripe/Google/Anthropic trực tiếp. Gửi mail cũng là gọi ra ngoài: `provider/mail/MailProvider` (`smtp` | `mock`), service không import `JavaMailSender`.
 20. Mặc định môi trường local là `mock` cho tất cả provider. Code mới phải chạy được khi chưa có API key nào.
 
 ### Realtime

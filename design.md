@@ -79,6 +79,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Validation | Jakarta Bean Validation (Hibernate Validator) | |
 | API Docs | springdoc-openapi 3.1.x | Dòng 3.1 build trên Spring Boot 4.1. Không nằm trong BOM của Boot → khai báo version ở `libs.versions.toml`. Swagger UI tại `/swagger-ui.html` |
 | Payment | Stripe Java SDK | |
+| Mail | `spring-boot-starter-mail` (JavaMailSender/SMTP) + `spring-boot-starter-thymeleaf` (template HTML) | Nằm sau `provider/mail/MailProvider`: `smtp` (MailHog local, Brevo prod) hoặc `mock` (log + lưu bộ nhớ, dùng trong test). Gửi `@Async` trên virtual thread |
 | Resilience | Resilience4j | Circuit breaker + retry cho provider ngoài |
 | Test | JUnit 5, Mockito, AssertJ, Testcontainers, Rest Assured | |
 | Coverage | JaCoCo (ngưỡng 70% line cho package `service`) | |
@@ -244,7 +245,8 @@ com.trieu.tripplanner
 │   ├── weather/ WeatherProvider, MockWeatherProvider, OpenMeteoWeatherProvider
 │   ├── payment/ PaymentProvider, MockPaymentProvider, StripePaymentProvider
 │   ├── ai/      AiProvider, MockAiProvider, ClaudeAiProvider
-│   └── storage/ StorageProvider, LocalStorageProvider, CloudinaryStorageProvider
+│   ├── storage/ StorageProvider, LocalStorageProvider, CloudinaryStorageProvider
+│   └── mail/    MailProvider, MockMailProvider, SmtpMailProvider   // MailService (service/) render Thymeleaf rồi gọi port này
 ├── controller
 │   └── admin/
 ├── websocket
@@ -341,7 +343,19 @@ Index: `UNIQUE uk_users_email(email)` (UNIQUE key đã là index nên kiêm luô
 Index: `UNIQUE uk_refresh_tokens_token_hash(token_hash)`, `idx_refresh_tokens_user_id(user_id)`. Không soft delete: token hết hạn/revoke được scheduler xoá cứng sau 30 ngày (Phase 8).
 
 #### `verification_tokens`
-`id, user_id, token_hash, type ENUM(EMAIL_VERIFY, PASSWORD_RESET), expires_at, used_at`
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | BIGINT PK AI | |
+| user_id | BIGINT FK → users.id | `ON DELETE CASCADE` |
+| token_hash | CHAR(64) | SHA-256 hex của token trong link, **không lưu token thô** (cùng cách với refresh_tokens) |
+| type | ENUM('EMAIL_VERIFY','PASSWORD_RESET') | |
+| expires_at | DATETIME | EMAIL_VERIFY: +24h, PASSWORD_RESET: +1h |
+| used_at | DATETIME | nullable; token dùng một lần |
+| created_at / updated_at | DATETIME | từ BaseEntity |
+
+Index: `UNIQUE uk_verification_tokens_token_hash(token_hash)`, `idx_verification_tokens_user_type(user_id, type)`.
+
+Quy tắc: phát token mới cho cùng `(user, type)` → đánh dấu `used_at` mọi token cũ còn sống của cặp đó (chỉ token mới nhất dùng được). Token sai / hết hạn / đã dùng / sai loại → cùng một lỗi 400 `INVALID_TOKEN`, không phân biệt để không lộ token nào tồn tại. Link trong mail: `${app.frontend-url}/verify-email?token=...` và `${app.frontend-url}/reset-password?token=...`; trang frontend đọc query rồi POST token lên API.
 
 #### `trips`
 | Cột | Kiểu | Ghi chú |
@@ -506,7 +520,10 @@ app:
     payment: mock    # mock | stripe
     ai: mock         # mock | claude
     storage: local   # local | cloudinary
+    mail: mock       # mock | smtp   (local: smtp → MailHog; test: mock; prod: smtp → Brevo)
 ```
+
+> `mail` là provider duy nhất mà profile `local` **không** để mock: MailHog trong docker-compose là SMTP thật không cần key, và nghiệm thu Phase 1 cần bấm link trong mail. `MockMailProvider` ghi log và giữ mail đã gửi trong bộ nhớ để test đọc lại.
 
 ```java
 @Service
@@ -640,10 +657,10 @@ Lỗi (`ErrorResponse`):
 | POST | `/login` | Trả access + set cookie refresh | Public |
 | POST | `/refresh` | Xoay token | Cookie |
 | POST | `/logout` | Revoke refresh token | Auth |
-| POST | `/verify-email` | `{token}` | Public |
-| POST | `/resend-verification` | | Auth |
-| POST | `/forgot-password` | Gửi mail reset | Public |
-| POST | `/reset-password` | `{token, newPassword}` | Public |
+| POST | `/verify-email` | `{token}` → `email_verified = true`, `used_at` | Public |
+| POST | `/resend-verification` | `{email}` → gửi lại nếu email tồn tại **và** chưa verify; **luôn 200** cùng message (chống dò email). Public vì người chưa verify không login được (6.1) | Public |
+| POST | `/forgot-password` | `{email}` → gửi mail reset nếu email tồn tại và đã verify (rule 14.12); **luôn 200** | Public |
+| POST | `/reset-password` | `{token, newPassword, confirmPassword}` (rule 14.13) → đổi hash, `used_at`, **revoke mọi refresh token** của user | Public |
 
 **User** `/api/v1/users`
 | GET | `/me` | Thông tin + plan (Task 1.3); + quota hiện tại (Phase 6) | Auth |
@@ -729,6 +746,7 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | errorCode | HTTP | Ý nghĩa |
 |---|---|---|
 | `VALIDATION_ERROR` | 400 | Input sai |
+| `INVALID_TOKEN` | 400 | Token verify-email / reset-password sai, hết hạn, đã dùng hoặc sai loại. Một mã chung, không nói rõ lý do |
 | `UNAUTHORIZED` | 401 | Thiếu/hết hạn token |
 | `TOKEN_EXPIRED` | 401 | Access token hết hạn (client tự refresh) |
 | `INVALID_CREDENTIALS` | 401 | Sai email hoặc mật khẩu khi login. Một message chung, không nói rõ cái nào sai |
@@ -852,6 +870,9 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 12. Email chỉ gửi khi `email_verified = true` (trừ mail verify và mail mời).
 13. **Mật khẩu** (chốt Task 1.2): dài 8–72 ký tự, có ít nhất 1 chữ hoa, 1 chữ thường, 1 chữ số; chỉ gồm ký tự ASCII in được (`\x21`–`\x7E`, cho phép ký tự đặc biệt, không khoảng trắng). Giới hạn 72 vì BCrypt chỉ dùng 72 byte đầu; giới hạn ASCII để 72 ký tự luôn ≤ 72 byte. Regex: `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[\x21-\x7E]+$` + `@Size(min=8,max=72)`. Áp dụng cho đăng ký, đổi mật khẩu, đặt lại mật khẩu. Request có mật khẩu mới phải kèm `confirmPassword` bằng đúng `password` (class-level constraint `@PasswordConfirmed`, lỗi báo trên field `confirmPassword`); `confirmPassword` chỉ để kiểm tra, **không** lưu, không hash.
 14. **Email** chuẩn hoá `trim().toLowerCase()` trước khi kiểm tra trùng và lưu (entity `@PrePersist` + service). Trùng email → 409 `EMAIL_ALREADY_EXISTS`; race giữa `existsByEmail` và `INSERT` được UNIQUE index bắt và dịch sang cùng mã lỗi.
+15. **Chống dò email**: các endpoint nhận `{email}` mà không cần đăng nhập (`resend-verification`, `forgot-password`) luôn trả 200 với cùng message dù email có tồn tại hay không, có verify hay chưa, có bị BLOCKED hay không. Lý do thật chỉ ghi log. Rate limit theo IP ở Phase 8.
+16. **Token một lần**: token verify/reset được hash SHA-256 khi lưu, có TTL (24h / 1h), dùng xong đánh dấu `used_at`; phát token mới vô hiệu token cũ cùng loại. Đổi mật khẩu thành công (reset hoặc đổi trong settings) → `revokeAll` refresh token của user để mọi thiết bị khác phải đăng nhập lại.
+17. **Gửi mail không chặn request**: mọi mail đi qua `MailService` (`@Async`), lỗi SMTP được log qua `AsyncUncaughtExceptionHandler`, không làm request thất bại. Đăng ký vẫn 201 dù mail lỗi; người dùng dùng `resend-verification` để nhận lại.
 
 ---
 
