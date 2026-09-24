@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Xác thực email</title>
+</head>
+<body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#1e293b;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="520" cellspacing="0" cellpadding="0"
+               style="background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:22px;color:#0f172a;">Smart Trip Planner</h1>
+              <p style="margin:0 0 12px;font-size:15px;">Chào <strong th:text="${fullName}">bạn</strong>,</p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                Cảm ơn bạn đã đăng ký. Bấm nút bên dưới để xác thực địa chỉ email và bắt đầu lên kế hoạch cho chuyến đi.
+                Liên kết có hiệu lực trong <strong>24 giờ</strong>.
+              </p>
+              <p style="margin:0 0 24px;">
+                <a th:href="${actionUrl}" href="#"
+                   style="display:inline-block;padding:12px 20px;background:#16a34a;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">
+                  Xác thực email
+                </a>
+              </p>
+              <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Nếu nút không hoạt động, dán liên kết này vào trình duyệt:</p>
+              <p style="margin:0 0 20px;font-size:12px;word-break:break-all;">
+                <a th:href="${actionUrl}" th:text="${actionUrl}" href="#" style="color:#2563eb;">link</a>
+              </p>
+              <p style="margin:0;font-size:12px;color:#94a3b8;">
+                Nếu bạn không đăng ký tài khoản này, hãy bỏ qua email. Không ai có thể dùng tài khoản khi chưa xác thực.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

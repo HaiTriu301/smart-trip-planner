@@ -1,17 +1,12 @@
 package com.trieu.tripplanner.service;
 
+import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.config.properties.JwtProperties;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.repository.RefreshTokenRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,21 +20,18 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    /** 48 random bytes → 64 base64url characters, no padding. */
-    private static final int RAW_TOKEN_BYTES = 48;
     private static final int USER_AGENT_MAX = 255;
     private static final int IP_MAX = 45;
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
-    private final SecureRandom secureRandom = new SecureRandom();
 
     /**
      * Creates a new session for the user. Returns the raw token exactly once; it cannot be recovered later.
      */
     @Transactional
     public IssuedRefreshToken issue(User user, ClientInfo client) {
-        String rawToken = generateRawToken();
+        String rawToken = SecureTokens.generate();
         Instant expiresAt = Instant.now().plus(jwtProperties.refreshTtl());
 
         refreshTokenRepository.save(RefreshToken.builder()
@@ -69,22 +61,9 @@ public class RefreshTokenService {
         return refreshTokenRepository.revokeAllActiveByUserId(userId, Instant.now());
     }
 
-    /** SHA-256 of the raw token as 64 lowercase hex chars; deterministic so lookups can hash the cookie value. */
+    /** SHA-256 hex of the raw token; kept here so existing callers and tests keep working. */
     public static String hash(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        }
-        catch (NoSuchAlgorithmException ex) {
-            // SHA-256 is mandatory in every JVM; reaching here means a broken runtime, not a business error
-            throw new IllegalStateException("SHA-256 not available", ex);
-        }
-    }
-
-    private String generateRawToken() {
-        byte[] bytes = new byte[RAW_TOKEN_BYTES];
-        secureRandom.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return SecureTokens.sha256Hex(rawToken);
     }
 
     private static String truncate(String value, int max) {

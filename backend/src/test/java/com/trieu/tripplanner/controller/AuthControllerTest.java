@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -13,11 +14,13 @@ import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
 import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
 import com.trieu.tripplanner.exception.InvalidCredentialsException;
 import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
+import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.model.enums.Plan;
 import com.trieu.tripplanner.model.enums.Role;
 import com.trieu.tripplanner.model.enums.UserStatus;
@@ -260,6 +263,132 @@ class AuthControllerTest {
                 .contains("Max-Age=0")
                 .contains("Path=/api/v1/auth");
         verify(authService).logout("current");
+    }
+
+    // ---------- verify-email / resend-verification (Task 1.4) ----------
+
+    @Test
+    void verifyEmailReturns200AndPassesTokenToService() {
+        assertThat(postJson("/api/v1/auth/verify-email", """
+                {"token": "tok-123"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null, "message": "OK" }
+                        """);
+        verify(authService).verifyEmail("tok-123");
+    }
+
+    @Test
+    void verifyEmailWithBadTokenReturns400InvalidToken() {
+        doThrow(new InvalidTokenException("expired")).when(authService).verifyEmail("bad");
+
+        assertThat(postJson("/api/v1/auth/verify-email", """
+                {"token": "bad"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "INVALID_TOKEN",
+                          "message": "Liên kết không hợp lệ hoặc đã hết hạn, vui lòng yêu cầu lại" }
+                        """);
+    }
+
+    @Test
+    void verifyEmailWithBlankTokenReturns400ValidationAndSkipsService() {
+        assertThat(postJson("/api/v1/auth/verify-email", """
+                {"token": ""}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR", "details": [ { "field": "token", "message": "Thiếu mã xác thực" } ] }
+                        """);
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void resendVerificationAlwaysReturns200() {
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "an@example.com"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null, "message": "OK" }
+                        """);
+        verify(authService).resendVerification("an@example.com");
+    }
+
+    @Test
+    void resendVerificationWithMalformedEmailReturns400() {
+        assertThat(postJson("/api/v1/auth/resend-verification", """
+                {"email": "khong-phai-email"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("email");
+        verifyNoInteractions(authService);
+    }
+
+    // ---------- forgot-password / reset-password (Task 1.4, mốc 2) ----------
+
+    @Test
+    void forgotPasswordAlwaysReturns200() {
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "an@example.com"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null, "message": "OK" }
+                        """);
+        verify(authService).forgotPassword("an@example.com");
+    }
+
+    @Test
+    void forgotPasswordWithMalformedEmailReturns400() {
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "khong-phai-email"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("email");
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void resetPasswordReturns200AndPassesRequestToService() {
+        assertThat(postJson("/api/v1/auth/reset-password", """
+                {"token": "tok", "newPassword": "MatKhauMoi456", "confirmPassword": "MatKhauMoi456"}
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.success").isEqualTo(true);
+        verify(authService).resetPassword(new ResetPasswordRequest("tok", "MatKhauMoi456", "MatKhauMoi456"));
+    }
+
+    @Test
+    void resetPasswordValidatesStrengthAndConfirmationBeforeTouchingService() {
+        // weak password → password detail(s); mismatch → confirmPassword detail
+        assertThat(postJson("/api/v1/auth/reset-password", """
+                {"token": "tok", "newPassword": "yeu", "confirmPassword": "yeu"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[*].field").asArray().contains("newPassword");
+
+        assertThat(postJson("/api/v1/auth/reset-password", """
+                {"token": "tok", "newPassword": "MatKhauMoi456", "confirmPassword": "MatKhauMoi999"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "details": [ { "field": "confirmPassword", "message": "Mật khẩu xác nhận không khớp" } ] }
+                        """);
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void resetPasswordWithBadTokenReturns400InvalidToken() {
+        doThrow(new InvalidTokenException("used")).when(authService).resetPassword(any(ResetPasswordRequest.class));
+
+        assertThat(postJson("/api/v1/auth/reset-password", """
+                {"token": "used", "newPassword": "MatKhauMoi456", "confirmPassword": "MatKhauMoi456"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
     }
 
     private MvcTestResult postJson(String url, String body) {

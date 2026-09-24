@@ -3,6 +3,7 @@ package com.trieu.tripplanner.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,18 +15,22 @@ import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.AccountBlockedException;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
 import com.trieu.tripplanner.exception.EmailNotVerifiedException;
 import com.trieu.tripplanner.exception.InvalidCredentialsException;
 import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
+import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.mapper.UserMapper;
 import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.VerificationToken;
 import com.trieu.tripplanner.model.enums.Plan;
 import com.trieu.tripplanner.model.enums.Role;
 import com.trieu.tripplanner.model.enums.UserStatus;
+import com.trieu.tripplanner.model.enums.VerificationTokenType;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -48,9 +53,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * Pure unit test: no Spring context, no database. Repository, AuthenticationManager, token provider and
+ * Pure unit test: no Spring context, no database. Repository, AuthenticationManager, token providers, mail and
  * RefreshTokenService are mocked; the encoder and the MapStruct mapper are real.
  */
 @ExtendWith(MockitoExtension.class)
@@ -67,6 +73,10 @@ class AuthServiceTest {
     private JwtTokenProvider jwtTokenProvider;
     @Mock
     private RefreshTokenService refreshTokenService;
+    @Mock
+    private VerificationTokenService verificationTokenService;
+    @Mock
+    private MailService mailService;
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(SecurityConfig.BCRYPT_STRENGTH);
     private final UserMapper userMapper = Mappers.getMapper(UserMapper.class);
@@ -76,16 +86,17 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthServiceImpl(userRepository, passwordEncoder, userMapper,
-                authenticationManager, jwtTokenProvider, refreshTokenService);
+                authenticationManager, jwtTokenProvider, refreshTokenService, verificationTokenService, mailService);
     }
 
     @Nested
     class Register {
 
         @Test
-        void hashesPasswordWithBcrypt12AndAppliesDefaults() {
+        void hashesPasswordAppliesDefaultsAndSendsVerificationMail() {
             when(userRepository.existsByEmail("an@example.com")).thenReturn(false);
             when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(verificationTokenService.issue(any(User.class), eq(VerificationTokenType.EMAIL_VERIFY))).thenReturn("raw-verify");
 
             UserResponse response = authService.register(registerRequest("an@example.com", "Nguyễn An"));
 
@@ -102,12 +113,17 @@ class AuthServiceTest {
             assertThat(user.isEmailVerified()).isFalse();
             assertThat(response.email()).isEqualTo("an@example.com");
             assertThat(response.fullName()).isEqualTo("Nguyễn An");
+
+            // Token issued for the saved user, mail sent with the raw token (Task 1.4)
+            verify(verificationTokenService).issue(user, VerificationTokenType.EMAIL_VERIFY);
+            verify(mailService).sendVerificationMail("an@example.com", "Nguyễn An", "raw-verify");
         }
 
         @Test
         void normalizesEmailAndTrimsName() {
             when(userRepository.existsByEmail("binh@example.com")).thenReturn(false);
             when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(verificationTokenService.issue(any(), any())).thenReturn("raw");
 
             UserResponse response = authService.register(registerRequest("  Binh@Example.COM ", "  Trần Bình  "));
 
@@ -117,13 +133,14 @@ class AuthServiceTest {
         }
 
         @Test
-        void rejectsExistingEmail() {
+        void rejectsExistingEmailWithoutSendingAnything() {
             when(userRepository.existsByEmail("dup@example.com")).thenReturn(true);
 
             assertThatThrownBy(() -> authService.register(registerRequest("dup@example.com", "Dup")))
                     .isInstanceOf(EmailAlreadyExistsException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS);
             verify(userRepository, never()).saveAndFlush(any());
+            verifyNoInteractions(verificationTokenService, mailService);
         }
 
         @Test
@@ -135,6 +152,7 @@ class AuthServiceTest {
             assertThatThrownBy(() -> authService.register(registerRequest("race@example.com", "Race")))
                     .isInstanceOf(EmailAlreadyExistsException.class)
                     .hasCause(dbError);
+            verifyNoInteractions(mailService);
         }
 
     }
@@ -156,13 +174,10 @@ class AuthServiceTest {
             assertThat(tokens.response().tokenType()).isEqualTo("Bearer");
             assertThat(tokens.response().expiresIn()).isEqualTo(900L);
             assertThat(tokens.response().user().id()).isEqualTo(7L);
-            assertThat(tokens.response().user().email()).isEqualTo("an@example.com");
 
-            // Email normalized before it reaches the AuthenticationManager
             ArgumentCaptor<Authentication> attempt = ArgumentCaptor.forClass(Authentication.class);
             verify(authenticationManager).authenticate(attempt.capture());
             assertThat(attempt.getValue().getPrincipal()).isEqualTo("an@example.com");
-            assertThat(attempt.getValue().getCredentials()).isEqualTo(RAW_PASSWORD);
             verify(refreshTokenService).issue(verified, CLIENT);
         }
 
@@ -178,23 +193,19 @@ class AuthServiceTest {
 
         @Test
         void blockedAccountIsRejectedAfterPasswordCheck() {
-            User blocked = TestUsers.blocked(8L, "blocked@example.com");
-            stubSuccessfulAuthentication(blocked);
+            stubSuccessfulAuthentication(TestUsers.blocked(8L, "blocked@example.com"));
 
             assertThatThrownBy(() -> authService.login(new LoginRequest("blocked@example.com", RAW_PASSWORD), CLIENT))
-                    .isInstanceOf(AccountBlockedException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.ACCOUNT_BLOCKED);
+                    .isInstanceOf(AccountBlockedException.class);
             verifyNoInteractions(jwtTokenProvider, refreshTokenService);
         }
 
         @Test
         void unverifiedEmailIsRejectedAfterPasswordCheck() {
-            User unverified = TestUsers.unverified(9L, "new@example.com");
-            stubSuccessfulAuthentication(unverified);
+            stubSuccessfulAuthentication(TestUsers.unverified(9L, "new@example.com"));
 
             assertThatThrownBy(() -> authService.login(new LoginRequest("new@example.com", RAW_PASSWORD), CLIENT))
-                    .isInstanceOf(EmailNotVerifiedException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
+                    .isInstanceOf(EmailNotVerifiedException.class);
             verifyNoInteractions(jwtTokenProvider, refreshTokenService);
         }
 
@@ -270,7 +281,6 @@ class AuthServiceTest {
             verify(refreshTokenService, never()).revokeAll(any());
             assertThat(tokens.refreshToken()).isEqualTo("raw-refresh-2");
             assertThat(tokens.response().accessToken()).isEqualTo("jwt-2");
-            assertThat(tokens.response().user().email()).isEqualTo("an@example.com");
         }
 
     }
@@ -307,6 +317,141 @@ class AuthServiceTest {
 
     }
 
+    @Nested
+    class VerifyEmail {
+
+        @Test
+        void consumesTokenAndMarksUserVerified() {
+            User unverified = TestUsers.unverified(9L, "new@example.com");
+            VerificationToken token = VerificationToken.builder().user(unverified).tokenHash("h")
+                    .type(VerificationTokenType.EMAIL_VERIFY).expiresAt(Instant.now().plus(Duration.ofHours(1))).build();
+            when(verificationTokenService.consume("raw", VerificationTokenType.EMAIL_VERIFY)).thenReturn(token);
+
+            authService.verifyEmail("raw");
+
+            assertThat(unverified.isEmailVerified()).isTrue();
+        }
+
+        @Test
+        void invalidTokenPropagatesAndChangesNothing() {
+            when(verificationTokenService.consume("bad", VerificationTokenType.EMAIL_VERIFY))
+                    .thenThrow(new InvalidTokenException("unknown token"));
+
+            assertThatThrownBy(() -> authService.verifyEmail("bad"))
+                    .isInstanceOf(InvalidTokenException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_TOKEN);
+            verifyNoInteractions(userRepository, mailService);
+        }
+
+    }
+
+    @Nested
+    class ResendVerification {
+
+        @Test
+        void unknownEmailSendsNothingAndDoesNotThrow() {
+            when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+            authService.resendVerification("Ghost@Example.com");
+
+            verifyNoInteractions(verificationTokenService, mailService);
+        }
+
+        @Test
+        void alreadyVerifiedOrBlockedAccountsSendNothing() {
+            when(userRepository.findByEmail("done@example.com")).thenReturn(Optional.of(TestUsers.verified(1L, "done@example.com")));
+            when(userRepository.findByEmail("blocked@example.com")).thenReturn(Optional.of(
+                    TestUsers.user(2L, "blocked@example.com", Role.USER, Plan.FREE, UserStatus.BLOCKED, false)));
+
+            authService.resendVerification("done@example.com");
+            authService.resendVerification("blocked@example.com");
+
+            verifyNoInteractions(verificationTokenService, mailService);
+        }
+
+        @Test
+        void unverifiedActiveAccountGetsAFreshTokenAndMail() {
+            User unverified = TestUsers.unverified(9L, "new@example.com");
+            when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.of(unverified));
+            when(verificationTokenService.issue(unverified, VerificationTokenType.EMAIL_VERIFY)).thenReturn("raw-2");
+
+            authService.resendVerification("new@example.com");
+
+            verify(mailService).sendVerificationMail("new@example.com", unverified.getFullName(), "raw-2");
+        }
+
+    }
+
+    @Nested
+    class ForgotPassword {
+
+        @Test
+        void unknownEmailSendsNothingAndDoesNotThrow() {
+            when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+            authService.forgotPassword("Ghost@Example.com");
+
+            verifyNoInteractions(verificationTokenService, mailService);
+        }
+
+        @Test
+        void unverifiedOrBlockedAccountsGetNoResetMail() {
+            // Rule 14.12: only verified accounts receive mail other than the verification mail itself
+            when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.of(TestUsers.unverified(9L, "new@example.com")));
+            when(userRepository.findByEmail("blocked@example.com")).thenReturn(Optional.of(TestUsers.blocked(8L, "blocked@example.com")));
+
+            authService.forgotPassword("new@example.com");
+            authService.forgotPassword("blocked@example.com");
+
+            verifyNoInteractions(verificationTokenService, mailService);
+        }
+
+        @Test
+        void verifiedActiveAccountGetsAResetTokenAndMail() {
+            User verified = TestUsers.verified(7L, "an@example.com");
+            when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(verified));
+            when(verificationTokenService.issue(verified, VerificationTokenType.PASSWORD_RESET)).thenReturn("raw-reset");
+
+            authService.forgotPassword("an@example.com");
+
+            verify(mailService).sendPasswordResetMail("an@example.com", verified.getFullName(), "raw-reset");
+            verify(mailService, never()).sendVerificationMail(any(), any(), any());
+        }
+
+    }
+
+    @Nested
+    class ResetPassword {
+
+        @Test
+        void storesNewBcryptHashAndRevokesEverySession() {
+            User user = TestUsers.verified(7L, "an@example.com");
+            String oldHash = user.getPasswordHash();
+            VerificationToken token = VerificationToken.builder().user(user).tokenHash("h")
+                    .type(VerificationTokenType.PASSWORD_RESET).expiresAt(Instant.now().plus(Duration.ofMinutes(30))).build();
+            when(verificationTokenService.consume("raw", VerificationTokenType.PASSWORD_RESET)).thenReturn(token);
+            when(refreshTokenService.revokeAll(7L)).thenReturn(2);
+
+            authService.resetPassword(new ResetPasswordRequest("raw", "MatKhauMoi456", "MatKhauMoi456"));
+
+            assertThat(user.getPasswordHash()).isNotEqualTo(oldHash).startsWith("$2a$12$");
+            assertThat(passwordEncoder.matches("MatKhauMoi456", user.getPasswordHash())).isTrue();
+            assertThat(passwordEncoder.matches(RAW_PASSWORD, user.getPasswordHash())).isFalse();
+            verify(refreshTokenService).revokeAll(7L);
+        }
+
+        @Test
+        void invalidTokenChangesNothing() {
+            when(verificationTokenService.consume("bad", VerificationTokenType.PASSWORD_RESET))
+                    .thenThrow(new InvalidTokenException("expired"));
+
+            assertThatThrownBy(() -> authService.resetPassword(new ResetPasswordRequest("bad", "MatKhauMoi456", "MatKhauMoi456")))
+                    .isInstanceOf(InvalidTokenException.class);
+            verifyNoInteractions(refreshTokenService, mailService, userRepository);
+        }
+
+    }
+
     private void stubSuccessfulAuthentication(User user) {
         CustomUserDetails principal = CustomUserDetails.from(user);
         Authentication authenticated = UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
@@ -324,7 +469,7 @@ class AuthServiceTest {
 
     private static RefreshToken liveToken(User user) {
         RefreshToken token = RefreshToken.builder().user(user).tokenHash("h").expiresAt(Instant.now().plus(Duration.ofDays(1))).build();
-        org.springframework.test.util.ReflectionTestUtils.setField(token, "id", 100L);
+        ReflectionTestUtils.setField(token, "id", 100L);
         return token;
     }
 

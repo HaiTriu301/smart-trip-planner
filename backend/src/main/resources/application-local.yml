@@ -14,6 +14,11 @@ spring:
     properties:
       hibernate:
         generate_statistics: true   # log query count per session to catch N+1 (design.md 19)
+  mail:
+    host: ${MAIL_HOST}              # MailHog from docker-compose, UI at http://localhost:8025
+    port: ${MAIL_PORT}
 
 app:
   frontend-url: ${APP_FRONTEND_URL}
+  providers:
+    mail: smtp                      # real SMTP to MailHog so the verify link can be clicked locally

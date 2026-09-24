@@ -4,6 +4,7 @@ import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
 import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.AccountBlockedException;
@@ -14,7 +15,9 @@ import com.trieu.tripplanner.exception.InvalidRefreshTokenException;
 import com.trieu.tripplanner.mapper.UserMapper;
 import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.VerificationToken;
 import com.trieu.tripplanner.model.enums.UserStatus;
+import com.trieu.tripplanner.model.enums.VerificationTokenType;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -42,6 +45,8 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final VerificationTokenService verificationTokenService;
+    private final MailService mailService;
 
     @Override
     @Transactional
@@ -67,7 +72,7 @@ public class AuthServiceImpl implements AuthService {
             throw new EmailAlreadyExistsException(ex);
         }
 
-        // Task 1.4: issue verification token + send mail here
+        sendVerificationMail(user);
         log.info("Registered new user id={}", user.getId());
         return userMapper.toResponse(user);
     }
@@ -147,6 +152,65 @@ public class AuthServiceImpl implements AuthService {
             refreshTokenService.revoke(token);
             log.info("User id={} logged out session id={}", token.getUser().getId(), token.getId());
         });
+    }
+
+    @Override
+    @Transactional
+    public void verifyEmail(String rawToken) {
+        VerificationToken token = verificationTokenService.consume(rawToken, VerificationTokenType.EMAIL_VERIFY);
+        User user = token.getUser();
+        // Managed entity inside the transaction: the UPDATE runs at commit
+        user.setEmailVerified(true);
+        log.info("User id={} verified email", user.getId());
+    }
+
+    @Override
+    @Transactional
+    public void resendVerification(String email) {
+        userRepository.findByEmail(normalizeEmail(email)).ifPresentOrElse(user -> {
+            if (user.isEmailVerified() || user.getStatus() == UserStatus.BLOCKED) {
+                // Nothing to do, but the caller still answers 200 (design.md 14.15)
+                log.debug("Resend verification skipped for user id={}: verified={} status={}",
+                        user.getId(), user.isEmailVerified(), user.getStatus());
+                return;
+            }
+            sendVerificationMail(user);
+            log.info("Re-sent verification mail to user id={}", user.getId());
+        }, () -> log.debug("Resend verification requested for an unknown email"));
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        userRepository.findByEmail(normalizeEmail(email)).ifPresentOrElse(user -> {
+            // Rule 14.12: only verified accounts receive mail (other than the verification mail itself)
+            if (!user.isEmailVerified() || user.getStatus() == UserStatus.BLOCKED) {
+                log.debug("Password reset skipped for user id={}: verified={} status={}",
+                        user.getId(), user.isEmailVerified(), user.getStatus());
+                return;
+            }
+            String rawToken = verificationTokenService.issue(user, VerificationTokenType.PASSWORD_RESET);
+            mailService.sendPasswordResetMail(user.getEmail(), user.getFullName(), rawToken);
+            log.info("Sent password reset mail to user id={}", user.getId());
+        }, () -> log.debug("Password reset requested for an unknown email"));
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        VerificationToken token = verificationTokenService.consume(request.token(), VerificationTokenType.PASSWORD_RESET);
+        User user = token.getUser();
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        // Whoever held the old password (or a stolen session) is signed out everywhere (design.md 14.16)
+        int revoked = refreshTokenService.revokeAll(user.getId());
+        log.info("User id={} reset password; revoked {} live session(s)", user.getId(), revoked);
+    }
+
+    private void sendVerificationMail(User user) {
+        // Issue inside the transaction (hash persisted), send outside it (@Async on the MailService bean)
+        String rawToken = verificationTokenService.issue(user, VerificationTokenType.EMAIL_VERIFY);
+        mailService.sendVerificationMail(user.getEmail(), user.getFullName(), rawToken);
     }
 
     private AuthTokens issueTokens(User user, ClientInfo client) {

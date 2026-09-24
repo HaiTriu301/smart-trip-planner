@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "error.validation"),
+    INVALID_TOKEN(HttpStatus.BAD_REQUEST, "error.invalid-token"),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.unauthorized"),
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "error.token-expired"),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "error.invalid-credentials"),

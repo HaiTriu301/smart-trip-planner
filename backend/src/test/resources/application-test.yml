@@ -9,6 +9,8 @@ spring:
 
 app:
   frontend-url: http://localhost:5173
+  providers:
+    mail: mock                      # MockMailProvider keeps sent mail in memory for assertions; no SMTP needed
   jwt:
     # Test fixture, not a secret: it signs tokens that only live inside a test JVM
     secret: test-only-not-a-secret-0123456789abcdef0123456789abcdef0123456789abcdef

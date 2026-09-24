@@ -32,6 +32,27 @@ class AppPropertiesTest {
 	}
 
 	@Test
+	void mailProviderAndSenderHaveSafeDefaults() {
+		// Neither app.providers.mail nor app.mail-from set above: mock + a placeholder sender
+		contextRunner.run(context -> {
+			AppProperties properties = context.getBean(AppProperties.class);
+			assertThat(properties.providers().mail()).isEqualTo("mock");
+			assertThat(properties.mailFrom()).isEqualTo("no-reply@smart-trip-planner.local");
+		});
+	}
+
+	@Test
+	void bindsSmtpMailProviderAndCustomSender() {
+		contextRunner
+				.withPropertyValues("app.providers.mail=smtp", "app.mail-from=hello@trip.vn")
+				.run(context -> {
+					AppProperties properties = context.getBean(AppProperties.class);
+					assertThat(properties.providers().mail()).isEqualTo("smtp");
+					assertThat(properties.mailFrom()).isEqualTo("hello@trip.vn");
+				});
+	}
+
+	@Test
 	void failsStartupWhenFrontendUrlIsBlank() {
 		contextRunner
 				.withPropertyValues("app.frontend-url=")
@@ -49,6 +70,16 @@ class AppPropertiesTest {
 						.rootCause()
 						.isInstanceOf(BindValidationException.class)
 						.hasMessageContaining("weather"));
+	}
+
+	@Test
+	void failsStartupWhenMailProviderIsUnknown() {
+		contextRunner
+				.withPropertyValues("app.providers.mail=sendgrid")
+				.run(context -> assertThat(context.getStartupFailure())
+						.rootCause()
+						.isInstanceOf(BindValidationException.class)
+						.hasMessageContaining("mail"));
 	}
 
 	@Configuration(proxyBeanMethods = false)

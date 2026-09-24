@@ -3,8 +3,12 @@ package com.trieu.tripplanner.controller;
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
+import com.trieu.tripplanner.dto.request.ForgotPasswordRequest;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResendVerificationRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
+import com.trieu.tripplanner.dto.request.VerifyEmailRequest;
 import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.security.RefreshTokenCookies;
@@ -72,6 +76,39 @@ public class AuthController {
             @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken) {
         authService.logout(refreshToken);
         return withCookie(refreshTokenCookies.clear(), null);
+    }
+
+    @Operation(summary = "Xác thực email",
+               description = "Nhận token từ link trong mail. 400 INVALID_TOKEN nếu token sai, hết hạn hoặc đã dùng.")
+    @PostMapping("/verify-email")
+    public ApiResponse<Void> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request.token());
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "Gửi lại mail xác thực",
+               description = "Luôn trả 200 dù email có tồn tại hay không. Chỉ gửi khi tài khoản tồn tại và chưa xác thực.")
+    @PostMapping("/resend-verification")
+    public ApiResponse<Void> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        authService.resendVerification(request.email());
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "Quên mật khẩu",
+               description = "Luôn trả 200. Gửi mail đặt lại mật khẩu (hiệu lực 1 giờ) nếu email thuộc tài khoản đã xác thực.")
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "Đặt lại mật khẩu",
+               description = "Nhận token từ link trong mail + mật khẩu mới (nhập 2 lần). Thu hồi mọi phiên đăng nhập cũ. "
+                       + "400 INVALID_TOKEN nếu token sai, hết hạn hoặc đã dùng.")
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ApiResponse.ok(null);
     }
 
     private static <T> ResponseEntity<ApiResponse<T>> withCookie(ResponseCookie cookie, T body) {
