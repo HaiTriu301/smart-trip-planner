@@ -3,9 +3,11 @@ package com.trieu.tripplanner.controller;
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
+import com.trieu.tripplanner.dto.request.ForgotPasswordRequest;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
 import com.trieu.tripplanner.dto.request.ResendVerificationRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
 import com.trieu.tripplanner.dto.request.VerifyEmailRequest;
 import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
@@ -89,6 +91,23 @@ public class AuthController {
     @PostMapping("/resend-verification")
     public ApiResponse<Void> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
         authService.resendVerification(request.email());
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "Quên mật khẩu",
+               description = "Luôn trả 200. Gửi mail đặt lại mật khẩu (hiệu lực 1 giờ) nếu email thuộc tài khoản đã xác thực.")
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        return ApiResponse.ok(null);
+    }
+
+    @Operation(summary = "Đặt lại mật khẩu",
+               description = "Nhận token từ link trong mail + mật khẩu mới (nhập 2 lần). Thu hồi mọi phiên đăng nhập cũ. "
+                       + "400 INVALID_TOKEN nếu token sai, hết hạn hoặc đã dùng.")
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
         return ApiResponse.ok(null);
     }
 

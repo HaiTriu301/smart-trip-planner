@@ -15,6 +15,7 @@ import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.AccountBlockedException;
 import com.trieu.tripplanner.exception.EmailAlreadyExistsException;
@@ -377,6 +378,76 @@ class AuthServiceTest {
             authService.resendVerification("new@example.com");
 
             verify(mailService).sendVerificationMail("new@example.com", unverified.getFullName(), "raw-2");
+        }
+
+    }
+
+    @Nested
+    class ForgotPassword {
+
+        @Test
+        void unknownEmailSendsNothingAndDoesNotThrow() {
+            when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+
+            authService.forgotPassword("Ghost@Example.com");
+
+            verifyNoInteractions(verificationTokenService, mailService);
+        }
+
+        @Test
+        void unverifiedOrBlockedAccountsGetNoResetMail() {
+            // Rule 14.12: only verified accounts receive mail other than the verification mail itself
+            when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.of(TestUsers.unverified(9L, "new@example.com")));
+            when(userRepository.findByEmail("blocked@example.com")).thenReturn(Optional.of(TestUsers.blocked(8L, "blocked@example.com")));
+
+            authService.forgotPassword("new@example.com");
+            authService.forgotPassword("blocked@example.com");
+
+            verifyNoInteractions(verificationTokenService, mailService);
+        }
+
+        @Test
+        void verifiedActiveAccountGetsAResetTokenAndMail() {
+            User verified = TestUsers.verified(7L, "an@example.com");
+            when(userRepository.findByEmail("an@example.com")).thenReturn(Optional.of(verified));
+            when(verificationTokenService.issue(verified, VerificationTokenType.PASSWORD_RESET)).thenReturn("raw-reset");
+
+            authService.forgotPassword("an@example.com");
+
+            verify(mailService).sendPasswordResetMail("an@example.com", verified.getFullName(), "raw-reset");
+            verify(mailService, never()).sendVerificationMail(any(), any(), any());
+        }
+
+    }
+
+    @Nested
+    class ResetPassword {
+
+        @Test
+        void storesNewBcryptHashAndRevokesEverySession() {
+            User user = TestUsers.verified(7L, "an@example.com");
+            String oldHash = user.getPasswordHash();
+            VerificationToken token = VerificationToken.builder().user(user).tokenHash("h")
+                    .type(VerificationTokenType.PASSWORD_RESET).expiresAt(Instant.now().plus(Duration.ofMinutes(30))).build();
+            when(verificationTokenService.consume("raw", VerificationTokenType.PASSWORD_RESET)).thenReturn(token);
+            when(refreshTokenService.revokeAll(7L)).thenReturn(2);
+
+            authService.resetPassword(new ResetPasswordRequest("raw", "MatKhauMoi456", "MatKhauMoi456"));
+
+            assertThat(user.getPasswordHash()).isNotEqualTo(oldHash).startsWith("$2a$12$");
+            assertThat(passwordEncoder.matches("MatKhauMoi456", user.getPasswordHash())).isTrue();
+            assertThat(passwordEncoder.matches(RAW_PASSWORD, user.getPasswordHash())).isFalse();
+            verify(refreshTokenService).revokeAll(7L);
+        }
+
+        @Test
+        void invalidTokenChangesNothing() {
+            when(verificationTokenService.consume("bad", VerificationTokenType.PASSWORD_RESET))
+                    .thenThrow(new InvalidTokenException("expired"));
+
+            assertThatThrownBy(() -> authService.resetPassword(new ResetPasswordRequest("bad", "MatKhauMoi456", "MatKhauMoi456")))
+                    .isInstanceOf(InvalidTokenException.class);
+            verifyNoInteractions(refreshTokenService, mailService, userRepository);
         }
 
     }

@@ -4,6 +4,7 @@ import com.trieu.tripplanner.dto.internal.AuthTokens;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.dto.request.LoginRequest;
 import com.trieu.tripplanner.dto.request.RegisterRequest;
+import com.trieu.tripplanner.dto.request.ResetPasswordRequest;
 import com.trieu.tripplanner.dto.response.AuthResponse;
 import com.trieu.tripplanner.dto.response.UserResponse;
 import com.trieu.tripplanner.exception.AccountBlockedException;
@@ -176,6 +177,34 @@ public class AuthServiceImpl implements AuthService {
             sendVerificationMail(user);
             log.info("Re-sent verification mail to user id={}", user.getId());
         }, () -> log.debug("Resend verification requested for an unknown email"));
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        userRepository.findByEmail(normalizeEmail(email)).ifPresentOrElse(user -> {
+            // Rule 14.12: only verified accounts receive mail (other than the verification mail itself)
+            if (!user.isEmailVerified() || user.getStatus() == UserStatus.BLOCKED) {
+                log.debug("Password reset skipped for user id={}: verified={} status={}",
+                        user.getId(), user.isEmailVerified(), user.getStatus());
+                return;
+            }
+            String rawToken = verificationTokenService.issue(user, VerificationTokenType.PASSWORD_RESET);
+            mailService.sendPasswordResetMail(user.getEmail(), user.getFullName(), rawToken);
+            log.info("Sent password reset mail to user id={}", user.getId());
+        }, () -> log.debug("Password reset requested for an unknown email"));
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        VerificationToken token = verificationTokenService.consume(request.token(), VerificationTokenType.PASSWORD_RESET);
+        User user = token.getUser();
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        // Whoever held the old password (or a stolen session) is signed out everywhere (design.md 14.16)
+        int revoked = refreshTokenService.revokeAll(user.getId());
+        log.info("User id={} reset password; revoked {} live session(s)", user.getId(), revoked);
     }
 
     private void sendVerificationMail(User user) {

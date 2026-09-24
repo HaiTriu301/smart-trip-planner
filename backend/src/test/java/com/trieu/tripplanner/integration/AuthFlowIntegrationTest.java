@@ -42,6 +42,8 @@ class AuthFlowIntegrationTest {
             {"email": "%s", "password": "%s"}
             """.formatted(EMAIL, PASSWORD);
     private static final Pattern VERIFY_LINK = Pattern.compile("verify-email\\?token=([A-Za-z0-9_-]{64})");
+    private static final Pattern RESET_LINK = Pattern.compile("reset-password\\?token=([A-Za-z0-9_-]{64})");
+    private static final String NEW_PASSWORD = "MatKhauMoi456";
 
     @Autowired
     private MockMvcTester mvc;
@@ -203,7 +205,74 @@ class AuthFlowIntegrationTest {
         assertThat(liveSessions()).isZero();
     }
 
+    @Test
+    void forgotPasswordThenResetSignsOutEverywhereAndSwapsThePassword() {
+        Cookie oldSession = login().getResponse().getCookie("refresh_token");
+
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "Flow@Example.com"}
+                """)).hasStatusOk();
+        String resetToken = tokenFromMail(2, EMAIL, RESET_LINK);   // mail 1 was the verification mail
+
+        assertThat(postJson("/api/v1/auth/reset-password", resetBody(resetToken, NEW_PASSWORD))).hasStatusOk();
+
+        // Every session is dead, including the one that was alive before the reset
+        assertThat(liveSessions()).isZero();
+        assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(oldSession)).hasStatus(HttpStatus.UNAUTHORIZED);
+
+        // Old password rejected, new one accepted
+        assertThat(postJson("/api/v1/auth/login", LOGIN_BODY))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_CREDENTIALS");
+        assertThat(postJson("/api/v1/auth/login", """
+                {"email": "%s", "password": "%s"}
+                """.formatted(EMAIL, NEW_PASSWORD))).hasStatusOk();
+
+        // The reset link is single-use
+        assertThat(postJson("/api/v1/auth/reset-password", resetBody(resetToken, NEW_PASSWORD)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+    }
+
+    @Test
+    void forgotPasswordForUnknownOrUnverifiedEmailAnswers200ButSendsNothing() {
+        register("fresh@example.com");
+        verificationTokenFromMail(2, "fresh@example.com");   // wait for its verification mail so counts are stable
+        int mailsBefore = mailProvider.sent().size();
+
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "nobody@example.com"}
+                """)).hasStatusOk();
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "fresh@example.com"}
+                """)).hasStatusOk();   // exists but unverified → rule 14.12: no mail
+
+        // Mail is async: hold the assertion for a moment to be sure nothing arrives late
+        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(2))
+                .until(() -> mailProvider.sent().size() == mailsBefore);
+    }
+
+    @Test
+    void verificationLinkCannotBeUsedToResetPasswordAndViceVersa() {
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "%s"}
+                """.formatted(EMAIL))).hasStatusOk();
+        String resetToken = tokenFromMail(2, EMAIL, RESET_LINK);
+
+        assertThat(postJson("/api/v1/auth/verify-email", tokenBody(resetToken)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+        // Token untouched by the wrong-type attempt: it still resets the password
+        assertThat(postJson("/api/v1/auth/reset-password", resetBody(resetToken, NEW_PASSWORD))).hasStatusOk();
+    }
+
     // ---------- helpers ----------
+
+    private static String resetBody(String token, String password) {
+        return """
+                {"token": "%s", "newPassword": "%s", "confirmPassword": "%s"}
+                """.formatted(token, password, password);
+    }
 
     private void register(String email) {
         assertThat(postJson("/api/v1/auth/register", """
@@ -211,13 +280,17 @@ class AuthFlowIntegrationTest {
                 """.formatted(email, PASSWORD, PASSWORD))).hasStatus(HttpStatus.CREATED);
     }
 
-    /** Waits for the n-th mail (1-based) to arrive on the async thread and pulls the token out of its link. */
     private String verificationTokenFromMail(int expectedCount, String expectedRecipient) {
+        return tokenFromMail(expectedCount, expectedRecipient, VERIFY_LINK);
+    }
+
+    /** Waits for the n-th mail (1-based) to arrive on the async thread and pulls the token out of its link. */
+    private String tokenFromMail(int expectedCount, String expectedRecipient, Pattern link) {
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(mailProvider.sent()).hasSize(expectedCount));
         MailMessage mail = mailProvider.sent().get(expectedCount - 1);
         assertThat(mail.to()).isEqualTo(expectedRecipient);
-        Matcher matcher = VERIFY_LINK.matcher(mail.htmlBody());
-        assertThat(matcher.find()).as("verification link in mail body").isTrue();
+        Matcher matcher = link.matcher(mail.htmlBody());
+        assertThat(matcher.find()).as("expected link in mail body").isTrue();
         return matcher.group(1);
     }
 
