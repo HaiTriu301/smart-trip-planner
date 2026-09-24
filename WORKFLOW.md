@@ -561,8 +561,10 @@ Mốc 1 — feat(auth): add email verification flow
  2. common/constant/ErrorCode              + INVALID_TOKEN (400); messages.properties + error.invalid-token + validation.token.required
     exception/InvalidTokenException        extends AppException(INVALID_TOKEN, reason chỉ ghi log)
  3. config/properties/AppProperties        Providers + mail (@Pattern "mock|smtp"); AppPropertiesTest thêm case
-    application.yml                        app.providers.mail: mock; spring.mail.host/port: ${MAIL_HOST}/${MAIL_PORT}; spring.threads.virtual.enabled: true
-    application-local.yml                  app.providers.mail: smtp (MailHog)         application-test.yml: mock (mặc định, ghi rõ cho dễ đọc)
+    application.yml                        app.providers.mail: mock; app.mail-from; spring.threads.virtual.enabled: true
+    application-local.yml                  spring.mail.host/port: ${MAIL_HOST}/${MAIL_PORT} + app.providers.mail: smtp (MailHog)
+                                           (spring.mail.* KHÔNG để ở application.yml: profile test không có biến MAIL_HOST sẽ không khởi động được)
+    application-test.yml                   app.providers.mail: mock (mặc định, ghi rõ cho dễ đọc)
  4. provider/mail/MailMessage (record to, subject, htmlBody), MailProvider (interface send(MailMessage)),
     MockMailProvider (@ConditionalOnProperty mail=mock: log + List<MailMessage> sent() cho test),
     SmtpMailProvider (@ConditionalOnProperty mail=smtp: JavaMailSender, MimeMessageHelper, from = app.mail-from)
@@ -596,6 +598,11 @@ Mốc 2 — feat(auth): add forgot and reset password flow
 - `spring.threads.virtual.enabled: true` làm executor mặc định của `@Async` là virtual thread (design 3.1), không cần tự tạo executor.
 - Token trong link là base64url 48 byte → 64 ký tự, hash SHA-256 như refresh token; dùng lại `RefreshTokenService.hash()` hoặc tách `common/util/TokenHashes`.
 - `register()` vẫn 201 dù SMTP lỗi (mail async, lỗi vào log); nghiệm thu tay khi MailHog tắt vẫn tạo được user.
+
+> **Bẫy đã gặp khi làm 1.4:**
+> 1. Unit test render template bằng `new TemplateEngine()` (Thymeleaf thuần) đỏ `NoClassDefFoundError: ognl/PropertyAccessor`: engine thuần dùng OGNL, Boot không kéo OGNL. Dùng `org.thymeleaf.spring6.SpringTemplateEngine` (SpEL) như Boot.
+> 2. Lấy token từ MailHog API v2 bằng `grep` trên JSON thất bại vì body HTML chứa `\"` và mã hoá quoted-printable (`=3D`, ngắt dòng `=\r\n`). Nghiệm thu tay: mở UI `localhost:8025` và bấm link, hoặc decode bằng Node (`Content.Body.replace(/=\r?\n/g,'').replace(/=([0-9A-F]{2})/g, ...)`).
+> 3. `SecureTokens` gom sinh/hash token cho cả refresh và verification; `RefreshTokenService.hash()` chỉ còn uỷ quyền để test cũ không đổi.
 
 **Nghiệm thu** (`docker compose up -d mysql redis mailhog`, backend profile `local`):
 1. `POST /auth/register` → 201 → mở `http://localhost:8025` thấy mail "Xác thực email", link `http://localhost:5173/verify-email?token=...`.
@@ -1194,7 +1201,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 1 | 1.1 User entity | ☑ | 2026-09-19 |
 | 1 | 1.2 Đăng ký | ☑ | 2026-09-20 |
 | 1 | 1.3 JWT + refresh rotation | ☑ | 2026-09-23 |
-| 1 | 1.4 Verify email + reset password | ☐ | |
+| 1 | 1.4 Verify email + reset password | ☑ | 2026-09-24 |
 | 1 | 1.5 Auth UI | ☐ | |
 | 2 | 2.1 Trip CRUD | ☐ | |
 | 2 | 2.2 TripDay auto-gen | ☐ | |
