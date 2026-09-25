@@ -642,13 +642,27 @@ Nhánh: `feat/T1.5-auth-ui`
 
 **Nghiệm thu:** đăng ký → verify → login → vào được `/trips` (trang rỗng); F5 vẫn giữ đăng nhập nhờ refresh cookie; logout xoá sạch.
 
+> **Thực tế khi làm 1.5 (lệch so với danh sách file ở trên):**
+> - `src/api/auth.ts` thay cho `authApi.ts` (theo quy ước tên ở design.md 3.2); thêm `src/api/errors.ts` (đọc `ErrorResponse`, gắn `details` vào field của form).
+> - Thêm `ResetPasswordPage` (mail của 1.4 trỏ tới `/reset-password`), `GuestRoute` (login xong tự chuyển về trang định vào, hoặc `/trips`), `TripsPage` tạm (Task 2.5 thay), component chung `FormField`/`Button`/`Alert`/`FullPageSpinner`, và `features/auth/schemas.ts`, `useLogout.ts`, `ResendVerificationForm.tsx`.
+> - Khôi phục phiên khi F5: `main.tsx` gọi `refreshAccessToken()` **một lần ngoài React** (StrictMode chạy effect 2 lần → sẽ xoay token 2 lần).
+> - Single-flight giữa các tab dùng Web Locks (`navigator.locks`): các tab dùng chung cookie, tab giữ khoá xoay xong thì tab sau gửi cookie mới.
+> - Chưa cài shadcn/ui, giao diện hiện là Tailwind thuần.
+>
+> **Bẫy đã gặp khi làm 1.5:**
+> 1. Chạy backend bằng IntelliJ báo `Could not resolve placeholder 'MAIL_HOST'`: working directory mặc định là gốc repo nên `../.env` trỏ sai chỗ. Đặt Working directory = `backend/` (xem CLAUDE.md mục 2).
+> 2. Trang `/verify-email` gửi token dùng một lần: gọi bằng `useMutation` trong `useEffect` sẽ bị StrictMode gửi 2 lần → lần 2 trả `INVALID_TOKEN` dù đã verify thành công. Dùng `useQuery` (cache dedupe). F5 trang verify sau khi thành công sẽ báo lỗi — đúng, token đã dùng.
+> 3. `resend-verification` / `forgot-password` luôn báo thành công kể cả với tài khoản đã verify hoặc email không tồn tại, MailHog không có mail mới — đúng rule 14.15 (chống dò email), không phải lỗi.
+> 4. Không thấy bảng mới trong Database tool của IntelliJ: phải Refresh (`Ctrl+F5`) hoặc tick schema `tripplanner` ở Properties → Schemas.
+> 5. Các tab dùng chung một phiên (cookie): logout ở tab này thì tab kia reload cũng về login; login ở tab này thì tab kia reload cũng vào luôn — đúng. Nếu **không** reload, tab kia vẫn giữ access token trong RAM tới khi hết hạn (≤ 15 phút) — chấp nhận theo design.md 6.1, đồng bộ tức thì để ở Task 8.3.
+
 **Commit:**
 ```
 feat(frontend): add auth pages and token refresh interceptor
 ```
 
 > ✅ Hết Phase 1 → tick `[x] Phase 1` trong CLAUDE.md.
-> **Lúc này hãy viết README lần đầu**: mô tả dự án, cách chạy, ảnh chụp màn hình login.
+> **Lúc này hãy viết README lần đầu**: mô tả dự án, cách chạy. Ảnh chụp màn hình để dành tới Task 8.5 (quyết định 2026-09-25), chưa thêm ảnh ở phase này.
 
 ---
 
@@ -1134,6 +1148,10 @@ Nhánh: `chore/T8.3-test-coverage`
 2. Bổ sung test cho các service còn thiếu
 3. Bật hibernate.generate_statistics ở local, tìm và sửa N+1 ở GET /trips/{id}
 4. Rà lại checklist "Những lỗi tôi không muốn gặp lại" trong CLAUDE.md
+5. Frontend — đồng bộ phiên giữa các tab (hoãn từ 1.5): `BroadcastChannel('auth')` phát `login`/`logout`,
+   tab khác nhận `logout` → clearSession + queryClient.clear(); nhận `login` → refreshAccessToken()
+6. Frontend — form đổi mật khẩu (hoãn từ 1.5): `register('password', { deps: ['confirmPassword'] })` ở RegisterForm
+   (tương tự `newPassword` ở ResetPasswordPage) để lỗi "không khớp" tự mất khi sửa ô mật khẩu cho khớp
 ```
 
 **Commit:** `chore(test): add jacoco coverage gate` + `perf(trip): fix n+1 query on trip detail`
@@ -1202,7 +1220,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 1 | 1.2 Đăng ký | ☑ | 2026-09-20 |
 | 1 | 1.3 JWT + refresh rotation | ☑ | 2026-09-23 |
 | 1 | 1.4 Verify email + reset password | ☑ | 2026-09-24 |
-| 1 | 1.5 Auth UI | ☐ | |
+| 1 | 1.5 Auth UI | ☑ | 2026-09-25 |
 | 2 | 2.1 Trip CRUD | ☐ | |
 | 2 | 2.2 TripDay auto-gen | ☐ | |
 | 2 | 2.3 Activity + trùng giờ | ☐ | |

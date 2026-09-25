@@ -56,6 +56,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 
 > **Test API bằng dòng lệnh trên Windows:** trong PowerShell 5.1, `curl` là bí danh của `Invoke-WebRequest` và **ném exception với mọi mã 4xx/5xx** nên không xem được body `ErrorResponse`. Dùng `curl.exe -s -i <url>` để gọi curl thật. Body JSON trong `-d` chỉ dùng ASCII: Git Bash và PowerShell 5.1 làm hỏng UTF-8 khiến backend trả 400 "không đúng định dạng JSON" dù code đúng. Cần tiếng Việt thì test qua Swagger UI.
 > Từ Task 1.2, mọi URL ngoài `SecurityConfig.PUBLIC_PATHS` trả **401** khi chưa đăng nhập, kể cả URL không tồn tại (404 chỉ khi đã đăng nhập). Log `Using generated security password` khi khởi động là bình thường cho tới Task 1.3.
+> **Chạy/debug backend trong IntelliJ:** Run configuration kiểu Spring Boot, module `com.trieu.trip-planner.main`, main class `com.trieu.tripplanner.TripPlannerApplication`, profile `local`, và **Working directory = `backend/`** (Modify options → Working directory). Sai thư mục (mặc định là gốc repo, hoặc bấm ▶ cạnh `main()`) thì `../.env` không tìm thấy → `Could not resolve placeholder 'MAIL_HOST'`. Tham số tạm thời (ví dụ `--app.jwt.access-ttl=1m` để thử luồng refresh) đặt ở Modify options → Program arguments.
 > `./gradlew bootRun` dừng ở `80% EXECUTING` là bình thường: app đang chạy, không bao giờ lên 100%. Dừng bằng Ctrl+C.
 > Port 5173/8080 bị chiếm: `Get-NetTCPConnection -LocalPort 5173 -State Listen | Select-Object OwningProcess` rồi `Stop-Process -Id <PID> -Force`.
 
@@ -122,6 +123,8 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand.
 34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
 35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
+36. Auth phía client (chốt Task 1.5): access token chỉ ở `stores/authStore` (memory), không `localStorage`. Chỉ `refreshAccessToken()` trong `api/client.ts` được gọi `/auth/refresh` (single-flight + Web Lock giữa các tab) — không tự gọi refresh ở nơi khác, hai lần refresh song song bị backend coi là trộm token và thu hồi mọi phiên. Lỗi API hiển thị qua `api/errors.ts` (`getErrorMessage`, `applyFieldErrors`), không tự đọc `error.response`.
+37. Route cần đăng nhập đặt trong `ProtectedRoute`; trang login/register/forgot trong `GuestRoute`. Trang mở từ link trong mail (`/verify-email`, `/reset-password`) không guard.
 
 ---
 
@@ -201,7 +204,7 @@ smart-trip-planner/
 Cập nhật mục này sau mỗi phase hoàn thành.
 
 - [x] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler, init frontend (2026-09-18)
-- [ ] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password
+- [x] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password, auth UI (2026-09-25)
 - [ ] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder
 - [ ] Phase 3 — Place + Weather (mock provider + Redis cache)
 - [ ] Phase 4 — Sharing + Permission (member, share link, PermissionEvaluator)
