@@ -363,16 +363,17 @@ Quy tắc: phát token mới cho cùng `(user, type)` → đánh dấu `used_at`
 | id | BIGINT PK | |
 | owner_id | BIGINT FK users | |
 | title | VARCHAR(160) | |
-| slug | VARCHAR(200) | unique, dùng cho public URL |
+| slug | VARCHAR(200) | unique, dùng cho public URL (Phase 4). Sinh **một lần** khi tạo (chốt 2026-09-26): bỏ dấu tiếng Việt của title → kebab-case (cắt ≤ 150 ký tự) + `-` + 6 ký tự ngẫu nhiên `[a-z0-9]`, ví dụ `da-lat-3-ngay-x7k2qp`; trùng thì sinh lại. **Không đổi khi sửa title** để link đã chia sẻ không hỏng |
 | description | TEXT | |
 | cover_image_url | VARCHAR(512) | |
 | destination_name | VARCHAR(200) | |
 | destination_lat / lng | DECIMAL(10,7) / DECIMAL(10,7) | |
-| start_date / end_date | DATE | end >= start, tối đa 60 ngày |
+| start_date / end_date | DATE | end >= start, tối đa 60 ngày tính cả hai đầu (rule 14.1) |
 | budget_amount | DECIMAL(15,2) | nullable |
 | currency | CHAR(3) | default `VND` |
-| status | ENUM | `DRAFT`, `PLANNED`, `ONGOING`, `COMPLETED`, `ARCHIVED` |
-| visibility | ENUM | `PRIVATE`, `LINK`, `PUBLIC` |
+| status | ENUM | `DRAFT`, `PLANNED`, `ONGOING`, `COMPLETED`, `ARCHIVED`; mặc định `DRAFT` |
+| visibility | ENUM | `PRIVATE`, `LINK`, `PUBLIC`; mặc định `PRIVATE` |
+| version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking khi nhiều người cùng sửa (mục 11.3, chốt 2026-09-26) |
 | created_at / updated_at / deleted_at | | |
 
 Index: `idx_trips_owner_status(owner_id, status)`, `idx_trips_slug(slug)`
@@ -489,6 +490,9 @@ Implement bằng `TripPermissionEvaluator` + annotation tuỳ biến:
 ```
 
 Kết quả quyền của (userId, tripId) được **cache Redis TTL 5 phút**, evict khi thay đổi membership.
+
+> **Triển khai theo giai đoạn** (chốt 2026-09-26): bean `tripPermission` (`security/permission/TripPermissionEvaluator`) có từ **Task 2.1**, lúc đó chỉ kiểm chủ sở hữu (`canView` / `canEdit` / `isOwner` ⇔ `trip.owner_id = userId`). Task 4.2 mở rộng thêm member theo role, share link và cache Redis — controller không phải sửa.
+> **Trip không tồn tại hoặc đã soft delete → 404 `RESOURCE_NOT_FOUND`**, không phải 403: evaluator trả `true` khi không tìm thấy trip để request đi tiếp, service ném `ResourceNotFoundException`. Trip tồn tại nhưng không có quyền → 403 `FORBIDDEN`.
 
 ### 6.3. Checklist bảo mật
 
@@ -681,6 +685,18 @@ Lỗi (`ErrorResponse`):
 | GET | `/{id}/summary` | Tổng quan: số ngày, số activity, tổng chi phí, quãng đường | canView |
 | GET | `/{id}/export?format=pdf\|ics` | Xuất file | owner + Premium |
 
+> **Phạm vi theo phase** (chốt 2026-09-26): Task 2.1 làm `GET ''` (chỉ trip của chính mình; "trip được share" thêm ở Phase 4), `POST`, `GET /{id}` (chỉ thông tin trip; `days` thêm ở 2.2, `activities` ở 2.3, `members` ở Phase 4), `PATCH /{id}`, `DELETE /{id}`. Quota của `POST` thêm ở Phase 6. `clone`, `PATCH /{id}/status`, `summary` **chưa gán task** — xem WORKFLOW.md Phase 2 "Việc còn treo".
+>
+> **Quy ước Trip API** (chốt 2026-09-26, áp dụng từ Task 2.1):
+> - `PATCH /{id}` là cập nhật **từng phần**: field `null` = giữ nguyên. Chưa hỗ trợ xoá trắng field tuỳ chọn (ví dụ bỏ ngân sách).
+> - `status`: tạo mới mặc định `DRAFT`; `PATCH /{id}` **không** đổi được `status` (chỉ qua `PATCH /{id}/status`).
+> - `visibility`: mặc định `PRIVATE`, đổi được qua `PATCH /{id}`; `LINK`/`PUBLIC` chỉ có tác dụng từ Phase 4.
+> - `version`: `TripResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
+> - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
+> - Phân trang mặc định `page=0`, `size=20` (tối đa 100), `sort=createdAt,desc`.
+> - Validate: `title` bắt buộc, ≤ 160 ký tự; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
+> - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`.
+
 **Itinerary** `/api/v1/trips/{tripId}`
 | GET | `/days` | Danh sách ngày | canView |
 | PATCH | `/days/{dayId}` | Sửa title/note | canEdit |
@@ -856,7 +872,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 
 ## 14. Business Rules
 
-1. `end_date >= start_date`, khoảng tối đa **60 ngày**.
+1. `end_date >= start_date`, khoảng tối đa **60 ngày** tính cả hai đầu (tối đa 60 TripDay). Vi phạm → 400 `VALIDATION_ERROR` (service ném `BusinessRuleException`), `details` gắn vào field `endDate`, message từ `messages.properties` (chốt 2026-09-26).
 2. Tạo trip → tự sinh `TripDay` cho mỗi ngày trong khoảng.
 3. Sửa ngày trip: ngày mới → tạo TripDay; ngày bị cắt **có activity** → cảnh báo, yêu cầu `force=true` mới xoá.
 4. Activity trong cùng một ngày có `start_time`/`end_time` **không được chồng lấn** (cho phép nếu client gửi `allowOverlap=true`).

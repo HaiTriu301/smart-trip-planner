@@ -88,6 +88,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 
 ### Bảo mật
 15. Mọi endpoint thao tác trên trip phải có `@PreAuthorize` dùng `TripPermissionEvaluator`. Không tự viết lại logic kiểm quyền trong service.
+    - Bean `tripPermission` có từ Task 2.1 (Phase 2 chỉ kiểm owner, Task 4.2 mở rộng member/share link/cache). Trip không tồn tại hoặc đã xoá → **404** `RESOURCE_NOT_FOUND` (evaluator cho qua, service ném `ResourceNotFoundException`); tồn tại nhưng không có quyền → **403**.
     - Endpoint public phải được thêm vào `SecurityConfig.PUBLIC_PATHS` (mặc định mọi thứ bị khoá). `@WebMvcTest` mới phải `@Import(SecurityConfig.class)`; test URL cần đăng nhập dùng `@WithMockUser`.
     - Mật khẩu chỉ đi qua `PasswordEncoder` bean (BCrypt 12); DTO response không bao giờ có field password/hash.
 16. Không bao giờ tin `userId` từ request body — luôn lấy từ `SecurityContext`.

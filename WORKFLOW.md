@@ -668,31 +668,50 @@ feat(frontend): add auth pages and token refresh interceptor
 
 ## PHASE 2 — Trip & Itinerary
 
-Đọc trước: **design.md mục 5.2 (trips, trip_days, activities), mục 14 (business rules 1–5)**
+Đọc trước: **design.md mục 5.2 (trips, trip_days, activities), mục 6.2 (khối "Triển khai theo giai đoạn"), mục 10.2 (Trip, Itinerary), mục 14 (business rules 1–5)**
+
+> **Quyết định chung cho Phase 2 (2026-09-26):**
+> - Mọi endpoint trip/day/activity dùng `@PreAuthorize("@tripPermission....")` ngay từ Phase 2. Bean `tripPermission` tạo ở Task 2.1, lúc này chỉ kiểm owner; Task 4.2 mở rộng.
+> - Trip không tồn tại / đã xoá → **404**; tồn tại nhưng không có quyền → **403**.
+>
+> **Việc còn treo (chưa gán task):** design.md 10.2 có `POST /trips/{id}/clone`, `PATCH /trips/{id}/status`, `GET /trips/{id}/summary` nhưng chưa task nào làm. Chốt gán vào đâu trước khi kết thúc Phase 2 (ứng viên: `status` + `summary` vào 2.5 nếu UI cần, `clone` vào Phase 6 cùng quota).
 
 ### Task 2.1 — Trip CRUD
 
 Nhánh: `feat/T2.1-trip-crud`
 
 ```
-1. model/Trip.java + enums TripStatus, TripVisibility
-2. V5__create_trips_table.sql
-3. TripRepository (+ Specification cho filter)
-4. dto/request/CreateTripRequest, UpdateTripRequest
-5. dto/response/TripResponse, TripSummaryResponse
-6. mapper/TripMapper
-7. service/TripService + Impl
-8. controller/TripController
-9. test: tạo trip, list phân trang, sửa, soft delete, user khác truy cập → 403
+Mốc 1 — entity + migration
+1. model/enums/TripStatus, TripVisibility
+2. model/Trip.java                     @Version, soft delete (@SQLDelete + @SQLRestriction), owner LAZY
+3. V5__create_trips_table.sql          có cột version BIGINT NOT NULL DEFAULT 0 (design.md 5.2)
+
+Mốc 2 — CRUD endpoints (kèm test controller)
+4. TripRepository (JpaSpecificationExecutor) + TripSpecifications: status, q (title/destination), from, to
+5. common/SlugGenerator                bỏ dấu tiếng Việt → kebab-case + 6 ký tự ngẫu nhiên, sinh 1 lần khi tạo
+6. exception/BusinessRuleException     thêm details theo field; GlobalExceptionHandler trả details
+7. security/permission/TripPermissionEvaluator   bean "tripPermission": canView/canEdit/isOwner — chỉ kiểm owner,
+                                       trip không tồn tại → true (để service trả 404)
+8. dto/request/CreateTripRequest, UpdateTripRequest
+9. dto/response/TripResponse, TripSummaryResponse (+ PageResponse nếu chưa có)
+10. mapper/TripMapper
+11. service/TripService + Impl
+12. controller/TripController          GET /trips, POST /trips, GET/PATCH /trips/{id} (canView/canEdit), DELETE (isOwner)
+13. messages.properties                message lỗi mới
+14. test: @WebMvcTest mỗi endpoint happy + 401/403 + validate; unit test SlugGenerator, TripPermissionEvaluator
+
+Mốc 3 — test service + integration
+15. TripServiceTest: end < start, > 60 ngày → 400 details endDate; đổi title giữ nguyên slug; soft delete
+16. Integration (Testcontainers): list phân trang + filter chỉ trả trip của chính user; user khác → 403; trip đã xoá → 404
 ```
 
-**Nhớ:** `endDate >= startDate`, tối đa 60 ngày → validate ở service, ném `BusinessRuleException`. Danh sách trip chỉ lấy `deletedAt IS NULL` và của chính user.
+**Nhớ:** `endDate >= startDate`, tối đa 60 ngày tính cả hai đầu → validate ở service, ném `BusinessRuleException(VALIDATION_ERROR)` với `details` ở field `endDate`. Danh sách trip chỉ lấy `deletedAt IS NULL` và của chính user. `slug` không đổi khi sửa title. Quota khi tạo trip để Phase 6. Quy ước PATCH từng phần, mặc định status/visibility, bộ lọc, phân trang, validate: design.md 10.2 khối "Quy ước Trip API".
 
 **Commit:**
 ```
 feat(trip): add trip entity and migration
 feat(trip): add trip crud endpoints
-test(trip): add trip service tests
+test(trip): add trip service and integration tests
 ```
 
 ---
@@ -767,7 +786,7 @@ Nhánh: `feat/T2.5-itinerary-ui`
 
 **Commit:** `feat(frontend): add trip list and itinerary editor`
 
-> ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Chụp màn hình bỏ vào README.
+> ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26).
 
 ---
 
@@ -871,10 +890,10 @@ Nhánh: `feat/T4.1-trip-members`
 Nhánh: `feat/T4.2-permission-evaluator`
 
 ```
-1. security/permission/TripPermissionEvaluator.java    canView(tripId, user), canEdit(), isOwner()
+1. security/permission/TripPermissionEvaluator.java    ĐÃ CÓ từ Task 2.1 (chỉ kiểm owner) → mở rộng: member theo role, share link
 2. Cache kết quả vào Redis TTL 5 phút, key perm:{userId}:{tripId}
 3. Evict cache khi thay đổi member
-4. Thêm @PreAuthorize vào TOÀN BỘ endpoint của trip/day/activity/expense
+4. Rà @PreAuthorize ở TOÀN BỘ endpoint (trip/day/activity đã có từ Phase 2), bổ sung cho member/share/comment/expense
 5. test ĐẦY ĐỦ MA TRẬN: với từng vai trò (OWNER/EDITOR/VIEWER/người lạ) × từng hành động
 ```
 
@@ -882,7 +901,7 @@ Nhánh: `feat/T4.2-permission-evaluator`
 
 **Commit:**
 ```
-feat(security): add trip permission evaluator
+feat(security): extend trip permission evaluator with members and cache
 feat(security): apply authorization to all trip endpoints
 test(security): add full permission matrix tests
 ```
