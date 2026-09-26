@@ -366,7 +366,7 @@ Quy tắc: phát token mới cho cùng `(user, type)` → đánh dấu `used_at`
 | slug | VARCHAR(200) | unique, dùng cho public URL (Phase 4). Sinh **một lần** khi tạo (chốt 2026-09-26): bỏ dấu tiếng Việt của title → kebab-case (cắt ≤ 150 ký tự) + `-` + 6 ký tự ngẫu nhiên `[a-z0-9]`, ví dụ `da-lat-3-ngay-x7k2qp`; trùng thì sinh lại. **Không đổi khi sửa title** để link đã chia sẻ không hỏng |
 | description | TEXT | |
 | cover_image_url | VARCHAR(512) | |
-| destination_name | VARCHAR(200) | |
+| destination_name | VARCHAR(200) | nullable: tạo trip trước, chọn điểm đến sau |
 | destination_lat / lng | DECIMAL(10,7) / DECIMAL(10,7) | |
 | start_date / end_date | DATE | end >= start, tối đa 60 ngày tính cả hai đầu (rule 14.1) |
 | budget_amount | DECIMAL(15,2) | nullable |
@@ -376,7 +376,8 @@ Quy tắc: phát token mới cho cùng `(user, type)` → đánh dấu `used_at`
 | version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking khi nhiều người cùng sửa (mục 11.3, chốt 2026-09-26) |
 | created_at / updated_at / deleted_at | | |
 
-Index: `idx_trips_owner_status(owner_id, status)`, `idx_trips_slug(slug)`
+Index: `idx_trips_owner_status(owner_id, status)`, `idx_trips_slug(slug)` (hiện thực bằng `UNIQUE uk_trips_slug`).
+Ràng buộc (chốt Task 2.1): `CHECK chk_trips_date_range (end_date >= start_date)` là chốt chặn cuối ở DB, lỗi thân thiện vẫn do service trả; FK `fk_trips_owner` **không** `ON DELETE CASCADE` (user bị soft delete, xoá cứng user không được âm thầm xoá trip).
 
 #### `trip_days`
 `id, trip_id FK, day_index INT, date DATE, title VARCHAR(160), note TEXT`
@@ -693,8 +694,8 @@ Lỗi (`ErrorResponse`):
 > - `visibility`: mặc định `PRIVATE`, đổi được qua `PATCH /{id}`; `LINK`/`PUBLIC` chỉ có tác dụng từ Phase 4.
 > - `version`: `TripResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
 > - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
-> - Phân trang mặc định `page=0`, `size=20` (tối đa 100), `sort=createdAt,desc`.
-> - Validate: `title` bắt buộc, ≤ 160 ký tự; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
+> - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
+> - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 5000 ký tự; `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
 > - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`.
 
 **Itinerary** `/api/v1/trips/{tripId}`

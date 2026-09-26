@@ -134,12 +134,12 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 Làm theo đúng thứ tự:
 
 1. **Đọc `design.md`** mục liên quan. Nếu task chưa có trong design → nói ra và đề xuất bổ sung trước khi code.
-2. **Liệt kê file sẽ tạo/sửa** trước khi bắt tay (danh sách ngắn, không cần giải thích dài).
-3. **Migration trước** nếu có thay đổi schema.
-4. **Code theo thứ tự**: entity → repository → dto → mapper → service → controller → test.
-5. **Viết test** cùng lúc, không để lại sau.
+2. **Đưa bảng commit dự kiến** (tên commit + file của từng commit) theo quy ước `WORKFLOW.md` A.2 "Chia commit" và **chờ tôi duyệt trước khi code**. Mỗi commit là một lát cắt dọc: một chức năng hoàn chỉnh kèm test của nó.
+3. **Migration đi cùng entity** trong cùng commit (thiếu một trong hai thì `validate` làm app không lên). Migration nhỏ (thêm cột, index) nằm trong commit của chức năng cần nó.
+4. **Trong mỗi commit, code theo thứ tự**: entity → repository → dto → mapper → service → controller → test.
+5. **Viết test** trong chính commit của chức năng, không gom test vào commit cuối (trừ integration test ghép toàn luồng).
 6. **Chạy `./gradlew build`** và sửa cho tới khi xanh.
-   - **Làm theo từng mốc commit của `WORKFLOW.md`, không làm cả task một lượt.** Xong mốc N → build xanh → đưa lệnh commit của mốc N → **dừng chờ tôi commit** → mới sang mốc N+1. File dùng chung (service impl, controller, test cũ) chỉ viết phần mốc đó cần, mốc sau mở rộng thêm. Nếu một mốc không thể tách độc lập, nói trước khi code, không âm thầm gộp.
+   - **Mỗi mốc = một commit, không làm cả task một lượt.** Xong mốc N → build xanh → đưa lệnh commit của mốc N → **dừng chờ tôi commit** → mới sang mốc N+1. File dùng chung (service impl, controller, mapper, test class) chỉ viết phần mốc đó cần, mốc sau mở rộng thêm. Không để code / cấu hình / key message chưa có ai dùng trong commit. Nếu một mốc không thể tách độc lập, nói trước khi code, không âm thầm gộp.
 7. **Báo cáo**: file đã đổi, endpoint mới (method + path), cách test thủ công bằng curl hoặc Swagger.
 8. **Đề xuất commit** (không tự commit, không tự tạo nhánh — xem mục 9): liệt kê lệnh `git add <file>` + `git commit -m "..."` cho từng mốc để tôi tự chạy.
 

@@ -13,14 +13,14 @@
 1. Đọc phần Task trong file này
 2. Đọc mục design.md được trỏ tới
 3. git checkout -b <branch của task>
-4. Code theo đúng thứ tự file được liệt kê
-5. Chạy kiểm tra ở phần "Nghiệm thu"
-6. Commit theo các mốc được ghi sẵn
+4. Duyệt bảng commit dự kiến của task (Claude đưa ra trước khi code, theo quy ước A.2 "Chia commit")
+5. Lặp cho từng mốc: code 1 lát cắt dọc (code + test) → build xanh → commit → mốc tiếp theo
+6. Chạy kiểm tra ở phần "Nghiệm thu"
 7. git push + mở Pull Request trên GitHub + tự merge
 8. Tick [x] vào bảng theo dõi ở mục cuối file này
 ```
 
-> **Ai làm gì:** các bước Git (3, 6, 7) do **tôi tự chạy**. Claude Code không tự tạo nhánh, không tự `git add` / `commit` / `push`, không mở PR — chỉ đưa ra lệnh tạo nhánh (nếu đang sai nhánh) và danh sách commit đề xuất (file cần add + message) để tôi tự commit. Chi tiết ở `CLAUDE.md` mục 9.
+> **Ai làm gì:** các bước Git (3, commit ở bước 5, 7) do **tôi tự chạy**. Claude Code không tự tạo nhánh, không tự `git add` / `commit` / `push`, không mở PR — chỉ đưa ra lệnh tạo nhánh (nếu đang sai nhánh) và danh sách commit đề xuất (file cần add + message) để tôi tự commit. Chi tiết ở `CLAUDE.md` mục 9.
 
 ### A.2. Quy ước Git dùng xuyên suốt
 
@@ -45,6 +45,25 @@ refactor(activity): extract reorder logic to service
 ```
 
 - Commit nhỏ, mỗi commit làm **một việc**, và **code phải chạy được** sau mỗi commit.
+
+#### Chia commit trong một task (chốt 2026-09-26, áp dụng từ Task 2.2)
+
+1. **Lát cắt dọc:** mỗi commit là **một chức năng hoàn chỉnh** (create, get, list, update, delete...), đi qua đủ các tầng repository → dto → mapper → service → controller. Không chia theo tầng (commit entity, commit service, commit controller).
+2. **Test đi cùng code:** test của chức năng nằm **trong chính commit đó**, không gom vào một commit `test(...)` ở cuối. Ngoại lệ duy nhất: integration test ghép toàn luồng của task là commit cuối.
+3. **Mỗi commit tự đứng được:** build xanh; không có code / cấu hình / key message chưa có ai dùng; `git revert` một commit chỉ làm mất đúng chức năng đó.
+4. **File hạ tầng nằm ở commit của chức năng đầu tiên cần nó:**
+   - Migration tạo bảng + entity: **luôn chung một commit** (thiếu một trong hai thì `ddl-auto=validate` làm app không lên); là commit đầu của task nếu nhiều chức năng dùng bảng đó.
+   - Migration nhỏ (thêm cột, index), `application.yml`, `messages.properties`, dependency: trong commit của chức năng dùng nó.
+   - Sửa code cũ để chức năng mới dùng được (ví dụ `AppException` thêm `details`): commit `refactor(...)` riêng, đặt **trước** commit chức năng. Commit refactor không đổi hành vi.
+   - Hạ tầng dùng chung: commit riêng **chỉ khi** nhiều chức năng dùng **và** có test riêng; còn lại đi cùng chức năng đầu tiên dùng nó.
+   - Cấu hình không gắn chức năng nào (logging, profile...): commit `chore(...)` riêng.
+   - Docs: commit riêng lên `main` (ngoại lệ ở trên).
+5. **Quy mô gợi ý:** khoảng 3–8 file mỗi commit, một lý do để thay đổi.
+6. **Quy trình với Claude Code:** đầu task Claude đưa **bảng commit dự kiến** (tên commit + file) để duyệt trước khi code. Mỗi mốc = **một commit**: code → build xanh → Claude đưa lệnh `git add` + `git commit` → dừng chờ tôi commit → mốc tiếp theo. File dùng chung (service, controller, mapper, test class) được viết dần: commit nào chỉ chứa phần chức năng của commit đó cần.
+
+> Task 0.1 → 2.1 làm theo cách chia cũ (mốc lớn, test tách riêng). Giữ nguyên lịch sử, không reset / force push.
+>
+> **Rà soát theo phase (chốt 2026-09-26):** Phase 3 trở đi vẫn ghi mốc theo kiểu cũ. **Đầu mỗi phase**, trước khi tạo nhánh cho task đầu tiên, rà lại cả phase: viết lại mốc theo lát cắt dọc, cập nhật những gì các phase trước làm thay đổi, rồi commit docs lên `main`. Phase chưa rà có dòng ⏳ ngay dưới tiêu đề; khối `Commit:` kiểu cũ của phase đó chỉ để tham khảo. Rà xong thì xoá dòng ⏳.
 - Merge PR bằng **Squash and merge** nếu commit trong nhánh lộn xộn, dùng **Merge commit** nếu commit đã sạch.
 
 ### A.3. Mẫu mô tả Pull Request
@@ -714,22 +733,51 @@ feat(trip): add trip crud endpoints
 test(trip): add trip service and integration tests
 ```
 
+> **Thực tế khi làm 2.1 (2026-09-26):**
+> - Chốt thêm khi code (đã ghi vào design.md 5.2 và 10.2 "Quy ước Trip API"): chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title` (cột khác → 400, chặn 500 và dò dữ liệu qua thứ tự); `description` ≤ 5000 ký tự; `title` được trim; `destination_name` nullable; `CHECK (end_date >= start_date)` ở DB; FK `owner_id` không `ON DELETE CASCADE`.
+> - `AppException` mang được `details` (`FieldViolation` = field + message key + args) → lỗi nghiệp vụ trả `details` giống lỗi Bean Validation. Dùng `BusinessRuleException.invalidField(...)`.
+> - Rule nhiều field (ngày, cặp toạ độ) kiểm ở service trên dữ liệu **đã gộp**, vì PATCH chỉ gửi `endDate` vẫn phải so với `startDate` đang lưu.
+>
+> **Bẫy đã gặp khi làm 2.1:**
+> 1. Entity có `@Version` + `@SQLDelete`: Hibernate bind **cả id lẫn version** vào câu SQL xoá → phải viết `WHERE id = ? AND version = ?`; chỉ `WHERE id = ?` như bảng `users` sẽ lỗi.
+> 2. `TEXT` cần `@Column(columnDefinition = "TEXT")`, `CHAR(3)` cần `@JdbcTypeCode(SqlTypes.CHAR)`, nếu không `ddl-auto=validate` báo lệch kiểu.
+> 3. Kiểm slug trùng phải dùng **native query**: trip đã soft delete vẫn giữ slug trong UNIQUE key nhưng JPQL bị `@SQLRestriction` che.
+> 4. Spring Data 4: `JpaSpecificationExecutor` có thêm `delete(Specification)` → `verify(repo).delete(any())` báo "reference to delete is ambiguous". Dùng `any(Trip.class)`.
+> 5. `@WebMvcTest` không nạp bean `tripPermission` → mock bằng `@MockitoBean(name = "tripPermission")`.
+
 ---
 
 ### Task 2.2 — TripDay tự sinh
 
 Nhánh: `feat/T2.2-trip-days`
 
+Mỗi mốc là một commit, code + test cùng commit (quy ước A.2 "Chia commit"). Bảng file chi tiết Claude đưa ra đầu task để duyệt.
+
 ```
-1. model/TripDay.java + V6__create_trip_days.sql + repository
-2. service/TripDayService: generateDays(trip), reconcileDays(trip, oldRange, newRange)
-3. TripService.create() gọi generateDays trong cùng transaction
-4. TripService.update() gọi reconcileDays
-5. controller: GET /trips/{id}/days, PATCH /trips/{id}/days/{dayId}
-6. test QUAN TRỌNG: đổi ngày trip làm mất ngày đang có activity → phải chặn nếu không có force=true
+Mốc 1 — feat(trip): add trip day entity and migration
+        model/TripDay.java, V6__create_trip_days.sql (UNIQUE (trip_id, date)), test mapping
+
+Mốc 2 — feat(trip): generate trip days when a trip is created
+        TripDayRepository, service/TripDayService.generateDays, TripServiceImpl.create gọi trong cùng transaction
+        test: tạo trip 3 ngày → 3 TripDay đúng date + day_index
+
+Mốc 3 — feat(trip): add trip day list endpoint
+        GET /trips/{id}/days (canView), TripDayResponse, mapper, controller, test
+
+Mốc 4 — feat(trip): add trip day title and note update
+        PATCH /trips/{id}/days/{dayId} (canEdit), UpdateTripDayRequest, day không thuộc trip → 404, test
+
+Mốc 5 — feat(trip): reconcile trip days when trip dates change
+        TripDayService.reconcileDays, TripServiceImpl.update gọi khi đổi startDate/endDate:
+        thêm ngày mới, xoá ngày bị cắt, đánh lại day_index; test đổi ngày dài ra / ngắn lại / dời cả khoảng
+
+Mốc 6 — feat(trip): include days in trip detail
+        GET /trips/{id} trả thêm days (JOIN FETCH / @EntityGraph, kiểm số câu SQL — tránh N+1), test
+
+Mốc 7 — test(trip): add trip day flow integration test
 ```
 
-**Commit:** `feat(trip): auto generate trip days from date range`
+> ⚠️ **Chặn cắt ngày có activity (rule 14.3, `force=true`) chuyển sang Task 2.3** (quyết định 2026-09-26): ở 2.2 chưa có bảng `activities` nên chưa có gì để kiểm. Ở 2.2, `reconcileDays` xoá ngày bị cắt tự do.
 
 ---
 
@@ -738,19 +786,33 @@ Nhánh: `feat/T2.2-trip-days`
 Nhánh: `feat/T2.3-activity-crud`
 
 ```
-1. model/Activity.java + ActivityType + @Version
-2. V7__create_activities.sql
-3. ActivityRepository: findByTripDayIdOrderByOrderIndex, tìm activity chồng giờ
-4. dto + mapper
-5. service/ActivityService: create, update, delete, validateNoTimeConflict
-6. controller/ActivityController
-7. test: thêm 2 activity trùng giờ → 409 ACTIVITY_TIME_CONFLICT; allowOverlap=true → 201
-```
+Mốc 1 — feat(activity): add activity entity and migration
+        model/enums/ActivityType, model/Activity.java (@Version), V7__create_activities.sql, test mapping
 
-**Commit:**
-```
-feat(activity): add activity crud with time conflict validation
-test(activity): add time overlap test cases
+Mốc 2 — feat(activity): add create activity endpoint
+        ActivityRepository, CreateActivityRequest, ActivityResponse, ActivityMapper, ActivityService + Impl.create
+        (orderIndex = cuối ngày + 1000), POST /trips/{tripId}/days/{dayId}/activities (canEdit), test
+
+Mốc 3 — feat(activity): reject overlapping activity times
+        truy vấn tìm activity chồng giờ, validateNoTimeConflict trong create, allowOverlap=true bỏ qua;
+        test: 2 activity trùng giờ → 409 ACTIVITY_TIME_CONFLICT, allowOverlap=true → 201
+
+Mốc 4 — feat(activity): add activity list endpoint
+        GET /trips/{tripId}/days/{dayId}/activities (canView), sắp theo orderIndex, test
+
+Mốc 5 — feat(activity): add activity update endpoint
+        PATCH /trips/{tripId}/activities/{activityId} (canEdit), dùng lại validateNoTimeConflict, test
+
+Mốc 6 — feat(activity): add activity delete endpoint
+        DELETE /trips/{tripId}/activities/{activityId} (canEdit), test
+
+Mốc 7 — feat(trip): block date changes that drop days with activities
+        (chuyển từ 2.2) reconcileDays: ngày bị cắt có activity → bị chặn trừ khi force=true (mã lỗi chốt khi duyệt bảng commit 2.3); test QUAN TRỌNG
+
+Mốc 8 — feat(trip): include activities in trip detail
+        GET /trips/{id} trả days + activities, kiểm số câu SQL (không N+1), test
+
+Mốc 9 — test(activity): add activity flow integration test
 ```
 
 ---
@@ -760,15 +822,17 @@ test(activity): add time overlap test cases
 Nhánh: `feat/T2.4-activity-reorder`
 
 ```
-1. dto/request/ReorderActivitiesRequest   List<{activityId, dayId, orderIndex}>
-2. ActivityService.reorder()              1 transaction, batch update
-3. PUT /trips/{tripId}/activities/reorder
-4. test: kéo activity từ ngày 1 sang ngày 2, thứ tự đúng sau khi reorder
+Mốc 1 — feat(activity): add batch reorder endpoint
+        ReorderActivitiesRequest List<{activityId, dayId, orderIndex}>, ActivityService.reorder() 1 transaction,
+        mọi activity/day phải thuộc trip trên URL, PUT /trips/{tripId}/activities/reorder (canEdit);
+        test: kéo activity từ ngày 1 sang ngày 2, thứ tự đúng sau khi reorder
+
+Mốc 2 — feat(activity): normalize order index when the gap is too small
+        khoảng cách < 10 → đánh lại cả ngày 1000, 2000, 3000...; test
 ```
 
 **Cơ chế orderIndex:** đánh số cách nhau 1000. Chèn giữa hai activity 1000 và 2000 → index 1500, không phải update cả danh sách. Khi khoảng cách < 10 thì normalize lại cả ngày.
 
-**Commit:** `feat(activity): add batch reorder endpoint`
 
 ---
 
@@ -776,21 +840,38 @@ Nhánh: `feat/T2.4-activity-reorder`
 
 Nhánh: `feat/T2.5-itinerary-ui`
 
+Frontend chưa có test runner (Vitest thêm ở task frontend sau) → điều kiện mỗi commit là `npm run lint` + `npm run build` xanh. Tên file API theo design.md 3.2: `src/api/trips.ts`, `src/api/activities.ts`.
+
 ```
-1. src/api/tripApi.ts, activityApi.ts
-2. src/features/trips/TripList.tsx, TripCard.tsx, CreateTripWizard.tsx
-3. src/features/itinerary/DayTimeline.tsx, ActivityCard.tsx, ActivityFormDialog.tsx
-4. src/features/itinerary/DragDropContainer.tsx   (dnd-kit, gọi API reorder)
-5. src/pages/TripsPage.tsx, TripDetailPage.tsx
+Mốc 1 — feat(frontend): add trip list page
+        types/trip.ts, api/trips.ts, features/trips/TripList.tsx, TripCard.tsx, pages/TripsPage.tsx (thay trang tạm),
+        filter status / q, phân trang
+
+Mốc 2 — feat(frontend): add create trip wizard
+        features/trips/CreateTripWizard.tsx, route /trips/new
+        (điểm đến nhập tên; map picker thêm ở Task 3.4 khi có Leaflet)
+
+Mốc 3 — feat(frontend): add trip detail page with day timeline
+        pages/TripDetailPage.tsx, features/itinerary/DayTimeline.tsx, sửa title/note của ngày
+
+Mốc 4 — feat(frontend): add trip edit and delete
+        form sửa thông tin trip (PATCH), xoá trip có xác nhận; đổi ngày làm mất activity → hỏi lại rồi gửi force=true
+
+Mốc 5 — feat(frontend): add activity create, edit and delete
+        types/activity.ts, api/activities.ts, ActivityCard.tsx, ActivityFormDialog.tsx;
+        409 ACTIVITY_TIME_CONFLICT → hỏi "vẫn thêm?" → gửi allowOverlap=true
+
+Mốc 6 — feat(frontend): add drag and drop activity reorder
+        dependency dnd-kit (package.json trong commit này), features/itinerary/DragDropContainer.tsx, gọi API reorder
 ```
 
-**Commit:** `feat(frontend): add trip list and itinerary editor`
-
-> ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26).
+> ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26). Trước khi sang Phase 3: rà lại Phase 3 theo quy ước A.2 "Rà soát theo phase".
 
 ---
 
 ## PHASE 3 — Place, Map, Weather (provider mock)
+
+> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
 
 Đọc trước: **design.md mục 7 (Provider Abstraction) và mục 8 (Cache)**
 
@@ -866,6 +947,8 @@ Frontend: cài leaflet react-leaflet, components/map/TripMap.tsx, components/wea
 
 ## PHASE 4 — Chia sẻ & Phân quyền
 
+> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
+
 Đọc trước: **design.md mục 6.2 (ma trận quyền)** — đọc kỹ, đây là phần đáng giá nhất trong CV.
 
 ### Task 4.1 — TripMember
@@ -940,6 +1023,8 @@ Frontend: features/sharing/MembersPanel.tsx, ShareLinkDialog.tsx, CommentThread.
 
 ## PHASE 5 — Realtime WebSocket
 
+> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
+
 Đọc trước: **design.md mục 11**
 
 ### Task 5.1 — Hạ tầng WebSocket
@@ -989,6 +1074,8 @@ Nhánh: `feat/T5.3-presence-locking`
 ---
 
 ## PHASE 6 — Premium & Stripe
+
+> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
 
 Đọc trước: **design.md mục 9 (feature gating) và mục 12 (luồng Stripe)**
 
@@ -1074,6 +1161,8 @@ components/UpgradeModal.tsx        hiện khi API trả 402 QUOTA_EXCEEDED
 
 ## PHASE 7 — Expense, AI, Export
 
+> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
+
 ### Task 7.1 — Expense + chia tiền
 
 Nhánh: `feat/T7.1-expenses`
@@ -1120,6 +1209,8 @@ Nhánh: `feat/T7.3-export`
 ---
 
 ## PHASE 8 — Hoàn thiện & Deploy
+
+> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
 
 ### Task 8.1 — Rate limiting
 
@@ -1240,7 +1331,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 1 | 1.3 JWT + refresh rotation | ☑ | 2026-09-23 |
 | 1 | 1.4 Verify email + reset password | ☑ | 2026-09-24 |
 | 1 | 1.5 Auth UI | ☑ | 2026-09-25 |
-| 2 | 2.1 Trip CRUD | ☐ | |
+| 2 | 2.1 Trip CRUD | ☑ | 2026-09-26 |
 | 2 | 2.2 TripDay auto-gen | ☐ | |
 | 2 | 2.3 Activity + trùng giờ | ☐ | |
 | 2 | 2.4 Reorder | ☐ | |
