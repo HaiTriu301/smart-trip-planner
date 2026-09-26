@@ -52,7 +52,12 @@ public class GlobalExceptionHandler {
         else {
             log.warn("Application error {} on {}: {}", errorCode, request.getRequestURI(), ex.getMessage());
         }
-        return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
+        List<ErrorResponse.FieldError> details = ex.getDetails().stream()
+                .map(violation -> new ErrorResponse.FieldError(
+                        violation.field(), message(violation.messageKey(), violation.args().toArray())))
+                .sorted(DETAILS_ORDER)
+                .toList();
+        return build(errorCode, message(errorCode.getMessageKey()), details, request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
