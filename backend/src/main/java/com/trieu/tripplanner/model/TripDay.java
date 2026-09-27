@@ -36,7 +36,8 @@ public class TripDay extends BaseEntity {
     @JoinColumn(name = "trip_id", nullable = false)
     private Trip trip;
 
-    /** 1-based position inside the trip ("Ngày 1"). */
+    /** 1-based position inside the trip ("Ngày 1"); renumbered by TripDayService when the date range changes. */
+    @Setter
     @Column(name = "day_index", nullable = false)
     private int dayIndex;
 

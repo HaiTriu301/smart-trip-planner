@@ -99,6 +99,8 @@ public class TripServiceImpl implements TripService {
     @Transactional
     public TripResponse update(Long tripId, UpdateTripRequest request) {
         Trip trip = findTrip(tripId);
+        LocalDate oldStart = trip.getStartDate();
+        LocalDate oldEnd = trip.getEndDate();
         tripMapper.updateFromRequest(request, trip);
         if (request.title() != null) {
             trip.setTitle(request.title().trim());
@@ -106,6 +108,11 @@ public class TripServiceImpl implements TripService {
         // Checked after merging: PATCH {endDate} alone must still respect the stored startDate
         validateDateRange(trip.getStartDate(), trip.getEndDate());
         validateCoordinates(trip.getDestinationLat(), trip.getDestinationLng());
+
+        // Same transaction: the trip's new dates and its days are committed together (rule 14.3)
+        if (!trip.getStartDate().equals(oldStart) || !trip.getEndDate().equals(oldEnd)) {
+            tripDayService.reconcileDays(trip, oldStart, oldEnd);
+        }
 
         // Flush now so the response carries the incremented version and updatedAt
         return tripMapper.toResponse(tripRepository.saveAndFlush(trip));

@@ -8,8 +8,14 @@ import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -47,6 +53,66 @@ public class TripDayService {
                         .build())
                 .toList();
         tripDayRepository.saveAll(days);
+    }
+
+    /**
+     * Brings the days in line with the trip's new date range (design.md rule 14.3). Call only when the range
+     * changed, inside the transaction that updates the trip:
+     * <ul>
+     *   <li>same number of days, different start → shift the whole block: every day keeps its title, note,
+     *       dayIndex (and, from Task 2.3, its activities, which hang off trip_day_id);</li>
+     *   <li>different number of days → keep by calendar date: dates still in range keep their day, new dates get
+     *       an empty day, dates cut off are deleted, then dayIndex is renumbered 1..n.</li>
+     * </ul>
+     * Blocking the cut of days that hold activities ({@code force=true}) arrives in Task 2.3.
+     *
+     * @param trip     managed trip already carrying the new start/end dates
+     * @param oldStart start date before the update
+     * @param oldEnd   end date before the update
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void reconcileDays(Trip trip, LocalDate oldStart, LocalDate oldEnd) {
+        LocalDate newStart = trip.getStartDate();
+        LocalDate newEnd = trip.getEndDate();
+        long oldLength = ChronoUnit.DAYS.between(oldStart, oldEnd);
+        long newLength = ChronoUnit.DAYS.between(newStart, newEnd);
+
+        if (oldLength == newLength) {
+            shift(trip.getId(), ChronoUnit.DAYS.between(oldStart, newStart));
+        } else {
+            keepByCalendarDate(trip, newStart, newEnd);
+        }
+    }
+
+    private void shift(Long tripId, long days) {
+        if (days > 0) {
+            tripDayRepository.shiftDatesLatestFirst(tripId, days);
+        } else if (days < 0) {
+            tripDayRepository.shiftDatesEarliestFirst(tripId, days);
+        }
+    }
+
+    private void keepByCalendarDate(Trip trip, LocalDate newStart, LocalDate newEnd) {
+        tripDayRepository.deleteOutsideRange(trip.getId(), newStart, newEnd);
+
+        // Loaded after the bulk delete, so only surviving days are in the persistence context
+        Map<LocalDate, TripDay> kept = tripDayRepository.findByTripIdOrderByDate(trip.getId()).stream()
+                .collect(Collectors.toMap(TripDay::getDate, Function.identity()));
+
+        List<TripDay> created = new ArrayList<>();
+        AtomicInteger dayIndex = new AtomicInteger(1);
+        newStart.datesUntil(newEnd.plusDays(1)).forEach(date -> {
+            TripDay day = kept.get(date);
+            if (day == null) {
+                day = TripDay.builder().trip(trip).date(date).dayIndex(dayIndex.get()).build();
+                created.add(day);
+            } else {
+                // Managed entity: dirty checking writes the new index at flush
+                day.setDayIndex(dayIndex.get());
+            }
+            dayIndex.incrementAndGet();
+        });
+        tripDayRepository.saveAll(created);
     }
 
     /**

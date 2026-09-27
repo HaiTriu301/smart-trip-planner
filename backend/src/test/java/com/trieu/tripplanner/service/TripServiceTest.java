@@ -221,6 +221,23 @@ class TripServiceTest {
             assertThat(stored.getStatus()).isEqualTo(TripStatus.PLANNED);
             assertThat(response.title()).isEqualTo("Đà Lạt mùa hoa");
             verify(tripRepository).saveAndFlush(stored);
+            // Dates untouched → days untouched
+            verify(tripDayService, never()).reconcileDays(any(), any(), any());
+        }
+
+        @Test
+        void reconcilesDaysWithThePreviousRangeWhenDatesChange() {
+            tripService.update(TRIP_ID, updateRequest(null, OCT_1.plusDays(7), OCT_1.plusDays(9), null, null));
+
+            assertThat(stored.getStartDate()).isEqualTo(OCT_1.plusDays(7));
+            verify(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2));
+        }
+
+        @Test
+        void sendingTheSameDatesDoesNotReconcile() {
+            tripService.update(TRIP_ID, updateRequest(null, OCT_1, OCT_1.plusDays(2), null, null));
+
+            verify(tripDayService, never()).reconcileDays(any(), any(), any());
         }
 
         @Test
@@ -229,6 +246,7 @@ class TripServiceTest {
                     updateRequest(null, null, OCT_1.minusDays(1), null, null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.end-before-start"));
             verify(tripRepository, never()).saveAndFlush(any());
+            verify(tripDayService, never()).reconcileDays(any(), any(), any());
         }
 
         @Test
