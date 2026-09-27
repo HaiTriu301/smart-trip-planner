@@ -5,6 +5,7 @@ import com.trieu.tripplanner.common.util.SlugGenerator;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
@@ -13,6 +14,7 @@ import com.trieu.tripplanner.exception.SlugGenerationException;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.enums.TripVisibility;
+import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.repository.spec.TripSpecifications;
@@ -49,6 +51,7 @@ public class TripServiceImpl implements TripService {
     private final TripMapper tripMapper;
     private final SlugGenerator slugGenerator;
     private final TripDayService tripDayService;
+    private final TripDayRepository tripDayRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -91,8 +94,10 @@ public class TripServiceImpl implements TripService {
 
     @Override
     @Transactional(readOnly = true)
-    public TripResponse get(Long tripId) {
-        return tripMapper.toResponse(findTrip(tripId));
+    public TripDetailResponse get(Long tripId) {
+        Trip trip = findTrip(tripId);
+        // Days by trip_id in one query (uk_trip_days_trip_date) instead of a lazy collection per trip
+        return tripMapper.toDetail(trip, tripDayRepository.findByTripIdOrderByDate(tripId));
     }
 
     @Override

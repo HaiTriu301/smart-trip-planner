@@ -14,6 +14,8 @@ import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.TripDayResponse;
+import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
@@ -199,11 +201,16 @@ class TripControllerTest {
     @Test
     void getReturnsTripWhenViewAllowed() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(tripService.get(TRIP_ID)).thenReturn(sampleTrip());
+        when(tripService.get(TRIP_ID)).thenReturn(sampleDetail());
 
         assertThat(mvc.get().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatusOk()
-                .bodyJson().extractingPath("$.data.title").isEqualTo("Đà Lạt 3 ngày");
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": { "id": 5, "title": "Đà Lạt 3 ngày", "slug": "da-lat-x7k2qp",
+                                    "days": [ { "id": 11, "dayIndex": 1, "date": "2026-10-01", "title": "Đến nơi" },
+                                              { "id": 12, "dayIndex": 2, "date": "2026-10-02", "title": null } ] } }
+                        """);
 
         // The evaluator receives the principal built from the token, not something from the request
         verify(tripPermission).canView(eq(TRIP_ID),
@@ -310,6 +317,15 @@ class TripControllerTest {
         assertThat(mvc.delete().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.FORBIDDEN);
         verify(tripService, never()).delete(any());
+    }
+
+    private static TripDetailResponse sampleDetail() {
+        return new TripDetailResponse(TRIP_ID, USER_ID, "Đà Lạt 3 ngày", "da-lat-x7k2qp", null, null, "Đà Lạt",
+                null, null, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), null,
+                "VND", TripStatus.DRAFT, TripVisibility.PRIVATE, 0L,
+                Instant.parse("2026-09-26T10:00:00Z"), Instant.parse("2026-09-26T10:00:00Z"),
+                List.of(new TripDayResponse(11L, 1, LocalDate.of(2026, 10, 1), "Đến nơi", null),
+                        new TripDayResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null)));
     }
 
     private static TripResponse sampleTrip() {

@@ -5,6 +5,7 @@ import com.trieu.tripplanner.common.PageResponse;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.model.enums.TripStatus;
@@ -71,10 +72,11 @@ public class TripController {
         return ApiResponse.ok(tripService.create(principal.getId(), request));
     }
 
-    @Operation(summary = "Chi tiết chuyến đi", description = "403 nếu không có quyền xem, 404 nếu không tồn tại.")
+    @Operation(summary = "Chi tiết chuyến đi",
+               description = "Kèm danh sách ngày theo thứ tự. 403 nếu không có quyền xem, 404 nếu không tồn tại.")
     @GetMapping("/{id}")
     @PreAuthorize("@tripPermission.canView(#id, principal)")
-    public ApiResponse<TripResponse> get(@PathVariable Long id) {
+    public ApiResponse<TripDetailResponse> get(@PathVariable Long id) {
         return ApiResponse.ok(tripService.get(id));
     }
 
