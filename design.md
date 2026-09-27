@@ -380,8 +380,23 @@ Index: `idx_trips_owner_status(owner_id, status)`, `idx_trips_slug(slug)` (hiệ
 Ràng buộc (chốt Task 2.1): `CHECK chk_trips_date_range (end_date >= start_date)` là chốt chặn cuối ở DB, lỗi thân thiện vẫn do service trả; FK `fk_trips_owner` **không** `ON DELETE CASCADE` (user bị soft delete, xoá cứng user không được âm thầm xoá trip).
 
 #### `trip_days`
-`id, trip_id FK, day_index INT, date DATE, title VARCHAR(160), note TEXT`
-UNIQUE `(trip_id, date)` — sinh tự động khi tạo/đổi ngày trip.
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | BIGINT PK AI | |
+| trip_id | BIGINT FK → trips.id | `ON DELETE CASCADE`: ngày thuộc trọn về trip, trip bị xoá cứng (scheduler, rule 14.8) thì ngày đi theo |
+| day_index | INT | số thứ tự **1..n**, liên tục, đánh lại mỗi khi khoảng ngày của trip đổi |
+| date | DATE | ngày lịch thật |
+| title | VARCHAR(160) | nullable — không có thì giao diện hiện "Ngày N" |
+| note | TEXT | nullable, ≤ 5000 ký tự (validate ở DTO) |
+| created_at / updated_at | DATETIME | từ BaseEntity |
+
+UNIQUE `(trip_id, date)` — sinh tự động khi tạo/đổi ngày trip (rule 14.2, 14.3).
+
+Quy tắc (chốt 2026-09-27):
+- Các ngày của một trip **luôn liên tiếp**: mỗi ngày từ `start_date` tới `end_date` có đúng một `TripDay`. Không hỗ trợ trip có ngày không liên tiếp (giữ nguyên mô hình dữ liệu).
+- Response trả cả `dayIndex` và `date`; giao diện hiển thị kiểu "Ngày 1 · Thứ Năm, 01/01/2026".
+- **Không soft delete**: ngày chỉ bị xoá khi người dùng cắt khoảng ngày của trip; dòng đã xoá mềm sẽ vẫn chiếm `UNIQUE (trip_id, date)` và chặn việc kéo dài trip trở lại đúng ngày cũ. Soft delete trip không đụng tới ngày (khôi phục trip thì ngày còn nguyên).
+- **Không `@Version`**: CLAUDE.md rule 22 chỉ yêu cầu cho Trip và Activity.
 
 #### `activities`
 | Cột | Kiểu | Ghi chú |
@@ -697,6 +712,7 @@ Lỗi (`ErrorResponse`):
 > - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
 > - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 5000 ký tự; `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
 > - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`.
+> - `GET /{id}` trả **`TripDetailResponse`** = các field của `TripResponse` + `days` (thêm ở Task 2.2; `activities` trong từng ngày ở Task 2.3). `POST` / `PATCH /{id}` vẫn trả `TripResponse` gọn để thao tác ghi không phải nạp danh sách ngày (chốt 2026-09-27).
 
 **Itinerary** `/api/v1/trips/{tripId}`
 | GET | `/days` | Danh sách ngày | canView |
@@ -707,6 +723,8 @@ Lỗi (`ErrorResponse`):
 | DELETE | `/activities/{activityId}` | Xoá | canEdit |
 | PUT | `/activities/reorder` | `[{activityId, dayId, orderIndex}]` — batch, 1 transaction | canEdit |
 | GET | `/days/{dayId}/route` | Khoảng cách + thời gian giữa các activity theo thứ tự | canView |
+
+> **Quy ước sửa ngày** (chốt 2026-09-27, Task 2.2): `PATCH /days/{dayId}` body `{title, note}` — `title` ≤ 160 ký tự, `note` ≤ 5000 ký tự, cả hai được để trống. Field **không gửi hoặc `null` → giữ nguyên**; **`""` (chuỗi rỗng / chỉ khoảng trắng) → xoá**, lưu `NULL`. Khác PATCH của trip (không xoá được field) vì đặt / bỏ tiêu đề ngày là thao tác thường xuyên. `dayId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`.
 
 **Place** `/api/v1/places`
 | GET | `/search?q=&lat=&lng=&limit=` | Autocomplete, có cache | Auth |
@@ -875,7 +893,10 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 
 1. `end_date >= start_date`, khoảng tối đa **60 ngày** tính cả hai đầu (tối đa 60 TripDay). Vi phạm → 400 `VALIDATION_ERROR` (service ném `BusinessRuleException`), `details` gắn vào field `endDate`, message từ `messages.properties` (chốt 2026-09-26).
 2. Tạo trip → tự sinh `TripDay` cho mỗi ngày trong khoảng.
-3. Sửa ngày trip: ngày mới → tạo TripDay; ngày bị cắt **có activity** → cảnh báo, yêu cầu `force=true` mới xoá.
+3. Sửa ngày trip (chốt 2026-09-27):
+   - **Cùng số ngày, khác ngày đi → dời nguyên khối**: mọi `TripDay` cộng cùng một độ lệch, giữ nguyên `title`/`note` và activity (activity gắn `trip_day_id`, chỉ có giờ `TIME`, không có ngày → tự đi theo ngày của nó). Làm bằng **một câu `UPDATE` hàng loạt có `ORDER BY`** — dời về sau: cập nhật ngày muộn nhất trước; dời về trước: ngày sớm nhất trước — vì MySQL kiểm `UNIQUE (trip_id, date)` sau **từng dòng**, cập nhật sai thứ tự sẽ trùng khoá.
+   - **Khác số ngày → giữ theo ngày lịch**: ngày còn nằm trong khoảng mới giữ nguyên; ngày mới → tạo `TripDay` trống; ngày bị cắt → xoá cứng; đánh lại `day_index` 1..n theo `date`. Ngày bị cắt **có activity** → chặn, yêu cầu `force=true` mới xoá (thêm ở Task 2.3, khi có bảng `activities`).
+   - **Vừa dời vừa đổi số ngày**: backend xử lý như "khác số ngày" (không đoán ý người dùng). Giao diện (Task 2.5) hướng dẫn làm hai bước: dời chuyến trước, đổi độ dài sau.
 4. Activity trong cùng một ngày có `start_time`/`end_time` **không được chồng lấn** (cho phép nếu client gửi `allowOverlap=true`).
 5. `order_index` đánh số cách nhau 1000 (1000, 2000, 3000) để chèn giữa không phải đánh lại toàn bộ; khi khoảng cách < 10 thì normalize lại cả ngày.
 6. Không thể mời chính chủ sở hữu làm member.

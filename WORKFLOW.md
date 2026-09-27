@@ -765,14 +765,18 @@ Mốc 3 — feat(trip): add trip day list endpoint
         GET /trips/{id}/days (canView), TripDayResponse, mapper, controller, test
 
 Mốc 4 — feat(trip): add trip day title and note update
-        PATCH /trips/{id}/days/{dayId} (canEdit), UpdateTripDayRequest, day không thuộc trip → 404, test
+        PATCH /trips/{id}/days/{dayId} (canEdit), UpdateTripDayRequest: null = giữ nguyên, "" = xoá;
+        day không thuộc trip → 404, test
 
 Mốc 5 — feat(trip): reconcile trip days when trip dates change
-        TripDayService.reconcileDays, TripServiceImpl.update gọi khi đổi startDate/endDate:
-        thêm ngày mới, xoá ngày bị cắt, đánh lại day_index; test đổi ngày dài ra / ngắn lại / dời cả khoảng
+        TripDayService.reconcileDays, TripServiceImpl.update gọi khi đổi startDate/endDate (design.md rule 14.3):
+        cùng số ngày → dời nguyên khối (UPDATE hàng loạt có ORDER BY, tránh trùng UNIQUE (trip_id, date));
+        khác số ngày → giữ theo ngày lịch: thêm ngày mới, xoá ngày bị cắt, đánh lại day_index;
+        test trên MySQL thật: dời +1 / −1 ngày (không lỗi UNIQUE, title giữ nguyên), kéo dài / cắt ở đầu / cắt ở cuối
 
 Mốc 6 — feat(trip): include days in trip detail
-        GET /trips/{id} trả thêm days (JOIN FETCH / @EntityGraph, kiểm số câu SQL — tránh N+1), test
+        GET /trips/{id} trả TripDetailResponse = TripResponse + days (POST/PATCH vẫn trả TripResponse);
+        JOIN FETCH / @EntityGraph, kiểm số câu SQL — tránh N+1, test
 
 Mốc 7 — test(trip): add trip day flow integration test
 ```
@@ -855,7 +859,8 @@ Mốc 3 — feat(frontend): add trip detail page with day timeline
         pages/TripDetailPage.tsx, features/itinerary/DayTimeline.tsx, sửa title/note của ngày
 
 Mốc 4 — feat(frontend): add trip edit and delete
-        form sửa thông tin trip (PATCH), xoá trip có xác nhận; đổi ngày làm mất activity → hỏi lại rồi gửi force=true
+        form sửa thông tin trip (PATCH), xoá trip có xác nhận; đổi ngày làm mất activity → hỏi lại rồi gửi force=true;
+        đổi cả ngày đi lẫn số ngày → hướng dẫn làm 2 bước: dời chuyến trước, đổi độ dài sau (design.md rule 14.3)
 
 Mốc 5 — feat(frontend): add activity create, edit and delete
         types/activity.ts, api/activities.ts, ActivityCard.tsx, ActivityFormDialog.tsx;
