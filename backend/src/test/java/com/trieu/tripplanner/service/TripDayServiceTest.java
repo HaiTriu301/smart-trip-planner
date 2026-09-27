@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.TripDayMapper;
@@ -18,6 +19,7 @@ import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.support.TestUsers;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -129,6 +131,77 @@ class TripDayServiceTest {
 
             assertThatThrownBy(() -> tripDayService.list(TRIP_ID)).isInstanceOf(ResourceNotFoundException.class);
             verify(tripDayRepository, never()).findByTripIdOrderByDate(any());
+        }
+
+    }
+
+    @Nested
+    class UpdateDay {
+
+        private static final long DAY_ID = 11L;
+
+        private TripDay stored;
+
+        @BeforeEach
+        void storedDay() {
+            stored = day(DAY_ID, trip(OCT_1, OCT_1), 1, OCT_1, "Tiêu đề cũ");
+            stored.setNote("Ghi chú cũ");
+        }
+
+        @Test
+        void setsTrimmedValues() {
+            liveTripWithDay();
+
+            TripDayResponse response = tripDayService.update(TRIP_ID, DAY_ID,
+                    new UpdateTripDayRequest("  Khám phá trung tâm  ", "  Chợ Đà Lạt  "));
+
+            assertThat(stored.getTitle()).isEqualTo("Khám phá trung tâm");
+            assertThat(stored.getNote()).isEqualTo("Chợ Đà Lạt");
+            assertThat(response).isEqualTo(new TripDayResponse(DAY_ID, 1, OCT_1, "Khám phá trung tâm", "Chợ Đà Lạt"));
+        }
+
+        @Test
+        void nullKeepsTheCurrentValue() {
+            liveTripWithDay();
+
+            tripDayService.update(TRIP_ID, DAY_ID, new UpdateTripDayRequest("Tiêu đề mới", null));
+
+            assertThat(stored.getTitle()).isEqualTo("Tiêu đề mới");
+            assertThat(stored.getNote()).isEqualTo("Ghi chú cũ");
+        }
+
+        @Test
+        void emptyOrBlankClearsTheValue() {
+            liveTripWithDay();
+
+            tripDayService.update(TRIP_ID, DAY_ID, new UpdateTripDayRequest("", "   "));
+
+            assertThat(stored.getTitle()).isNull();
+            assertThat(stored.getNote()).isNull();
+        }
+
+        @Test
+        void dayOfAnotherTripIsNotFound() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> tripDayService.update(TRIP_ID, DAY_ID, new UpdateTripDayRequest("X", null)))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            assertThat(stored.getTitle()).isEqualTo("Tiêu đề cũ");
+        }
+
+        @Test
+        void missingOrDeletedTripIsNotFoundAndTheDayIsNotLoaded() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> tripDayService.update(TRIP_ID, DAY_ID, new UpdateTripDayRequest("X", null)))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(tripDayRepository, never()).findByIdAndTripId(any(), any());
+        }
+
+        private void liveTripWithDay() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.of(stored));
         }
 
     }

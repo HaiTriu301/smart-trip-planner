@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
+import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -19,14 +20,17 @@ import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
  * Web layer only: TripDayService and the tripPermission bean are mocks.
@@ -38,6 +42,7 @@ class TripDayControllerTest {
 
     private static final long TRIP_ID = 5L;
     private static final String DAYS_URL = "/api/v1/trips/5/days";
+    private static final long DAY_ID = 11L;
 
     @Autowired
     private MockMvcTester mvc;
@@ -104,10 +109,76 @@ class TripDayControllerTest {
     }
 
     @Test
+    void updateReturnsTheDayWhenEditAllowed() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripDayService.update(eq(TRIP_ID), eq(DAY_ID), any()))
+                .thenReturn(new TripDayResponse(DAY_ID, 1, LocalDate.of(2026, 10, 1), "Khám phá", null));
+
+        assertThat(patchDay("""
+                { "title": "Khám phá", "note": "" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": { "id": 11, "dayIndex": 1, "title": "Khám phá", "note": null } }
+                        """);
+
+        // "" must reach the service untouched: it means "clear", unlike an omitted field
+        ArgumentCaptor<UpdateTripDayRequest> request = ArgumentCaptor.forClass(UpdateTripDayRequest.class);
+        verify(tripDayService).update(eq(TRIP_ID), eq(DAY_ID), request.capture());
+        assertThat(request.getValue()).isEqualTo(new UpdateTripDayRequest("Khám phá", ""));
+    }
+
+    @Test
+    void updateReturns403WhenEditDeniedAndNeverReachesService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(patchDay("""
+                { "title": "Sửa trộm" }
+                """))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        verify(tripDayService, never()).update(any(), any(), any());
+    }
+
+    @Test
+    void updateWithTooLongTitleReturns400WithFieldDetail() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(patchDay("""
+                { "title": "%s" }
+                """.formatted("a".repeat(161))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "title", "message": "Tiêu đề của ngày không được vượt quá 160 ký tự" } ] }
+                        """);
+        verify(tripDayService, never()).update(any(), any(), any());
+    }
+
+    @Test
+    void updateReturns404WhenDayIsNotInTheTrip() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripDayService.update(eq(TRIP_ID), eq(DAY_ID), any()))
+                .thenThrow(new ResourceNotFoundException("TripDay", DAY_ID));
+
+        assertThat(patchDay("""
+                { "title": "X" }
+                """))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
     void listWithNonNumericTripIdReturns400() {
         assertThat(mvc.get().uri("/api/v1/trips/abc/days").header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+    }
+
+    private MvcTestResult patchDay(String json) {
+        return mvc.patch().uri(DAYS_URL + "/" + DAY_ID).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json)
+                .exchange();
     }
 
 }

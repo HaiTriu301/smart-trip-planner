@@ -1,5 +1,6 @@
 package com.trieu.tripplanner.service;
 
+import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.TripDayMapper;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TripDayService {
 
     private static final String TRIP = "Trip";
+    private static final String TRIP_DAY = "TripDay";
 
     private final TripDayRepository tripDayRepository;
     private final TripRepository tripRepository;
@@ -55,11 +57,40 @@ public class TripDayService {
      */
     @Transactional(readOnly = true)
     public List<TripDayResponse> list(Long tripId) {
-        // existsById goes through JPQL, so @SQLRestriction hides soft-deleted trips: their days are not listed
+        requireLiveTrip(tripId);
+        return tripDayMapper.toResponses(tripDayRepository.findByTripIdOrderByDate(tripId));
+    }
+
+    /**
+     * Edits the title / note of one day (design.md 10.2 "Quy ước sửa ngày"): null keeps, blank clears, other
+     * values are trimmed. The date and dayIndex are never edited here: they follow the trip's dates.
+     *
+     * @throws ResourceNotFoundException the trip is missing or deleted, or the day belongs to another trip (404)
+     */
+    @Transactional
+    public TripDayResponse update(Long tripId, Long dayId, UpdateTripDayRequest request) {
+        requireLiveTrip(tripId);
+        TripDay day = tripDayRepository.findByIdAndTripId(dayId, tripId)
+                .orElseThrow(() -> new ResourceNotFoundException(TRIP_DAY, dayId));
+        day.setTitle(applyText(request.title(), day.getTitle()));
+        day.setNote(applyText(request.note(), day.getNote()));
+        return tripDayMapper.toResponse(day);
+    }
+
+    // existsById goes through JPQL, so @SQLRestriction hides soft-deleted trips: their days are unreachable.
+    // Needed because the permission evaluator lets missing trips through so that the answer is 404, not 403.
+    private void requireLiveTrip(Long tripId) {
         if (!tripRepository.existsById(tripId)) {
             throw new ResourceNotFoundException(TRIP, tripId);
         }
-        return tripDayMapper.toResponses(tripDayRepository.findByTripIdOrderByDate(tripId));
+    }
+
+    /** null → keep current; blank → clear (NULL); otherwise the trimmed text. */
+    private static String applyText(String incoming, String current) {
+        if (incoming == null) {
+            return current;
+        }
+        return incoming.isBlank() ? null : incoming.trim();
     }
 
 }

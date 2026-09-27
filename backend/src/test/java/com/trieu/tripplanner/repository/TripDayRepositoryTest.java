@@ -69,6 +69,18 @@ class TripDayRepositoryTest {
         assertThat(tripDayRepository.findByTripIdOrderByDate(999_999L)).isEmpty();
     }
 
+    @Test
+    void findByIdAndTripIdOnlyMatchesTheDayOfThatTrip() {
+        Trip trip = trip("da-lat-cccccc");
+        Trip other = trip("hue-dddddd");
+        TripDay day = entityManager.persist(day(trip, 1, OCT_1));
+        entityManager.flush();
+
+        assertThat(tripDayRepository.findByIdAndTripId(day.getId(), trip.getId())).contains(day);
+        // Guessing a day id through another trip's URL must not reach the day
+        assertThat(tripDayRepository.findByIdAndTripId(day.getId(), other.getId())).isEmpty();
+    }
+
     private Trip trip(String slug) {
         return entityManager.persist(Trip.builder()
                 .owner(owner)
