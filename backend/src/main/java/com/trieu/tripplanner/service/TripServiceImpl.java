@@ -5,6 +5,7 @@ import com.trieu.tripplanner.common.util.SlugGenerator;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
@@ -13,6 +14,7 @@ import com.trieu.tripplanner.exception.SlugGenerationException;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.enums.TripVisibility;
+import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.repository.spec.TripSpecifications;
@@ -48,6 +50,8 @@ public class TripServiceImpl implements TripService {
     private final UserRepository userRepository;
     private final TripMapper tripMapper;
     private final SlugGenerator slugGenerator;
+    private final TripDayService tripDayService;
+    private final TripDayRepository tripDayRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -82,20 +86,26 @@ public class TripServiceImpl implements TripService {
                 .build();
 
         Trip saved = tripRepository.save(trip);
+        // Same transaction: if a day fails to insert, the trip is rolled back too (rule 14.2)
+        tripDayService.generateDays(saved);
         log.info("Trip {} created by user {}", saved.getId(), userId);
         return tripMapper.toResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public TripResponse get(Long tripId) {
-        return tripMapper.toResponse(findTrip(tripId));
+    public TripDetailResponse get(Long tripId) {
+        Trip trip = findTrip(tripId);
+        // Days by trip_id in one query (uk_trip_days_trip_date) instead of a lazy collection per trip
+        return tripMapper.toDetail(trip, tripDayRepository.findByTripIdOrderByDate(tripId));
     }
 
     @Override
     @Transactional
     public TripResponse update(Long tripId, UpdateTripRequest request) {
         Trip trip = findTrip(tripId);
+        LocalDate oldStart = trip.getStartDate();
+        LocalDate oldEnd = trip.getEndDate();
         tripMapper.updateFromRequest(request, trip);
         if (request.title() != null) {
             trip.setTitle(request.title().trim());
@@ -103,6 +113,11 @@ public class TripServiceImpl implements TripService {
         // Checked after merging: PATCH {endDate} alone must still respect the stored startDate
         validateDateRange(trip.getStartDate(), trip.getEndDate());
         validateCoordinates(trip.getDestinationLat(), trip.getDestinationLng());
+
+        // Same transaction: the trip's new dates and its days are committed together (rule 14.3)
+        if (!trip.getStartDate().equals(oldStart) || !trip.getEndDate().equals(oldEnd)) {
+            tripDayService.reconcileDays(trip, oldStart, oldEnd);
+        }
 
         // Flush now so the response carries the incremented version and updatedAt
         return tripMapper.toResponse(tripRepository.saveAndFlush(trip));

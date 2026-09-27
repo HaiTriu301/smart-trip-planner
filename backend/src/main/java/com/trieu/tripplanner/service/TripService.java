@@ -4,6 +4,7 @@ import com.trieu.tripplanner.common.PageResponse;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import org.springframework.data.domain.Pageable;
@@ -31,9 +32,11 @@ public interface TripService {
     TripResponse create(Long userId, CreateTripRequest request);
 
     /**
+     * The trip with its days in calendar order (design.md 10.2): two queries whatever the number of days.
+     *
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
      */
-    TripResponse get(Long tripId);
+    TripDetailResponse get(Long tripId);
 
     /**
      * Partial update; rules are checked on the merged result. The slug and status never change here.
