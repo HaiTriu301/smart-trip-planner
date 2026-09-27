@@ -72,13 +72,16 @@ class TripServiceTest {
     @Mock
     private SlugGenerator slugGenerator;
 
+    @Mock
+    private TripDayService tripDayService;
+
     private final TripMapper tripMapper = Mappers.getMapper(TripMapper.class);
 
     private TripServiceImpl tripService;
 
     @BeforeEach
     void setUp() {
-        tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator);
+        tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator, tripDayService);
     }
 
     @Nested
@@ -108,6 +111,8 @@ class TripServiceTest {
             assertThat(saved.getCurrency()).isEqualTo("VND");
             assertThat(response.id()).isEqualTo(TRIP_ID);
             assertThat(response.ownerId()).isEqualTo(USER_ID);
+            // Days are generated for the persisted trip, inside the same create() call (rule 14.2)
+            verify(tripDayService).generateDays(saved);
         }
 
         @Test
@@ -157,6 +162,7 @@ class TripServiceTest {
                     createRequest("Xuyên Việt", OCT_1, OCT_1.plusDays(60), null, null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.too-long", 60));
             verify(tripRepository, never()).save(any());
+            verify(tripDayService, never()).generateDays(any());
         }
 
         @Test

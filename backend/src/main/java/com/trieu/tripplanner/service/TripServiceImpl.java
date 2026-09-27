@@ -48,6 +48,7 @@ public class TripServiceImpl implements TripService {
     private final UserRepository userRepository;
     private final TripMapper tripMapper;
     private final SlugGenerator slugGenerator;
+    private final TripDayService tripDayService;
 
     @Override
     @Transactional(readOnly = true)
@@ -82,6 +83,8 @@ public class TripServiceImpl implements TripService {
                 .build();
 
         Trip saved = tripRepository.save(trip);
+        // Same transaction: if a day fails to insert, the trip is rolled back too (rule 14.2)
+        tripDayService.generateDays(saved);
         log.info("Trip {} created by user {}", saved.getId(), userId);
         return tripMapper.toResponse(saved);
     }
