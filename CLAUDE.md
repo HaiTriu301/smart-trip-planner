@@ -236,6 +236,8 @@ Khi review code, kiểm tra lại các điểm này:
 - Hardcode `localhost:8080` trong code frontend thay vì dùng `apiClient` với `baseURL` tương đối
 - Sửa `frontend/.env` bằng cách dán nhầm lệnh shell vào file (nội dung phải là `KEY=value`)
 - Dùng `String` cho tiền hoặc `double` cho amount
+- `UPDATE` hàng loạt đổi giá trị cột có UNIQUE (ví dụ dời `trip_days.date`) mà không `ORDER BY` theo chiều dời: MySQL kiểm UNIQUE sau từng dòng → `Duplicate entry`
+- MapStruct `@Mapper(uses = ...)` thiếu `injectionStrategy = InjectionStrategy.CONSTRUCTOR` → mapper sinh ra inject qua field, unit test NPE
 
 ---
 

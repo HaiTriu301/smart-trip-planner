@@ -783,6 +783,20 @@ Mốc 7 — test(trip): add trip day flow integration test
 
 > ⚠️ **Chặn cắt ngày có activity (rule 14.3, `force=true`) chuyển sang Task 2.3** (quyết định 2026-09-26): ở 2.2 chưa có bảng `activities` nên chưa có gì để kiểm. Ở 2.2, `reconcileDays` xoá ngày bị cắt tự do.
 
+> **Thực tế khi làm 2.2 (2026-09-28):** 7 commit theo lát cắt dọc đúng bảng đã duyệt, thêm `TripDayRepositoryTest` (truy vấn mới cần MySQL thật để chứng minh).
+> - `TripDayService` (class, không interface): `generateDays` và `reconcileDays` dùng `Propagation.MANDATORY` — bắt buộc chạy trong transaction của `TripServiceImpl.create/update`, trip và ngày luôn commit / rollback cùng nhau.
+> - `TripServiceImpl.update` chỉ gọi reconcile khi `startDate`/`endDate` thật sự đổi; gửi lại đúng ngày cũ thì không làm gì.
+> - `GET /trips/{id}` = 3 câu SQL bất kể số ngày (quyền + trip + ngày), đo bằng Hibernate Statistics trong `TripDayFlowIntegrationTest`. Đọc `ownerId` qua proxy LAZY không nạp bảng `users`.
+> - `TripDayRepository.findByIdAndTripId` + `requireLiveTrip` (`existsById`): chặn sửa ngày của trip khác qua URL sai và ngày của trip đã xoá mềm (`findByIdAndTripId` chỉ so FK, không bị `@SQLRestriction` của `Trip` lọc).
+> - **Việc cho Task 2.3:** `deleteOutsideRange` là JPQL bulk delete trên `trip_days`. Khi có bảng `activities` (FK → `trip_days`), mốc "chặn cắt ngày có activity" phải quyết định xoá activity theo ngày (khi `force=true`) trước khi xoá ngày, nếu không MySQL chặn vì FK.
+>
+> **Bẫy đã gặp khi làm 2.2:**
+> 1. MySQL kiểm `UNIQUE` **sau từng dòng**, không cuối câu lệnh: dời mọi ngày +1 bằng `UPDATE` tăng dần → `Duplicate entry ... uk_trip_days_trip_date`. Dùng `UPDATE ... ORDER BY date DESC` khi dời về sau, `ASC` khi dời về trước (native SQL, JPQL không có `UPDATE ... ORDER BY` / `DATE_ADD`). Đã kiểm chứng: đảo chiều `ORDER BY` thì test đỏ.
+> 2. `remove(trip)` khi các `TripDay` của nó **đang được Hibernate quản lý** trong cùng persistence context → flush lỗi `TransientPropertyValueException`, dù `@SQLDelete` chỉ ghi `deleted_at`. Code thật an toàn vì `delete` chỉ nạp trip; test phải `clear()` rồi nạp lại trip.
+> 3. MapStruct `uses = OtherMapper.class` mặc định sinh `@Autowired` **trên field** → vi phạm CLAUDE.md rule 4 và `Mappers.getMapper(...)` trong unit test có field `null` (NPE). Dùng `injectionStrategy = InjectionStrategy.CONSTRUCTOR`; test tạo bằng `new TripMapperImpl(new TripDayMapperImpl())`.
+> 4. JsonPath trả `Integer` cho số nhỏ: `List<Long> ids = JsonPath.read(...)` → `ClassCastException` lúc dùng. Đọc qua `List<Number>` rồi `longValue()`.
+> 5. `@DataJpaTest` không quét `@Component` của MapStruct → test service thật cần `@Import({TripDayService.class, TripDayMapperImpl.class})`.
+
 ---
 
 ### Task 2.3 — Activity CRUD + kiểm tra trùng giờ
@@ -1337,7 +1351,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 1 | 1.4 Verify email + reset password | ☑ | 2026-09-24 |
 | 1 | 1.5 Auth UI | ☑ | 2026-09-25 |
 | 2 | 2.1 Trip CRUD | ☑ | 2026-09-26 |
-| 2 | 2.2 TripDay auto-gen | ☐ | |
+| 2 | 2.2 TripDay auto-gen | ☑ | 2026-09-28 |
 | 2 | 2.3 Activity + trùng giờ | ☐ | |
 | 2 | 2.4 Reorder | ☐ | |
 | 2 | 2.5 Itinerary UI | ☐ | |
