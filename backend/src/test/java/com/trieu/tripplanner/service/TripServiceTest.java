@@ -3,8 +3,10 @@ package com.trieu.tripplanner.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -220,8 +222,7 @@ class TripServiceTest {
 
         @Test
         void changesOnlyTheFieldsSentAndKeepsSlugAndStatus() {
-            TripResponse response = tripService.update(TRIP_ID,
-                    updateRequest("  Đà Lạt mùa hoa ", null, null, null, TripVisibility.PUBLIC));
+            TripResponse response = update(updateRequest("  Đà Lạt mùa hoa ", null, null, null, TripVisibility.PUBLIC));
 
             assertThat(stored.getTitle()).isEqualTo("Đà Lạt mùa hoa");
             assertThat(stored.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
@@ -232,45 +233,62 @@ class TripServiceTest {
             assertThat(response.title()).isEqualTo("Đà Lạt mùa hoa");
             verify(tripRepository).saveAndFlush(stored);
             // Dates untouched → days untouched
-            verify(tripDayService, never()).reconcileDays(any(), any(), any());
+            verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
         }
 
         @Test
         void reconcilesDaysWithThePreviousRangeWhenDatesChange() {
-            tripService.update(TRIP_ID, updateRequest(null, OCT_1.plusDays(7), OCT_1.plusDays(9), null, null));
+            update(updateRequest(null, OCT_1.plusDays(7), OCT_1.plusDays(9), null, null));
 
             assertThat(stored.getStartDate()).isEqualTo(OCT_1.plusDays(7));
-            verify(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2));
+            verify(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2), false);
+        }
+
+        @Test
+        void forceIsHandedToTheDayReconciliation() {
+            tripService.update(TRIP_ID, updateRequest(null, null, OCT_1.plusDays(1), null, null), true);
+
+            verify(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2), true);
+        }
+
+        @Test
+        void blockedCutOfDaysWithActivitiesPropagatesAndNothingIsSaved() {
+            doThrow(new BusinessRuleException(ErrorCode.TRIP_DAY_HAS_ACTIVITIES, "blocked"))
+                    .when(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2), false);
+
+            assertThatThrownBy(() -> update(updateRequest("Tên mới", null, OCT_1.plusDays(1), null, null)))
+                    .isInstanceOfSatisfying(BusinessRuleException.class,
+                            ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.TRIP_DAY_HAS_ACTIVITIES));
+            // The exception leaves the @Transactional method, so the title and dates already set on the
+            // managed entity are rolled back with everything else
+            verify(tripRepository, never()).saveAndFlush(any());
         }
 
         @Test
         void sendingTheSameDatesDoesNotReconcile() {
-            tripService.update(TRIP_ID, updateRequest(null, OCT_1, OCT_1.plusDays(2), null, null));
+            update(updateRequest(null, OCT_1, OCT_1.plusDays(2), null, null));
 
-            verify(tripDayService, never()).reconcileDays(any(), any(), any());
+            verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
         }
 
         @Test
         void validatesEndDateAgainstStoredStartDate() {
-            assertThatThrownBy(() -> tripService.update(TRIP_ID,
-                    updateRequest(null, null, OCT_1.minusDays(1), null, null)))
+            assertThatThrownBy(() -> update(updateRequest(null, null, OCT_1.minusDays(1), null, null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.end-before-start"));
             verify(tripRepository, never()).saveAndFlush(any());
-            verify(tripDayService, never()).reconcileDays(any(), any(), any());
+            verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
         }
 
         @Test
         void validatesNewStartDateAgainstStoredEndDate() {
             // Moving start 70 days earlier makes the stored range 73 days long
-            assertThatThrownBy(() -> tripService.update(TRIP_ID,
-                    updateRequest(null, OCT_1.minusDays(70), null, null, null)))
+            assertThatThrownBy(() -> update(updateRequest(null, OCT_1.minusDays(70), null, null, null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.too-long", 60));
         }
 
         @Test
         void validatesCoordinatesOnMergedState() {
-            assertThatThrownBy(() -> tripService.update(TRIP_ID,
-                    updateRequest(null, null, null, new BigDecimal("16.46"), null)))
+            assertThatThrownBy(() -> update(updateRequest(null, null, null, new BigDecimal("16.46"), null)))
                     .satisfies(ex -> assertSingleViolation(ex, "destinationLng", "error.trip.coordinates-incomplete"));
         }
 
@@ -349,6 +367,11 @@ class TripServiceTest {
             verifyNoInteractions(tripRepository);
         }
 
+    }
+
+    /** The default case of the endpoint: force = false. */
+    private TripResponse update(UpdateTripRequest request) {
+        return tripService.update(TRIP_ID, request, false);
     }
 
     private static void assertSingleViolation(Throwable ex, String field, String messageKey, Object... args) {

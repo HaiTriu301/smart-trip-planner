@@ -14,6 +14,7 @@ import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
+import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.support.TestUsers;
@@ -45,11 +46,15 @@ class TripDayServiceTest {
     @Mock
     private TripRepository tripRepository;
 
+    @Mock
+    private ActivityRepository activityRepository;
+
     private TripDayService tripDayService;
 
     @BeforeEach
     void setUp() {
-        tripDayService = new TripDayService(tripDayRepository, tripRepository, Mappers.getMapper(TripDayMapper.class));
+        tripDayService = new TripDayService(tripDayRepository, tripRepository, activityRepository,
+                Mappers.getMapper(TripDayMapper.class));
     }
 
     @Nested

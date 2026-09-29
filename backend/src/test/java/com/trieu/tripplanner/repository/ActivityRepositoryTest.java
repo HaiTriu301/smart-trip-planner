@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.dto.internal.DroppedActivities;
 import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
@@ -73,6 +74,52 @@ class ActivityRepositoryTest {
         entityManager.flush();
 
         assertThat(activityRepository.findMaxOrderIndexByTripDayId(dayOne.getId())).isEqualTo(3000);
+    }
+
+    // ---- countInDaysOutsideRange (rule 14.3) ------------------------------------------------------------------
+
+    @Test
+    void countsActivitiesOfTheDaysOutsideTheRange() {
+        TripDay dayThree = entityManager.persist(
+                TripDay.builder().trip(dayOne.getTrip()).dayIndex(3).date(OCT_1.plusDays(2)).build());
+        entityManager.persist(activity(dayOne, "Giữ lại", 1000));
+        entityManager.persist(activity(dayTwo, "Mất 1", 1000));
+        entityManager.persist(activity(dayTwo, "Mất 2", 2000));
+        entityManager.persist(activity(dayThree, "Mất 3", 1000));
+        entityManager.flush();
+        Long tripId = dayOne.getTrip().getId();
+
+        // keep 01/10 only → 02/10 and 03/10 are cut
+        assertThat(activityRepository.countInDaysOutsideRange(tripId, OCT_1, OCT_1))
+                .isEqualTo(new DroppedActivities(2, 3));
+        // keep 02/10..03/10 → 01/10 is cut
+        assertThat(activityRepository.countInDaysOutsideRange(tripId, OCT_1.plusDays(1), OCT_1.plusDays(2)))
+                .isEqualTo(new DroppedActivities(1, 1));
+        // the range covers every day → nothing is cut
+        assertThat(activityRepository.countInDaysOutsideRange(tripId, OCT_1, OCT_1.plusDays(2)))
+                .isEqualTo(new DroppedActivities(0, 0));
+    }
+
+    @Test
+    void countIsZeroWhenTheCutDaysAreEmptyOrBelongToAnotherTrip() {
+        Trip otherTrip = entityManager.persist(Trip.builder()
+                .owner(owner)
+                .title("Huế")
+                .slug("hue-ghi789")
+                .startDate(OCT_1)
+                .endDate(OCT_1.plusDays(1))
+                .build());
+        TripDay otherDay = entityManager.persist(
+                TripDay.builder().trip(otherTrip).dayIndex(2).date(OCT_1.plusDays(1)).build());
+        entityManager.persist(activity(dayOne, "Giữ lại", 1000));
+        entityManager.persist(activity(otherDay, "Chuyến khác", 1000));
+        entityManager.flush();
+
+        // 02/10 of this trip is cut and empty; the activity on 02/10 of the other trip must not be counted
+        DroppedActivities dropped = activityRepository.countInDaysOutsideRange(dayOne.getTrip().getId(), OCT_1, OCT_1);
+
+        assertThat(dropped).isEqualTo(new DroppedActivities(0, 0));
+        assertThat(dropped.isEmpty()).isTrue();
     }
 
     // ---- findByIdAndTripId ------------------------------------------------------------------------------------

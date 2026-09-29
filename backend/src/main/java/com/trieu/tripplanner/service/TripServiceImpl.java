@@ -102,7 +102,7 @@ public class TripServiceImpl implements TripService {
 
     @Override
     @Transactional
-    public TripResponse update(Long tripId, UpdateTripRequest request) {
+    public TripResponse update(Long tripId, UpdateTripRequest request, boolean force) {
         Trip trip = findTrip(tripId);
         LocalDate oldStart = trip.getStartDate();
         LocalDate oldEnd = trip.getEndDate();
@@ -116,7 +116,7 @@ public class TripServiceImpl implements TripService {
 
         // Same transaction: the trip's new dates and its days are committed together (rule 14.3)
         if (!trip.getStartDate().equals(oldStart) || !trip.getEndDate().equals(oldEnd)) {
-            tripDayService.reconcileDays(trip, oldStart, oldEnd);
+            tripDayService.reconcileDays(trip, oldStart, oldEnd, force);
         }
 
         // Flush now so the response carries the incremented version and updatedAt

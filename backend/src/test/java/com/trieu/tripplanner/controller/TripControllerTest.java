@@ -2,6 +2,7 @@ package com.trieu.tripplanner.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.common.PageResponse;
+import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
@@ -19,6 +21,7 @@ import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
@@ -249,7 +252,7 @@ class TripControllerTest {
     @Test
     void updateReturnsTripWhenEditAllowed() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(tripService.update(eq(TRIP_ID), any())).thenReturn(sampleTrip());
+        when(tripService.update(eq(TRIP_ID), any(), eq(false))).thenReturn(sampleTrip());
 
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -260,7 +263,7 @@ class TripControllerTest {
                 .bodyJson().extractingPath("$.data.id").isEqualTo(5);
 
         ArgumentCaptor<UpdateTripRequest> request = ArgumentCaptor.forClass(UpdateTripRequest.class);
-        verify(tripService).update(eq(TRIP_ID), request.capture());
+        verify(tripService).update(eq(TRIP_ID), request.capture(), eq(false));
         assertThat(request.getValue().title()).isEqualTo("Da Lat moi");
         assertThat(request.getValue().visibility()).isEqualTo(TripVisibility.LINK);
         assertThat(request.getValue().startDate()).isNull(); // omitted fields stay null → "keep current value"
@@ -276,7 +279,7 @@ class TripControllerTest {
                         { "title": "Hack" }
                         """))
                 .hasStatus(HttpStatus.FORBIDDEN);
-        verify(tripService, never()).update(any(), any());
+        verify(tripService, never()).update(any(), any(), anyBoolean());
     }
 
     @Test
@@ -293,7 +296,57 @@ class TripControllerTest {
                         { "errorCode": "VALIDATION_ERROR",
                           "details": [ { "field": "title", "message": "Tên chuyến đi không được để trống" } ] }
                         """);
-        verify(tripService, never()).update(any(), any());
+        verify(tripService, never()).update(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void updateReturns409WhenDatesCutDaysThatHoldActivities() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripService.update(eq(TRIP_ID), any(), eq(false)))
+                .thenThrow(new BusinessRuleException(ErrorCode.TRIP_DAY_HAS_ACTIVITIES,
+                        "New range 2026-10-01..2026-10-02 of trip 5 drops 1 days holding 2 activities",
+                        List.of(FieldViolation.of("force", "error.trip.dropped-activities", "2", "1"))));
+
+        assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "endDate": "2026-10-02" }
+                        """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "TRIP_DAY_HAS_ACTIVITIES",
+                          "message": "Đổi ngày sẽ xoá những ngày đang có hoạt động",
+                          "details": [ { "field": "force",
+                                         "message": "2 hoạt động trong 1 ngày sẽ bị xoá nếu đổi ngày" } ] }
+                        """);
+    }
+
+    @Test
+    void updateWithForcePassesTheFlagToTheService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripService.update(eq(TRIP_ID), any(), eq(true))).thenReturn(sampleTrip());
+
+        assertThat(mvc.patch().uri(TRIP_URL + "?force=true").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "endDate": "2026-10-02" }
+                        """))
+                .hasStatusOk();
+        verify(tripService).update(eq(TRIP_ID), any(), eq(true));
+    }
+
+    @Test
+    void updateWithForceThatIsNotABooleanReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.patch().uri(TRIP_URL + "?force=yes-please").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "endDate": "2026-10-02" }
+                        """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verify(tripService, never()).update(any(), any(), anyBoolean());
     }
 
     // ---- DELETE /trips/{id} ----------------------------------------------------------------------------------

@@ -41,10 +41,14 @@ public interface TripService {
     /**
      * Partial update; rules are checked on the merged result. The slug and status never change here.
      *
+     * @param force true: the user confirmed that days cut by the new dates may be deleted together with their
+     *              activities (design.md rule 14.3). Has no effect when no day holding activities is cut
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
-     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged state (400)
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged state (400); the new dates
+     *                                                                   cut a day that holds activities and
+     *                                                                   force is false (409), nothing is saved
      */
-    TripResponse update(Long tripId, UpdateTripRequest request);
+    TripResponse update(Long tripId, UpdateTripRequest request, boolean force);
 
     /**
      * Soft delete (design.md 14.8): the row keeps existing with deleted_at set.
