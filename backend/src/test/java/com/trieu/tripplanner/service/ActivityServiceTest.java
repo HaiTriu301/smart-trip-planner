@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atLeastOnce;
@@ -96,6 +97,58 @@ class ActivityServiceTest {
         ReflectionTestUtils.setField(trip, "id", TRIP_ID);
         day = TripDay.builder().trip(trip).dayIndex(1).date(OCT_1).build();
         ReflectionTestUtils.setField(day, "id", DAY_ID);
+    }
+
+    @Nested
+    class ListOfDay {
+
+        @Test
+        void returnsTheActivitiesOfTheDayInRepositoryOrder() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.of(day));
+            when(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(DAY_ID)).thenReturn(List.of(
+                    existing(31L, "Ăn sáng", "09:00", "10:00"),
+                    existing(32L, "Cà phê", "10:00", "11:00")));
+
+            List<ActivityResponse> responses = activityService.list(TRIP_ID, DAY_ID);
+
+            assertThat(responses)
+                    .extracting(ActivityResponse::id, ActivityResponse::dayId, ActivityResponse::title,
+                            ActivityResponse::startTime, ActivityResponse::createdById)
+                    .containsExactly(
+                            tuple(31L, DAY_ID, "Ăn sáng", NINE, USER_ID),
+                            tuple(32L, DAY_ID, "Cà phê", TEN, USER_ID));
+        }
+
+        @Test
+        void dayWithoutActivitiesGivesAnEmptyList() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.of(day));
+
+            assertThat(activityService.list(TRIP_ID, DAY_ID)).isEmpty();
+        }
+
+        @Test
+        void missingOrDeletedTripIsNotFoundAndNothingElseIsQueried() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> activityService.list(TRIP_ID, DAY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(tripDayRepository, activityRepository);
+        }
+
+        @Test
+        void dayOfAnotherTripIsNotFoundAndActivitiesAreNotQueried() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> activityService.list(TRIP_ID, DAY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("TripDay");
+            verifyNoInteractions(activityRepository);
+        }
+
     }
 
     @Nested

@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import java.util.List;
 
 /**
  * Activities of a trip day (design.md 10.2 "Itinerary", rules 14.4 and 14.5). Permission checks are NOT done
@@ -9,6 +10,14 @@ import com.trieu.tripplanner.dto.response.ActivityResponse;
  * answer 404 when the trip, the day or the activity cannot be reached through the ids of the URL.
  */
 public interface ActivityService {
+
+    /**
+     * Activities of one day in display order (orderIndex, then id).
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or the day
+     *                                                                   belongs to another trip (404)
+     */
+    List<ActivityResponse> list(Long tripId, Long dayId);
 
     /**
      * Adds an activity at the end of the day: orderIndex = highest index of the day + 1000.

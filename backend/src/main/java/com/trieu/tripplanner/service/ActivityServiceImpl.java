@@ -42,6 +42,14 @@ public class ActivityServiceImpl implements ActivityService {
     private final ActivityMapper activityMapper;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ActivityResponse> list(Long tripId, Long dayId) {
+        requireLiveTrip(tripId);
+        findDayOfTrip(dayId, tripId);
+        return activityMapper.toResponses(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayId));
+    }
+
+    @Override
     @Transactional
     public ActivityResponse create(Long tripId, Long dayId, Long userId, CreateActivityRequest request,
                                    boolean allowOverlap) {
@@ -83,6 +91,13 @@ public class ActivityServiceImpl implements ActivityService {
     private Trip findLiveTrip(Long tripId) {
         return tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(TRIP, tripId));
+    }
+
+    // Same guard as findLiveTrip for callers that do not need the trip itself: one cheap EXISTS query
+    private void requireLiveTrip(Long tripId) {
+        if (!tripRepository.existsById(tripId)) {
+            throw new ResourceNotFoundException(TRIP, tripId);
+        }
     }
 
     // Empty when the day belongs to another trip: permission was checked on the trip of the URL only

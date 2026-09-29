@@ -71,6 +71,78 @@ class ActivityControllerTest {
         bearer = "Bearer " + jwtTokenProvider.generateAccessToken(TestUsers.verified(USER_ID, "an@example.com")).token();
     }
 
+    // ---- GET /trips/{tripId}/days/{dayId}/activities ---------------------------------------------------------
+
+    @Test
+    void listReturnsActivitiesInOrderWhenViewAllowed() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        Instant now = Instant.parse("2026-09-29T10:00:00Z");
+        when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of(
+                sampleActivity(),
+                new ActivityResponse(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
+                        null, USER_ID, 0L, now, now)));
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": [ { "id": 21, "title": "An trua", "startTime": "11:30", "endTime": "13:00",
+                                      "orderIndex": 1000 },
+                                    { "id": 22, "title": "Dạo hồ", "type": "OTHER", "startTime": null,
+                                      "endTime": null, "orderIndex": 2000 } ] }
+                        """);
+    }
+
+    @Test
+    void listOfAnEmptyDayReturnsAnEmptyArray() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of());
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": [] }
+                        """);
+    }
+
+    @Test
+    void listWithoutTokenReturns401() {
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void listReturns403WhenViewDeniedAndNeverReachesService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void listIsGuardedByViewPermissionNotEditPermission() {
+        // A viewer (Phase 4) may read the itinerary without being allowed to change it
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+        when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of());
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer)).hasStatusOk();
+    }
+
+    @Test
+    void listReturns404WhenDayIsNotInTheTrip() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.list(TRIP_ID, DAY_ID)).thenThrow(new ResourceNotFoundException("TripDay", DAY_ID));
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
     // ---- POST /trips/{tripId}/days/{dayId}/activities --------------------------------------------------------
 
     @Test

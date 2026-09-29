@@ -2,6 +2,7 @@ package com.trieu.tripplanner.mapper;
 
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.model.Activity;
+import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -18,5 +19,7 @@ public interface ActivityMapper {
     @Mapping(target = "dayId", source = "tripDay.id")
     @Mapping(target = "createdById", source = "createdBy.id")
     ActivityResponse toResponse(Activity activity);
+
+    List<ActivityResponse> toResponses(List<Activity> activities);
 
 }

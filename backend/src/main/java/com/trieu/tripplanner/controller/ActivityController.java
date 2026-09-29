@@ -8,10 +8,12 @@ import com.trieu.tripplanner.service.ActivityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +33,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class ActivityController {
 
     private final ActivityService activityService;
+
+    @Operation(summary = "Danh sách hoạt động của một ngày",
+               description = "Sắp theo thứ tự hiển thị (orderIndex). 403 nếu không có quyền xem, 404 nếu chuyến đi "
+                       + "không tồn tại hoặc ngày không thuộc chuyến đi.")
+    @GetMapping("/days/{dayId}/activities")
+    @PreAuthorize("@tripPermission.canView(#tripId, principal)")
+    public ApiResponse<List<ActivityResponse>> list(@PathVariable Long tripId, @PathVariable Long dayId) {
+        return ApiResponse.ok(activityService.list(tripId, dayId));
+    }
 
     @Operation(summary = "Thêm hoạt động vào một ngày",
                description = "Hoạt động mới nằm cuối ngày. Giờ dạng HH:mm, được để trống. Có giờ kết thúc thì phải có "

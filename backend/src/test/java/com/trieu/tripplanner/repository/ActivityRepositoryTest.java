@@ -75,6 +75,42 @@ class ActivityRepositoryTest {
         assertThat(activityRepository.findMaxOrderIndexByTripDayId(dayOne.getId())).isEqualTo(3000);
     }
 
+    // ---- findByTripDayIdOrderByOrderIndexAscIdAsc (display order) ---------------------------------------------
+
+    @Test
+    void listReturnsOnlyThatDayInDisplayOrder() {
+        // Inserted out of order on purpose; times must not influence the order, only order_index does
+        entityManager.persist(Activity.builder().tripDay(dayOne).title("Thứ ba").orderIndex(3000)
+                .startTime(LocalTime.parse("07:00")).endTime(LocalTime.parse("08:00")).createdBy(owner).build());
+        entityManager.persist(activity(dayOne, "Thứ nhất", 1000));
+        entityManager.persist(activity(dayTwo, "Ngày khác", 500));
+        entityManager.persist(activity(dayOne, "Thứ hai", 1500));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayOne.getId()))
+                .extracting(Activity::getTitle, Activity::getOrderIndex)
+                .containsExactly(tuple("Thứ nhất", 1000), tuple("Thứ hai", 1500), tuple("Thứ ba", 3000));
+    }
+
+    @Test
+    void listBreaksATieOnOrderIndexByAge() {
+        // What two simultaneous inserts can produce: the same index twice
+        entityManager.persist(activity(dayOne, "Tạo trước", 1000));
+        entityManager.persist(activity(dayOne, "Tạo sau", 1000));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayOne.getId()))
+                .extracting(Activity::getTitle)
+                .containsExactly("Tạo trước", "Tạo sau");
+    }
+
+    @Test
+    void listIsEmptyForADayWithoutActivities() {
+        assertThat(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayOne.getId())).isEmpty();
+    }
+
     // ---- findTimedByTripDayId (candidates for the overlap check, rule 14.4) -----------------------------------
 
     @Test

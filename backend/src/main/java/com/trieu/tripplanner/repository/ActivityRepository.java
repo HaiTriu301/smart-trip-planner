@@ -33,4 +33,10 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             order by a.startTime, a.id""")
     List<Activity> findTimedByTripDayId(@Param("dayId") Long dayId);
 
+    /**
+     * Activities of the day in display order. Served by idx_activities_day_order (trip_day_id, order_index).
+     * The id breaks the tie when two activities share an index (two simultaneous inserts): the older one first.
+     */
+    List<Activity> findByTripDayIdOrderByOrderIndexAscIdAsc(Long dayId);
+
 }
