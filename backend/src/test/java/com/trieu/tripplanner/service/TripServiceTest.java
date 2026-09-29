@@ -26,17 +26,16 @@ import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.exception.SlugGenerationException;
-import com.trieu.tripplanner.dto.response.TripDayResponse;
+import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
-import com.trieu.tripplanner.mapper.TripDayMapperImpl;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.mapper.TripMapperImpl;
-import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
-import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.support.TestUsers;
@@ -82,18 +81,14 @@ class TripServiceTest {
     @Mock
     private TripDayService tripDayService;
 
-    @Mock
-    private TripDayRepository tripDayRepository;
-
-    // Real generated mappers; TripMapperImpl takes TripDayMapper through its constructor
-    private final TripMapper tripMapper = new TripMapperImpl(new TripDayMapperImpl());
+    // Real generated mapper
+    private final TripMapper tripMapper = new TripMapperImpl();
 
     private TripServiceImpl tripService;
 
     @BeforeEach
     void setUp() {
-        tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator, tripDayService,
-                tripDayRepository);
+        tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator, tripDayService);
     }
 
     @Nested
@@ -298,29 +293,30 @@ class TripServiceTest {
     class ReadAndDelete {
 
         @Test
-        void getReturnsTheTripWithItsDaysInCalendarOrder() {
+        void getReturnsTheTripWithItsDaysAndTheirActivities() {
             Trip trip = withId(minimalTrip(), TRIP_ID);
+            ActivityResponse breakfast = new ActivityResponse(21L, 11L, "Ăn sáng", ActivityType.FOOD, null, null,
+                    1000, null, null, null, null, USER_ID, 0L, null, null);
+            List<TripDayDetailResponse> days = List.of(
+                    new TripDayDetailResponse(11L, 1, OCT_1, "Đến nơi", null, List.of(breakfast)),
+                    new TripDayDetailResponse(12L, 2, OCT_1.plusDays(1), null, null, List.of()));
             when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
-            when(tripDayRepository.findByTripIdOrderByDate(TRIP_ID)).thenReturn(List.of(
-                    dayWithId(TripDay.builder().trip(trip).dayIndex(1).date(OCT_1).title("Đến nơi").build(), 11L),
-                    dayWithId(TripDay.builder().trip(trip).dayIndex(2).date(OCT_1.plusDays(1)).build(), 12L)));
+            when(tripDayService.listWithActivities(TRIP_ID)).thenReturn(days);
 
             TripDetailResponse detail = tripService.get(TRIP_ID);
 
             assertThat(detail.id()).isEqualTo(TRIP_ID);
             assertThat(detail.ownerId()).isEqualTo(USER_ID);
             assertThat(detail.title()).isEqualTo("Huế");
-            assertThat(detail.days()).containsExactly(
-                    new TripDayResponse(11L, 1, OCT_1, "Đến nơi", null),
-                    new TripDayResponse(12L, 2, OCT_1.plusDays(1), null, null));
+            assertThat(detail.days()).isEqualTo(days);
         }
 
         @Test
-        void getMissingTripThrowsNotFoundWithoutLoadingDays() {
+        void getMissingTripThrowsNotFoundWithoutLoadingDaysOrActivities() {
             when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> tripService.get(TRIP_ID)).isInstanceOf(ResourceNotFoundException.class);
-            verify(tripDayRepository, never()).findByTripIdOrderByDate(any());
+            verify(tripDayService, never()).listWithActivities(any());
         }
 
         @Test
@@ -394,11 +390,6 @@ class TripServiceTest {
     private static Trip minimalTrip() {
         User owner = TestUsers.verified(USER_ID, "owner@example.com");
         return Trip.builder().owner(owner).title("Huế").slug("hue-abc123").startDate(OCT_1).endDate(OCT_1).build();
-    }
-
-    private static TripDay dayWithId(TripDay day, long id) {
-        ReflectionTestUtils.setField(day, "id", id);
-        return day;
     }
 
     /** BaseEntity has no id setter on purpose; tests set it the way Hibernate would. */

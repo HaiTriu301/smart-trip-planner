@@ -16,13 +16,15 @@ import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
-import com.trieu.tripplanner.dto.response.TripDayResponse;
+import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
 import com.trieu.tripplanner.security.CustomUserDetails;
@@ -33,6 +35,7 @@ import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -211,8 +214,14 @@ class TripControllerTest {
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": true,
                           "data": { "id": 5, "title": "Đà Lạt 3 ngày", "slug": "da-lat-x7k2qp",
-                                    "days": [ { "id": 11, "dayIndex": 1, "date": "2026-10-01", "title": "Đến nơi" },
-                                              { "id": 12, "dayIndex": 2, "date": "2026-10-02", "title": null } ] } }
+                                    "days": [ { "id": 11, "dayIndex": 1, "date": "2026-10-01", "title": "Đến nơi",
+                                                "activities": [
+                                                  { "id": 21, "dayId": 11, "title": "Ăn sáng", "type": "FOOD",
+                                                    "startTime": "09:00", "endTime": "10:00", "orderIndex": 1000 },
+                                                  { "id": 22, "dayId": 11, "title": "Dạo hồ", "startTime": null,
+                                                    "orderIndex": 2000 } ] },
+                                              { "id": 12, "dayIndex": 2, "date": "2026-10-02", "title": null,
+                                                "activities": [] } ] } }
                         """);
 
         // The evaluator receives the principal built from the token, not something from the request
@@ -377,8 +386,17 @@ class TripControllerTest {
                 null, null, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), null,
                 "VND", TripStatus.DRAFT, TripVisibility.PRIVATE, 0L,
                 Instant.parse("2026-09-26T10:00:00Z"), Instant.parse("2026-09-26T10:00:00Z"),
-                List.of(new TripDayResponse(11L, 1, LocalDate.of(2026, 10, 1), "Đến nơi", null),
-                        new TripDayResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null)));
+                List.of(new TripDayDetailResponse(11L, 1, LocalDate.of(2026, 10, 1), "Đến nơi", null, List.of(
+                                activity(21L, "Ăn sáng", ActivityType.FOOD, LocalTime.of(9, 0), LocalTime.of(10, 0), 1000),
+                                activity(22L, "Dạo hồ", ActivityType.OTHER, null, null, 2000))),
+                        new TripDayDetailResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null, List.of())));
+    }
+
+    private static ActivityResponse activity(long id, String title, ActivityType type, LocalTime start, LocalTime end,
+                                             int orderIndex) {
+        Instant now = Instant.parse("2026-09-29T10:00:00Z");
+        return new ActivityResponse(id, 11L, title, type, start, end, orderIndex, null, null, null, null, USER_ID, 0L,
+                now, now);
     }
 
     private static TripResponse sampleTrip() {

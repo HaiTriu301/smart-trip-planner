@@ -11,6 +11,7 @@ import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -120,6 +121,40 @@ class ActivityRepositoryTest {
 
         assertThat(dropped).isEqualTo(new DroppedActivities(0, 0));
         assertThat(dropped.isEmpty()).isTrue();
+    }
+
+    // ---- findByTripIdInDisplayOrder (trip detail) -------------------------------------------------------------
+
+    @Test
+    void findByTripIdReturnsEveryActivityOfTheTripInDisplayOrderAndNothingElse() {
+        Trip otherTrip = entityManager.persist(Trip.builder()
+                .owner(owner)
+                .title("Huế")
+                .slug("hue-jkl012")
+                .startDate(OCT_1)
+                .endDate(OCT_1)
+                .build());
+        TripDay otherDay = entityManager.persist(
+                TripDay.builder().trip(otherTrip).dayIndex(1).date(OCT_1).build());
+        // Inserted out of order on purpose, days interleaved
+        entityManager.persist(activity(dayTwo, "Ngày 2 - thứ hai", 2000));
+        entityManager.persist(activity(dayOne, "Ngày 1 - thứ hai", 2000));
+        entityManager.persist(activity(otherDay, "Chuyến khác", 500));
+        entityManager.persist(activity(dayOne, "Ngày 1 - thứ nhất", 1000));
+        entityManager.persist(activity(dayTwo, "Ngày 2 - thứ nhất", 1000));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Activity> activities = activityRepository.findByTripIdInDisplayOrder(dayOne.getTrip().getId());
+
+        // Grouped by day afterwards, so only the order inside each day matters
+        assertThat(activities).filteredOn(a -> a.getTripDay().getId().equals(dayOne.getId()))
+                .extracting(Activity::getTitle)
+                .containsExactly("Ngày 1 - thứ nhất", "Ngày 1 - thứ hai");
+        assertThat(activities).filteredOn(a -> a.getTripDay().getId().equals(dayTwo.getId()))
+                .extracting(Activity::getTitle)
+                .containsExactly("Ngày 2 - thứ nhất", "Ngày 2 - thứ hai");
+        assertThat(activities).hasSize(4);
     }
 
     // ---- findByIdAndTripId ------------------------------------------------------------------------------------

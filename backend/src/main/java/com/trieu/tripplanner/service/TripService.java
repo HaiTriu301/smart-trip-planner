@@ -32,7 +32,8 @@ public interface TripService {
     TripResponse create(Long userId, CreateTripRequest request);
 
     /**
-     * The trip with its days in calendar order (design.md 10.2): two queries whatever the number of days.
+     * The trip with its days in calendar order and the activities of each day in display order
+     * (design.md 10.2): three queries whatever the number of days and activities.
      *
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
      */

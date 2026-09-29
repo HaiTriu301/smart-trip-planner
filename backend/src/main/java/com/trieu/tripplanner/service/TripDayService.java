@@ -3,10 +3,13 @@ package com.trieu.tripplanner.service;
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.internal.DroppedActivities;
 import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
+import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.mapper.ActivityMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
@@ -42,6 +45,7 @@ public class TripDayService {
     private final TripRepository tripRepository;
     private final ActivityRepository activityRepository;
     private final TripDayMapper tripDayMapper;
+    private final ActivityMapper activityMapper;
 
     /**
      * Creates day 1..n for every date from start to end inclusive (rule 14.2). MANDATORY: it must run inside the
@@ -155,6 +159,24 @@ public class TripDayService {
     public List<TripDayResponse> list(Long tripId) {
         requireLiveTrip(tripId);
         return tripDayMapper.toResponses(tripDayRepository.findByTripIdOrderByDate(tripId));
+    }
+
+    /**
+     * Days of the trip in calendar order, each with its activities in display order: the itinerary part of the
+     * trip detail. Two queries whatever the number of days and activities; the activities are grouped by day in
+     * memory. The trip itself is not checked here: the caller (TripService.get) has just loaded it.
+     */
+    @Transactional(readOnly = true)
+    public List<TripDayDetailResponse> listWithActivities(Long tripId) {
+        List<TripDay> days = tripDayRepository.findByTripIdOrderByDate(tripId);
+        // groupingBy keeps the order of the query inside each day
+        Map<Long, List<ActivityResponse>> activitiesByDay =
+                activityRepository.findByTripIdInDisplayOrder(tripId).stream()
+                        .collect(Collectors.groupingBy(activity -> activity.getTripDay().getId(),
+                                Collectors.mapping(activityMapper::toResponse, Collectors.toList())));
+        return days.stream()
+                .map(day -> tripDayMapper.toDetail(day, activitiesByDay.getOrDefault(day.getId(), List.of())))
+                .toList();
     }
 
     /**

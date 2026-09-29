@@ -43,6 +43,13 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findByTripDayIdOrderByOrderIndexAscIdAsc(Long dayId);
 
     /**
+     * Every activity of the trip in one query, in display order inside each day: the trip detail groups them by
+     * day in memory instead of asking once per day (no N+1). trips is not joined, trip_days only for the filter.
+     */
+    @Query("select a from Activity a where a.tripDay.trip.id = :tripId order by a.orderIndex, a.id")
+    List<Activity> findByTripIdInDisplayOrder(@Param("tripId") Long tripId);
+
+    /**
      * Empty when the activity belongs to another trip, so /trips/1/activities/{activity of trip 2} answers 404.
      * The trip id is read from trip_days; the trips table is not joined.
      */

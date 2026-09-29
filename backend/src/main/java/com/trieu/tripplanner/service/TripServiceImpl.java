@@ -14,7 +14,6 @@ import com.trieu.tripplanner.exception.SlugGenerationException;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.enums.TripVisibility;
-import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.repository.spec.TripSpecifications;
@@ -51,7 +50,6 @@ public class TripServiceImpl implements TripService {
     private final TripMapper tripMapper;
     private final SlugGenerator slugGenerator;
     private final TripDayService tripDayService;
-    private final TripDayRepository tripDayRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -96,8 +94,8 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public TripDetailResponse get(Long tripId) {
         Trip trip = findTrip(tripId);
-        // Days by trip_id in one query (uk_trip_days_trip_date) instead of a lazy collection per trip
-        return tripMapper.toDetail(trip, tripDayRepository.findByTripIdOrderByDate(tripId));
+        // Days and activities by trip id, one query each, instead of lazy collections per trip and per day
+        return tripMapper.toDetail(trip, tripDayService.listWithActivities(tripId));
     }
 
     @Override
