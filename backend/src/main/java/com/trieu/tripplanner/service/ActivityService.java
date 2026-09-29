@@ -13,13 +13,17 @@ public interface ActivityService {
     /**
      * Adds an activity at the end of the day: orderIndex = highest index of the day + 1000.
      *
-     * @param tripId from the URL; the day must belong to it
-     * @param userId from the authenticated principal (CLAUDE.md rule 16), stored as the creator
+     * @param tripId       from the URL; the day must belong to it
+     * @param userId       from the authenticated principal (CLAUDE.md rule 16), stored as the creator
+     * @param allowOverlap true: the client confirmed that the activity may overlap another one (rule 14.4)
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or the day
      *                                                                   belongs to another trip (404)
      * @throws com.trieu.tripplanner.exception.BusinessRuleException     endTime without startTime, or endTime
-     *                                                                   not after startTime (400)
+     *                                                                   not after startTime (400); the time
+     *                                                                   range overlaps another activity of the
+     *                                                                   day and allowOverlap is false (409)
      */
-    ActivityResponse create(Long tripId, Long dayId, Long userId, CreateActivityRequest request);
+    ActivityResponse create(Long tripId, Long dayId, Long userId, CreateActivityRequest request,
+                            boolean allowOverlap);
 
 }

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,14 +35,16 @@ public class ActivityController {
     @Operation(summary = "Thêm hoạt động vào một ngày",
                description = "Hoạt động mới nằm cuối ngày. Giờ dạng HH:mm, được để trống. Có giờ kết thúc thì phải có "
                        + "giờ bắt đầu và kết thúc phải sau bắt đầu. Có chi phí mà không gửi currency thì lấy tiền tệ "
-                       + "của chuyến đi. 404 nếu ngày không thuộc chuyến đi.")
+                       + "của chuyến đi. 404 nếu ngày không thuộc chuyến đi. 409 ACTIVITY_TIME_CONFLICT nếu trùng giờ "
+                       + "với hoạt động khác trong ngày; gửi lại kèm allowOverlap=true để vẫn thêm.")
     @PostMapping("/days/{dayId}/activities")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
     public ApiResponse<ActivityResponse> create(@PathVariable Long tripId, @PathVariable Long dayId,
                                                 @AuthenticationPrincipal CustomUserDetails principal,
+                                                @RequestParam(defaultValue = "false") boolean allowOverlap,
                                                 @Valid @RequestBody CreateActivityRequest request) {
-        return ApiResponse.ok(activityService.create(tripId, dayId, principal.getId(), request));
+        return ApiResponse.ok(activityService.create(tripId, dayId, principal.getId(), request, allowOverlap));
     }
 
 }

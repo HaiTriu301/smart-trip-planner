@@ -7,10 +7,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -20,6 +22,7 @@ import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -73,7 +76,7 @@ class ActivityControllerTest {
     @Test
     void createReturns201AndCreatorComesFromToken() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any())).thenReturn(sampleActivity());
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(post("""
                 { "title": "An trua", "type": "FOOD", "startTime": "11:30", "endTime": "13:00",
@@ -88,7 +91,7 @@ class ActivityControllerTest {
                         """);
 
         ArgumentCaptor<CreateActivityRequest> request = ArgumentCaptor.forClass(CreateActivityRequest.class);
-        verify(activityService).create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), request.capture());
+        verify(activityService).create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), request.capture(), eq(false));
         assertThat(request.getValue().title()).isEqualTo("An trua");
         assertThat(request.getValue().type()).isEqualTo(ActivityType.FOOD);
         assertThat(request.getValue().startTime()).isEqualTo(LocalTime.of(11, 30));
@@ -99,7 +102,7 @@ class ActivityControllerTest {
     @Test
     void createAcceptsTimesWithSeconds() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any())).thenReturn(sampleActivity());
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(post("""
                 { "title": "An trua", "startTime": "11:30:00" }
@@ -177,7 +180,7 @@ class ActivityControllerTest {
     @Test
     void createRejectedByTimeRuleReturns400OnEndTime() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any()))
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
                 .thenThrow(BusinessRuleException.invalidField("endTime", "error.activity.end-not-after-start",
                         "Activity end time 09:00 is not after start time 10:00"));
 
@@ -192,9 +195,64 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createReturns409WhenTimesOverlapAndNamesTheOtherActivity() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
+                .thenThrow(new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
+                        "Activity 09:30-10:30 overlaps 1 activities of day 11, first is activity 31",
+                        List.of(FieldViolation.of("startTime", "error.activity.time-conflict-with",
+                                "Ăn sáng", "09:00", "10:00"))));
+
+        MvcTestResult result = post("""
+                { "title": "Ca phe", "startTime": "09:30", "endTime": "10:30" }
+                """);
+
+        assertThat(result)
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "ACTIVITY_TIME_CONFLICT",
+                          "message": "Hoạt động bị trùng giờ với một hoạt động khác trong ngày",
+                          "details": [ { "field": "startTime" } ] }
+                        """);
+        assertThat(result).bodyJson().extractingPath("$.details[0].message")
+                .isEqualTo("Trùng giờ với hoạt động \"Ăn sáng\" (09:00 - 10:00)");
+    }
+
+    @Test
+    void createWithAllowOverlapPassesTheFlagToTheService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(true)))
+                .thenReturn(sampleActivity());
+
+        assertThat(mvc.post().uri(DAY_ACTIVITIES_URL + "?allowOverlap=true")
+                .header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Ca phe", "startTime": "09:30", "endTime": "10:30" }
+                        """))
+                .hasStatus(HttpStatus.CREATED);
+        verify(activityService).create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(true));
+    }
+
+    @Test
+    void createWithAllowOverlapThatIsNotABooleanReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.post().uri(DAY_ACTIVITIES_URL + "?allowOverlap=maybe")
+                .header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Ca phe" }
+                        """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
     void createReturns404WhenDayIsNotInTheTrip() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any()))
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
                 .thenThrow(new ResourceNotFoundException("TripDay", DAY_ID));
 
         assertThat(post("""

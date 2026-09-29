@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.model.Activity;
@@ -8,6 +9,7 @@ import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +73,52 @@ class ActivityRepositoryTest {
         entityManager.flush();
 
         assertThat(activityRepository.findMaxOrderIndexByTripDayId(dayOne.getId())).isEqualTo(3000);
+    }
+
+    // ---- findTimedByTripDayId (candidates for the overlap check, rule 14.4) -----------------------------------
+
+    @Test
+    void timedReturnsOnlyActivitiesWithBothTimesOfThatDayEarliestFirst() {
+        // Inserted out of order on purpose
+        entityManager.persist(timed(dayOne, "Chiều", "14:00", "15:00"));
+        entityManager.persist(timed(dayOne, "Sáng", "09:00", "10:00"));
+        entityManager.persist(timed(dayOne, "Trưa", "11:30", "13:00"));
+        entityManager.persist(activity(dayOne, "Chưa xếp giờ", 1000));
+        entityManager.persist(Activity.builder().tripDay(dayOne).title("Chỉ có giờ bắt đầu").orderIndex(2000)
+                .startTime(LocalTime.parse("09:30")).createdBy(owner).build());
+        entityManager.persist(timed(dayTwo, "Ngày khác", "09:00", "10:00"));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(activityRepository.findTimedByTripDayId(dayOne.getId()))
+                .extracting(Activity::getTitle)
+                .containsExactly("Sáng", "Trưa", "Chiều");
+    }
+
+    @Test
+    void timedIsEmptyForADayWithoutTimedActivities() {
+        entityManager.persist(activity(dayOne, "Chưa xếp giờ", 1000));
+        entityManager.flush();
+
+        assertThat(activityRepository.findTimedByTripDayId(dayOne.getId())).isEmpty();
+    }
+
+    @Test
+    void timedReadsWallClockTimesBackUnshifted() {
+        // The overlap check compares these values in Java, so they must be exactly what the user typed
+        // (BUG-ACT-001, BUG-ACT-002): 03:00 must not come back as 20:00 on a +07:00 machine
+        entityManager.persist(timed(dayOne, "Săn mây", "03:00", "04:00"));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(activityRepository.findTimedByTripDayId(dayOne.getId()))
+                .extracting(Activity::getStartTime, Activity::getEndTime)
+                .containsExactly(tuple(LocalTime.of(3, 0), LocalTime.of(4, 0)));
+    }
+
+    private Activity timed(TripDay day, String title, String start, String end) {
+        return Activity.builder().tripDay(day).title(title).orderIndex(1000)
+                .startTime(LocalTime.parse(start)).endTime(LocalTime.parse(end)).createdBy(owner).build();
     }
 
     private Activity activity(TripDay day, String title, int orderIndex) {

@@ -1,8 +1,10 @@
 package com.trieu.tripplanner.service;
 
+import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.ActivityMapper;
 import com.trieu.tripplanner.model.Activity;
@@ -16,6 +18,7 @@ import com.trieu.tripplanner.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,13 +43,17 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     @Transactional
-    public ActivityResponse create(Long tripId, Long dayId, Long userId, CreateActivityRequest request) {
+    public ActivityResponse create(Long tripId, Long dayId, Long userId, CreateActivityRequest request,
+                                   boolean allowOverlap) {
         Trip trip = findLiveTrip(tripId);
         TripDay day = findDayOfTrip(dayId, tripId);
 
         LocalTime startTime = toMinutes(request.startTime());
         LocalTime endTime = toMinutes(request.endTime());
         validateTimeRange(startTime, endTime);
+        if (!allowOverlap) {
+            validateNoTimeConflict(dayId, startTime, endTime);
+        }
 
         Activity activity = Activity.builder()
                 .tripDay(day)
@@ -100,6 +107,39 @@ public class ActivityServiceImpl implements ActivityService {
             throw BusinessRuleException.invalidField("endTime", "error.activity.end-not-after-start",
                     "Activity end time %s is not after start time %s".formatted(endTime, startTime));
         }
+    }
+
+    /**
+     * design.md rule 14.4: two activities of one day must not overlap. Only activities with both times have a
+     * range, so an activity without an end time is never checked and never blocks another one.
+     * <p>
+     * Compared in Java on purpose, see {@link ActivityRepository#findTimedByTripDayId}.
+     */
+    private void validateNoTimeConflict(Long dayId, LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            return;
+        }
+        List<Activity> conflicts = activityRepository.findTimedByTripDayId(dayId).stream()
+                .filter(other -> overlaps(other, startTime, endTime))
+                .toList();
+        if (conflicts.isEmpty()) {
+            return;
+        }
+        // The earliest one is enough for the message; the client asks "add anyway?" and retries with allowOverlap
+        Activity first = conflicts.getFirst();
+        throw new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
+                "Activity %s-%s overlaps %d activities of day %d, first is activity %d"
+                        .formatted(startTime, endTime, conflicts.size(), dayId, first.getId()),
+                List.of(FieldViolation.of("startTime", "error.activity.time-conflict-with",
+                        first.getTitle(), first.getStartTime().toString(), first.getEndTime().toString())));
+    }
+
+    /**
+     * Half-open ranges [start, end): each one starts before the other ends. Ranges that only touch
+     * (09:00–10:00 and 10:00–11:00) do not overlap, so activities can follow each other without a gap.
+     */
+    static boolean overlaps(Activity other, LocalTime startTime, LocalTime endTime) {
+        return other.getStartTime().isBefore(endTime) && other.getEndTime().isAfter(startTime);
     }
 
     /** Times are shown as HH:mm (design.md 10.1), so seconds sent by a client are dropped, not stored. */
