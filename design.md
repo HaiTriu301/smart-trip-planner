@@ -730,7 +730,7 @@ Lỗi (`ErrorResponse`):
 | POST | `/days/{dayId}/activities` | Thêm activity | canEdit + quota |
 | PATCH | `/activities/{activityId}` | Sửa | canEdit |
 | DELETE | `/activities/{activityId}` | Xoá | canEdit |
-| PUT | `/activities/reorder` | `[{activityId, dayId, orderIndex}]` — batch, 1 transaction | canEdit |
+| PUT | `/activities/reorder` | `{items: [{activityId, dayId, orderIndex}]}` — batch, 1 transaction | canEdit |
 | GET | `/days/{dayId}/route` | Khoảng cách + thời gian giữa các activity theo thứ tự | canView |
 
 > **Quy ước sửa ngày** (chốt 2026-09-27, Task 2.2): `PATCH /days/{dayId}` body `{title, note}` — `title` ≤ 160 ký tự, `note` ≤ 5000 ký tự, cả hai được để trống. Field **không gửi hoặc `null` → giữ nguyên**; **`""` (chuỗi rỗng / chỉ khoảng trắng) → xoá**, lưu `NULL`. Khác PATCH của trip (không xoá được field) vì đặt / bỏ tiêu đề ngày là thao tác thường xuyên. `dayId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`.
@@ -746,6 +746,17 @@ Lỗi (`ErrorResponse`):
 > - **Trùng giờ** (rule 14.4): `?allowOverlap=true` là **query param** của `POST` và `PATCH` (mặc định `false`). Trùng → 409 `ACTIVITY_TIME_CONFLICT`, `details` ở field `startTime` nêu tên và giờ của activity bị trùng, không ghi gì. `PATCH` không so activity với chính nó, và **chỉ kiểm trùng khi khoảng giờ thật sự đổi** (giờ sau khi gộp khác giờ đang lưu): đổi tên hay ghi chú của một activity đã được lưu với `allowOverlap=true` không bị từ chối (chốt Task 2.3 mốc 5). Ngược lại, khoảng giờ đã đổi thì được kiểm với **mọi** activity khác, kể cả activity mà nó vốn đang trùng: một lần `allowOverlap=true` trước đó không miễn kiểm cho lần đổi giờ sau (chốt Task 2.3 mốc 9).
 > - `version`: `ActivityResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
 > - `DELETE` xoá cứng, trả `data: null`.
+>
+> **Quy ước Reorder** (chốt 2026-09-29, Task 2.4) — `PUT /activities/reorder`:
+> - Body là **object bọc mảng**: `{ "items": [ { "activityId", "dayId", "orderIndex" } ] }`, không phải mảng trần, để sau này thêm field mà không phá client cũ. Client chỉ gửi những activity **bị di chuyển**, không gửi cả ngày. `dayId` bằng ngày hiện tại → đổi thứ tự trong ngày; khác → chuyển sang ngày đó.
+> - Validate (400 `VALIDATION_ERROR`): `items` có 1–200 phần tử; cả ba field bắt buộc; `orderIndex` từ 1 đến 1.000.000.000; một `activityId` không xuất hiện hai lần trong cùng request.
+> - **Tất cả hoặc không gì cả**: một phần tử sai thì cả lô bị từ chối, không lưu phần tử nào (1 transaction).
+> - Mọi `activityId` và `dayId` phải thuộc `tripId` trên URL → nếu không, 404 `RESOURCE_NOT_FOUND` cho cả lô.
+> - **Trùng giờ khi chuyển ngày** (rule 14.4): activity có đủ giờ bắt đầu và kết thúc được chuyển sang ngày khác thì được kiểm trùng với các activity của **ngày đích**, kể cả những activity cùng được chuyển tới trong lô đó. Trùng → 409 `ACTIVITY_TIME_CONFLICT`; `?allowOverlap=true` (query param, mặc định `false`) bỏ qua. Đổi thứ tự **trong cùng ngày** không bao giờ bị kiểm, vì giờ không đổi.
+> - **Normalize** (rule 14.5): sau khi áp dụng cả lô, mỗi ngày bị ảnh hưởng được đo khoảng cách giữa các `orderIndex` liền kề, tính cả khoảng từ 0 tới activity đầu tiên. Có khoảng nào < 10 → đánh lại cả ngày 1000, 2000, 3000... theo thứ tự hiện tại (`orderIndex`, rồi `id`).
+> - **Không tăng `version`**: `orderIndex` và `tripDay` bị loại khỏi optimistic lock (`@OptimisticLock(excluded = true)`). Kéo thả, kể cả normalize, không làm `STALE_VERSION` cho người đang sửa nội dung activity (mục 11.3).
+> - Response: `data` là danh sách **các ngày bị ảnh hưởng** (ngày nguồn và ngày đích), mỗi phần tử là `TripDayDetailResponse` kèm `activities` theo thứ tự mới, để client nhận được cả `orderIndex` đã normalize.
+> - Hai người kéo thả cùng lúc: người ghi sau thắng; xử lý xung đột ở Task 5.3.
 
 **Place** `/api/v1/places`
 | GET | `/search?q=&lat=&lng=&limit=` | Autocomplete, có cache | Auth |
@@ -861,6 +872,7 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 ### 11.3. Chống ghi đè
 
 - Mỗi Activity có cột `version` (`@Version` — optimistic locking).
+- `version` chỉ bảo vệ **nội dung** của activity (tên, giờ, ghi chú, chi phí...). Vị trí (`order_index`, `trip_day_id`) đổi qua reorder **không** tăng `version` (chốt Task 2.4): kéo thả của người này không làm hỏng form đang sửa của người kia.
 - Client gửi kèm `version`; nếu lệch → 409 `STALE_VERSION`, client refetch.
 - Event broadcast **sau khi transaction commit** (dùng `@TransactionalEventListener(AFTER_COMMIT)`), tránh phát event cho dữ liệu bị rollback.
 - Không broadcast lại cho chính người gây thay đổi (so `sessionId`).
@@ -923,7 +935,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
    - Chỉ so giữa các activity có **đủ cả** `start_time` và `end_time`; activity không có giờ hoặc chỉ có giờ bắt đầu không tham gia kiểm tra.
    - Hai khoảng trùng khi `start_a < end_b` **và** `start_b < end_a`. Chạm đầu nhau (09:00–10:00 và 10:00–11:00) **không** tính là trùng.
    - Vi phạm → 409 `ACTIVITY_TIME_CONFLICT`. Áp dụng cho cả tạo mới và sửa; khi sửa không so với chính nó.
-5. `order_index` đánh số cách nhau 1000 (1000, 2000, 3000) để chèn giữa không phải đánh lại toàn bộ; khi khoảng cách < 10 thì normalize lại cả ngày.
+5. `order_index` đánh số cách nhau 1000 (1000, 2000, 3000) để chèn giữa không phải đánh lại toàn bộ; khi khoảng cách < 10 thì normalize lại cả ngày. Khoảng cách tính cả từ 0 tới activity đầu tiên (chèn liên tục lên đầu ngày: 1000 → 500 → 250...). Chi tiết ở 10.2 "Quy ước Reorder" (chốt Task 2.4).
 6. Không thể mời chính chủ sở hữu làm member.
 7. Không thể hạ role của OWNER; chuyển quyền sở hữu là hành động riêng.
 8. Xoá trip = soft delete; sau 30 ngày scheduler xoá cứng.

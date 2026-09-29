@@ -866,17 +866,34 @@ Mốc 9 — test(activity): add activity flow integration test
 
 Nhánh: `feat/T2.4-activity-reorder`
 
+Mỗi mốc là một commit, code + test cùng commit (quy ước A.2 "Chia commit"). Sau mỗi mốc cập nhật `docs/testing/05-activity.md` (phần J trở đi, mã từ `TC-ACT-112`).
+
 ```
 Mốc 1 — feat(activity): add batch reorder endpoint
-        ReorderActivitiesRequest List<{activityId, dayId, orderIndex}>, ActivityService.reorder() 1 transaction,
-        mọi activity/day phải thuộc trip trên URL, PUT /trips/{tripId}/activities/reorder (canEdit);
-        test: kéo activity từ ngày 1 sang ngày 2, thứ tự đúng sau khi reorder
+        ReorderActivitiesRequest { items: [{activityId, dayId, orderIndex}] }, Activity.moveTo +
+        @OptimisticLock(excluded = true) cho tripDay / orderIndex, ActivityService.reorder() 1 transaction,
+        mọi activity/day phải thuộc trip trên URL, PUT /trips/{tripId}/activities/reorder (canEdit),
+        response = các ngày bị ảnh hưởng kèm activities;
+        test: đổi thứ tự trong ngày, kéo activity từ ngày 1 sang ngày 2, lô sai thì không lưu gì, version không tăng
 
-Mốc 2 — feat(activity): normalize order index when the gap is too small
-        khoảng cách < 10 → đánh lại cả ngày 1000, 2000, 3000...; test
+Mốc 2 — feat(activity): reject time conflicts when an activity moves to another day
+        chuyển ngày → kiểm trùng giờ ở ngày đích (dùng lại overlaps), ?allowOverlap=true bỏ qua,
+        cùng ngày không kiểm; test: 409 ACTIVITY_TIME_CONFLICT, allowOverlap → 200
+
+Mốc 3 — feat(activity): normalize order index when the gap is too small
+        sau khi áp dụng lô: khoảng cách < 10 (tính cả từ 0 tới activity đầu) → đánh lại cả ngày 1000, 2000, 3000...;
+        test biên: khoảng 10 giữ nguyên, khoảng 9 đánh lại
+
+Mốc 4 — test(activity): add reorder flow integration test
 ```
 
 **Cơ chế orderIndex:** đánh số cách nhau 1000. Chèn giữa hai activity 1000 và 2000 → index 1500, không phải update cả danh sách. Khi khoảng cách < 10 thì normalize lại cả ngày.
+
+> **Quyết định khi duyệt bảng commit 2.4 (2026-09-29)** — chi tiết ở design.md 10.2 "Quy ước Reorder", 11.3, rule 14.5:
+> - Body là `{ "items": [...] }`, không phải mảng trần như bản design cũ.
+> - Chuyển activity sang ngày khác có kiểm trùng giờ ở ngày đích; `allowOverlap` là query param. Tách thành mốc riêng (Mốc 2).
+> - Reorder và normalize **không tăng `version`** của activity: `version` chỉ bảo vệ nội dung.
+> - Tách 2 mốc ban đầu thành 4: thêm mốc kiểm trùng giờ và mốc integration test.
 
 
 ---
