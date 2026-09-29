@@ -825,13 +825,22 @@ Mốc 6 — feat(activity): add activity delete endpoint
         DELETE /trips/{tripId}/activities/{activityId} (canEdit), test
 
 Mốc 7 — feat(trip): block date changes that drop days with activities
-        (chuyển từ 2.2) reconcileDays: ngày bị cắt có activity → bị chặn trừ khi force=true (mã lỗi chốt khi duyệt bảng commit 2.3); test QUAN TRỌNG
+        (chuyển từ 2.2) reconcileDays: ngày bị cắt có activity → 409 TRIP_DAY_HAS_ACTIVITIES trừ khi
+        PATCH /trips/{id}?force=true; test QUAN TRỌNG
 
 Mốc 8 — feat(trip): include activities in trip detail
-        GET /trips/{id} trả days + activities, kiểm số câu SQL (không N+1), test
+        GET /trips/{id} trả days + activities (TripDayDetailResponse), kiểm số câu SQL = 4 (không N+1), test
 
 Mốc 9 — test(activity): add activity flow integration test
 ```
+
+> **Quyết định khi duyệt bảng commit 2.3 (2026-09-29)** — chi tiết ở design.md 5.2 `activities`, 10.2 "Quy ước Activity API", 10.3, rule 14.3 và 14.4:
+> - Cắt ngày có activity → mã lỗi mới **409 `TRIP_DAY_HAS_ACTIVITIES`**; `force` là query param của `PATCH /trips/{id}`.
+> - `allowOverlap` là query param của `POST` / `PATCH` activity. Chỉ so trùng giữa activity có đủ giờ bắt đầu và kết thúc; chạm đầu nhau không tính là trùng.
+> - V7 **không có cột `place_id`** (bảng `places` chưa tồn tại); Task 3.2 thêm cột + FK bằng migration riêng.
+> - `PATCH` activity: `null` giữ nguyên, `""` xoá field văn bản (`note`, `bookingUrl`); chưa xoá trắng được giờ và chi phí.
+> - Activity xoá cứng; FK `trip_day_id` `ON DELETE CASCADE` nên `deleteOutsideRange` của Task 2.2 không phải sửa câu lệnh, chỉ thêm bước kiểm tra trước khi xoá.
+> - Quota 10 activity / ngày hoãn sang Task 6.1. `version` có trong response, kiểm `STALE_VERSION` ở Task 5.3.
 
 ---
 
@@ -924,6 +933,8 @@ Nhánh: `feat/T3.2-place-service`
 3. Activity thêm quan hệ tới Place
 4. controller/PlaceController: GET /places/search, POST /places/manual
 ```
+
+> **Từ Task 2.3 (2026-09-29):** bảng `activities` (V7) **chưa có cột `place_id`**. Bước 3 phải kèm migration `ALTER TABLE activities ADD COLUMN place_id ... + FK → places` (cùng file hoặc ngay sau migration tạo `places`), thêm `placeId` vào request / response của activity.
 
 **Commit:** `feat(place): add place search and snapshot persistence`
 

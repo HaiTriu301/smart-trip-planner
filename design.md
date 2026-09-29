@@ -401,20 +401,27 @@ Quy tắc (chốt 2026-09-27):
 #### `activities`
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
-| id | BIGINT PK | |
-| trip_day_id | BIGINT FK | |
-| place_id | BIGINT FK places | nullable |
-| title | VARCHAR(200) | |
-| type | ENUM | `SIGHTSEEING`, `FOOD`, `TRANSPORT`, `ACCOMMODATION`, `SHOPPING`, `OTHER` |
-| start_time / end_time | TIME | nullable, end > start |
-| order_index | INT | dùng cho drag-drop |
-| note | TEXT | |
-| cost_amount | DECIMAL(15,2) | |
-| currency | CHAR(3) | |
-| booking_url | VARCHAR(512) | |
-| created_by | BIGINT FK users | phục vụ realtime & audit |
+| id | BIGINT PK AI | |
+| trip_day_id | BIGINT FK → trip_days.id | NOT NULL, `ON DELETE CASCADE`: ngày bị xoá (cắt khoảng ngày với `force=true`, hoặc trip bị xoá cứng) thì activity đi theo |
+| place_id | BIGINT FK places | nullable. **Chưa có ở V7**: bảng `places` tới Task 3.2 mới tạo, cột này được thêm bằng migration riêng ở Task 3.2 (chốt 2026-09-29) |
+| title | VARCHAR(200) | NOT NULL, được trim khi lưu |
+| type | ENUM | `SIGHTSEEING`, `FOOD`, `TRANSPORT`, `ACCOMMODATION`, `SHOPPING`, `OTHER`; NOT NULL, mặc định `OTHER` |
+| start_time / end_time | TIME | nullable, end > start; có `end_time` thì phải có `start_time` |
+| order_index | INT | NOT NULL, dùng cho drag-drop (rule 14.5) |
+| note | TEXT | nullable, ≤ 5000 ký tự |
+| cost_amount | DECIMAL(15,2) | nullable, >= 0 |
+| currency | CHAR(3) | nullable; có `cost_amount` mà không gửi `currency` → lấy `currency` của trip |
+| booking_url | VARCHAR(512) | nullable |
+| created_by | BIGINT FK → users.id | NOT NULL, **không** `ON DELETE CASCADE` (cùng lý do với `trips.owner_id`); phục vụ realtime & audit |
+| version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking (mục 11.3, CLAUDE.md rule 22) |
+| created_at / updated_at | DATETIME(6) | từ BaseEntity |
 
 Index: `idx_activities_day_order(trip_day_id, order_index)`
+
+Quy tắc (chốt 2026-09-29, Task 2.3):
+- **Xoá cứng**, không có `deleted_at`: activity là dữ liệu con của ngày, không có nhu cầu khôi phục riêng. Soft delete trip không đụng tới activity (khôi phục trip thì activity còn nguyên).
+- Ràng buộc ở DB là chốt chặn cuối, lỗi thân thiện vẫn do service trả: `CHECK chk_activities_time_range (end_time IS NULL OR (start_time IS NOT NULL AND end_time > start_time))`, `CHECK chk_activities_cost (cost_amount IS NULL OR cost_amount >= 0)`.
+- Không hỗ trợ activity kéo qua nửa đêm (ví dụ 23:00 → 01:00): tách thành hai activity ở hai ngày.
 
 #### `places`
 `id, provider ENUM(MOCK, OSM, GOOGLE, MANUAL), external_id VARCHAR(128), name, address, lat, lng, category, photo_url, rating DECIMAL(2,1), raw_json JSON, created_at`
@@ -713,6 +720,8 @@ Lỗi (`ErrorResponse`):
 > - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 5000 ký tự; `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
 > - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`.
 > - `GET /{id}` trả **`TripDetailResponse`** = các field của `TripResponse` + `days` (thêm ở Task 2.2; `activities` trong từng ngày ở Task 2.3). `POST` / `PATCH /{id}` vẫn trả `TripResponse` gọn để thao tác ghi không phải nạp danh sách ngày (chốt 2026-09-27).
+> - Từ Task 2.3, mỗi phần tử của `days` trong `TripDetailResponse` là **`TripDayDetailResponse`** = các field của `TripDayResponse` + `activities` (sắp theo `orderIndex`). `GET /days` và `PATCH /days/{dayId}` vẫn trả `TripDayResponse` gọn, không kèm activity. `GET /{id}` tốn **4 câu SQL** bất kể số ngày và số activity: quyền + trip + ngày + activity của cả trip (chốt 2026-09-29).
+> - `PATCH /{id}?force=true` (query param, mặc định `false`): đổi ngày làm **cắt ngày đang có activity** → 409 `TRIP_DAY_HAS_ACTIVITIES`, không ghi gì; gửi lại kèm `force=true` thì ngày bị cắt và activity của nó bị xoá (rule 14.3). Dời nguyên khối không cắt ngày nào nên không bao giờ bị chặn (chốt 2026-09-29, Task 2.3).
 
 **Itinerary** `/api/v1/trips/{tripId}`
 | GET | `/days` | Danh sách ngày | canView |
@@ -725,6 +734,18 @@ Lỗi (`ErrorResponse`):
 | GET | `/days/{dayId}/route` | Khoảng cách + thời gian giữa các activity theo thứ tự | canView |
 
 > **Quy ước sửa ngày** (chốt 2026-09-27, Task 2.2): `PATCH /days/{dayId}` body `{title, note}` — `title` ≤ 160 ký tự, `note` ≤ 5000 ký tự, cả hai được để trống. Field **không gửi hoặc `null` → giữ nguyên**; **`""` (chuỗi rỗng / chỉ khoảng trắng) → xoá**, lưu `NULL`. Khác PATCH của trip (không xoá được field) vì đặt / bỏ tiêu đề ngày là thao tác thường xuyên. `dayId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`.
+
+> **Quy ước Activity API** (chốt 2026-09-29, Task 2.3):
+> - **Phạm vi theo phase:** Task 2.3 làm `GET` / `POST /days/{dayId}/activities`, `PATCH` / `DELETE /activities/{activityId}`; `reorder` ở Task 2.4; `route` ở Phase 3. **Quota** của `POST` (10 activity / ngày với FREE, mục 9) thêm ở Task 6.1. `placeId` thêm ở Task 3.2.
+> - `dayId` hoặc `activityId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`. Trip không tồn tại / đã xoá mềm → 404.
+> - `createdBy` lấy từ `SecurityContext`, không nhận từ body (CLAUDE.md rule 16).
+> - `POST` body: `title` bắt buộc, ≤ 200 ký tự, được trim; `type` không gửi → `OTHER`; `startTime` / `endTime` dạng `HH:mm` hoặc `HH:mm:ss`; `note` ≤ 5000 ký tự; `costAmount >= 0`, vừa `DECIMAL(15,2)`; `currency` 3 chữ in hoa; `bookingUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`.
+> - `orderIndex` do server gán khi tạo: giá trị lớn nhất trong ngày + 1000, activity đầu tiên là 1000 (rule 14.5). Client không gửi `orderIndex` ở `POST` / `PATCH`; đổi thứ tự và chuyển ngày chỉ qua `reorder` (Task 2.4).
+> - `PATCH` là cập nhật **từng phần**: field không gửi hoặc `null` → giữ nguyên. Field văn bản tuỳ chọn (`note`, `bookingUrl`) gửi `""` → xoá, lưu `NULL` (giống "Quy ước sửa ngày"). **Chưa hỗ trợ xoá trắng** `startTime`, `endTime`, `costAmount`, `currency` đã đặt (giống PATCH của trip).
+> - Rule về giờ kiểm ở service trên dữ liệu **đã gộp** (PATCH chỉ gửi `endTime` vẫn phải so với `startTime` đang lưu): có `endTime` mà không có `startTime` → 400 `VALIDATION_ERROR`, `details` ở field `startTime`; `endTime <= startTime` → 400, `details` ở field `endTime`.
+> - **Trùng giờ** (rule 14.4): `?allowOverlap=true` là **query param** của `POST` và `PATCH` (mặc định `false`). Trùng → 409 `ACTIVITY_TIME_CONFLICT`, `details` ở field `startTime` nêu tên và giờ của activity bị trùng, không ghi gì. `PATCH` không so activity với chính nó.
+> - `version`: `ActivityResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
+> - `DELETE` xoá cứng, trả `data: null`.
 
 **Place** `/api/v1/places`
 | GET | `/search?q=&lat=&lng=&limit=` | Autocomplete, có cache | Auth |
@@ -791,7 +812,8 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | `RESOURCE_NOT_FOUND` | 404 | Không có resource, hoặc URL không tồn tại |
 | `METHOD_NOT_ALLOWED` | 405 | Sai HTTP method (ví dụ `POST` vào endpoint chỉ có `GET`) |
 | `EMAIL_ALREADY_EXISTS` | 409 | |
-| `ACTIVITY_TIME_CONFLICT` | 409 | Trùng giờ trong cùng ngày |
+| `ACTIVITY_TIME_CONFLICT` | 409 | Trùng giờ trong cùng ngày. Client hỏi lại người dùng rồi gửi lại kèm `allowOverlap=true` |
+| `TRIP_DAY_HAS_ACTIVITIES` | 409 | Đổi ngày của trip làm cắt ngày đang có activity (rule 14.3). Client hỏi lại người dùng rồi gửi lại kèm `force=true` |
 | `STALE_VERSION` | 409 | Optimistic lock: dữ liệu đã bị người khác sửa (mục 11.3) |
 | `QUOTA_EXCEEDED` | 402 | Vượt hạn mức gói FREE |
 | `PREMIUM_REQUIRED` | 402 | Tính năng chỉ dành cho Premium |
@@ -895,9 +917,12 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 2. Tạo trip → tự sinh `TripDay` cho mỗi ngày trong khoảng.
 3. Sửa ngày trip (chốt 2026-09-27):
    - **Cùng số ngày, khác ngày đi → dời nguyên khối**: mọi `TripDay` cộng cùng một độ lệch, giữ nguyên `title`/`note` và activity (activity gắn `trip_day_id`, chỉ có giờ `TIME`, không có ngày → tự đi theo ngày của nó). Làm bằng **một câu `UPDATE` hàng loạt có `ORDER BY`** — dời về sau: cập nhật ngày muộn nhất trước; dời về trước: ngày sớm nhất trước — vì MySQL kiểm `UNIQUE (trip_id, date)` sau **từng dòng**, cập nhật sai thứ tự sẽ trùng khoá.
-   - **Khác số ngày → giữ theo ngày lịch**: ngày còn nằm trong khoảng mới giữ nguyên; ngày mới → tạo `TripDay` trống; ngày bị cắt → xoá cứng; đánh lại `day_index` 1..n theo `date`. Ngày bị cắt **có activity** → chặn, yêu cầu `force=true` mới xoá (thêm ở Task 2.3, khi có bảng `activities`).
+   - **Khác số ngày → giữ theo ngày lịch**: ngày còn nằm trong khoảng mới giữ nguyên; ngày mới → tạo `TripDay` trống; ngày bị cắt → xoá cứng; đánh lại `day_index` 1..n theo `date`. Ngày bị cắt **có activity** → chặn bằng 409 `TRIP_DAY_HAS_ACTIVITIES`, cả thao tác sửa trip bị rollback; client gửi lại `PATCH /trips/{id}?force=true` thì ngày bị cắt được xoá và activity của nó đi theo nhờ `ON DELETE CASCADE` (Task 2.3, chốt 2026-09-29).
    - **Vừa dời vừa đổi số ngày**: backend xử lý như "khác số ngày" (không đoán ý người dùng). Giao diện (Task 2.5) hướng dẫn làm hai bước: dời chuyến trước, đổi độ dài sau.
-4. Activity trong cùng một ngày có `start_time`/`end_time` **không được chồng lấn** (cho phép nếu client gửi `allowOverlap=true`).
+4. Activity trong cùng một ngày có `start_time`/`end_time` **không được chồng lấn** (cho phép nếu client gửi `allowOverlap=true`). Chi tiết (chốt 2026-09-29):
+   - Chỉ so giữa các activity có **đủ cả** `start_time` và `end_time`; activity không có giờ hoặc chỉ có giờ bắt đầu không tham gia kiểm tra.
+   - Hai khoảng trùng khi `start_a < end_b` **và** `start_b < end_a`. Chạm đầu nhau (09:00–10:00 và 10:00–11:00) **không** tính là trùng.
+   - Vi phạm → 409 `ACTIVITY_TIME_CONFLICT`. Áp dụng cho cả tạo mới và sửa; khi sửa không so với chính nó.
 5. `order_index` đánh số cách nhau 1000 (1000, 2000, 3000) để chèn giữa không phải đánh lại toàn bộ; khi khoảng cách < 10 thì normalize lại cả ngày.
 6. Không thể mời chính chủ sở hữu làm member.
 7. Không thể hạ role của OWNER; chuyển quyền sở hữu là hành động riêng.
