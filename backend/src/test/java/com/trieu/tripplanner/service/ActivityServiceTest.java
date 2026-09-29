@@ -628,6 +628,45 @@ class ActivityServiceTest {
 
     }
 
+    @Nested
+    class Delete {
+
+        private static final long ACTIVITY_ID = 31L;
+
+        @Test
+        void deletesTheActivityOfTheTrip() {
+            Activity stored = existing(ACTIVITY_ID, "Ăn sáng", "09:00", "10:00");
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.of(stored));
+
+            activityService.delete(TRIP_ID, ACTIVITY_ID);
+
+            verify(activityRepository).delete(stored);
+        }
+
+        @Test
+        void missingOrDeletedTripIsNotFoundAndTheActivityIsNotLoaded() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> activityService.delete(TRIP_ID, ACTIVITY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void activityOfAnotherTripIsNotFoundAndNothingIsDeleted() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> activityService.delete(TRIP_ID, ACTIVITY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Activity");
+            verify(activityRepository, never()).delete(any(Activity.class));
+        }
+
+    }
+
     /** Every call in this class is the default case of the endpoint: allowOverlap = false. */
     private ActivityResponse create(CreateActivityRequest request) {
         return activityService.create(TRIP_ID, DAY_ID, USER_ID, request, false);

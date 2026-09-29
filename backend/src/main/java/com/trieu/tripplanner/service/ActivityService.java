@@ -51,4 +51,13 @@ public interface ActivityService {
      */
     ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request, boolean allowOverlap);
 
+    /**
+     * Hard delete (design.md 5.2 "activities"): the row is gone, there is nothing to restore. The order indexes
+     * of the other activities of the day are left as they are; the gap is harmless (rule 14.5).
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or the activity
+     *                                                                   belongs to another trip (404)
+     */
+    void delete(Long tripId, Long activityId);
+
 }

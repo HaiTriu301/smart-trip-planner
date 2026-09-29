@@ -93,8 +93,7 @@ public class ActivityServiceImpl implements ActivityService {
     public ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request,
                                    boolean allowOverlap) {
         Trip trip = findLiveTrip(tripId);
-        Activity activity = activityRepository.findByIdAndTripId(activityId, tripId)
-                .orElseThrow(() -> new ResourceNotFoundException(ACTIVITY, activityId));
+        Activity activity = findActivityOfTrip(activityId, tripId);
 
         // Merged state first, entity untouched: a rejected request must leave nothing to flush
         LocalTime startTime = request.startTime() != null ? toMinutes(request.startTime()) : activity.getStartTime();
@@ -129,6 +128,15 @@ public class ActivityServiceImpl implements ActivityService {
         return activityMapper.toResponse(saved);
     }
 
+    @Override
+    @Transactional
+    public void delete(Long tripId, Long activityId) {
+        requireLiveTrip(tripId);
+        Activity activity = findActivityOfTrip(activityId, tripId);
+        activityRepository.delete(activity);
+        log.info("Activity {} of trip {} deleted", activityId, tripId);
+    }
+
     // findById goes through JPQL, so @SQLRestriction hides soft-deleted trips. Needed because the permission
     // evaluator lets missing trips through so that the answer is 404, not 403. The entity (not just existsById)
     // is loaded because the currency of the trip is the default for a cost.
@@ -148,6 +156,12 @@ public class ActivityServiceImpl implements ActivityService {
     private TripDay findDayOfTrip(Long dayId, Long tripId) {
         return tripDayRepository.findByIdAndTripId(dayId, tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(TRIP_DAY, dayId));
+    }
+
+    // Empty when the activity belongs to another trip: permission was checked on the trip of the URL only
+    private Activity findActivityOfTrip(Long activityId, Long tripId) {
+        return activityRepository.findByIdAndTripId(activityId, tripId)
+                .orElseThrow(() -> new ResourceNotFoundException(ACTIVITY, activityId));
     }
 
     /**

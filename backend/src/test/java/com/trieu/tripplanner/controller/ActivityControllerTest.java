@@ -3,6 +3,7 @@ package com.trieu.tripplanner.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -465,6 +466,68 @@ class ActivityControllerTest {
         assertThat(patch("/api/v1/trips/5/activities/abc", """
                 { "title": "X" }
                 """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(activityService);
+    }
+
+    // ---- DELETE /trips/{tripId}/activities/{activityId} -----------------------------------------------------
+
+    @Test
+    void deleteReturns200WithNullDataWhenEditAllowed() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.delete().uri(ACTIVITY_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null }
+                        """);
+        verify(activityService).delete(TRIP_ID, ACTIVITY_ID);
+    }
+
+    @Test
+    void deleteWithoutTokenReturns401() {
+        assertThat(mvc.delete().uri(ACTIVITY_URL))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void deleteReturns403WhenEditDeniedAndNeverReachesService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.delete().uri(ACTIVITY_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void deleteIsGuardedByEditPermissionNotViewPermission() {
+        // A viewer (Phase 4) may read the itinerary but must not remove anything from it
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.delete().uri(ACTIVITY_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void deleteReturns404WhenActivityIsNotInTheTrip() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        doThrow(new ResourceNotFoundException("Activity", ACTIVITY_ID))
+                .when(activityService).delete(TRIP_ID, ACTIVITY_ID);
+
+        assertThat(mvc.delete().uri(ACTIVITY_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void deleteWithNonNumericActivityIdReturns400() {
+        assertThat(mvc.delete().uri("/api/v1/trips/5/activities/abc").header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(activityService);

@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -71,6 +72,16 @@ public class ActivityController {
                                                 @RequestParam(defaultValue = "false") boolean allowOverlap,
                                                 @Valid @RequestBody UpdateActivityRequest request) {
         return ApiResponse.ok(activityService.update(tripId, activityId, request, allowOverlap));
+    }
+
+    @Operation(summary = "Xoá hoạt động",
+               description = "Xoá hẳn, không khôi phục được. Thứ tự của các hoạt động còn lại giữ nguyên. "
+                       + "404 nếu hoạt động không thuộc chuyến đi.")
+    @DeleteMapping("/activities/{activityId}")
+    @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
+    public ApiResponse<Void> delete(@PathVariable Long tripId, @PathVariable Long activityId) {
+        activityService.delete(tripId, activityId);
+        return ApiResponse.ok(null);
     }
 
 }
