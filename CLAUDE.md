@@ -140,8 +140,10 @@ Làm theo đúng thứ tự:
 5. **Viết test** trong chính commit của chức năng, không gom test vào commit cuối (trừ integration test ghép toàn luồng).
 6. **Chạy `./gradlew build`** và sửa cho tới khi xanh.
    - **Mỗi mốc = một commit, không làm cả task một lượt.** Xong mốc N → build xanh → đưa lệnh commit của mốc N → **dừng chờ tôi commit** → mới sang mốc N+1. File dùng chung (service impl, controller, mapper, test class) chỉ viết phần mốc đó cần, mốc sau mở rộng thêm. Không để code / cấu hình / key message chưa có ai dùng trong commit. Nếu một mốc không thể tách độc lập, nói trước khi code, không âm thầm gộp.
-7. **Báo cáo**: file đã đổi, endpoint mới (method + path), cách test thủ công bằng curl hoặc Swagger.
+7. **Báo cáo**: file đã đổi, endpoint mới (method + path), cách test thủ công bằng curl hoặc Swagger. Mỗi mốc nêu rõ **luồng hoạt động** và **ý nghĩa của từng file, từng method** viết trong mốc đó (chốt 2026-09-29).
 8. **Đề xuất commit** (không tự commit, không tự tạo nhánh — xem mục 9): liệt kê lệnh `git add <file>` + `git commit -m "..."` cho từng mốc để tôi tự chạy.
+9. **Cập nhật `docs/testing/` ngay sau mỗi mốc** (làm tới đâu ghi test tới đó, chốt 2026-09-29), commit một lần trong commit tài liệu trên `main` lúc đóng task. Lệnh `git add` của mốc code **không** gồm `docs/`. Mỗi mốc: thêm kịch bản mới vào file của tính năng, ghi lỗi test đã bắt được vào mục "Lỗi đã phát hiện", cập nhật bảng tổng hợp và dòng "Cập nhật" ở đầu file. Định dạng và quy tắc ghi trạng thái: `docs/testing/README.md`. Test thủ công chỉ ghi `Đạt` khi tôi đã tự chạy; Claude không tự điền kết quả test thủ công.
+   - **Test đỏ ngoài dự kiến → ghi ngay, TRƯỚC khi sửa** (chốt 2026-09-29): thêm dòng `BUG-...` trạng thái `Đang mở` vào mục "Lỗi đã phát hiện" (hiện tượng + thông báo lỗi thật), đổi test case liên quan thành `Lỗi · BUG-...`. Sửa xong và build xanh mới điền nguyên nhân, cách sửa, đổi thành `Đã sửa` và `Đạt · từng lỗi BUG-...`. Không chờ tới cuối mốc. Áp dụng cho mọi lần chạy `./gradlew test` / `build` có test đỏ mà không phải do lỗi biên dịch hay gõ nhầm trong chính test đang viết dở; nếu phân vân thì vẫn ghi.
 
 ---
 
@@ -164,6 +166,7 @@ smart-trip-planner/
 ├── design.md              ← nguồn sự thật, đọc trước khi code
 ├── CLAUDE.md
 ├── README.md
+├── docs/testing/          ← test case theo tính năng (README.md = quy ước), cập nhật khi đóng task
 ├── docker-compose.yml
 ├── .env.example
 ├── backend/
@@ -238,6 +241,7 @@ Khi review code, kiểm tra lại các điểm này:
 - Dùng `String` cho tiền hoặc `double` cho amount
 - `UPDATE` hàng loạt đổi giá trị cột có UNIQUE (ví dụ dời `trip_days.date`) mà không `ORDER BY` theo chiều dời: MySQL kiểm UNIQUE sau từng dòng → `Duplicate entry`
 - MapStruct `@Mapper(uses = ...)` thiếu `injectionStrategy = InjectionStrategy.CONSTRUCTOR` → mapper sinh ra inject qua field, unit test NPE
+- Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")
 
 ---
 

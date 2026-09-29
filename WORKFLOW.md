@@ -18,6 +18,8 @@
 6. Chạy kiểm tra ở phần "Nghiệm thu"
 7. git push + mở Pull Request trên GitHub + tự merge
 8. Tick [x] vào bảng theo dõi ở mục cuối file này
+9. Commit docs/testing/ trong cùng commit docs đóng task (nội dung đã được ghi dần sau mỗi mốc ở bước 5:
+   test case mới, lỗi đã bắt được, bảng tổng hợp)
 ```
 
 > **Ai làm gì:** các bước Git (3, commit ở bước 5, 7) do **tôi tự chạy**. Claude Code không tự tạo nhánh, không tự `git add` / `commit` / `push`, không mở PR — chỉ đưa ra lệnh tạo nhánh (nếu đang sai nhánh) và danh sách commit đề xuất (file cần add + message) để tôi tự commit. Chi tiết ở `CLAUDE.md` mục 9.
@@ -841,6 +843,22 @@ Mốc 9 — test(activity): add activity flow integration test
 > - `PATCH` activity: `null` giữ nguyên, `""` xoá field văn bản (`note`, `bookingUrl`); chưa xoá trắng được giờ và chi phí.
 > - Activity xoá cứng; FK `trip_day_id` `ON DELETE CASCADE` nên `deleteOutsideRange` của Task 2.2 không phải sửa câu lệnh, chỉ thêm bước kiểm tra trước khi xoá.
 > - Quota 10 activity / ngày hoãn sang Task 6.1. `version` có trong response, kiểm `STALE_VERSION` ở Task 5.3.
+>
+> **Thực tế khi làm 2.3 (2026-09-29):** 9 commit theo lát cắt dọc đúng thứ tự bảng đã duyệt, thêm commit docs Mốc 0 trên `main`. 113 method test mới, toàn dự án 383 method / 411 lượt chạy.
+> - Endpoint mới: `POST` / `GET /trips/{tripId}/days/{dayId}/activities`, `PATCH` / `DELETE /trips/{tripId}/activities/{activityId}`. Endpoint đổi: `PATCH /trips/{id}?force=`, `GET /trips/{id}` kèm `activities`.
+> - `GET /trips/{id}` = 4 câu SQL, `GET .../activities` = 4 câu SQL, bất kể số ngày và số activity (đo bằng Hibernate Statistics trong `TripDayFlowIntegrationTest`, `ActivityFlowIntegrationTest`).
+> - Từ task này có `docs/testing/`: test case ghi theo từng mốc, test đỏ ngoài dự kiến ghi **trước khi sửa** (CLAUDE.md mục 4 bước 9). Task 2.3 ghi 111 kịch bản tự động, 9 test thủ công, 3 lỗi.
+> - **Việc cho Task 2.4:** `Activity.tripDay` và `orderIndex` chưa có setter (cố ý, chưa ai dùng); reorder thêm vào. Chuyển activity sang ngày khác phải quyết định có kiểm trùng giờ ở ngày mới hay không.
+> - **Việc cho Task 2.5:** giao diện bắt `ACTIVITY_TIME_CONFLICT` → hỏi lại → `allowOverlap=true`; bắt `TRIP_DAY_HAS_ACTIVITIES` → hiện câu trong `details[0].message` → `force=true`.
+>
+> **Bẫy đã gặp khi làm 2.3** (ghi dần theo mốc; chi tiết ở `docs/testing/05-activity.md` mục "Lỗi đã phát hiện"):
+> 1. **`LocalTime` + `hibernate.jdbc.time_zone=UTC`** (Mốc 1, BUG-ACT-001): mapping mặc định đi qua `java.sql.Time` nên giờ bị dịch theo múi giờ JVM (03:00 ở máy +07:00 lưu thành 20:00, vi phạm CHECK). Field `LocalTime` phải có `@JdbcType(LocalTimeJdbcType.class)`. Kiểm bằng cách đọc thô `CAST(col AS CHAR)`, vì đọc lại qua JPA vẫn ra đúng.
+> 2. **Tham số `LocalTime` trong `@Query`** (Mốc 3, BUG-ACT-002): `@JdbcType` trên field **không** áp dụng cho tham số truy vấn; tham số vẫn bind kiểu `TIME` mặc định và bị dịch múi giờ, `start_time < :end` trả rỗng mà không báo lỗi. Không so giờ trong SQL: lấy ứng viên bằng `findTimedByTripDayId` rồi so trong Java (`ActivityServiceImpl.overlaps`). Xem log bind bằng `logging.level.org.hibernate.orm.jdbc.bind=trace`.
+> 3. **`PATCH` đổi entity trước khi validate** là bẫy tiềm ẩn (Mốc 5, tránh được từ đầu): câu truy vấn kiểm trùng giờ làm Hibernate auto-flush, entity đang dở sẽ bị ghi xuống rồi mới rollback. `ActivityServiceImpl.update` tính giá trị đã gộp vào biến cục bộ, validate xong mới gán vào entity.
+> 4. **`ON DELETE CASCADE` xoá không để lại dấu vết** (Mốc 7): `deleteOutsideRange` là bulk delete, MySQL tự xoá activity theo FK nên ứng dụng không hề biết đã mất gì. Phải **đếm trước khi xoá** (`countInDaysOutsideRange`). Đã kiểm chứng ngược: gỡ bước đếm thì 3 test của `TripDayReconcileTest` đỏ.
+> 5. **Mốc 8 lệch kế hoạch:** việc ghép ngày với activity nằm ở `TripDayService.listWithActivities`, không nằm ở `TripServiceImpl` như bảng commit dự kiến. `TripServiceImpl` nhờ vậy bỏ được `TripDayRepository`; nếu làm theo kế hoạch nó sẽ có 9 dependency. `TripMapper` và `TripDayMapper` nhận DTO đã chuyển sẵn nên không cần `uses`, `TripMapperImpl` trở lại constructor không tham số.
+> 6. **Test tích hợp dài dễ sai kịch bản** (Mốc 9, BUG-ACT-003): một bước mong đợi 200 nhưng nhận 409 vì bước trước đó đã thêm một activity chồng giờ bằng `allowOverlap=true`. Hệ thống đúng, test sai. Khi test đỏ, đọc log `Application error ...` của `GlobalExceptionHandler` trước khi nghi code.
+> 7. **Mốc 3 lệch kế hoạch:** kế hoạch ghi "truy vấn tìm activity chồng giờ"; thực tế là truy vấn lấy ứng viên + so trong Java, vì bẫy số 2.
 
 ---
 
@@ -1363,7 +1381,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 1 | 1.5 Auth UI | ☑ | 2026-09-25 |
 | 2 | 2.1 Trip CRUD | ☑ | 2026-09-26 |
 | 2 | 2.2 TripDay auto-gen | ☑ | 2026-09-28 |
-| 2 | 2.3 Activity + trùng giờ | ☐ | |
+| 2 | 2.3 Activity + trùng giờ | ☑ | 2026-09-29 |
 | 2 | 2.4 Reorder | ☐ | |
 | 2 | 2.5 Itinerary UI | ☐ | |
 | 3 | 3.1 Provider abstraction | ☐ | |
