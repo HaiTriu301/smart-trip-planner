@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 /**
  * Trip days through every layer against real MySQL: JWT → @tripPermission → TripService / TripDayService →
  * Flyway schema. Hibernate statistics are switched on for this class only, to count the SQL statements behind
- * GET /trips/{id} and prove the days do not cause N+1 queries (CLAUDE.md section 8).
+ * GET /trips/{id} and prove that neither the days nor their activities cause N+1 queries (CLAUDE.md section 8).
  */
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @AutoConfigureMockMvc
@@ -67,7 +67,7 @@ class TripDayFlowIntegrationTest {
 
     @AfterEach
     void cleanUp() {
-        // trip_days go with their trips (ON DELETE CASCADE); trips must go before users (no cascade on owner)
+        // trip_days and activities go with their trips (ON DELETE CASCADE); trips must go before users (no cascade)
         jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM users");
     }
@@ -117,16 +117,31 @@ class TripDayFlowIntegrationTest {
     }
 
     @Test
-    void tripDetailCostsTheSameNumberOfQueriesForTwoDaysAndForSixtyDays() {
+    void tripDetailCostsTheSameNumberOfQueriesWhateverTheNumberOfDaysAndActivities() {
         long shortTrip = createTrip("2026-10-01", "2026-10-02");
         long longTrip = createTrip("2026-10-01", "2026-11-29");
+        // 30 activities spread over the first 10 of the 60 days
+        List<Long> longTripDays = dayIds(longTrip);
+        for (int day = 0; day < 10; day++) {
+            for (int n = 1; n <= 3; n++) {
+                addActivity(longTrip, longTripDays.get(day), "Hoạt động " + n);
+            }
+        }
 
         long shortQueries = statementsFor(shortTrip);
         long longQueries = statementsFor(longTrip);
 
-        // permission check + trip + days: independent of the number of days, i.e. no N+1
-        assertThat(shortQueries).isEqualTo(3);
+        // permission check + trip + days + activities: independent of how many there are, i.e. no N+1
+        assertThat(shortQueries).isEqualTo(4);
         assertThat(longQueries).isEqualTo(shortQueries);
+
+        // ...and the activities really are in the answer, under their own day
+        String detail = body(mvc.get().uri(TRIPS_URL + "/" + longTrip)
+                .header(HttpHeaders.AUTHORIZATION, ownerBearer).exchange());
+        assertThat(JsonPath.<List<String>>read(detail, "$.data.days[0].activities[*].title"))
+                .containsExactly("Hoạt động 1", "Hoạt động 2", "Hoạt động 3");
+        assertThat(JsonPath.<List<Object>>read(detail, "$.data.days[*].activities[*]")).hasSize(30);
+        assertThat(JsonPath.<List<Object>>read(detail, "$.data.days[59].activities")).isEmpty();
     }
 
     @Test
@@ -196,6 +211,16 @@ class TripDayFlowIntegrationTest {
                 .exchange();
         assertThat(result).hasStatus(HttpStatus.CREATED);
         return ((Number) JsonPath.read(body(result), "$.data.id")).longValue();
+    }
+
+    private void addActivity(long tripId, long dayId, String title) {
+        assertThat(mvc.post().uri(TRIPS_URL + "/" + tripId + "/days/" + dayId + "/activities")
+                .header(HttpHeaders.AUTHORIZATION, ownerBearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "%s" }
+                        """.formatted(title)))
+                .hasStatus(HttpStatus.CREATED);
     }
 
     private MvcTestResult patchTrip(long tripId, String json) {

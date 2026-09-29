@@ -81,11 +81,15 @@ public class TripController {
     }
 
     @Operation(summary = "Sửa chuyến đi",
-               description = "Chỉ gửi field cần đổi (field null giữ nguyên). Không đổi status ở đây.")
+               description = "Chỉ gửi field cần đổi (field null giữ nguyên). Không đổi status ở đây. Đổi ngày làm cắt "
+                       + "ngày đang có hoạt động: 409 TRIP_DAY_HAS_ACTIVITIES, không lưu gì; gửi lại kèm force=true "
+                       + "để cắt ngày và xoá hoạt động của ngày đó.")
     @PatchMapping("/{id}")
     @PreAuthorize("@tripPermission.canEdit(#id, principal)")
-    public ApiResponse<TripResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateTripRequest request) {
-        return ApiResponse.ok(tripService.update(id, request));
+    public ApiResponse<TripResponse> update(@PathVariable Long id,
+                                            @RequestParam(defaultValue = "false") boolean force,
+                                            @Valid @RequestBody UpdateTripRequest request) {
+        return ApiResponse.ok(tripService.update(id, request, force));
     }
 
     @Operation(summary = "Xoá chuyến đi", description = "Xoá mềm. Chỉ chủ sở hữu.")

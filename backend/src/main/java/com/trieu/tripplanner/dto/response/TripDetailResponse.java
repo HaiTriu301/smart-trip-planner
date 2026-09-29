@@ -9,9 +9,10 @@ import java.util.List;
 
 /**
  * GET /api/v1/trips/{id} only (design.md 10.2 "Quy ước Trip API"): the fields of {@link TripResponse} plus the
- * days in calendar order. Flat on purpose so the client reads the same field names as TripResponse.
+ * days in calendar order, each with its activities in display order. Flat on purpose so the client reads the
+ * same field names as TripResponse.
  * POST / PATCH keep returning the lighter TripResponse, so a write never has to load the days.
- * Activities inside each day are added in Task 2.3, members in Phase 4.
+ * Members are added in Phase 4.
  */
 public record TripDetailResponse(
         Long id,
@@ -32,5 +33,5 @@ public record TripDetailResponse(
         Long version,
         Instant createdAt,
         Instant updatedAt,
-        List<TripDayResponse> days) {
+        List<TripDayDetailResponse> days) {
 }

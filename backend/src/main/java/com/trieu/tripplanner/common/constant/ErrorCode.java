@@ -20,6 +20,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "error.method-not-allowed"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.email-already-exists"),
     ACTIVITY_TIME_CONFLICT(HttpStatus.CONFLICT, "error.activity-time-conflict"),
+    TRIP_DAY_HAS_ACTIVITIES(HttpStatus.CONFLICT, "error.trip-day-has-activities"),
     STALE_VERSION(HttpStatus.CONFLICT, "error.stale-version"),
     QUOTA_EXCEEDED(HttpStatus.PAYMENT_REQUIRED, "error.quota-exceeded"),
     PREMIUM_REQUIRED(HttpStatus.PAYMENT_REQUIRED, "error.premium-required"),

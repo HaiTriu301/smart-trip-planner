@@ -6,14 +6,20 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
+import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.mapper.ActivityMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
+import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
+import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.support.TestUsers;
@@ -45,11 +51,15 @@ class TripDayServiceTest {
     @Mock
     private TripRepository tripRepository;
 
+    @Mock
+    private ActivityRepository activityRepository;
+
     private TripDayService tripDayService;
 
     @BeforeEach
     void setUp() {
-        tripDayService = new TripDayService(tripDayRepository, tripRepository, Mappers.getMapper(TripDayMapper.class));
+        tripDayService = new TripDayService(tripDayRepository, tripRepository, activityRepository,
+                Mappers.getMapper(TripDayMapper.class), Mappers.getMapper(ActivityMapper.class));
     }
 
     @Nested
@@ -103,6 +113,72 @@ class TripDayServiceTest {
             ArgumentCaptor<List<TripDay>> captor = ArgumentCaptor.forClass(List.class);
             verify(tripDayRepository).saveAll(captor.capture());
             return captor.getValue();
+        }
+
+    }
+
+    @Nested
+    class ListWithActivities {
+
+        @Test
+        void putsEveryActivityUnderItsDayAndKeepsTheOrderOfTheQuery() {
+            Trip trip = trip(OCT_1, OCT_1.plusDays(2));
+            TripDay one = day(11L, trip, 1, OCT_1, "Đến nơi");
+            TripDay two = day(12L, trip, 2, OCT_1.plusDays(1), null);
+            TripDay three = day(13L, trip, 3, OCT_1.plusDays(2), null);
+            when(tripDayRepository.findByTripIdOrderByDate(TRIP_ID)).thenReturn(List.of(one, two, three));
+            // As the query returns them: by order_index then id, days interleaved
+            when(activityRepository.findByTripIdInDisplayOrder(TRIP_ID)).thenReturn(List.of(
+                    activity(21L, one, "Ăn sáng", 1000),
+                    activity(31L, three, "Chợ đêm", 1000),
+                    activity(22L, one, "Tham quan", 2000)));
+
+            List<TripDayDetailResponse> days = tripDayService.listWithActivities(TRIP_ID);
+
+            assertThat(days)
+                    .extracting(TripDayDetailResponse::id, TripDayDetailResponse::dayIndex,
+                            TripDayDetailResponse::date, TripDayDetailResponse::title)
+                    .containsExactly(
+                            tuple(11L, 1, OCT_1, "Đến nơi"),
+                            tuple(12L, 2, OCT_1.plusDays(1), null),
+                            tuple(13L, 3, OCT_1.plusDays(2), null));
+            assertThat(days.get(0).activities())
+                    .extracting(ActivityResponse::id, ActivityResponse::title, ActivityResponse::dayId)
+                    .containsExactly(tuple(21L, "Ăn sáng", 11L), tuple(22L, "Tham quan", 11L));
+            // A day without activities still appears, with an empty list rather than null
+            assertThat(days.get(1).activities()).isEmpty();
+            assertThat(days.get(2).activities()).extracting(ActivityResponse::title).containsExactly("Chợ đêm");
+        }
+
+        @Test
+        void tripWithoutActivitiesGivesEveryDayAnEmptyList() {
+            Trip trip = trip(OCT_1, OCT_1.plusDays(1));
+            when(tripDayRepository.findByTripIdOrderByDate(TRIP_ID)).thenReturn(List.of(
+                    day(11L, trip, 1, OCT_1, null),
+                    day(12L, trip, 2, OCT_1.plusDays(1), null)));
+
+            List<TripDayDetailResponse> days = tripDayService.listWithActivities(TRIP_ID);
+
+            assertThat(days).hasSize(2).allSatisfy(day -> assertThat(day.activities()).isEmpty());
+        }
+
+        @Test
+        void doesNotLoadTheTripAgain() {
+            // TripService.get has just loaded the trip; a second look-up would be a wasted query
+            tripDayService.listWithActivities(TRIP_ID);
+
+            verifyNoInteractions(tripRepository);
+        }
+
+        private static Activity activity(long id, TripDay day, String title, int orderIndex) {
+            Activity activity = Activity.builder()
+                    .tripDay(day)
+                    .title(title)
+                    .orderIndex(orderIndex)
+                    .createdBy(TestUsers.verified(7L, "owner@example.com"))
+                    .build();
+            ReflectionTestUtils.setField(activity, "id", id);
+            return activity;
         }
 
     }
