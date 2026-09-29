@@ -2,12 +2,15 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.ActivityMapper;
+import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
@@ -19,8 +22,16 @@ import com.trieu.tripplanner.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +54,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final TripDayRepository tripDayRepository;
     private final UserRepository userRepository;
     private final ActivityMapper activityMapper;
+    private final TripDayMapper tripDayMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -137,6 +149,28 @@ public class ActivityServiceImpl implements ActivityService {
         log.info("Activity {} of trip {} deleted", activityId, tripId);
     }
 
+    @Override
+    @Transactional
+    public List<TripDayDetailResponse> reorder(Long tripId, ReorderActivitiesRequest request) {
+        requireLiveTrip(tripId);
+        List<ReorderActivitiesRequest.Item> items = request.items();
+        requireEachActivityOnce(items);
+
+        Map<Long, Activity> activities = findActivitiesOfTrip(items, tripId);
+        // Days that lose an activity and days that receive one; sorted only to make the query stable
+        Set<Long> affectedDayIds = new TreeSet<>();
+        activities.values().forEach(activity -> affectedDayIds.add(activity.getTripDay().getId()));
+        items.forEach(item -> affectedDayIds.add(item.dayId()));
+        Map<Long, TripDay> days = findDaysOfTrip(affectedDayIds, tripId);
+
+        // Everything was checked above, so from here on nothing can fail half-way
+        items.forEach(item -> activities.get(item.activityId()).moveTo(days.get(item.dayId()), item.orderIndex()));
+        activityRepository.flush();
+        log.info("{} activities of trip {} reordered over {} days", items.size(), tripId, affectedDayIds.size());
+
+        return daysWithActivities(days.values(), affectedDayIds);
+    }
+
     // findById goes through JPQL, so @SQLRestriction hides soft-deleted trips. Needed because the permission
     // evaluator lets missing trips through so that the answer is 404, not 403. The entity (not just existsById)
     // is loaded because the currency of the trip is the default for a cost.
@@ -162,6 +196,50 @@ public class ActivityServiceImpl implements ActivityService {
     private Activity findActivityOfTrip(Long activityId, Long tripId) {
         return activityRepository.findByIdAndTripId(activityId, tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(ACTIVITY, activityId));
+    }
+
+    private static void requireEachActivityOnce(List<ReorderActivitiesRequest.Item> items) {
+        Set<Long> seen = new HashSet<>();
+        for (ReorderActivitiesRequest.Item item : items) {
+            if (!seen.add(item.activityId())) {
+                throw BusinessRuleException.invalidField("items", "error.reorder.duplicate-activity",
+                        "Activity %d appears more than once in the reorder request".formatted(item.activityId()),
+                        String.valueOf(item.activityId()));
+            }
+        }
+    }
+
+    /** One query for the whole batch; an id the query did not return is not an activity of this trip. */
+    private Map<Long, Activity> findActivitiesOfTrip(List<ReorderActivitiesRequest.Item> items, Long tripId) {
+        List<Long> ids = items.stream().map(ReorderActivitiesRequest.Item::activityId).toList();
+        Map<Long, Activity> found = activityRepository.findAllByIdInAndTripId(ids, tripId).stream()
+                .collect(Collectors.toMap(Activity::getId, Function.identity()));
+        ids.stream().filter(id -> !found.containsKey(id)).findFirst().ifPresent(missing -> {
+            throw new ResourceNotFoundException(ACTIVITY, missing);
+        });
+        return found;
+    }
+
+    /** One query for every day involved; an id the query did not return is not a day of this trip. */
+    private Map<Long, TripDay> findDaysOfTrip(Set<Long> dayIds, Long tripId) {
+        // LinkedHashMap keeps the calendar order of the query for the response
+        Map<Long, TripDay> found = tripDayRepository.findAllByIdInAndTripId(dayIds, tripId).stream()
+                .collect(Collectors.toMap(TripDay::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        dayIds.stream().filter(id -> !found.containsKey(id)).findFirst().ifPresent(missing -> {
+            throw new ResourceNotFoundException(TRIP_DAY, missing);
+        });
+        return found;
+    }
+
+    /** The given days in the order received, each with its activities in display order: one query. */
+    private List<TripDayDetailResponse> daysWithActivities(Collection<TripDay> days, Set<Long> dayIds) {
+        Map<Long, List<ActivityResponse>> activitiesByDay =
+                activityRepository.findByTripDayIdInDisplayOrder(dayIds).stream()
+                        .collect(Collectors.groupingBy(activity -> activity.getTripDay().getId(),
+                                Collectors.mapping(activityMapper::toResponse, Collectors.toList())));
+        return days.stream()
+                .map(day -> tripDayMapper.toDetail(day, activitiesByDay.getOrDefault(day.getId(), List.of())))
+                .toList();
     }
 
     /**

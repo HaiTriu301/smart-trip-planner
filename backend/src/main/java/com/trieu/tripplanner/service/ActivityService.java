@@ -1,8 +1,10 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import java.util.List;
 
 /**
@@ -59,5 +61,19 @@ public interface ActivityService {
      *                                                                   belongs to another trip (404)
      */
     void delete(Long tripId, Long activityId);
+
+    /**
+     * Applies every move of the request in one transaction (design.md 10.2 "Quy ước Reorder"): all of them or
+     * none. An activity keeps its content and its version; only its day and position change.
+     *
+     * @return the days that lost or received an activity, in calendar order, each with its activities in the
+     *         new display order
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or an activity
+     *                                                                   or a day of the request belongs to
+     *                                                                   another trip (404); nothing is moved
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     the same activity twice in the request
+     *                                                                   (400); nothing is moved
+     */
+    List<TripDayDetailResponse> reorder(Long tripId, ReorderActivitiesRequest request);
 
 }

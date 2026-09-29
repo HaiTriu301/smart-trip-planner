@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OptimisticLock;
 import org.hibernate.type.SqlTypes;
 import org.hibernate.type.descriptor.jdbc.LocalTimeJdbcType;
 
@@ -33,8 +34,13 @@ import org.hibernate.type.descriptor.jdbc.LocalTimeJdbcType;
  * mapping goes through java.sql.Time and hibernate.jdbc.time_zone=UTC, which shifts the value by the JVM's offset
  * (03:00 in a +07:00 JVM is stored as 20:00) and breaks every comparison done in SQL.
  * <p>
- * Only the fields a user edits have setters. {@code tripDay} and {@code orderIndex} change only through the
- * reorder endpoint (Task 2.4), {@code createdBy} is fixed at creation and {@code version} belongs to Hibernate.
+ * Only the fields a user edits have setters. {@code tripDay} and {@code orderIndex} change together through
+ * {@link #moveTo}, used by the reorder endpoint only; {@code createdBy} is fixed at creation and {@code version}
+ * belongs to Hibernate.
+ * <p>
+ * The version protects the content of the activity, not its position (design.md 11.3): {@code tripDay} and
+ * {@code orderIndex} are excluded from the optimistic lock, so a drag and drop by one user never makes another
+ * user's open edit form stale.
  */
 @Entity
 @Table(name = "activities")
@@ -44,6 +50,7 @@ import org.hibernate.type.descriptor.jdbc.LocalTimeJdbcType;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Activity extends BaseEntity {
 
+    @OptimisticLock(excluded = true)
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "trip_day_id", nullable = false)
     private TripDay tripDay;
@@ -71,6 +78,7 @@ public class Activity extends BaseEntity {
     private LocalTime endTime;
 
     /** Position inside the day, spaced by 1000 so an insert in between renumbers nothing (rule 14.5). */
+    @OptimisticLock(excluded = true)
     @Column(name = "order_index", nullable = false)
     private int orderIndex;
 
@@ -103,5 +111,14 @@ public class Activity extends BaseEntity {
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
+
+    /**
+     * Puts the activity at a position of a day: the same day for a reorder, another one for a move. Day and
+     * position always change together, a position means nothing without its day.
+     */
+    public void moveTo(TripDay day, int newOrderIndex) {
+        this.tripDay = day;
+        this.orderIndex = newOrderIndex;
+    }
 
 }

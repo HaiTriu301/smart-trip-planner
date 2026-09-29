@@ -157,6 +157,48 @@ class ActivityRepositoryTest {
         assertThat(activities).hasSize(4);
     }
 
+    // ---- reorder queries ----------------------------------------------------------------------------------------
+
+    @Test
+    void findAllByIdInAndTripIdLeavesOutActivitiesOfOtherTripsAndUnknownIds() {
+        Trip otherTrip = entityManager.persist(Trip.builder()
+                .owner(owner)
+                .title("Huế")
+                .slug("hue-mno345")
+                .startDate(OCT_1)
+                .endDate(OCT_1)
+                .build());
+        TripDay otherDay = entityManager.persist(
+                TripDay.builder().trip(otherTrip).dayIndex(1).date(OCT_1).build());
+        Activity first = entityManager.persist(activity(dayOne, "Ăn sáng", 1000));
+        Activity second = entityManager.persist(activity(dayTwo, "Chợ đêm", 1000));
+        Activity foreign = entityManager.persist(activity(otherDay, "Chuyến khác", 1000));
+        entityManager.flush();
+
+        List<Activity> found = activityRepository.findAllByIdInAndTripId(
+                List.of(first.getId(), second.getId(), foreign.getId(), 999_999L), dayOne.getTrip().getId());
+
+        assertThat(found).containsExactlyInAnyOrder(first, second);
+    }
+
+    @Test
+    void findByTripDayIdInReturnsTheGivenDaysOnlyInDisplayOrder() {
+        TripDay dayThree = entityManager.persist(
+                TripDay.builder().trip(dayOne.getTrip()).dayIndex(3).date(OCT_1.plusDays(2)).build());
+        entityManager.persist(activity(dayOne, "Ngày 1 - thứ hai", 2000));
+        entityManager.persist(activity(dayThree, "Ngày 3", 500));
+        entityManager.persist(activity(dayOne, "Ngày 1 - thứ nhất", 1000));
+        entityManager.persist(activity(dayTwo, "Ngày 2", 1500));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Activity> found = activityRepository.findByTripDayIdInDisplayOrder(
+                List.of(dayOne.getId(), dayTwo.getId()));
+
+        assertThat(found).extracting(Activity::getTitle)
+                .containsExactly("Ngày 1 - thứ nhất", "Ngày 2", "Ngày 1 - thứ hai");
+    }
+
     // ---- findByIdAndTripId ------------------------------------------------------------------------------------
 
     @Test

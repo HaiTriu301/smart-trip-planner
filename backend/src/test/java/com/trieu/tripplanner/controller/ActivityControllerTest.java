@@ -11,8 +11,10 @@ import static org.mockito.Mockito.when;
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
@@ -23,6 +25,7 @@ import com.trieu.tripplanner.service.ActivityService;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +57,7 @@ class ActivityControllerTest {
     private static final long ACTIVITY_ID = 21L;
     private static final String DAY_ACTIVITIES_URL = "/api/v1/trips/5/days/11/activities";
     private static final String ACTIVITY_URL = "/api/v1/trips/5/activities/21";
+    private static final String REORDER_URL = "/api/v1/trips/5/activities/reorder";
 
     @Autowired
     private MockMvcTester mvc;
@@ -531,6 +535,185 @@ class ActivityControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(activityService);
+    }
+
+    // ---- PUT /trips/{tripId}/activities/reorder --------------------------------------------------------------
+
+    @Test
+    void reorderReturnsTheAffectedDaysWhenEditAllowed() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any())).thenReturn(List.of(
+                new TripDayDetailResponse(DAY_ID, 1, LocalDate.of(2026, 10, 1), null, null, List.of(sampleActivity())),
+                new TripDayDetailResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null, List.of())));
+
+        assertThat(put("""
+                { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 1500 },
+                             { "activityId": 22, "dayId": 12, "orderIndex": 1000 } ] }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": [ { "id": 11, "dayIndex": 1, "date": "2026-10-01",
+                                      "activities": [ { "id": 21, "title": "An trua", "orderIndex": 1000 } ] },
+                                    { "id": 12, "dayIndex": 2, "activities": [] } ] }
+                        """);
+
+        ArgumentCaptor<ReorderActivitiesRequest> request = ArgumentCaptor.forClass(ReorderActivitiesRequest.class);
+        verify(activityService).reorder(eq(TRIP_ID), request.capture());
+        assertThat(request.getValue().items()).containsExactly(
+                new ReorderActivitiesRequest.Item(21L, 11L, 1500),
+                new ReorderActivitiesRequest.Item(22L, 12L, 1000));
+    }
+
+    @Test
+    void reorderWithoutTokenReturns401() {
+        assertThat(mvc.put().uri(REORDER_URL).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void reorderReturns403WhenEditDeniedAndNeverReachesService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(put("""
+                { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 1500 } ] }
+                """))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void reorderWithEmptyOrMissingItemsReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(put("""
+                { "items": [] }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "items",
+                                         "message": "Danh sách hoạt động cần sắp xếp không được để trống" } ] }
+                        """);
+        assertThat(put("{}"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("items");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void reorderWithInvalidItemsReturns400NamingEachItemAndField() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(put("""
+                { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 0 },
+                             { "dayId": 11, "orderIndex": 1000 },
+                             { "activityId": 23, "orderIndex": 1000000001 } ] }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson()
+                .extractingPath("$.details[*].field")
+                .asArray()
+                .containsExactlyInAnyOrder("items[0].orderIndex", "items[1].activityId", "items[2].dayId",
+                        "items[2].orderIndex");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void reorderAcceptsTheLowestAndHighestOrderIndex() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any())).thenReturn(List.of());
+
+        assertThat(put("""
+                { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 1 },
+                             { "activityId": 22, "dayId": 11, "orderIndex": 1000000000 } ] }
+                """))
+                .hasStatusOk();
+    }
+
+    @Test
+    void reorderWithMoreThan200ItemsReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(put(itemsJson(201)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "details": [ { "field": "items",
+                                         "message": "Mỗi lần chỉ sắp xếp được tối đa 200 hoạt động" } ] }
+                        """);
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void reorderWithExactly200ItemsIsAccepted() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any())).thenReturn(List.of());
+
+        assertThat(put(itemsJson(200))).hasStatusOk();
+    }
+
+    @Test
+    void reorderWithABareArrayReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        // The body is an object holding the list (design.md 10.2 "Quy ước Reorder"), not the list itself
+        assertThat(put("""
+                [ { "activityId": 21, "dayId": 11, "orderIndex": 1500 } ]
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void reorderReturns404WhenAnActivityIsNotInTheTrip() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any())).thenThrow(new ResourceNotFoundException("Activity", 99L));
+
+        assertThat(put("""
+                { "items": [ { "activityId": 99, "dayId": 11, "orderIndex": 1500 } ] }
+                """))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void reorderRejectedForADuplicateActivityReturns400OnItems() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any()))
+                .thenThrow(BusinessRuleException.invalidField("items", "error.reorder.duplicate-activity",
+                        "Activity 21 appears more than once in the reorder request", "21"));
+
+        assertThat(put("""
+                { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 500 },
+                             { "activityId": 21, "dayId": 12, "orderIndex": 900 } ] }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "items",
+                                         "message": "Hoạt động 21 xuất hiện nhiều lần trong danh sách" } ] }
+                        """);
+    }
+
+    private MvcTestResult put(String json) {
+        return mvc.put().uri(REORDER_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json)
+                .exchange();
+    }
+
+    private static String itemsJson(int count) {
+        StringBuilder items = new StringBuilder();
+        for (int i = 1; i <= count; i++) {
+            items.append(i == 1 ? "" : ",")
+                    .append("{\"activityId\":").append(i).append(",\"dayId\":11,\"orderIndex\":").append(i * 1000)
+                    .append('}');
+        }
+        return "{\"items\":[" + items + "]}";
     }
 
     private MvcTestResult patch(String url, String json) {

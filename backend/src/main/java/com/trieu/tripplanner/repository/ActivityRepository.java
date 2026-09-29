@@ -3,6 +3,7 @@ package com.trieu.tripplanner.repository;
 import com.trieu.tripplanner.dto.internal.DroppedActivities;
 import com.trieu.tripplanner.model.Activity;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -48,6 +49,17 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
      */
     @Query("select a from Activity a where a.tripDay.trip.id = :tripId order by a.orderIndex, a.id")
     List<Activity> findByTripIdInDisplayOrder(@Param("tripId") Long tripId);
+
+    /**
+     * The activities of a reorder request in one query. An id that belongs to another trip, or to nothing, is
+     * simply missing from the result; the service turns that into a 404 for the whole batch.
+     */
+    @Query("select a from Activity a where a.id in :ids and a.tripDay.trip.id = :tripId")
+    List<Activity> findAllByIdInAndTripId(@Param("ids") Collection<Long> ids, @Param("tripId") Long tripId);
+
+    /** Activities of several days in one query, in display order inside each day; grouped by day afterwards. */
+    @Query("select a from Activity a where a.tripDay.id in :dayIds order by a.orderIndex, a.id")
+    List<Activity> findByTripDayIdInDisplayOrder(@Param("dayIds") Collection<Long> dayIds);
 
     /**
      * Empty when the activity belongs to another trip, so /trips/1/activities/{activity of trip 2} answers 404.

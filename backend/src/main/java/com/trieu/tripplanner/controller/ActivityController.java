@@ -2,8 +2,10 @@ package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.service.ActivityService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -72,6 +75,18 @@ public class ActivityController {
                                                 @RequestParam(defaultValue = "false") boolean allowOverlap,
                                                 @Valid @RequestBody UpdateActivityRequest request) {
         return ApiResponse.ok(activityService.update(tripId, activityId, request, allowOverlap));
+    }
+
+    @Operation(summary = "Sắp xếp lại hoạt động (kéo thả)",
+               description = "Gửi những hoạt động bị di chuyển, mỗi hoạt động kèm ngày đích và số thứ tự mới. Cùng "
+                       + "ngày: đổi thứ tự. Khác ngày: chuyển sang ngày đó. Cả lô được áp dụng cùng lúc hoặc không "
+                       + "gì cả. Trả về các ngày bị ảnh hưởng kèm hoạt động theo thứ tự mới. 404 nếu một hoạt động "
+                       + "hoặc một ngày không thuộc chuyến đi.")
+    @PutMapping("/activities/reorder")
+    @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
+    public ApiResponse<List<TripDayDetailResponse>> reorder(@PathVariable Long tripId,
+                                                            @Valid @RequestBody ReorderActivitiesRequest request) {
+        return ApiResponse.ok(activityService.reorder(tripId, request));
     }
 
     @Operation(summary = "Xoá hoạt động",

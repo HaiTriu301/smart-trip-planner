@@ -135,6 +135,36 @@ class ActivityMappingTest {
     }
 
     @Test
+    void movingToAnotherDayAndPositionDoesNotIncrementVersion() {
+        TripDay dayTwo = entityManager.persistAndFlush(
+                TripDay.builder().trip(trip).dayIndex(2).date(OCT_1.plusDays(1)).build());
+        Activity activity = entityManager.persistAndFlush(minimal("Chợ đêm").build());
+
+        activity.moveTo(dayTwo, 2500);
+        entityManager.flush();
+        entityManager.clear();
+
+        // Position is not content (design.md 11.3): a drag and drop must not make an open edit form stale
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+                "SELECT trip_day_id, order_index, version FROM activities WHERE id = ?", activity.getId());
+        assertThat(((Number) row.get("trip_day_id")).longValue()).isEqualTo(dayTwo.getId());
+        assertThat(row.get("order_index")).isEqualTo(2500);
+        assertThat(((Number) row.get("version")).longValue()).isZero();
+    }
+
+    @Test
+    void editingContentAfterAMoveStillIncrementsVersion() {
+        Activity activity = entityManager.persistAndFlush(minimal("Chợ đêm").build());
+        activity.moveTo(day, 2500);
+        entityManager.flush();
+
+        activity.setTitle("Chợ đêm Đà Lạt");
+        entityManager.flush();
+
+        assertThat(activity.getVersion()).isEqualTo(1L);
+    }
+
+    @Test
     void endTimeNotAfterStartTimeIsRejectedByCheckConstraint() {
         assertThatThrownBy(() -> entityManager.persistAndFlush(
                 minimal("Sai giờ").startTime(TEN_THIRTY).endTime(NINE).build()))
