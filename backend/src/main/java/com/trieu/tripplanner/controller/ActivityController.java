@@ -2,6 +2,7 @@ package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.service.ActivityService;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,6 +58,19 @@ public class ActivityController {
                                                 @RequestParam(defaultValue = "false") boolean allowOverlap,
                                                 @Valid @RequestBody CreateActivityRequest request) {
         return ApiResponse.ok(activityService.create(tripId, dayId, principal.getId(), request, allowOverlap));
+    }
+
+    @Operation(summary = "Sửa hoạt động",
+               description = "Chỉ gửi field cần đổi (field null giữ nguyên). note và bookingUrl gửi chuỗi rỗng để xoá. "
+                       + "Không đổi ngày và thứ tự ở đây. Đổi giờ làm trùng hoạt động khác: 409 "
+                       + "ACTIVITY_TIME_CONFLICT, gửi lại kèm allowOverlap=true để vẫn lưu. 404 nếu hoạt động không "
+                       + "thuộc chuyến đi.")
+    @PatchMapping("/activities/{activityId}")
+    @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
+    public ApiResponse<ActivityResponse> update(@PathVariable Long tripId, @PathVariable Long activityId,
+                                                @RequestParam(defaultValue = "false") boolean allowOverlap,
+                                                @Valid @RequestBody UpdateActivityRequest request) {
+        return ApiResponse.ok(activityService.update(tripId, activityId, request, allowOverlap));
     }
 
 }

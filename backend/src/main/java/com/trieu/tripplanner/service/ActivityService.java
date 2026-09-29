@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import java.util.List;
 
@@ -34,5 +35,20 @@ public interface ActivityService {
      */
     ActivityResponse create(Long tripId, Long dayId, Long userId, CreateActivityRequest request,
                             boolean allowOverlap);
+
+    /**
+     * Partial update: null keeps the current value, a blank note or bookingUrl clears it. The day, the position
+     * and the creator never change here. Rules are checked on the merged result.
+     * <p>
+     * The overlap rule is applied only when the time range actually changes, and never against the activity
+     * itself: renaming an activity that was saved with allowOverlap must not be refused.
+     *
+     * @param allowOverlap true: the client confirmed that the new time range may overlap another activity
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or the activity
+     *                                                                   belongs to another trip (404)
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged times (400); the new
+     *                                                                   range overlaps another activity (409)
+     */
+    ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request, boolean allowOverlap);
 
 }

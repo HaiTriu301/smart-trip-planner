@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
@@ -49,7 +50,9 @@ class ActivityControllerTest {
     private static final long USER_ID = 7L;
     private static final long TRIP_ID = 5L;
     private static final long DAY_ID = 11L;
+    private static final long ACTIVITY_ID = 21L;
     private static final String DAY_ACTIVITIES_URL = "/api/v1/trips/5/days/11/activities";
+    private static final String ACTIVITY_URL = "/api/v1/trips/5/activities/21";
 
     @Autowired
     private MockMvcTester mvc;
@@ -344,6 +347,134 @@ class ActivityControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(activityService);
+    }
+
+    // ---- PATCH /trips/{tripId}/activities/{activityId} ------------------------------------------------------
+
+    @Test
+    void updateReturnsTheActivityWhenEditAllowed() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false))).thenReturn(sampleActivity());
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "title": "An trua", "endTime": "13:00", "note": "", "bookingUrl": "" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": { "id": 21, "dayId": 11, "title": "An trua", "startTime": "11:30",
+                                    "endTime": "13:00", "orderIndex": 1000, "version": 0 } }
+                        """);
+
+        // "" must reach the service untouched: it means "clear", unlike an omitted field
+        ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), request.capture(), eq(false));
+        assertThat(request.getValue()).isEqualTo(
+                new UpdateActivityRequest("An trua", null, null, LocalTime.of(13, 0), "", null, null, ""));
+    }
+
+    @Test
+    void updateWithEmptyBodyObjectIsAcceptedAsNoChange() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false))).thenReturn(sampleActivity());
+
+        assertThat(patch(ACTIVITY_URL, "{}")).hasStatusOk();
+    }
+
+    @Test
+    void updateWithoutTokenReturns401() {
+        assertThat(mvc.patch().uri(ACTIVITY_URL).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void updateReturns403WhenEditDeniedAndNeverReachesService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "title": "Sua trom" }
+                """))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void updateWithInvalidBodyReturns400WithFieldDetails() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "title": "   ", "costAmount": -1, "currency": "vnd", "bookingUrl": "ftp://example.com" }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson()
+                .extractingPath("$.details[*].field")
+                .asArray()
+                .containsExactlyInAnyOrder("title", "costAmount", "currency", "bookingUrl");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void updateReturns409WhenNewTimesOverlap() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false)))
+                .thenThrow(new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
+                        "Activity 09:30-10:30 overlaps 1 activities of day 11, first is activity 32",
+                        List.of(FieldViolation.of("startTime", "error.activity.time-conflict-with",
+                                "Cà phê", "10:00", "11:00"))));
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "startTime": "09:30", "endTime": "10:30" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "ACTIVITY_TIME_CONFLICT",
+                          "details": [ { "field": "startTime" } ] }
+                        """);
+    }
+
+    @Test
+    void updateWithAllowOverlapPassesTheFlagToTheService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(true))).thenReturn(sampleActivity());
+
+        assertThat(patch(ACTIVITY_URL + "?allowOverlap=true", """
+                { "startTime": "09:30", "endTime": "10:30" }
+                """))
+                .hasStatusOk();
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(true));
+    }
+
+    @Test
+    void updateReturns404WhenActivityIsNotInTheTrip() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false)))
+                .thenThrow(new ResourceNotFoundException("Activity", ACTIVITY_ID));
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "title": "Nham chuyen" }
+                """))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void updateWithNonNumericActivityIdReturns400() {
+        assertThat(patch("/api/v1/trips/5/activities/abc", """
+                { "title": "X" }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(activityService);
+    }
+
+    private MvcTestResult patch(String url, String json) {
+        return mvc.patch().uri(url).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json)
+                .exchange();
     }
 
     private MvcTestResult post(String json) {

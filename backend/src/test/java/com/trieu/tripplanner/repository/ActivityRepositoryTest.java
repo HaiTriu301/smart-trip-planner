@@ -75,6 +75,27 @@ class ActivityRepositoryTest {
         assertThat(activityRepository.findMaxOrderIndexByTripDayId(dayOne.getId())).isEqualTo(3000);
     }
 
+    // ---- findByIdAndTripId ------------------------------------------------------------------------------------
+
+    @Test
+    void findByIdAndTripIdOnlyMatchesAnActivityOfThatTrip() {
+        Trip otherTrip = entityManager.persist(Trip.builder()
+                .owner(owner)
+                .title("Huế")
+                .slug("hue-def456")
+                .startDate(OCT_1)
+                .endDate(OCT_1)
+                .build());
+        Activity activity = entityManager.persist(activity(dayOne, "Ăn sáng", 1000));
+        entityManager.flush();
+        Long tripId = dayOne.getTrip().getId();
+
+        assertThat(activityRepository.findByIdAndTripId(activity.getId(), tripId)).contains(activity);
+        // Guessing an activity id through another trip's URL must not reach the activity
+        assertThat(activityRepository.findByIdAndTripId(activity.getId(), otherTrip.getId())).isEmpty();
+        assertThat(activityRepository.findByIdAndTripId(999_999L, tripId)).isEmpty();
+    }
+
     // ---- findByTripDayIdOrderByOrderIndexAscIdAsc (display order) ---------------------------------------------
 
     @Test

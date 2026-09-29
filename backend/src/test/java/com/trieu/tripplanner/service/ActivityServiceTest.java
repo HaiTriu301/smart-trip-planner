@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
@@ -388,6 +389,241 @@ class ActivityServiceTest {
             ArgumentCaptor<Activity> saved = ArgumentCaptor.forClass(Activity.class);
             verify(activityRepository, atLeastOnce()).save(saved.capture());
             return saved.getValue();
+        }
+
+    }
+
+    @Nested
+    class Update {
+
+        private static final long ACTIVITY_ID = 31L;
+        private static final LocalTime TEN_THIRTY = LocalTime.of(10, 30);
+
+        private Activity stored;
+
+        @BeforeEach
+        void storedActivity() {
+            stored = Activity.builder()
+                    .tripDay(day)
+                    .title("Ăn sáng")
+                    .type(ActivityType.FOOD)
+                    .startTime(NINE)
+                    .endTime(TEN)
+                    .orderIndex(2000)
+                    .note("Ghi chú cũ")
+                    .costAmount(new BigDecimal("50000.00"))
+                    .currency("VND")
+                    .bookingUrl("https://example.com/old")
+                    .createdBy(creator)
+                    .build();
+            ReflectionTestUtils.setField(stored, "id", ACTIVITY_ID);
+            ReflectionTestUtils.setField(stored, "version", 0L);
+
+            // lenient: the "not found" tests stop before some of these are reached
+            lenient().when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+            lenient().when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.of(stored));
+            lenient().when(activityRepository.saveAndFlush(any(Activity.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+        }
+
+        @Test
+        void changesOnlyTheFieldsSentAndNeverTheDayThePositionOrTheCreator() {
+            ActivityResponse response = update(titled("  Ăn sáng muộn  "));
+
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng muộn");
+            assertThat(stored.getType()).isEqualTo(ActivityType.FOOD);
+            assertThat(stored.getStartTime()).isEqualTo(NINE);
+            assertThat(stored.getEndTime()).isEqualTo(TEN);
+            assertThat(stored.getNote()).isEqualTo("Ghi chú cũ");
+            assertThat(stored.getCostAmount()).isEqualByComparingTo("50000");
+            assertThat(stored.getCurrency()).isEqualTo("VND");
+            assertThat(stored.getBookingUrl()).isEqualTo("https://example.com/old");
+            assertThat(stored.getOrderIndex()).isEqualTo(2000);
+            assertThat(stored.getTripDay()).isSameAs(day);
+            assertThat(stored.getCreatedBy()).isSameAs(creator);
+
+            verify(activityRepository).saveAndFlush(stored);
+            assertThat(response.id()).isEqualTo(ACTIVITY_ID);
+            assertThat(response.title()).isEqualTo("Ăn sáng muộn");
+        }
+
+        @Test
+        void everyEditableFieldCanBeChanged() {
+            update(new UpdateActivityRequest("Ăn trưa", ActivityType.SHOPPING, LocalTime.of(11, 30),
+                    LocalTime.of(13, 0), "  Ghi chú mới  ", new BigDecimal("12.50"), "USD",
+                    "https://example.com/new"));
+
+            assertThat(stored.getTitle()).isEqualTo("Ăn trưa");
+            assertThat(stored.getType()).isEqualTo(ActivityType.SHOPPING);
+            assertThat(stored.getStartTime()).isEqualTo(LocalTime.of(11, 30));
+            assertThat(stored.getEndTime()).isEqualTo(LocalTime.of(13, 0));
+            assertThat(stored.getNote()).isEqualTo("Ghi chú mới");
+            assertThat(stored.getCostAmount()).isEqualByComparingTo("12.50");
+            assertThat(stored.getCurrency()).isEqualTo("USD");
+            assertThat(stored.getBookingUrl()).isEqualTo("https://example.com/new");
+        }
+
+        @Test
+        void blankNoteAndBookingUrlAreCleared() {
+            update(new UpdateActivityRequest(null, null, null, null, "   ", null, null, ""));
+
+            assertThat(stored.getNote()).isNull();
+            assertThat(stored.getBookingUrl()).isNull();
+            // The rest is untouched
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getCostAmount()).isEqualByComparingTo("50000");
+        }
+
+        @Test
+        void secondsSentByTheClientAreDropped() {
+            update(times(LocalTime.of(9, 30, 40), LocalTime.of(10, 45, 59)));
+
+            assertThat(stored.getStartTime()).isEqualTo(LocalTime.of(9, 30));
+            assertThat(stored.getEndTime()).isEqualTo(LocalTime.of(10, 45));
+        }
+
+        // ---- time rules on the merged state ------------------------------------------------------------------
+
+        @Test
+        void endTimeAloneIsCheckedAgainstTheStoredStartTime() {
+            assertThatThrownBy(() -> update(times(null, LocalTime.of(8, 0))))
+                    .satisfies(ex -> assertSingleViolation(ex, "endTime", "error.activity.end-not-after-start"));
+
+            assertThat(stored.getEndTime()).isEqualTo(TEN);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void startTimeAloneIsCheckedAgainstTheStoredEndTime() {
+            assertThatThrownBy(() -> update(times(TEN_THIRTY, null)))
+                    .satisfies(ex -> assertSingleViolation(ex, "endTime", "error.activity.end-not-after-start"));
+
+            assertThat(stored.getStartTime()).isEqualTo(NINE);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void endTimeOnAnActivityWithoutStartTimeIsRejectedOnStartTime() {
+            stored.setStartTime(null);
+            stored.setEndTime(null);
+
+            assertThatThrownBy(() -> update(times(null, TEN)))
+                    .satisfies(ex -> assertSingleViolation(ex, "startTime", "error.activity.start-time-required"));
+            assertThat(stored.getEndTime()).isNull();
+        }
+
+        @Test
+        void timesCanBeAddedToAnUnscheduledActivity() {
+            stored.setStartTime(null);
+            stored.setEndTime(null);
+
+            update(times(NINE, TEN));
+
+            assertThat(stored.getStartTime()).isEqualTo(NINE);
+            assertThat(stored.getEndTime()).isEqualTo(TEN);
+        }
+
+        // ---- rule 14.4 -----------------------------------------------------------------------------------------
+
+        @Test
+        void movingIntoAnotherActivityIsRejectedWith409AndNothingChanges() {
+            when(activityRepository.findTimedByTripDayId(DAY_ID))
+                    .thenReturn(List.of(stored, existing(32L, "Cà phê", "10:00", "11:00")));
+
+            assertThatThrownBy(() -> update(times(LocalTime.of(9, 30), TEN_THIRTY)))
+                    .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.ACTIVITY_TIME_CONFLICT);
+                        assertThat(ex.getDetails()).containsExactly(FieldViolation.of("startTime",
+                                "error.activity.time-conflict-with", "Cà phê", "10:00", "11:00"));
+                    });
+
+            assertThat(stored.getStartTime()).isEqualTo(NINE);
+            assertThat(stored.getEndTime()).isEqualTo(TEN);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void anActivityIsNeverItsOwnConflict() {
+            // The candidates contain the activity itself with its old range 09:00–10:00
+            when(activityRepository.findTimedByTripDayId(DAY_ID)).thenReturn(List.of(stored));
+
+            update(times(null, TEN_THIRTY));
+
+            assertThat(stored.getEndTime()).isEqualTo(TEN_THIRTY);
+        }
+
+        @Test
+        void unchangedRangeIsNotCheckedSoAnAllowedOverlapCanStillBeRenamed() {
+            update(titled("Ăn sáng muộn"));
+            // Sending the stored times again is not a change either
+            update(times(NINE, TEN));
+
+            verify(activityRepository, never()).findTimedByTripDayId(anyLong());
+        }
+
+        @Test
+        void allowOverlapSkipsTheCheckAndSaves() {
+            activityService.update(TRIP_ID, ACTIVITY_ID, times(LocalTime.of(9, 30), TEN_THIRTY), true);
+
+            assertThat(stored.getStartTime()).isEqualTo(LocalTime.of(9, 30));
+            verify(activityRepository, never()).findTimedByTripDayId(anyLong());
+        }
+
+        // ---- cost and currency -----------------------------------------------------------------------------------
+
+        @Test
+        void costOnAnActivityWithoutCurrencyTakesTheCurrencyOfTheTrip() {
+            stored.setCostAmount(null);
+            stored.setCurrency(null);
+
+            update(new UpdateActivityRequest(null, null, null, null, null, new BigDecimal("12.50"), null, null));
+
+            assertThat(stored.getCostAmount()).isEqualByComparingTo("12.50");
+            assertThat(stored.getCurrency()).isEqualTo("USD");
+        }
+
+        @Test
+        void newCostKeepsTheStoredCurrency() {
+            update(new UpdateActivityRequest(null, null, null, null, null, new BigDecimal("75000"), null, null));
+
+            assertThat(stored.getCostAmount()).isEqualByComparingTo("75000");
+            assertThat(stored.getCurrency()).isEqualTo("VND");
+        }
+
+        // ---- not found ---------------------------------------------------------------------------------------------
+
+        @Test
+        void missingOrDeletedTripIsNotFoundAndTheActivityIsNotLoaded() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> update(titled("X")))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void activityOfAnotherTripIsNotFoundAndNothingIsSaved() {
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> update(titled("X")))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Activity");
+            verify(activityRepository, never()).saveAndFlush(any());
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+        }
+
+        /** The default case of the endpoint: allowOverlap = false. */
+        private ActivityResponse update(UpdateActivityRequest request) {
+            return activityService.update(TRIP_ID, ACTIVITY_ID, request, false);
+        }
+
+        private static UpdateActivityRequest titled(String title) {
+            return new UpdateActivityRequest(title, null, null, null, null, null, null, null);
+        }
+
+        private static UpdateActivityRequest times(LocalTime start, LocalTime end) {
+            return new UpdateActivityRequest(null, null, start, end, null, null, null, null);
         }
 
     }

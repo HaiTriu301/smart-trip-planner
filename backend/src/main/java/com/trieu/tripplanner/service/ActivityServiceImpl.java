@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
@@ -19,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class ActivityServiceImpl implements ActivityService {
 
     private static final String TRIP = "Trip";
     private static final String TRIP_DAY = "TripDay";
+    private static final String ACTIVITY = "Activity";
 
     private final ActivityRepository activityRepository;
     private final TripRepository tripRepository;
@@ -60,7 +63,7 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime endTime = toMinutes(request.endTime());
         validateTimeRange(startTime, endTime);
         if (!allowOverlap) {
-            validateNoTimeConflict(dayId, startTime, endTime);
+            validateNoTimeConflict(dayId, startTime, endTime, null);
         }
 
         Activity activity = Activity.builder()
@@ -82,6 +85,47 @@ public class ActivityServiceImpl implements ActivityService {
 
         Activity saved = activityRepository.save(activity);
         log.info("Activity {} added to day {} of trip {} by user {}", saved.getId(), dayId, tripId, userId);
+        return activityMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request,
+                                   boolean allowOverlap) {
+        Trip trip = findLiveTrip(tripId);
+        Activity activity = activityRepository.findByIdAndTripId(activityId, tripId)
+                .orElseThrow(() -> new ResourceNotFoundException(ACTIVITY, activityId));
+
+        // Merged state first, entity untouched: a rejected request must leave nothing to flush
+        LocalTime startTime = request.startTime() != null ? toMinutes(request.startTime()) : activity.getStartTime();
+        LocalTime endTime = request.endTime() != null ? toMinutes(request.endTime()) : activity.getEndTime();
+        validateTimeRange(startTime, endTime);
+
+        boolean rangeChanged = !Objects.equals(startTime, activity.getStartTime())
+                || !Objects.equals(endTime, activity.getEndTime());
+        if (rangeChanged && !allowOverlap) {
+            validateNoTimeConflict(activity.getTripDay().getId(), startTime, endTime, activityId);
+        }
+
+        BigDecimal costAmount = request.costAmount() != null ? request.costAmount() : activity.getCostAmount();
+        String currency = request.currency() != null ? request.currency() : activity.getCurrency();
+
+        if (request.title() != null) {
+            activity.setTitle(request.title().trim());
+        }
+        if (request.type() != null) {
+            activity.setType(request.type());
+        }
+        activity.setStartTime(startTime);
+        activity.setEndTime(endTime);
+        activity.setNote(applyText(request.note(), activity.getNote()));
+        activity.setCostAmount(costAmount);
+        activity.setCurrency(resolveCurrency(currency, costAmount, trip));
+        activity.setBookingUrl(applyText(request.bookingUrl(), activity.getBookingUrl()));
+
+        // Flush now so the response carries the incremented version and updatedAt
+        Activity saved = activityRepository.saveAndFlush(activity);
+        log.info("Activity {} of trip {} updated", activityId, tripId);
         return activityMapper.toResponse(saved);
     }
 
@@ -129,12 +173,16 @@ public class ActivityServiceImpl implements ActivityService {
      * range, so an activity without an end time is never checked and never blocks another one.
      * <p>
      * Compared in Java on purpose, see {@link ActivityRepository#findTimedByTripDayId}.
+     *
+     * @param ownId id of the activity being edited, null when creating
      */
-    private void validateNoTimeConflict(Long dayId, LocalTime startTime, LocalTime endTime) {
+    private void validateNoTimeConflict(Long dayId, LocalTime startTime, LocalTime endTime, Long ownId) {
         if (startTime == null || endTime == null) {
             return;
         }
         List<Activity> conflicts = activityRepository.findTimedByTripDayId(dayId).stream()
+                // An activity being edited is among the candidates with its old times: never its own conflict
+                .filter(other -> !other.getId().equals(ownId))
                 .filter(other -> overlaps(other, startTime, endTime))
                 .toList();
         if (conflicts.isEmpty()) {
@@ -172,6 +220,11 @@ public class ActivityServiceImpl implements ActivityService {
 
     private static String blankToNull(String text) {
         return text == null || text.isBlank() ? null : text.trim();
+    }
+
+    /** PATCH text field: null → keep current; blank → clear (NULL); otherwise the trimmed text. */
+    private static String applyText(String incoming, String current) {
+        return incoming == null ? current : blankToNull(incoming);
     }
 
 }

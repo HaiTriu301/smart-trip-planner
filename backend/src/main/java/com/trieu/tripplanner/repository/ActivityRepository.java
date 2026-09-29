@@ -2,6 +2,7 @@ package com.trieu.tripplanner.repository;
 
 import com.trieu.tripplanner.model.Activity;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,5 +39,12 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
      * The id breaks the tie when two activities share an index (two simultaneous inserts): the older one first.
      */
     List<Activity> findByTripDayIdOrderByOrderIndexAscIdAsc(Long dayId);
+
+    /**
+     * Empty when the activity belongs to another trip, so /trips/1/activities/{activity of trip 2} answers 404.
+     * The trip id is read from trip_days; the trips table is not joined.
+     */
+    @Query("select a from Activity a where a.id = :id and a.tripDay.trip.id = :tripId")
+    Optional<Activity> findByIdAndTripId(@Param("id") Long id, @Param("tripId") Long tripId);
 
 }
