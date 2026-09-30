@@ -25,6 +25,7 @@ export function ResetPasswordPage() {
     setError,
     formState: { errors },
   } = useForm<ResetPasswordValues>({
+    mode: 'onTouched',
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { newPassword: '', confirmPassword: '' },
   })
@@ -75,6 +76,7 @@ export function ResetPasswordPage() {
         )}
         <FormField
           label="Mật khẩu mới"
+          required
           type="password"
           autoComplete="new-password"
           autoFocus
@@ -83,6 +85,7 @@ export function ResetPasswordPage() {
         />
         <FormField
           label="Nhập lại mật khẩu mới"
+          required
           type="password"
           autoComplete="new-password"
           error={errors.confirmPassword?.message}

@@ -79,6 +79,7 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
     control,
     formState: { errors },
   } = useForm<ActivityValues>({
+    mode: 'onTouched',
     resolver: zodResolver(activitySchema),
     defaultValues: toActivityValues(activity, tripCurrency),
   })
@@ -131,15 +132,15 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       {mutation.isError && !overlap && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <FormField label="Tên hoạt động" autoFocus error={errors.title?.message} {...register('title')} />
+      <FormField label="Tên hoạt động" required autoFocus error={errors.title?.message} {...register('title')} />
       <SelectField label="Loại" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Giờ bắt đầu (không bắt buộc)" type="time" error={errors.startTime?.message} {...register('startTime')} />
-        <FormField label="Giờ kết thúc (không bắt buộc)" type="time" error={errors.endTime?.message} {...register('endTime')} />
+        <FormField label="Giờ bắt đầu" type="time" error={errors.startTime?.message} {...register('startTime')} />
+        <FormField label="Giờ kết thúc" type="time" error={errors.endTime?.message} {...register('endTime')} />
       </div>
       <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
         <FormField
-          label="Chi phí (không bắt buộc)"
+          label="Chi phí"
           inputMode="decimal"
           placeholder="Ví dụ: 350000"
           error={errors.costAmount?.message}
@@ -153,14 +154,15 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
         />
       </div>
       <FormField
-        label="Link đặt chỗ (không bắt buộc)"
+        label="Link đặt chỗ"
         type="url"
         placeholder="https://..."
         error={errors.bookingUrl?.message}
         {...register('bookingUrl')}
       />
       <TextAreaField
-        label={`Ghi chú (không bắt buộc, tối đa ${NOTE_MAX_LENGTH} ký tự)`}
+        label="Ghi chú"
+        hint={`Tối đa ${NOTE_MAX_LENGTH} ký tự`}
         maxLength={NOTE_MAX_LENGTH}
         error={errors.note?.message}
         {...register('note')}

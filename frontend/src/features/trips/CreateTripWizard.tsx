@@ -26,6 +26,7 @@ export function CreateTripWizard() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const form = useForm<TripValues>({
+    mode: 'onTouched',
     resolver: zodResolver(tripSchema),
     defaultValues: {
       title: '',

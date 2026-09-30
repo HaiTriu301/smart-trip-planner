@@ -19,6 +19,7 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
     setError,
     formState: { errors },
   } = useForm<RegisterValues>({
+    mode: 'onTouched',
     resolver: zodResolver(registerSchema),
     defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
   })
@@ -43,6 +44,7 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
       {showBanner && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
       <FormField
         label="Họ tên"
+        required
         autoComplete="name"
         autoFocus
         error={errors.fullName?.message}
@@ -50,6 +52,7 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
       />
       <FormField
         label="Email"
+        required
         type="email"
         autoComplete="email"
         error={errors.email?.message}
@@ -57,6 +60,7 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
       />
       <FormField
         label="Mật khẩu"
+        required
         type="password"
         autoComplete="new-password"
         error={errors.password?.message}
@@ -64,6 +68,7 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
       />
       <FormField
         label="Nhập lại mật khẩu"
+        required
         type="password"
         autoComplete="new-password"
         error={errors.confirmPassword?.message}

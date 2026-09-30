@@ -18,15 +18,16 @@ export function TripInfoFields({ form, autoFocus }: SectionProps) {
   const { register, formState: { errors } } = form
   return (
     <div className="space-y-4">
-      <FormField label="Tên chuyến đi" autoFocus={autoFocus} error={errors.title?.message} {...register('title')} />
+      <FormField label="Tên chuyến đi" required autoFocus={autoFocus} error={errors.title?.message} {...register('title')} />
       <TextAreaField
-        label={`Mô tả (không bắt buộc, tối đa ${DESCRIPTION_MAX_LENGTH} ký tự)`}
+        label="Mô tả"
+        hint={`Tối đa ${DESCRIPTION_MAX_LENGTH} ký tự`}
         maxLength={DESCRIPTION_MAX_LENGTH}
         error={errors.description?.message}
         {...register('description')}
       />
       <FormField
-        label="Đường dẫn ảnh bìa (không bắt buộc)"
+        label="Đường dẫn ảnh bìa"
         type="url"
         placeholder="https://..."
         error={errors.coverImageUrl?.message}
@@ -39,16 +40,14 @@ export function TripInfoFields({ form, autoFocus }: SectionProps) {
 export function TripDestinationFields({ form, autoFocus }: SectionProps) {
   const { register, formState: { errors } } = form
   return (
-    <div className="space-y-2">
-      <FormField
-        label="Điểm đến (không bắt buộc)"
-        autoFocus={autoFocus}
-        placeholder="Ví dụ: Đà Lạt"
-        error={errors.destinationName?.message}
-        {...register('destinationName')}
-      />
-      <p className="text-sm text-gray-500">Chọn vị trí trên bản đồ sẽ có ở phiên bản sau.</p>
-    </div>
+    <FormField
+      label="Điểm đến"
+      hint="Chọn vị trí trên bản đồ sẽ có ở phiên bản sau."
+      autoFocus={autoFocus}
+      placeholder="Ví dụ: Đà Lạt"
+      error={errors.destinationName?.message}
+      {...register('destinationName')}
+    />
   )
 }
 
@@ -65,8 +64,8 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Ngày bắt đầu" type="date" autoFocus={autoFocus} error={errors.startDate?.message} {...register('startDate')} />
-        <FormField label="Ngày kết thúc" type="date" min={startDate || undefined} error={errors.endDate?.message} {...register('endDate')} />
+        <FormField label="Ngày bắt đầu" required type="date" autoFocus={autoFocus} error={errors.startDate?.message} {...register('startDate')} />
+        <FormField label="Ngày kết thúc" required type="date" min={startDate || undefined} error={errors.endDate?.message} {...register('endDate')} />
       </div>
       <p className="text-sm text-gray-500">
         {dayCount ? `Chuyến đi dài ${dayCount} ngày. ` : ''}Tối đa {MAX_TRIP_DAYS} ngày.
@@ -74,7 +73,7 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
       {hint}
       <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
         <FormField
-          label="Ngân sách (không bắt buộc)"
+          label="Ngân sách"
           inputMode="decimal"
           placeholder="Ví dụ: 5000000"
           error={errors.budgetAmount?.message}

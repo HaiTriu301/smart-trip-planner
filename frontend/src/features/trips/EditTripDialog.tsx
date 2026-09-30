@@ -59,6 +59,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
   const queryClient = useQueryClient()
   const [pending, setPending] = useState<PendingConfirm | null>(null)
   const form = useForm<TripValues>({
+    mode: 'onTouched',
     resolver: zodResolver(tripSchema),
     defaultValues: toTripValues(trip),
   })

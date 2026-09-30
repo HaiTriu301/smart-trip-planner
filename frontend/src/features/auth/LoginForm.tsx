@@ -21,6 +21,7 @@ export function LoginForm() {
     getValues,
     formState: { errors },
   } = useForm<LoginValues>({
+    mode: 'onTouched',
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   })
@@ -54,6 +55,7 @@ export function LoginForm() {
       )}
       <FormField
         label="Email"
+        required
         type="email"
         autoComplete="email"
         autoFocus
@@ -62,6 +64,7 @@ export function LoginForm() {
       />
       <FormField
         label="Mật khẩu"
+        required
         type="password"
         autoComplete="current-password"
         error={errors.password?.message}

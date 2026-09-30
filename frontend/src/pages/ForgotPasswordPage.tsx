@@ -18,6 +18,7 @@ export function ForgotPasswordPage() {
     getValues,
     formState: { errors },
   } = useForm<EmailOnlyValues>({
+    mode: 'onTouched',
     resolver: zodResolver(emailOnlySchema),
     defaultValues: { email: '' },
   })
@@ -58,6 +59,7 @@ export function ForgotPasswordPage() {
         {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
         <FormField
           label="Email"
+          required
           type="email"
           autoComplete="email"
           autoFocus

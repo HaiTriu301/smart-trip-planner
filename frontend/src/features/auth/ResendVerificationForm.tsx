@@ -19,6 +19,7 @@ export function ResendVerificationForm({ defaultEmail = '' }: ResendVerification
     handleSubmit,
     formState: { errors },
   } = useForm<EmailOnlyValues>({
+    mode: 'onTouched',
     resolver: zodResolver(emailOnlySchema),
     defaultValues: { email: defaultEmail },
   })
@@ -38,6 +39,7 @@ export function ResendVerificationForm({ defaultEmail = '' }: ResendVerification
       {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
       <FormField
         label="Email"
+        required
         type="email"
         autoComplete="email"
         error={errors.email?.message}

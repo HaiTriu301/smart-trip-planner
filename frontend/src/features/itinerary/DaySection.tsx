@@ -149,6 +149,7 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
     setError,
     formState: { errors },
   } = useForm<DayValues>({
+    mode: 'onTouched',
     resolver: zodResolver(daySchema),
     defaultValues: { title: day.title ?? '', note: day.note ?? '' },
   })
@@ -176,7 +177,8 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
         {...register('title')}
       />
       <TextAreaField
-        label={`Ghi chú (tối đa ${NOTE_MAX_LENGTH} ký tự)`}
+        label="Ghi chú"
+        hint={`Tối đa ${NOTE_MAX_LENGTH} ký tự`}
         maxLength={NOTE_MAX_LENGTH}
         error={errors.note?.message}
         {...register('note')}
