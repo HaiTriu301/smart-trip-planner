@@ -1,8 +1,10 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import java.util.List;
 
 /**
@@ -59,5 +61,31 @@ public interface ActivityService {
      *                                                                   belongs to another trip (404)
      */
     void delete(Long tripId, Long activityId);
+
+    /**
+     * Applies every move of the request in one transaction (design.md 10.2 "Quy ước Reorder"): all of them or
+     * none. An activity keeps its content and its version; only its day and position change.
+     *
+     * <p>
+     * An activity that changes day takes its times with it, so rule 14.4 is applied to the day it arrives in.
+     * A move inside a day changes no time and is never checked.
+     * <p>
+     * Afterwards every day that received an activity is checked for crowding (rule 14.5): when two neighbouring
+     * positions are less than 10 apart, the whole day is renumbered 1000, 2000, 3000... in its current order.
+     * The response carries the renumbered positions.
+     *
+     * @param allowOverlap true: the client confirmed that a moved activity may overlap another one
+     * @return the days that lost or received an activity, in calendar order, each with its activities in the
+     *         new display order
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or an activity
+     *                                                                   or a day of the request belongs to
+     *                                                                   another trip (404); nothing is moved
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     the same activity twice in the request
+     *                                                                   (400); an activity would overlap
+     *                                                                   another one in the day it moves to and
+     *                                                                   allowOverlap is false (409); nothing is
+     *                                                                   moved
+     */
+    List<TripDayDetailResponse> reorder(Long tripId, ReorderActivitiesRequest request, boolean allowOverlap);
 
 }

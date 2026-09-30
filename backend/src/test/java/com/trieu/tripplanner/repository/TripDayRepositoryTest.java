@@ -81,6 +81,23 @@ class TripDayRepositoryTest {
         assertThat(tripDayRepository.findByIdAndTripId(day.getId(), other.getId())).isEmpty();
     }
 
+    @Test
+    void findAllByIdInAndTripIdReturnsDaysOfThatTripInCalendarOrder() {
+        Trip trip = trip("da-lat-eeeeee");
+        Trip other = trip("hue-ffffff");
+        TripDay third = entityManager.persist(day(trip, 3, OCT_1.plusDays(2)));
+        TripDay first = entityManager.persist(day(trip, 1, OCT_1));
+        TripDay second = entityManager.persist(day(trip, 2, OCT_1.plusDays(1)));
+        TripDay foreign = entityManager.persist(day(other, 1, OCT_1));
+        entityManager.flush();
+
+        // The second day is not asked for; the foreign day and the unknown id must not come back
+        assertThat(tripDayRepository.findAllByIdInAndTripId(
+                java.util.List.of(third.getId(), first.getId(), foreign.getId(), 999_999L), trip.getId()))
+                .containsExactly(first, third);
+        assertThat(second.getId()).isNotNull();
+    }
+
     private Trip trip(String slug) {
         return entityManager.persist(Trip.builder()
                 .owner(owner)

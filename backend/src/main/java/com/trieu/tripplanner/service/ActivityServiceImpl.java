@@ -2,12 +2,15 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
+import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.ActivityMapper;
+import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
@@ -19,8 +22,18 @@ import com.trieu.tripplanner.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +46,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     /** design.md 14.5: indexes are spaced so that an insert in between renumbers nothing. */
     static final int ORDER_STEP = 1000;
+    /** design.md 14.5: below this distance between neighbours the whole day is renumbered. */
+    static final int MIN_GAP = 10;
 
     private static final String TRIP = "Trip";
     private static final String TRIP_DAY = "TripDay";
@@ -43,6 +58,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final TripDayRepository tripDayRepository;
     private final UserRepository userRepository;
     private final ActivityMapper activityMapper;
+    private final TripDayMapper tripDayMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -137,6 +153,43 @@ public class ActivityServiceImpl implements ActivityService {
         log.info("Activity {} of trip {} deleted", activityId, tripId);
     }
 
+    @Override
+    @Transactional
+    public List<TripDayDetailResponse> reorder(Long tripId, ReorderActivitiesRequest request,
+                                               boolean allowOverlap) {
+        requireLiveTrip(tripId);
+        List<ReorderActivitiesRequest.Item> items = request.items();
+        requireEachActivityOnce(items);
+
+        Map<Long, Activity> activities = findActivitiesOfTrip(items, tripId);
+        // Days that lose an activity and days that receive one; sorted only to make the query stable
+        Set<Long> affectedDayIds = new TreeSet<>();
+        activities.values().forEach(activity -> affectedDayIds.add(activity.getTripDay().getId()));
+        items.forEach(item -> affectedDayIds.add(item.dayId()));
+        Map<Long, TripDay> days = findDaysOfTrip(affectedDayIds, tripId);
+        if (!allowOverlap) {
+            validateNoTimeConflictAfterMove(items, activities);
+        }
+
+        // Everything was checked above, so from here on nothing can fail half-way
+        items.forEach(item -> activities.get(item.activityId()).moveTo(days.get(item.dayId()), item.orderIndex()));
+        activityRepository.flush();
+        log.info("{} activities of trip {} reordered over {} days", items.size(), tripId, affectedDayIds.size());
+
+        // One query for every affected day, in display order; the same list feeds the crowding check and the answer
+        Map<Long, List<Activity>> activitiesByDay = activityRepository.findByTripDayIdInDisplayOrder(affectedDayIds)
+                .stream()
+                .collect(Collectors.groupingBy(activity -> activity.getTripDay().getId()));
+        // Only a day that received an activity can have become crowded
+        items.stream().map(ReorderActivitiesRequest.Item::dayId).distinct()
+                .forEach(dayId -> normalizeIfCrowded(dayId, activitiesByDay.getOrDefault(dayId, List.of())));
+
+        return days.values().stream()
+                .map(day -> tripDayMapper.toDetail(day, activitiesByDay.getOrDefault(day.getId(), List.of()).stream()
+                        .map(activityMapper::toResponse).toList()))
+                .toList();
+    }
+
     // findById goes through JPQL, so @SQLRestriction hides soft-deleted trips. Needed because the permission
     // evaluator lets missing trips through so that the answer is 404, not 403. The entity (not just existsById)
     // is loaded because the currency of the trip is the default for a cost.
@@ -162,6 +215,137 @@ public class ActivityServiceImpl implements ActivityService {
     private Activity findActivityOfTrip(Long activityId, Long tripId) {
         return activityRepository.findByIdAndTripId(activityId, tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(ACTIVITY, activityId));
+    }
+
+    private static void requireEachActivityOnce(List<ReorderActivitiesRequest.Item> items) {
+        Set<Long> seen = new HashSet<>();
+        for (ReorderActivitiesRequest.Item item : items) {
+            if (!seen.add(item.activityId())) {
+                throw BusinessRuleException.invalidField("items", "error.reorder.duplicate-activity",
+                        "Activity %d appears more than once in the reorder request".formatted(item.activityId()),
+                        String.valueOf(item.activityId()));
+            }
+        }
+    }
+
+    /** One query for the whole batch; an id the query did not return is not an activity of this trip. */
+    private Map<Long, Activity> findActivitiesOfTrip(List<ReorderActivitiesRequest.Item> items, Long tripId) {
+        List<Long> ids = items.stream().map(ReorderActivitiesRequest.Item::activityId).toList();
+        Map<Long, Activity> found = activityRepository.findAllByIdInAndTripId(ids, tripId).stream()
+                .collect(Collectors.toMap(Activity::getId, Function.identity()));
+        ids.stream().filter(id -> !found.containsKey(id)).findFirst().ifPresent(missing -> {
+            throw new ResourceNotFoundException(ACTIVITY, missing);
+        });
+        return found;
+    }
+
+    /** One query for every day involved; an id the query did not return is not a day of this trip. */
+    private Map<Long, TripDay> findDaysOfTrip(Set<Long> dayIds, Long tripId) {
+        // LinkedHashMap keeps the calendar order of the query for the response
+        Map<Long, TripDay> found = tripDayRepository.findAllByIdInAndTripId(dayIds, tripId).stream()
+                .collect(Collectors.toMap(TripDay::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        dayIds.stream().filter(id -> !found.containsKey(id)).findFirst().ifPresent(missing -> {
+            throw new ResourceNotFoundException(TRIP_DAY, missing);
+        });
+        return found;
+    }
+
+    /**
+     * design.md rule 14.4 for a reorder: an activity that arrives in another day must not overlap what that day
+     * will contain once the whole request is applied, i.e. the activities that stay in it plus the other
+     * activities arriving with the same request. Activities leaving that day in the same request do not count,
+     * so two activities can swap days in one go.
+     * <p>
+     * Every conflicting move is reported, each on its own item, so the client can mark them all at once.
+     */
+    private void validateNoTimeConflictAfterMove(List<ReorderActivitiesRequest.Item> items,
+                                                 Map<Long, Activity> activities) {
+        Map<Long, Long> targetDayOf = items.stream()
+                .collect(Collectors.toMap(ReorderActivitiesRequest.Item::activityId,
+                        ReorderActivitiesRequest.Item::dayId));
+        // Only an activity that changes day and has a full range can create a new overlap
+        List<ReorderActivitiesRequest.Item> arrivals = items.stream()
+                .filter(item -> changesDay(activities.get(item.activityId()), item.dayId()))
+                .filter(item -> hasRange(activities.get(item.activityId())))
+                .toList();
+        if (arrivals.isEmpty()) {
+            return;
+        }
+
+        Set<Long> arrivalDayIds = arrivals.stream().map(ReorderActivitiesRequest.Item::dayId)
+                .collect(Collectors.toSet());
+        Map<Long, List<Activity>> timedByDay = new HashMap<>();
+        activityRepository.findTimedByTripDayIdIn(arrivalDayIds).stream()
+                .filter(resident -> !changesDay(resident, targetDayOf.getOrDefault(resident.getId(),
+                        resident.getTripDay().getId())))
+                .forEach(resident -> timedByDay
+                        .computeIfAbsent(resident.getTripDay().getId(), id -> new ArrayList<>()).add(resident));
+        arrivals.forEach(item -> timedByDay
+                .computeIfAbsent(item.dayId(), id -> new ArrayList<>()).add(activities.get(item.activityId())));
+
+        List<FieldViolation> violations = new ArrayList<>();
+        for (int index = 0; index < items.size(); index++) {
+            ReorderActivitiesRequest.Item item = items.get(index);
+            if (!arrivals.contains(item)) {
+                continue;
+            }
+            Activity moved = activities.get(item.activityId());
+            final int position = index;
+            timedByDay.get(item.dayId()).stream()
+                    .filter(other -> other != moved)
+                    .filter(other -> overlaps(other, moved.getStartTime(), moved.getEndTime()))
+                    // The earliest one is enough for the message
+                    .min(Comparator.comparing(Activity::getStartTime).thenComparing(Activity::getId))
+                    .ifPresent(first -> violations.add(FieldViolation.of("items[" + position + "].dayId",
+                            "error.reorder.time-conflict", moved.getTitle(), first.getTitle(),
+                            first.getStartTime().toString(), first.getEndTime().toString())));
+        }
+        if (!violations.isEmpty()) {
+            throw new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
+                    "%d of %d moved activities would overlap another activity in their new day"
+                            .formatted(violations.size(), arrivals.size()),
+                    violations);
+        }
+    }
+
+    private static boolean changesDay(Activity activity, Long targetDayId) {
+        return !activity.getTripDay().getId().equals(targetDayId);
+    }
+
+    private static boolean hasRange(Activity activity) {
+        return activity.getStartTime() != null && activity.getEndTime() != null;
+    }
+
+    /**
+     * design.md rule 14.5: inserting between neighbours halves the gap each time (1500, 1250, 1125...). Once a
+     * gap is smaller than {@link #MIN_GAP}, the next insert could no longer find a free position, so the whole
+     * day is renumbered with the full step again. The gap before the first activity counts too, otherwise
+     * inserting at the top of the day (500, 250, 125...) would never trigger it.
+     * <p>
+     * The renumbering keeps the order the user sees ({@code orderIndex}, then {@code id}, i.e. the order of the
+     * query). The entities are managed, so the new positions are written when the transaction commits.
+     *
+     * @param inDisplayOrder the activities of the day as the query returned them
+     */
+    private void normalizeIfCrowded(Long dayId, List<Activity> inDisplayOrder) {
+        int previous = 0;
+        boolean crowded = false;
+        for (Activity activity : inDisplayOrder) {
+            if (activity.getOrderIndex() - previous < MIN_GAP) {
+                crowded = true;
+                break;
+            }
+            previous = activity.getOrderIndex();
+        }
+        if (!crowded) {
+            return;
+        }
+        int index = ORDER_STEP;
+        for (Activity activity : inDisplayOrder) {
+            activity.moveTo(activity.getTripDay(), index);
+            index += ORDER_STEP;
+        }
+        log.info("Day {} renumbered: {} activities spaced by {} again", dayId, inDisplayOrder.size(), ORDER_STEP);
     }
 
     /**

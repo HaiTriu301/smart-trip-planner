@@ -2,6 +2,7 @@ package com.trieu.tripplanner.repository;
 
 import com.trieu.tripplanner.model.TripDay;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +24,13 @@ public interface TripDayRepository extends JpaRepository<TripDay, Long> {
 
     /** Empty when the day belongs to another trip, so /trips/1/days/{day of trip 2} answers 404. */
     Optional<TripDay> findByIdAndTripId(Long id, Long tripId);
+
+    /**
+     * Several days of one trip in one query, in calendar order. A day of another trip is simply missing from
+     * the result; the reorder service turns that into a 404 for the whole batch.
+     */
+    @Query("select d from TripDay d where d.id in :ids and d.trip.id = :tripId order by d.date")
+    List<TripDay> findAllByIdInAndTripId(@Param("ids") Collection<Long> ids, @Param("tripId") Long tripId);
 
     /*
      * Shifting every date of a trip by N days (design.md rule 14.3). MySQL checks UNIQUE (trip_id, date) after
