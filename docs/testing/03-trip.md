@@ -1,8 +1,9 @@
 # 03 · Chuyến đi
 
-> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `eb1ad5e` (merge Task 2.5) · [Về trang chính](README.md)
 
 Tính năng này cho người dùng tạo, xem danh sách, xem chi tiết, sửa và xoá chuyến đi. Làm ở Task 2.1.
+Đổi trạng thái chuyến đi (phần H) làm ở Task 2.5 Mốc 5. Giới hạn mô tả 1000 ký tự (phần I) chốt ở Task 2.5, trước đó là 5000.
 Ở giai đoạn này chỉ **chủ sở hữu** mới có quyền trên chuyến đi. Chia sẻ cho người khác thuộc Phase 4.
 
 Vài từ dùng trong file:
@@ -109,6 +110,33 @@ Các kiểm tra này là lớp bảo vệ cuối cùng. Chúng chặn dữ liệ
 | TC-TRIP-041 | Ghi thẳng vào database một chuyến có ngày kết thúc trước ngày bắt đầu | Database từ chối | Sai | Đạt |
 | TC-TRIP-042 | Ghi thẳng vào database hai chuyến trùng tên rút gọn | Database từ chối | Sai | Đạt |
 
+## H. Đổi trạng thái chuyến đi
+
+> **Yêu cầu:** design.md 10.2 bảng Trip (`PATCH /{id}/status`) · **Kiểm bởi:** `TripControllerTest`, `TripServiceTest`, `TripFlowIntegrationTest`
+
+Trạng thái gồm: nháp, đã lên kế hoạch, đang diễn ra, đã hoàn thành, đã lưu trữ. Người dùng tự chọn, chuyển qua lại tự do. Đây là cách duy nhất để đổi trạng thái; form sửa chuyến đi không đổi được trạng thái.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-TRIP-043 | Chủ sở hữu đổi chuyến đi từ nháp sang "đã lên kế hoạch" | 200, trạng thái mới, số phiên bản tăng 1. Lọc danh sách theo "đã lên kế hoạch" thấy chuyến đi, lọc theo "nháp" thì không | Đúng | Đạt |
+| TC-TRIP-044 | Lần lượt đổi sang đang diễn ra, đã hoàn thành, đã lưu trữ, rồi quay về nháp | Lần nào cũng 200, database lưu đúng từng trạng thái | Đúng | Đạt |
+| TC-TRIP-045 | Gửi lại đúng trạng thái đang có | 200, không ghi gì vào database, số phiên bản không đổi | Biên | Đạt |
+| TC-TRIP-046 | Đổi trạng thái | Chỉ trạng thái thay đổi. Tên, ngày giữ nguyên, các ngày của chuyến đi không bị động tới | Đúng | Đạt |
+| TC-TRIP-047 | Gửi yêu cầu không có trạng thái | 400, lỗi ở ô `status`: "Trạng thái không được để trống" | Sai | Đạt |
+| TC-TRIP-048 | Gửi trạng thái không tồn tại, ví dụ `CANCELLED` | 400 `VALIDATION_ERROR` | Sai | Đạt |
+| TC-TRIP-049 | Người lạ đổi trạng thái chuyến đi của người khác | 403, database vẫn giữ trạng thái nháp | Bảo mật | Đạt |
+| TC-TRIP-050 | Đổi trạng thái chuyến đi không tồn tại | 404, không ghi gì | Sai | Đạt |
+
+## I. Độ dài mô tả
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Trip API" (mô tả tối đa 1000 ký tự, chốt ở Task 2.5) · **Kiểm bởi:** `TripControllerTest`
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-TRIP-051 | Tạo chuyến đi có mô tả đúng 1000 chữ có dấu tiếng Việt | 201. Giới hạn tính theo số ký tự, không theo số byte | Biên | Đạt |
+| TC-TRIP-052 | Tạo chuyến đi có mô tả 1001 ký tự | 400, lỗi ở ô mô tả: "Mô tả không được vượt quá 1000 ký tự". Không tạo gì | Biên | Đạt |
+| TC-TRIP-053 | Sửa mô tả thành 1001 ký tự | 400, lỗi ở ô mô tả. Không sửa gì | Biên | Đạt |
+
 ---
 
 ## Kiểm tra thủ công
@@ -160,6 +188,19 @@ SELECT id, title, deleted_at FROM trips ORDER BY id DESC LIMIT 5;
 ```
 
 **Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
+
+### MT-TRIP-05 · Đổi trạng thái
+
+Cần có: một chuyến đi của tài khoản A đang ở trạng thái `DRAFT`.
+
+- [ ] Đăng nhập bằng A. Gọi `PATCH /api/v1/trips/{id}/status` với body `{ "status": "PLANNED" }`. Trả 200, `status` là `PLANNED`, số phiên bản tăng 1.
+- [ ] Gọi lại đúng body đó. Trả 200, số phiên bản **không** tăng.
+- [ ] Gọi danh sách với `status=PLANNED`. Có chuyến đi này.
+- [ ] Gửi body `{}`. Trả 400, lỗi ở ô `status`: "Trạng thái không được để trống".
+- [ ] Gửi body `{ "status": "CANCELLED" }`. Trả 400.
+- [ ] Đăng nhập bằng B, gọi đổi trạng thái chuyến đi của A. Trả 403.
+
+**Kết quả:** Chưa chạy
 
 ---
 

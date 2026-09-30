@@ -1,6 +1,6 @@
 # 04 · Các ngày của chuyến đi
 
-> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `eb1ad5e` (merge Task 2.5) · [Về trang chính](README.md)
 
 Mỗi chuyến đi có sẵn một "ngày" cho mỗi ngày lịch từ ngày bắt đầu tới ngày kết thúc. Người dùng không tự thêm hay xoá ngày. Hệ thống tự làm việc đó khi chuyến đi được tạo hoặc đổi ngày. Làm ở Task 2.2.
 
@@ -51,6 +51,8 @@ Vài từ dùng trong file:
 | TC-DAY-015 | Sửa ngày của chuyến B qua đường dẫn của chuyến A | 404. Người dùng có quyền trên chuyến A cũng không sửa được ngày của chuyến B bằng cách này | Bảo mật | Đạt |
 | TC-DAY-016 | Người lạ sửa ngày của chuyến đi người khác | 403 | Bảo mật | Đạt |
 | TC-DAY-017 | Sửa ngày của chuyến đi đã xoá | 404 | Sai | Đạt |
+| TC-DAY-034 | Gửi ghi chú đúng 255 chữ có dấu tiếng Việt | 200. Giới hạn tính theo số ký tự, không theo số byte (giới hạn 255 chốt ở Task 2.5, trước đó là 5000) | Biên | Đạt |
+| TC-DAY-035 | Gửi ghi chú 256 ký tự | 400, lỗi ở ô ghi chú: "Ghi chú của ngày không được vượt quá 255 ký tự" | Biên | Đạt |
 
 ## D. Đổi ngày của chuyến đi
 

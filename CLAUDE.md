@@ -209,7 +209,7 @@ Cập nhật mục này sau mỗi phase hoàn thành.
 
 - [x] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler, init frontend (2026-09-18)
 - [x] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password, auth UI (2026-09-25)
-- [ ] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder
+- [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30)
 - [ ] Phase 3 — Place + Weather (mock provider + Redis cache)
 - [ ] Phase 4 — Sharing + Permission (member, share link, PermissionEvaluator)
 - [ ] Phase 5 — Realtime WebSocket + optimistic locking
@@ -241,6 +241,7 @@ Khi review code, kiểm tra lại các điểm này:
 - Dùng `String` cho tiền hoặc `double` cho amount
 - `UPDATE` hàng loạt đổi giá trị cột có UNIQUE (ví dụ dời `trip_days.date`) mà không `ORDER BY` theo chiều dời: MySQL kiểm UNIQUE sau từng dòng → `Duplicate entry`
 - MapStruct `@Mapper(uses = ...)` thiếu `injectionStrategy = InjectionStrategy.CONSTRUCTOR` → mapper sinh ra inject qua field, unit test NPE
+- Ghi đè lớp Tailwind của component bằng một lớp cùng thuộc tính qua `className` (ví dụ `w-auto` đè `w-full`, `hover:text-red-700` đè `hover:text-slate-800`): không chắc lớp nào thắng. Thuộc tính thay đổi theo chỗ dùng phải là prop của component (`Button` có `variant` / `size` / `fullWidth`) — BUG-UI-001, WORKFLOW.md Task 2.5
 - Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")
 
 ---

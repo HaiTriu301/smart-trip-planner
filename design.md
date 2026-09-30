@@ -120,7 +120,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Thành phần | Lựa chọn |
 |---|---|
 | Framework | React 19 + Vite 8 + TypeScript |
-| Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`) + shadcn/ui |
+| Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`). Component dùng chung **tự viết** trong `src/components/` (`Button`, `FormField`, `Modal`, `ConfirmDialog`...), **không dùng shadcn/ui** (chốt 2026-09-30, Task 2.5) |
 | Server state | TanStack Query v5 |
 | Client state | Zustand |
 | Routing | React Router v7 (package `react-router-dom`) |
@@ -263,7 +263,7 @@ Frontend:
 ```
 src
 ├── api/            // axios client, endpoint theo module
-├── components/     // ui/ (shadcn), common/, map/, trip/
+├── components/     // component dùng chung tự viết (Button, FormField, Modal...); map/ thêm ở Phase 3
 ├── features/
 │   ├── auth/  trips/  itinerary/  sharing/  expense/  billing/  admin/
 ├── hooks/
@@ -364,7 +364,7 @@ Quy tắc: phát token mới cho cùng `(user, type)` → đánh dấu `used_at`
 | owner_id | BIGINT FK users | |
 | title | VARCHAR(160) | |
 | slug | VARCHAR(200) | unique, dùng cho public URL (Phase 4). Sinh **một lần** khi tạo (chốt 2026-09-26): bỏ dấu tiếng Việt của title → kebab-case (cắt ≤ 150 ký tự) + `-` + 6 ký tự ngẫu nhiên `[a-z0-9]`, ví dụ `da-lat-3-ngay-x7k2qp`; trùng thì sinh lại. **Không đổi khi sửa title** để link đã chia sẻ không hỏng |
-| description | TEXT | |
+| description | TEXT | nullable, ≤ 1000 ký tự (validate ở DTO; 5000 trước Task 2.5) |
 | cover_image_url | VARCHAR(512) | |
 | destination_name | VARCHAR(200) | nullable: tạo trip trước, chọn điểm đến sau |
 | destination_lat / lng | DECIMAL(10,7) / DECIMAL(10,7) | |
@@ -387,7 +387,7 @@ Ràng buộc (chốt Task 2.1): `CHECK chk_trips_date_range (end_date >= start_d
 | day_index | INT | số thứ tự **1..n**, liên tục, đánh lại mỗi khi khoảng ngày của trip đổi |
 | date | DATE | ngày lịch thật |
 | title | VARCHAR(160) | nullable — không có thì giao diện hiện "Ngày N" |
-| note | TEXT | nullable, ≤ 5000 ký tự (validate ở DTO) |
+| note | TEXT | nullable, ≤ 255 ký tự (validate ở DTO; 5000 trước Task 2.5, cột giữ `TEXT` nên không cần migration) |
 | created_at / updated_at | DATETIME | từ BaseEntity |
 
 UNIQUE `(trip_id, date)` — sinh tự động khi tạo/đổi ngày trip (rule 14.2, 14.3).
@@ -408,7 +408,7 @@ Quy tắc (chốt 2026-09-27):
 | type | ENUM | `SIGHTSEEING`, `FOOD`, `TRANSPORT`, `ACCOMMODATION`, `SHOPPING`, `OTHER`; NOT NULL, mặc định `OTHER` |
 | start_time / end_time | TIME | nullable, end > start; có `end_time` thì phải có `start_time` |
 | order_index | INT | NOT NULL, dùng cho drag-drop (rule 14.5) |
-| note | TEXT | nullable, ≤ 5000 ký tự |
+| note | TEXT | nullable, ≤ 255 ký tự (validate ở DTO; 5000 trước Task 2.5) |
 | cost_amount | DECIMAL(15,2) | nullable, >= 0 |
 | currency | CHAR(3) | nullable; có `cost_amount` mà không gửi `currency` → lấy `currency` của trip |
 | booking_url | VARCHAR(512) | nullable |
@@ -708,16 +708,17 @@ Lỗi (`ErrorResponse`):
 | GET | `/{id}/summary` | Tổng quan: số ngày, số activity, tổng chi phí, quãng đường | canView |
 | GET | `/{id}/export?format=pdf\|ics` | Xuất file | owner + Premium |
 
-> **Phạm vi theo phase** (chốt 2026-09-26): Task 2.1 làm `GET ''` (chỉ trip của chính mình; "trip được share" thêm ở Phase 4), `POST`, `GET /{id}` (chỉ thông tin trip; `days` thêm ở 2.2, `activities` ở 2.3, `members` ở Phase 4), `PATCH /{id}`, `DELETE /{id}`. Quota của `POST` thêm ở Phase 6. `clone`, `PATCH /{id}/status`, `summary` **chưa gán task** — xem WORKFLOW.md Phase 2 "Việc còn treo".
+> **Phạm vi theo phase** (chốt 2026-09-26): Task 2.1 làm `GET ''` (chỉ trip của chính mình; "trip được share" thêm ở Phase 4), `POST`, `GET /{id}` (chỉ thông tin trip; `days` thêm ở 2.2, `activities` ở 2.3, `members` ở Phase 4), `PATCH /{id}`, `DELETE /{id}`. Quota của `POST` thêm ở Phase 6. `PATCH /{id}/status` làm ở Task 2.5. `clone` gán Task 6.1 (cùng quota), `summary` gán Task 7.1 (cần tổng chi phí; quãng đường cần route của Phase 3) — chốt 2026-09-30.
 >
 > **Quy ước Trip API** (chốt 2026-09-26, áp dụng từ Task 2.1):
 > - `PATCH /{id}` là cập nhật **từng phần**: field `null` = giữ nguyên. Chưa hỗ trợ xoá trắng field tuỳ chọn (ví dụ bỏ ngân sách).
 > - `status`: tạo mới mặc định `DRAFT`; `PATCH /{id}` **không** đổi được `status` (chỉ qua `PATCH /{id}/status`).
+> - `PATCH /{id}/status` (chốt 2026-09-30, Task 2.5): body `{ "status": ... }`, bắt buộc (thiếu → 400 ở field `status`, giá trị lạ → 400). Chuyển **tự do** giữa 5 trạng thái, kể cả quay về `DRAFT`; chưa có quy tắc tự đổi theo ngày. Gửi lại đúng trạng thái đang có → 200, không ghi gì, `version` không tăng. Quyền `canEdit`.
 > - `visibility`: mặc định `PRIVATE`, đổi được qua `PATCH /{id}`; `LINK`/`PUBLIC` chỉ có tác dụng từ Phase 4.
 > - `version`: `TripResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
 > - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
 > - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
-> - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 5000 ký tự; `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
+> - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 1000 ký tự (5000 trước Task 2.5); `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
 > - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`.
 > - `GET /{id}` trả **`TripDetailResponse`** = các field của `TripResponse` + `days` (thêm ở Task 2.2; `activities` trong từng ngày ở Task 2.3). `POST` / `PATCH /{id}` vẫn trả `TripResponse` gọn để thao tác ghi không phải nạp danh sách ngày (chốt 2026-09-27).
 > - Từ Task 2.3, mỗi phần tử của `days` trong `TripDetailResponse` là **`TripDayDetailResponse`** = các field của `TripDayResponse` + `activities` (sắp theo `orderIndex`). `GET /days` và `PATCH /days/{dayId}` vẫn trả `TripDayResponse` gọn, không kèm activity. `GET /{id}` tốn **4 câu SQL** bất kể số ngày và số activity: quyền + trip + ngày + activity của cả trip (chốt 2026-09-29).
@@ -733,13 +734,13 @@ Lỗi (`ErrorResponse`):
 | PUT | `/activities/reorder` | `{items: [{activityId, dayId, orderIndex}]}` — batch, 1 transaction | canEdit |
 | GET | `/days/{dayId}/route` | Khoảng cách + thời gian giữa các activity theo thứ tự | canView |
 
-> **Quy ước sửa ngày** (chốt 2026-09-27, Task 2.2): `PATCH /days/{dayId}` body `{title, note}` — `title` ≤ 160 ký tự, `note` ≤ 5000 ký tự, cả hai được để trống. Field **không gửi hoặc `null` → giữ nguyên**; **`""` (chuỗi rỗng / chỉ khoảng trắng) → xoá**, lưu `NULL`. Khác PATCH của trip (không xoá được field) vì đặt / bỏ tiêu đề ngày là thao tác thường xuyên. `dayId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`.
+> **Quy ước sửa ngày** (chốt 2026-09-27, Task 2.2): `PATCH /days/{dayId}` body `{title, note}` — `title` ≤ 160 ký tự, `note` ≤ 255 ký tự (5000 trước Task 2.5), cả hai được để trống. Field **không gửi hoặc `null` → giữ nguyên**; **`""` (chuỗi rỗng / chỉ khoảng trắng) → xoá**, lưu `NULL`. Khác PATCH của trip (không xoá được field) vì đặt / bỏ tiêu đề ngày là thao tác thường xuyên. `dayId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`.
 
 > **Quy ước Activity API** (chốt 2026-09-29, Task 2.3):
 > - **Phạm vi theo phase:** Task 2.3 làm `GET` / `POST /days/{dayId}/activities`, `PATCH` / `DELETE /activities/{activityId}`; `reorder` ở Task 2.4; `route` ở Phase 3. **Quota** của `POST` (10 activity / ngày với FREE, mục 9) thêm ở Task 6.1. `placeId` thêm ở Task 3.2.
 > - `dayId` hoặc `activityId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`. Trip không tồn tại / đã xoá mềm → 404.
 > - `createdBy` lấy từ `SecurityContext`, không nhận từ body (CLAUDE.md rule 16).
-> - `POST` body: `title` bắt buộc, ≤ 200 ký tự, được trim; `type` không gửi → `OTHER`; `startTime` / `endTime` dạng `HH:mm` hoặc `HH:mm:ss`; `note` ≤ 5000 ký tự; `costAmount >= 0`, vừa `DECIMAL(15,2)`; `currency` 3 chữ in hoa; `bookingUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`.
+> - `POST` body: `title` bắt buộc, ≤ 200 ký tự, được trim; `type` không gửi → `OTHER`; `startTime` / `endTime` dạng `HH:mm` hoặc `HH:mm:ss`; `note` ≤ 255 ký tự (5000 trước Task 2.5); `costAmount >= 0`, vừa `DECIMAL(15,2)`; `currency` 3 chữ in hoa; `bookingUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`.
 > - `orderIndex` do server gán khi tạo: giá trị lớn nhất trong ngày + 1000, activity đầu tiên là 1000 (rule 14.5). Client không gửi `orderIndex` ở `POST` / `PATCH`; đổi thứ tự và chuyển ngày chỉ qua `reorder` (Task 2.4).
 > - `PATCH` là cập nhật **từng phần**: field không gửi hoặc `null` → giữ nguyên. Field văn bản tuỳ chọn (`note`, `bookingUrl`) gửi `""` → xoá, lưu `NULL` (giống "Quy ước sửa ngày"). **Chưa hỗ trợ xoá trắng** `startTime`, `endTime`, `costAmount`, `currency` đã đặt (giống PATCH của trip).
 > - Rule về giờ kiểm ở service trên dữ liệu **đã gộp** (PATCH chỉ gửi `endTime` vẫn phải so với `startTime` đang lưu): có `endTime` mà không có `startTime` → 400 `VALIDATION_ERROR`, `details` ở field `startTime`; `endTime <= startTime` → 400, `details` ở field `endTime`.
@@ -959,8 +960,8 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | |
 | `/verify-email` | Xác thực email | |
 | `/trips` | Danh sách chuyến đi | Grid card, filter status, search |
-| `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến (map picker) → ngày |
-| `/trips/:id` | **Màn hình chính** | Layout 3 cột: timeline ngày ⟷ danh sách activity (drag-drop) ⟷ bản đồ + weather |
+| `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến (map picker) → ngày. Task 2.5: bước điểm đến chỉ nhập tên, map picker thêm ở Task 3.4 |
+| `/trips/:id` | **Màn hình chính** | Layout 3 cột: timeline ngày ⟷ danh sách activity (drag-drop) ⟷ bản đồ + weather. Task 2.5 làm 2 cột: mục lục ngày ⟷ mọi ngày xếp dọc (kéo thả sang ngày khác không phải đổi màn); cột bản đồ + weather thêm ở Phase 3 |
 | `/trips/:id/expenses` | Chi phí | Chart + settlement |
 | `/trips/:id/members` | Chia sẻ | Mời, phân quyền, share link |
 | `/share/:token` | Trip công khai | Read-only, không cần đăng nhập |

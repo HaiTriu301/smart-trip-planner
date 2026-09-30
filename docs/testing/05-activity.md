@@ -1,6 +1,6 @@
 # 05 · Hoạt động trong ngày
 
-> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `eb1ad5e` (merge Task 2.5) · [Về trang chính](README.md)
 
 Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Thêm, xem, sửa, xoá làm ở Task 2.3, hoàn thành ngày 2026-09-29. Sắp xếp lại bằng kéo thả làm ở Task 2.4, hoàn thành ngày 2026-09-30.
 
@@ -88,6 +88,8 @@ Các kiểm tra này chạy thẳng trên database. Chúng là lớp bảo vệ 
 | TC-ACT-031 | Thêm vào một ngày không thuộc chuyến đi ghi trên đường dẫn | 404. Có quyền trên chuyến A cũng không thêm được vào ngày của chuyến B | Bảo mật | Đạt |
 | TC-ACT-032 | Thêm vào chuyến đi không tồn tại hoặc đã xoá | 404 | Sai | Đạt |
 | TC-ACT-033 | Mã ngày trên đường dẫn là chữ | 400 `VALIDATION_ERROR` | Sai | Đạt |
+| TC-ACT-156 | Thêm hoạt động có ghi chú đúng 255 chữ có dấu tiếng Việt | 201. Giới hạn tính theo số ký tự (giới hạn 255 chốt ở Task 2.5, trước đó là 5000) | Biên | Đạt |
+| TC-ACT-157 | Thêm hoạt động có ghi chú 256 ký tự | 400, lỗi ở ô ghi chú: "Ghi chú của hoạt động không được vượt quá 255 ký tự" | Biên | Đạt |
 
 Hai giới hạn đã biết, thuộc thiết kế chứ không phải lỗi:
 
@@ -187,6 +189,7 @@ Mọi kịch bản bên dưới bắt đầu từ hoạt động "Ăn sáng" 09:
 | TC-ACT-072 | Sửa hoạt động của chuyến B qua đường dẫn của chuyến A | 404, hoạt động không đổi | Bảo mật | Đạt |
 | TC-ACT-073 | Sửa hoạt động của chuyến đi không tồn tại hoặc đã xoá, hoặc mã hoạt động không tồn tại | 404 | Sai | Đạt |
 | TC-ACT-074 | Mã hoạt động trên đường dẫn là chữ | 400 `VALIDATION_ERROR` | Sai | Đạt |
+| TC-ACT-158 | Sửa ghi chú thành 256 ký tự | 400, lỗi ở ô ghi chú. Không sửa gì | Biên | Đạt |
 
 Giới hạn đã biết, thuộc thiết kế chứ không phải lỗi: giờ, chi phí và tiền tệ đã đặt thì **chưa xoá trắng được**. Người dùng chỉ đổi được sang giá trị khác.
 

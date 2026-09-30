@@ -695,7 +695,7 @@ feat(frontend): add auth pages and token refresh interceptor
 > - Mọi endpoint trip/day/activity dùng `@PreAuthorize("@tripPermission....")` ngay từ Phase 2. Bean `tripPermission` tạo ở Task 2.1, lúc này chỉ kiểm owner; Task 4.2 mở rộng.
 > - Trip không tồn tại / đã xoá → **404**; tồn tại nhưng không có quyền → **403**.
 >
-> **Việc còn treo (chưa gán task):** design.md 10.2 có `POST /trips/{id}/clone`, `PATCH /trips/{id}/status`, `GET /trips/{id}/summary` nhưng chưa task nào làm. Chốt gán vào đâu trước khi kết thúc Phase 2 (ứng viên: `status` + `summary` vào 2.5 nếu UI cần, `clone` vào Phase 6 cùng quota).
+> **Việc còn treo — đã chốt 2026-09-30:** `PATCH /trips/{id}/status` làm ở Task 2.5 (Mốc 5). `POST /trips/{id}/clone` gán Task 6.1 (cùng quota). `GET /trips/{id}/summary` gán Task 7.1 (cần tổng chi phí; quãng đường cần route của Phase 3). Trang chi tiết ở 2.5 tự đếm số ngày và số activity nên chưa cần `summary`.
 
 ### Task 2.1 — Trip CRUD
 
@@ -937,6 +937,37 @@ Mốc 6 — feat(frontend): add drag and drop activity reorder
         dependency dnd-kit (package.json trong commit này), features/itinerary/DragDropContainer.tsx, gọi API reorder
 ```
 
+> **Thực tế khi làm 2.5 (2026-09-30):** PR #14, merge commit `eb1ad5e`. 10 commit thay vì 6 mốc dự kiến:
+>
+> | Commit | Nội dung |
+> |---|---|
+> | `9fd9635` feat(frontend): add trip list page | Danh sách, lọc trạng thái / tìm kiếm / phân trang lưu trên URL, `AppLayout` |
+> | `db7be12` feat(frontend): add create trip wizard | Wizard 3 bước, `SelectField`, `TextAreaField` |
+> | `e81b0c3` feat(frontend): add trip detail page with day timeline | Trang chi tiết, sửa ngày; `types/activity.ts` + `ActivityCard` chuyển lên mốc này (trang phải hiện activity ngay) |
+> | `b017310` feat(frontend): add trip edit and delete | `Modal` (`<dialog>` gốc), `ConfirmDialog`, `force=true`, vừa dời vừa đổi độ dài → hỏi lại; gộp sửa BUG-UI-001, nút `ghost`, "Chưa có tiêu đề" |
+> | `98d0d6f` feat(trip): add trip status endpoint | **Mốc mới** (backend + ô chọn trạng thái), giải quyết "Việc còn treo" |
+> | `e5d877b` refactor(frontend): share money, url and currency validation | `lib/validation.ts` dùng chung cho trip và activity |
+> | `f589842` feat(frontend): add activity create, edit and delete | `allowOverlap=true` sau khi hỏi, `ghost-danger` |
+> | `b14516d` feat(frontend): add drag and drop activity reorder | dnd-kit core 6.3 / sortable 10.0, `lib/orderIndex.ts` |
+> | `007adb7` feat(trip): shorten note and description limits | Góp ý của chủ dự án sau Mốc 7: ghi chú 255, mô tả 1000 (chỉ DTO, cột giữ `TEXT`) |
+> | `35b95a1` fix(frontend): collapse long notes and keep trip header in place | `ExpandableText` ("Đọc thêm" khi quá 2 dòng), cụm trạng thái + nút cố định |
+>
+> Quyết định khi làm (chi tiết ở design.md 3.2, 5.2, 10.2, 15):
+> - **Không dùng shadcn/ui** tới cuối dự án: component dùng chung tự viết trong `src/components/`.
+> - Trang chi tiết **2 cột** (mục lục ngày + mọi ngày xếp dọc); cột bản đồ để Phase 3.
+> - Rule 14.3 "vừa dời vừa đổi độ dài": giao diện **hỏi lại, không chặn** — chặn thì không bỏ được ngày đầu của chuyến đi (dời rồi rút ngắn sẽ xoá ngày cuối).
+> - PATCH chưa xoá trắng được field tuỳ chọn → form **báo lỗi ngay ở ô** ("Chưa hỗ trợ xoá thông tin này…") thay vì âm thầm giữ giá trị cũ.
+> - Form sửa chỉ gửi field đã đổi. Kéo thả chỉ gửi activity bị kéo, `orderIndex` = trung điểm (đầu ngày: nửa activity đầu; cuối ngày: +1000); không còn số nguyên trống thì gửi cả ngày 1000, 2000...
+> - `PATCH /trips/{id}/status`: chuyển tự do, gửi lại trạng thái cũ → 200 không tăng version.
+> - 479 lượt test backend (thêm 17: 9 cho status, 8 cho giới hạn độ dài). Frontend kiểm bằng 33 bài `MT-UI` trong `docs/testing/06-itinerary-ui.md`.
+>
+> **Bẫy đã gặp khi làm 2.5:**
+> 1. **BUG-UI-001 — ghi đè lớp Tailwind bằng `className`:** `Button` có sẵn `w-full`, truyền thêm `className="w-auto"` thì không chắc lớp nào thắng (ở đây `w-full` thắng). Nút có `shrink-0` chiếm hết hàng, tiêu đề ngày bị bẻ mỗi chữ một dòng. Sửa: độ rộng / lề / kiểu nút thành prop (`fullWidth`, `size`, `variant`). `lint` và `build` không bắt được loại lỗi này, chỉ người nhìn giao diện mới thấy. Suýt lặp lại ở Mốc 6 (`hover:text-red-700` đè `ghost`) → thêm `variant="ghost-danger"`.
+> 2. **Kiểu xuống dòng:** `sed -i` trên `*.java` ghi lại cả file không đổi nội dung với LF, `git status` báo "đã sửa" dù `git diff` trống. Sửa bằng script chỉ đụng file cần sửa và giữ nguyên kiểu xuống dòng của file.
+> 3. **Chuỗi liền không khoảng trắng** (tên 160 chữ "a") tràn ngang trong flex: cần `min-w-0` + `wrap-anywhere` (Tailwind 4.1+), `break-words` không đủ.
+>
+> **Việc cho sau (từ thảo luận làm lại giao diện, 2026-09-30):** chủ dự án sẽ đưa một mẫu giao diện chung để làm lại toàn bộ frontend sau khi xong các phase. Để việc đó dễ và an toàn: (1) có test Vitest + Testing Library kiểm **hành vi** (chữ, vai trò), không kiểm class, trước khi làm lại — Task 8.3; (2) gom màu chủ đạo về `@theme` trong `index.css` (`bg-brand` thay `bg-sky-600`) — Task 8.3; (3) tách logic khỏi component lớn (`DragDropContainer`, `ActivityFormDialog`, `EditTripDialog`) thành hook — làm dần khi sửa file, xong trước khi làm lại giao diện; (4) làm lại giao diện trước Task 8.5 để ảnh chụp là bản cuối.
+
 > ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26). Trước khi sang Phase 3: rà lại Phase 3 theo quy ước A.2 "Rà soát theo phase".
 
 ---
@@ -1164,6 +1195,7 @@ Nhánh: `feat/T6.1-quota-service`
 4. exception/QuotaExceededException → 402 kèm upgradeUrl
 5. GET /users/me trả kèm quota hiện tại (đã dùng / tối đa)
 6. test: user FREE tạo trip thứ 4 → 402
+7. POST /trips/{id}/clone (canView + quota) — gán từ "Việc còn treo" Phase 2 (2026-09-30)
 ```
 
 Làm task này **trước** khi tích hợp Stripe, vì gating chạy được với `plan` đổi tay trong DB.
@@ -1247,6 +1279,8 @@ Nhánh: `feat/T7.1-expenses`
 3. service/SettlementService: thuật toán tối giản số giao dịch (greedy: gộp người nợ nhiều nhất với người được nợ nhiều nhất)
 4. GET /expenses/summary, /expenses/settlement
 5. test thuật toán settlement với 3-4 người
+6. GET /trips/{id}/summary (canView): số ngày, số activity, tổng chi phí so với budget; quãng đường khi đã có route
+   (Phase 3) — gán từ "Việc còn treo" Phase 2 (2026-09-30)
 ```
 
 **Commit:** `feat(expense): add expense tracking and settlement algorithm`
@@ -1336,6 +1370,11 @@ Nhánh: `chore/T8.3-test-coverage`
    tab khác nhận `logout` → clearSession + queryClient.clear(); nhận `login` → refreshAccessToken()
 6. Frontend — form đổi mật khẩu (hoãn từ 1.5): `register('password', { deps: ['confirmPassword'] })` ở RegisterForm
    (tương tự `newPassword` ở ResetPasswordPage) để lỗi "không khớp" tự mất khi sửa ô mật khẩu cho khớp
+7. Frontend — test (từ 2.5): Vitest + Testing Library nếu task frontend trước chưa thêm; ưu tiên luồng trong
+   docs/testing/06-itinerary-ui.md (trùng giờ → allowOverlap, force=true, kéo thả trả về chỗ cũ khi lỗi).
+   Truy vấn theo chữ / role, không theo class, để test sống qua lần làm lại giao diện
+8. Frontend — màu chủ đạo (từ 2.5): khai báo `@theme` trong index.css (`--color-brand`...), thay `sky-*` rải rác
+   bằng `brand` → đổi màu cả app ở một chỗ. Làm trước khi làm lại giao diện
 ```
 
 **Commit:** `chore(test): add jacoco coverage gate` + `perf(trip): fix n+1 query on trip detail`
@@ -1385,6 +1424,9 @@ Nhánh: `docs/T8.5-final-readme`
    - Những gì đã học / điểm kỹ thuật đáng chú ý
 ```
 
+> **Từ 2.5 (2026-09-30):** chủ dự án dự định làm lại giao diện theo một mẫu chung sau khi xong các phase. Làm lại giao diện
+> **trước** task này (sau 8.3, khi đã có test frontend và màu `@theme`) để ảnh chụp / GIF trong README là bản cuối.
+
 **Commit:** `docs: add final readme with demo links and screenshots`
 
 > 🎉 Xong. Ghim repo lên trang GitHub cá nhân.
@@ -1409,7 +1451,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.2 TripDay auto-gen | ☑ | 2026-09-28 |
 | 2 | 2.3 Activity + trùng giờ | ☑ | 2026-09-29 |
 | 2 | 2.4 Reorder | ☑ | 2026-09-30 |
-| 2 | 2.5 Itinerary UI | ☐ | |
+| 2 | 2.5 Itinerary UI | ☑ | 2026-09-30 |
 | 3 | 3.1 Provider abstraction | ☐ | |
 | 3 | 3.2 Place service | ☐ | |
 | 3 | 3.3 Redis cache | ☐ | |
