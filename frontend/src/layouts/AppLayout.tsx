@@ -4,12 +4,13 @@ import { Button } from '../components/Button'
 import { Logo } from '../components/Logo'
 import { Toaster } from '../components/Toaster'
 import { useLogout } from '../features/auth/useLogout'
+import { TripSearchBox } from '../features/trips/TripSearchBox'
 import { useAuthStore } from '../stores/authStore'
 
 /**
- * Shell of every signed-in page (UI_GUIDE 5.4, 8): 56px ink top bar with the logo and the user,
- * content up to 1280px wide, and a quiet ink footer. No placeholders for features that do not exist yet
- * (notifications, global search).
+ * Shell of every signed-in page (UI_GUIDE 5.4, 8): 56px ink top bar with the logo, the trip search and the
+ * user, content up to 1280px wide, and a quiet ink footer. On phones the search drops to its own row under the
+ * logo. No placeholders for features that do not exist yet (notifications).
  */
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
@@ -18,11 +19,16 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="bg-ink">
-        <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link to="/trips" className="rounded-control focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 sm:px-6 md:h-14 md:flex-nowrap md:py-0 lg:px-8">
+          <Link
+            to="/trips"
+            className="shrink-0 rounded-control focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none"
+          >
             <Logo tone="dark" />
           </Link>
-          <div className="flex items-center gap-2">
+          {/* One search box: last on its own row on phones, between logo and user from md up */}
+          <TripSearchBox className="order-last w-full md:order-none md:max-w-md md:flex-1" />
+          <div className="flex shrink-0 items-center gap-2">
             <span className="hidden text-sm text-gray-300 sm:inline">{user?.fullName}</span>
             <Button
               variant="ghost-inverse"

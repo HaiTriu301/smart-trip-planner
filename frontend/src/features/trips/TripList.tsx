@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { getTripStatusCounts, listTrips } from '../../api/trips'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -14,7 +13,6 @@ import { TripCard, TripCardSkeleton } from './TripCard'
 import { isTripStatus, TRIP_STATUSES, TRIP_STATUS_LABELS } from './tripStatus'
 
 const PAGE_SIZE = 12
-const SEARCH_DELAY_MS = 300
 const SKELETON_CARDS = 3
 
 /** Sort choices kept in the URL as short keys; the first one is the backend default and stays out of the URL. */
@@ -27,7 +25,7 @@ const SORTS = [
 
 /**
  * Filters live in the URL (?q=&status=&sort=&page=, page is 1-based there) so F5 and the Back button keep them.
- * The API page is 0-based.
+ * The keyword is typed in the top bar (TripSearchBox); this list only reads it. The API page is 0-based.
  */
 export function TripList() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -60,19 +58,16 @@ export function TripList() {
   })
 
   /** Changing a filter always goes back to page 1; empty values are removed from the URL. */
-  function updateParams(changes: Record<string, string>, replace = false) {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        for (const [key, value] of Object.entries(changes)) {
-          if (value) next.set(key, value)
-          else next.delete(key)
-        }
-        if (!('page' in changes)) next.delete('page')
-        return next
-      },
-      { replace },
-    )
+  function updateParams(changes: Record<string, string>) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      for (const [key, value] of Object.entries(changes)) {
+        if (value) next.set(key, value)
+        else next.delete(key)
+      }
+      if (!('page' in changes)) next.delete('page')
+      return next
+    })
   }
 
   const hasFilter = Boolean(params.status || params.q)
@@ -80,7 +75,6 @@ export function TripList() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-y border-tide py-4 lg:flex-row lg:items-center">
-        <SearchBox value={q} onSearch={(value) => updateParams({ q: value }, true)} />
         <StatusChips
           value={params.status}
           counts={statusCounts}
@@ -225,40 +219,6 @@ function StatusChips({ value, counts, onChange }: StatusChipsProps) {
           </button>
         )
       })}
-    </div>
-  )
-}
-
-/** Sends the text to the URL once typing pauses, so each keystroke does not fire a request. */
-function SearchBox({ value, onSearch }: { value: string; onSearch: (value: string) => void }) {
-  const [input, setInput] = useState(value)
-  const [prevValue, setPrevValue] = useState(value)
-
-  // The URL changed from outside (Back button, "Xoá bộ lọc"): show the new text
-  if (value !== prevValue) {
-    setPrevValue(value)
-    setInput(value)
-  }
-
-  useEffect(() => {
-    const trimmed = input.trim()
-    if (trimmed === value) return
-    const timer = setTimeout(() => onSearch(trimmed), SEARCH_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [input, value, onSearch])
-
-  return (
-    <div className="relative w-full lg:w-72 lg:shrink-0">
-      <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400" />
-      <input
-        type="search"
-        aria-label="Tìm chuyến đi"
-        placeholder="Tìm theo tên hoặc điểm đến"
-        maxLength={200}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        className={`h-10 w-full pr-3 pl-9 ${controlClass(false)}`}
-      />
     </div>
   )
 }
