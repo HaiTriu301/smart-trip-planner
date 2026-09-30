@@ -69,7 +69,7 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
         error={errors.confirmPassword?.message}
         {...register('confirmPassword')}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-gray-500">
         Mật khẩu 8–72 ký tự, có chữ hoa, chữ thường, chữ số và không chứa khoảng trắng.
       </p>
       <Button type="submit" isLoading={mutation.isPending}>

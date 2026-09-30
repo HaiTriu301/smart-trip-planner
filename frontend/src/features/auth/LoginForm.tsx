@@ -68,7 +68,7 @@ export function LoginForm() {
         {...register('password')}
       />
       <div className="text-right text-sm">
-        <Link to="/forgot-password" className="text-sky-700 hover:underline">
+        <Link to="/forgot-password" className="text-jade-dark hover:underline">
           Quên mật khẩu?
         </Link>
       </div>

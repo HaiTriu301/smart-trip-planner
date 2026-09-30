@@ -24,5 +24,5 @@ export const ACTIVITY_TYPE_STYLES: Record<ActivityType, string> = {
   TRANSPORT: 'bg-sky-100 text-sky-800',
   ACCOMMODATION: 'bg-violet-100 text-violet-800',
   SHOPPING: 'bg-pink-100 text-pink-800',
-  OTHER: 'bg-slate-100 text-slate-700',
+  OTHER: 'bg-gray-100 text-gray-700',
 }

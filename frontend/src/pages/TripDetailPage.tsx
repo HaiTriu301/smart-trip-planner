@@ -22,7 +22,7 @@ export function TripDetailPage() {
   })
 
   if (!isValidId) return <TripUnavailable message="Không tìm thấy chuyến đi." />
-  if (isPending) return <p className="text-slate-500">Đang tải chuyến đi...</p>
+  if (isPending) return <p className="text-gray-500">Đang tải chuyến đi...</p>
   if (error) {
     const code = getApiError(error)?.errorCode
     return (
@@ -40,7 +40,7 @@ export function TripDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/trips" className="text-sm text-sky-700 hover:underline">
+      <Link to="/trips" className="text-sm text-jade-dark hover:underline">
         ← Chuyến đi của tôi
       </Link>
 
@@ -48,7 +48,7 @@ export function TripDetailPage() {
         {/* Title takes the free width and stops at two lines; status and actions keep one fixed spot on the
             right (on their own row under the title on narrow screens), whatever the title length */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <h1 title={trip.title} className="line-clamp-2 min-w-0 flex-1 text-2xl font-bold wrap-anywhere text-slate-800">
+          <h1 title={trip.title} className="line-clamp-2 min-w-0 flex-1 text-2xl font-bold wrap-anywhere text-gray-800">
             {trip.title}
           </h1>
           <div className="flex shrink-0 items-center justify-end gap-2 sm:pt-1">
@@ -56,12 +56,12 @@ export function TripDetailPage() {
             <TripActions trip={trip} />
           </div>
         </div>
-        <p className="wrap-anywhere text-slate-600">
+        <p className="wrap-anywhere text-gray-600">
           {trip.destinationName && <>{trip.destinationName} · </>}
           {formatDateRange(trip.startDate, trip.endDate)} · {countDays(trip.startDate, trip.endDate)} ngày
           {trip.budgetAmount !== null && <> · Ngân sách {formatMoney(trip.budgetAmount, trip.currency)}</>}
         </p>
-        {trip.description && <ExpandableText text={trip.description} className="text-slate-600" />}
+        {trip.description && <ExpandableText text={trip.description} className="text-gray-600" />}
       </header>
 
       <DayTimeline tripId={trip.id} days={trip.days} tripCurrency={trip.currency} />
@@ -73,7 +73,7 @@ function TripUnavailable({ message }: { message: string }) {
   return (
     <div className="space-y-4">
       <Alert variant="error">{message}</Alert>
-      <Link to="/trips" className="text-sm text-sky-700 hover:underline">
+      <Link to="/trips" className="text-sm text-jade-dark hover:underline">
         ← Về danh sách chuyến đi
       </Link>
     </div>

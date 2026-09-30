@@ -31,21 +31,21 @@ export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
   const [isEditing, setIsEditing] = useState(false)
 
   return (
-    <section id={`day-${day.id}`} className="scroll-mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-100/60 p-4">
+    <section id={`day-${day.id}`} className="scroll-mt-4 space-y-3 rounded-card border border-tide bg-gray-100/60 p-4">
       {isEditing ? (
         <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditing(false)} />
       ) : (
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <h3 className="font-semibold text-slate-800">
+            <h3 className="font-semibold text-gray-800">
               Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
             </h3>
             {day.title ? (
-              <p className="font-medium wrap-anywhere text-sky-800">{day.title}</p>
+              <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
             ) : (
-              <p className="italic text-slate-400">Chưa có tiêu đề</p>
+              <p className="italic text-gray-400">Chưa có tiêu đề</p>
             )}
-            {day.note && <ExpandableText text={day.note} className="text-sm text-slate-600" />}
+            {day.note && <ExpandableText text={day.note} className="text-sm text-gray-600" />}
           </div>
           <Button
             variant="ghost"
@@ -84,7 +84,7 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
     <>
       <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
         {day.activities.length === 0 ? (
-          <p className="px-1 py-3 text-sm text-slate-500">Chưa có hoạt động nào. Có thể kéo hoạt động từ ngày khác vào đây.</p>
+          <p className="px-1 py-3 text-sm text-gray-500">Chưa có hoạt động nào. Có thể kéo hoạt động từ ngày khác vào đây.</p>
         ) : (
           day.activities.map((activity) => (
             <SortableActivity key={activity.id} activity={activity}>
@@ -126,7 +126,7 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
         onConfirm={() => deleting && deletion.mutate(deleting)}
       >
         <p>
-          Hoạt động <strong className="text-slate-800">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
+          Hoạt động <strong className="text-gray-800">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
           này không hoàn tác được.
         </p>
       </ConfirmDialog>
@@ -164,7 +164,7 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
 
   return (
     <form noValidate className="space-y-3" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
-      <h3 className="font-semibold text-slate-800">
+      <h3 className="font-semibold text-gray-800">
         Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
       </h3>
       {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}

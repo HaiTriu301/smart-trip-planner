@@ -22,17 +22,17 @@ export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
             <li key={day.id}>
               <a
                 href={`#day-${day.id}`}
-                className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-white"
+                className="flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm text-gray-700 hover:bg-white"
               >
                 <span className="truncate">
                   <span className="font-medium">Ngày {day.dayIndex}</span> · {formatDate(day.date).slice(0, 5)}
                   {day.title ? (
-                    <span className="block truncate text-xs text-slate-500">{day.title}</span>
+                    <span className="block truncate text-xs text-gray-500">{day.title}</span>
                   ) : (
-                    <span className="block text-xs italic text-slate-400">Chưa có tiêu đề</span>
+                    <span className="block text-xs italic text-gray-400">Chưa có tiêu đề</span>
                   )}
                 </span>
-                <span className="shrink-0 rounded-full bg-slate-200 px-2 text-xs text-slate-600">
+                <span className="shrink-0 rounded-full bg-gray-200 px-2 text-xs text-gray-600">
                   {day.activities.length}
                 </span>
               </a>

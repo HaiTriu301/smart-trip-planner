@@ -7,7 +7,7 @@ import { AuthLayout } from '../features/auth/AuthLayout'
 import { ResendVerificationForm } from '../features/auth/ResendVerificationForm'
 
 const loginLink = (
-  <Link to="/login" className="font-medium text-sky-700 hover:underline">
+  <Link to="/login" className="font-medium text-jade-dark hover:underline">
     Đến trang đăng nhập
   </Link>
 )
@@ -42,7 +42,7 @@ export function VerifyEmailPage() {
   if (isPending) {
     return (
       <AuthLayout title="Xác thực email">
-        <p className="text-slate-600">Đang xác thực email của bạn...</p>
+        <p className="text-gray-600">Đang xác thực email của bạn...</p>
       </AuthLayout>
     )
   }

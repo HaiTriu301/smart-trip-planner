@@ -40,7 +40,7 @@ export function ExpandableText({ text, className }: ExpandableTextProps) {
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded(!expanded)}
-          className="text-sm font-medium text-sky-700 hover:underline"
+          className="text-sm font-medium text-jade-dark hover:underline"
         >
           {expanded ? 'Thu gọn' : 'Đọc thêm'}
         </button>

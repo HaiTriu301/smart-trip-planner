@@ -62,7 +62,7 @@ export function TripList() {
           aria-label="Lọc theo trạng thái"
           value={params.status ?? ''}
           onChange={(e) => updateParams({ status: e.target.value })}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+          className="rounded-control border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:border-jade focus:ring-2 focus:ring-jade/25"
         >
           <option value="">Tất cả trạng thái</option>
           {TRIP_STATUSES.map((value) => (
@@ -73,7 +73,7 @@ export function TripList() {
         </select>
       </div>
 
-      {isPending && <p className="text-slate-500">Đang tải danh sách chuyến đi...</p>}
+      {isPending && <p className="text-gray-500">Đang tải danh sách chuyến đi...</p>}
 
       {isError && (
         <div className="space-y-3">
@@ -85,7 +85,7 @@ export function TripList() {
       )}
 
       {data && data.items.length === 0 && (
-        <p className="text-slate-500">
+        <p className="text-gray-500">
           {hasFilter ? 'Không tìm thấy chuyến đi nào phù hợp.' : 'Bạn chưa có chuyến đi nào.'}
         </p>
       )}
@@ -109,7 +109,7 @@ export function TripList() {
               >
                 Trước
               </Button>
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-gray-600">
                 Trang {page} / {data.totalPages}
               </span>
               <Button
@@ -154,7 +154,7 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (value: strin
       maxLength={200}
       value={input}
       onChange={(e) => setInput(e.target.value)}
-      className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 sm:flex-1"
+      className="block w-full rounded-control border border-gray-300 px-3 py-2 text-gray-900 outline-none focus:border-jade focus:ring-2 focus:ring-jade/25 sm:flex-1"
     />
   )
 }

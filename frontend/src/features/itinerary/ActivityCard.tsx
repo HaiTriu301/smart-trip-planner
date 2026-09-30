@@ -24,20 +24,20 @@ export function ActivityCard({ activity, dragHandle, onEdit, onDelete }: Activit
   const time = formatTimeRange(activity)
 
   return (
-    <article className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+    <article className="flex gap-3 rounded-card border border-tide bg-white p-3">
       {dragHandle && <div className="-ml-1 shrink-0 self-center">{dragHandle}</div>}
-      <div className="w-24 shrink-0 text-sm font-medium text-slate-700">
-        {time ?? <span className="text-slate-400">Chưa đặt giờ</span>}
+      <div className="w-24 shrink-0 text-sm font-medium text-gray-700">
+        {time ?? <span className="text-gray-400">Chưa đặt giờ</span>}
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h4 className="min-w-0 font-medium wrap-anywhere text-slate-800">{activity.title}</h4>
+          <h4 className="min-w-0 font-medium wrap-anywhere text-gray-800">{activity.title}</h4>
           <span className={`rounded-full px-2 py-0.5 text-xs ${ACTIVITY_TYPE_STYLES[activity.type]}`}>
             {ACTIVITY_TYPE_LABELS[activity.type]}
           </span>
         </div>
-        {activity.note && <ExpandableText text={activity.note} className="text-sm text-slate-600" />}
-        <div className="flex flex-wrap gap-x-4 text-sm text-slate-500">
+        {activity.note && <ExpandableText text={activity.note} className="text-sm text-gray-600" />}
+        <div className="flex flex-wrap gap-x-4 text-sm text-gray-500">
           {activity.costAmount !== null && activity.currency && (
             <span>{formatMoney(activity.costAmount, activity.currency)}</span>
           )}
@@ -46,7 +46,7 @@ export function ActivityCard({ activity, dragHandle, onEdit, onDelete }: Activit
               href={activity.bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sky-700 hover:underline"
+              className="text-jade-dark hover:underline"
             >
               Link đặt chỗ
             </a>

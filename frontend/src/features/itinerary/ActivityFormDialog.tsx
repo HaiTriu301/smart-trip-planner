@@ -49,7 +49,7 @@ interface ActivityFormDialogProps {
 
 export function ActivityFormDialog({ open, activity, onClose, ...props }: ActivityFormDialogProps) {
   return (
-    <Modal open={open} title={activity ? 'Sửa hoạt động' : 'Thêm hoạt động'} onClose={onClose}>
+    <Modal open={open} size="lg" title={activity ? 'Sửa hoạt động' : 'Thêm hoạt động'} onClose={onClose}>
       <ActivityForm activity={activity} onClose={onClose} {...props} />
     </Modal>
   )

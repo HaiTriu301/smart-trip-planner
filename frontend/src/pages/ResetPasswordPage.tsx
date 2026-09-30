@@ -11,7 +11,7 @@ import { AuthLayout } from '../features/auth/AuthLayout'
 import { resetPasswordSchema, type ResetPasswordValues } from '../features/auth/schemas'
 
 const forgotLink = (
-  <Link to="/forgot-password" className="font-medium text-sky-700 hover:underline">
+  <Link to="/forgot-password" className="font-medium text-jade-dark hover:underline">
     Yêu cầu link mới
   </Link>
 )
@@ -49,7 +49,7 @@ export function ResetPasswordPage() {
             Đã đổi mật khẩu. Mọi thiết bị đang đăng nhập đã bị đăng xuất; hãy đăng nhập lại bằng mật khẩu mới.
           </Alert>
           <p className="text-center">
-            <Link to="/login" className="font-medium text-sky-700 hover:underline">
+            <Link to="/login" className="font-medium text-jade-dark hover:underline">
               Đến trang đăng nhập
             </Link>
           </p>

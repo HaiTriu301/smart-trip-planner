@@ -78,12 +78,12 @@ export function CreateTripWizard() {
           <li
             key={s.title}
             aria-current={index === step ? 'step' : undefined}
-            className={`flex-1 rounded-lg border px-3 py-2 text-center ${
+            className={`flex-1 rounded-control border px-3 py-2 text-center ${
               index === step
-                ? 'border-sky-500 bg-sky-50 font-medium text-sky-800'
+                ? 'border-jade bg-jade-light font-medium text-jade-dark'
                 : index < step
-                  ? 'border-slate-200 bg-white text-slate-600'
-                  : 'border-slate-200 bg-slate-50 text-slate-400'
+                  ? 'border-gray-200 bg-white text-gray-600'
+                  : 'border-gray-200 bg-gray-50 text-gray-400'
             }`}
           >
             {index + 1}. {s.title}

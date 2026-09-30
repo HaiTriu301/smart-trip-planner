@@ -47,7 +47,7 @@ export function TripDestinationFields({ form, autoFocus }: SectionProps) {
         error={errors.destinationName?.message}
         {...register('destinationName')}
       />
-      <p className="text-sm text-slate-500">Chọn vị trí trên bản đồ sẽ có ở phiên bản sau.</p>
+      <p className="text-sm text-gray-500">Chọn vị trí trên bản đồ sẽ có ở phiên bản sau.</p>
     </div>
   )
 }
@@ -68,7 +68,7 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
         <FormField label="Ngày bắt đầu" type="date" autoFocus={autoFocus} error={errors.startDate?.message} {...register('startDate')} />
         <FormField label="Ngày kết thúc" type="date" min={startDate || undefined} error={errors.endDate?.message} {...register('endDate')} />
       </div>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-gray-500">
         {dayCount ? `Chuyến đi dài ${dayCount} ngày. ` : ''}Tối đa {MAX_TRIP_DAYS} ngày.
       </p>
       {hint}

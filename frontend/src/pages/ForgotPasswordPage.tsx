@@ -27,7 +27,7 @@ export function ForgotPasswordPage() {
   })
 
   const footer = (
-    <Link to="/login" className="font-medium text-sky-700 hover:underline">
+    <Link to="/login" className="font-medium text-jade-dark hover:underline">
       Quay lại đăng nhập
     </Link>
   )

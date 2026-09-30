@@ -53,7 +53,7 @@ export function TripActions({ trip }: { trip: TripResponse }) {
         onConfirm={() => deletion.mutate()}
       >
         <p>
-          Chuyến đi <strong className="text-slate-800">{trip.title}</strong> cùng mọi ngày và hoạt động của nó sẽ bị
+          Chuyến đi <strong className="text-gray-800">{trip.title}</strong> cùng mọi ngày và hoạt động của nó sẽ bị
           xoá khỏi danh sách của bạn.
         </p>
       </ConfirmDialog>

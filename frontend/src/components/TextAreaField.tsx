@@ -13,7 +13,7 @@ export function TextAreaField({ label, error, id, className, rows = 3, ...textar
 
   return (
     <div className="space-y-1">
-      <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
         {label}
       </label>
       <textarea
@@ -21,15 +21,15 @@ export function TextAreaField({ label, error, id, className, rows = 3, ...textar
         rows={rows}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={`block w-full rounded-lg border px-3 py-2 text-slate-900 shadow-sm outline-none focus:ring-2 ${
+        className={`block w-full rounded-control border px-3 py-2 text-gray-900 outline-none focus:ring-2 ${
           error
-            ? 'border-red-400 focus:ring-red-200'
-            : 'border-slate-300 focus:border-sky-500 focus:ring-sky-200'
+            ? 'border-danger focus:ring-danger/30'
+            : 'border-gray-300 focus:border-jade focus:ring-jade/25'
         } ${className ?? ''}`}
         {...textareaProps}
       />
       {error && (
-        <p id={errorId} className="text-sm text-red-600">
+        <p id={errorId} className="text-sm text-danger">
           {error}
         </p>
       )}

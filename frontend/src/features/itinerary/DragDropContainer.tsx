@@ -243,7 +243,7 @@ export function SortableDayList({ dayId, activityIds, children }: SortableDayLis
     <SortableContext id={dayKey(dayId)} items={activityIds.map(activityKey)} strategy={verticalListSortingStrategy}>
       <div
         ref={setNodeRef}
-        className={`min-h-12 space-y-2 rounded-lg transition-colors ${isOver ? 'bg-sky-50 ring-2 ring-sky-200' : ''}`}
+        className={`min-h-12 space-y-2 rounded-card transition-colors ${isOver ? 'bg-jade-light ring-2 ring-jade/25' : ''}`}
       >
         {children}
       </div>
@@ -271,7 +271,7 @@ export function SortableActivity({ activity, children }: SortableActivityProps) 
       {...attributes}
       {...listeners}
       aria-label={`Kéo để sắp xếp ${activity.title}`}
-      className="cursor-grab touch-none rounded px-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+      className="cursor-grab touch-none rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
     >
       <DragHandleIcon />
     </button>
@@ -290,7 +290,7 @@ export function SortableActivity({ activity, children }: SortableActivityProps) 
 
 function DragHandleIcon() {
   return (
-    <span aria-hidden className="text-lg leading-none text-slate-400">
+    <span aria-hidden className="text-lg leading-none text-gray-400">
       ⠿
     </span>
   )

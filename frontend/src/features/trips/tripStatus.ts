@@ -11,11 +11,11 @@ export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
 }
 
 export const TRIP_STATUS_STYLES: Record<TripStatus, string> = {
-  DRAFT: 'bg-slate-100 text-slate-700',
-  PLANNED: 'bg-sky-100 text-sky-800',
+  DRAFT: 'bg-gray-100 text-gray-700',
+  PLANNED: 'bg-jade-light text-jade-dark',
   ONGOING: 'bg-amber-100 text-amber-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  ARCHIVED: 'bg-slate-200 text-slate-500',
+  COMPLETED: 'bg-success/12 text-success',
+  ARCHIVED: 'bg-gray-200 text-gray-500',
 }
 
 export function isTripStatus(value: string | null): value is TripStatus {
