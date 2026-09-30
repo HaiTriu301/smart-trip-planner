@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Button } from '../../components/Button'
 import { formatMoney } from '../../lib/format'
 import type { Activity } from '../../types/activity'
@@ -11,15 +12,19 @@ function formatTimeRange(activity: Activity): string | null {
 
 interface ActivityCardProps {
   activity: Activity
-  onEdit: () => void
-  onDelete: () => void
+  /** Grip shown at the left edge; the only place a drag can start */
+  dragHandle?: ReactNode
+  /** Without handlers the card is read-only (the preview that follows the pointer while dragging) */
+  onEdit?: () => void
+  onDelete?: () => void
 }
 
-export function ActivityCard({ activity, onEdit, onDelete }: ActivityCardProps) {
+export function ActivityCard({ activity, dragHandle, onEdit, onDelete }: ActivityCardProps) {
   const time = formatTimeRange(activity)
 
   return (
-    <article className="flex gap-4 rounded-lg border border-slate-200 bg-white p-3">
+    <article className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      {dragHandle && <div className="-ml-1 shrink-0 self-center">{dragHandle}</div>}
       <div className="w-24 shrink-0 text-sm font-medium text-slate-700">
         {time ?? <span className="text-slate-400">Chưa đặt giờ</span>}
       </div>
@@ -47,20 +52,22 @@ export function ActivityCard({ activity, onEdit, onDelete }: ActivityCardProps) 
           )}
         </div>
       </div>
-      <div className="flex shrink-0 items-start gap-1">
-        <Button variant="ghost" size="sm" fullWidth={false} aria-label={`Sửa ${activity.title}`} onClick={onEdit}>
-          <span aria-hidden>✎</span>&nbsp;Sửa
-        </Button>
-        <Button
-          variant="ghost-danger"
-          size="sm"
-          fullWidth={false}
-          aria-label={`Xoá ${activity.title}`}
-          onClick={onDelete}
-        >
-          Xoá
-        </Button>
-      </div>
+      {onEdit && onDelete && (
+        <div className="flex shrink-0 items-start gap-1">
+          <Button variant="ghost" size="sm" fullWidth={false} aria-label={`Sửa ${activity.title}`} onClick={onEdit}>
+            <span aria-hidden>✎</span>&nbsp;Sửa
+          </Button>
+          <Button
+            variant="ghost-danger"
+            size="sm"
+            fullWidth={false}
+            aria-label={`Xoá ${activity.title}`}
+            onClick={onDelete}
+          >
+            Xoá
+          </Button>
+        </div>
+      )}
     </article>
   )
 }

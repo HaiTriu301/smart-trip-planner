@@ -15,6 +15,7 @@ import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFormDialog } from './ActivityFormDialog'
+import { SortableActivity, SortableDayList } from './DragDropContainer'
 import { daySchema, type DayValues } from './schemas'
 
 interface DaySectionProps {
@@ -80,23 +81,27 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
 
   return (
     <>
-      {day.activities.length === 0 ? (
-        <p className="text-sm text-slate-500">Chưa có hoạt động nào.</p>
-      ) : (
-        <div className="space-y-2">
-          {day.activities.map((activity) => (
-            <ActivityCard
-              key={activity.id}
-              activity={activity}
-              onEdit={() => setEditing(activity)}
-              onDelete={() => {
-                deletion.reset()
-                setDeleting(activity)
-              }}
-            />
-          ))}
-        </div>
-      )}
+      <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
+        {day.activities.length === 0 ? (
+          <p className="px-1 py-3 text-sm text-slate-500">Chưa có hoạt động nào. Có thể kéo hoạt động từ ngày khác vào đây.</p>
+        ) : (
+          day.activities.map((activity) => (
+            <SortableActivity key={activity.id} activity={activity}>
+              {(dragHandle) => (
+                <ActivityCard
+                  activity={activity}
+                  dragHandle={dragHandle}
+                  onEdit={() => setEditing(activity)}
+                  onDelete={() => {
+                    deletion.reset()
+                    setDeleting(activity)
+                  }}
+                />
+              )}
+            </SortableActivity>
+          ))
+        )}
+      </SortableDayList>
       <Button variant="ghost" size="sm" fullWidth={false} onClick={() => setEditing(null)}>
         + Thêm hoạt động
       </Button>

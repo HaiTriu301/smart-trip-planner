@@ -1,6 +1,8 @@
 import { apiClient } from './client'
 import type { ApiResponse } from '../types/api'
+import type { ReorderItem } from '../lib/orderIndex'
 import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../types/activity'
+import type { TripDayDetail } from '../types/trip'
 
 // allowOverlap=false: a time range overlapping another activity of the day is refused with
 // 409 ACTIVITY_TIME_CONFLICT; true saves it anyway after the user confirmed (design.md rule 14.4).
@@ -32,4 +34,21 @@ export async function updateActivity(
 /** Hard delete (design.md 10.2). */
 export async function deleteActivity(tripId: number, activityId: number): Promise<void> {
   await apiClient.delete<ApiResponse<null>>(`/trips/${tripId}/activities/${activityId}`)
+}
+
+/**
+ * Moves only the given activities, all or nothing. Returns the affected days (source and target) with their
+ * activities in the new order, orderIndex already renumbered when the backend normalized a day.
+ */
+export async function reorderActivities(
+  tripId: number,
+  items: ReorderItem[],
+  allowOverlap = false,
+): Promise<TripDayDetail[]> {
+  const { data } = await apiClient.put<ApiResponse<TripDayDetail[]>>(
+    `/trips/${tripId}/activities/reorder`,
+    { items },
+    { params: { allowOverlap } },
+  )
+  return data.data
 }

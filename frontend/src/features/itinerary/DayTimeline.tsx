@@ -1,6 +1,7 @@
 import { formatDate } from '../../lib/format'
 import type { TripDayDetail } from '../../types/trip'
 import { DaySection } from './DaySection'
+import { DragDropContainer } from './DragDropContainer'
 
 interface DayTimelineProps {
   tripId: number
@@ -9,8 +10,8 @@ interface DayTimelineProps {
 }
 
 /**
- * Left: list of days that scrolls to a day. Right: every day stacked, so an activity can later be dragged
- * from one day to another without switching views (Task 2.5 Mốc 7). The map column comes in Phase 3.
+ * Left: list of days that scrolls to a day. Right: every day stacked, so an activity can be dragged from one
+ * day to another without switching views. The map column comes in Phase 3.
  */
 export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
   return (
@@ -40,9 +41,11 @@ export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
         </ol>
       </nav>
       <div className="min-w-0 space-y-4">
-        {days.map((day) => (
-          <DaySection key={day.id} tripId={tripId} day={day} tripCurrency={tripCurrency} />
-        ))}
+        <DragDropContainer tripId={tripId} days={days}>
+          {(shownDays) =>
+            shownDays.map((day) => <DaySection key={day.id} tripId={tripId} day={day} tripCurrency={tripCurrency} />)
+          }
+        </DragDropContainer>
       </div>
     </div>
   )
