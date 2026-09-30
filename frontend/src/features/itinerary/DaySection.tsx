@@ -32,11 +32,22 @@ export function DaySection({ tripId, day }: DaySectionProps) {
             <h3 className="font-semibold text-slate-800">
               Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
             </h3>
-            {day.title && <p className="font-medium text-sky-800">{day.title}</p>}
+            {day.title ? (
+              <p className="font-medium text-sky-800">{day.title}</p>
+            ) : (
+              <p className="italic text-slate-400">Chưa có tiêu đề</p>
+            )}
             {day.note && <p className="whitespace-pre-line text-sm text-slate-600">{day.note}</p>}
           </div>
-          <Button variant="secondary" className="w-auto shrink-0 text-sm" onClick={() => setIsEditing(true)}>
-            Sửa ngày
+          <Button
+            variant="ghost"
+            size="sm"
+            fullWidth={false}
+            className="shrink-0"
+            aria-label={`Sửa ngày ${day.dayIndex}`}
+            onClick={() => setIsEditing(true)}
+          >
+            <span aria-hidden>✎</span>&nbsp;Sửa
           </Button>
         </header>
       )}
@@ -95,10 +106,10 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
       />
       <TextAreaField label="Ghi chú" error={errors.note?.message} {...register('note')} />
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" className="w-auto" onClick={onDone}>
+        <Button variant="secondary" fullWidth={false} onClick={onDone}>
           Huỷ
         </Button>
-        <Button type="submit" className="w-auto" isLoading={mutation.isPending}>
+        <Button type="submit" fullWidth={false} isLoading={mutation.isPending}>
           Lưu
         </Button>
       </div>

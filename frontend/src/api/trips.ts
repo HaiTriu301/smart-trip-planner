@@ -8,6 +8,7 @@ import type {
   TripResponse,
   TripSummary,
   UpdateTripDayRequest,
+  UpdateTripRequest,
 } from '../types/trip'
 
 /** Trips of the signed-in user, newest first (backend default sort=createdAt,desc). */
@@ -26,6 +27,20 @@ export async function createTrip(body: CreateTripRequest): Promise<TripResponse>
 export async function getTrip(id: number): Promise<TripDetail> {
   const { data } = await apiClient.get<ApiResponse<TripDetail>>(`/trips/${id}`)
   return data.data
+}
+
+/**
+ * force=false: a date change that would delete days holding activities is refused with
+ * 409 TRIP_DAY_HAS_ACTIVITIES; force=true deletes them (design.md rule 14.3).
+ */
+export async function updateTrip(id: number, body: UpdateTripRequest, force = false): Promise<TripResponse> {
+  const { data } = await apiClient.patch<ApiResponse<TripResponse>>(`/trips/${id}`, body, { params: { force } })
+  return data.data
+}
+
+/** Soft delete, owner only (design.md rule 14.8). */
+export async function deleteTrip(id: number): Promise<void> {
+  await apiClient.delete<ApiResponse<null>>(`/trips/${id}`)
 }
 
 export async function updateTripDay(tripId: number, dayId: number, body: UpdateTripDayRequest): Promise<TripDay> {

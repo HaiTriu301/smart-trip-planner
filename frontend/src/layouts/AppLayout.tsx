@@ -19,7 +19,7 @@ export function AppLayout() {
             <span className="hidden text-sm text-slate-600 sm:inline">{user?.fullName}</span>
             <Button
               variant="secondary"
-              className="w-auto"
+              fullWidth={false}
               isLoading={logout.isPending}
               onClick={() => logout.mutate()}
             >

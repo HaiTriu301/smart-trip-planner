@@ -4,6 +4,7 @@ import { getTrip } from '../api/trips'
 import { getApiError, getErrorMessage } from '../api/errors'
 import { Alert } from '../components/Alert'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
+import { TripActions } from '../features/trips/TripActions'
 import { TRIP_STATUS_LABELS, TRIP_STATUS_STYLES } from '../features/trips/tripStatus'
 import { countDays, formatDateRange, formatMoney } from '../lib/format'
 
@@ -43,11 +44,14 @@ export function TripDetailPage() {
       </Link>
 
       <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-800">{trip.title}</h1>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TRIP_STATUS_STYLES[trip.status]}`}>
-            {TRIP_STATUS_LABELS[trip.status]}
-          </span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-800">{trip.title}</h1>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TRIP_STATUS_STYLES[trip.status]}`}>
+              {TRIP_STATUS_LABELS[trip.status]}
+            </span>
+          </div>
+          <TripActions trip={trip} />
         </div>
         <p className="text-slate-600">
           {trip.destinationName && <>{trip.destinationName} · </>}

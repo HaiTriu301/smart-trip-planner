@@ -78,7 +78,7 @@ export function TripList() {
       {isError && (
         <div className="space-y-3">
           <Alert variant="error">{getErrorMessage(error)}</Alert>
-          <Button variant="secondary" className="w-auto" onClick={() => refetch()}>
+          <Button variant="secondary" fullWidth={false} onClick={() => refetch()}>
             Thử lại
           </Button>
         </div>
@@ -103,7 +103,7 @@ export function TripList() {
             <nav className="flex items-center justify-center gap-4" aria-label="Phân trang">
               <Button
                 variant="secondary"
-                className="w-auto"
+                fullWidth={false}
                 disabled={page <= 1}
                 onClick={() => updateParams({ page: String(page - 1) })}
               >
@@ -114,7 +114,7 @@ export function TripList() {
               </span>
               <Button
                 variant="secondary"
-                className="w-auto"
+                fullWidth={false}
                 disabled={!data.hasNext}
                 onClick={() => updateParams({ page: String(page + 1) })}
               >

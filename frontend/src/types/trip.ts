@@ -80,6 +80,12 @@ export interface CreateTripRequest {
   currency?: string
 }
 
+/**
+ * Body of PATCH /trips/{id}: undefined keeps the stored value. Optional fields cannot be cleared yet
+ * (design.md 10.2 "Quy ước Trip API"); status has its own endpoint.
+ */
+export type UpdateTripRequest = Partial<CreateTripRequest>
+
 /** Query of GET /trips; page is 0-based, undefined fields are left out of the URL. */
 export interface TripListParams {
   status?: TripStatus

@@ -24,7 +24,11 @@ export function DayTimeline({ tripId, days }: DayTimelineProps) {
               >
                 <span className="truncate">
                   <span className="font-medium">Ngày {day.dayIndex}</span> · {formatDate(day.date).slice(0, 5)}
-                  {day.title && <span className="block truncate text-xs text-slate-500">{day.title}</span>}
+                  {day.title ? (
+                    <span className="block truncate text-xs text-slate-500">{day.title}</span>
+                  ) : (
+                    <span className="block text-xs italic text-slate-400">Chưa có tiêu đề</span>
+                  )}
                 </span>
                 <span className="shrink-0 rounded-full bg-slate-200 px-2 text-xs text-slate-600">
                   {day.activities.length}

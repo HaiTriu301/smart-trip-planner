@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { countDays } from '../../lib/format'
-import type { CreateTripRequest } from '../../types/trip'
+import type { CreateTripRequest, TripResponse, UpdateTripRequest } from '../../types/trip'
 
 // Mirrors CreateTripRequest + TripServiceImpl rules (design.md 10.2 "Quy ước Trip API", rule 14.1).
 // The backend stays authoritative; these only give instant feedback with the same Vietnamese messages.
@@ -11,8 +11,10 @@ const URL_PATTERN = /^https?:\/\/\S+$/
 const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/
 // DECIMAL(15,2): up to 13 integer digits and 2 decimals
 const BUDGET_PATTERN = /^\d{1,13}(\.\d{1,2})?$/
+const CURRENCY_PATTERN = /^[A-Z]{3}$/
 
-export const CURRENCIES = ['VND', 'USD', 'EUR', 'JPY', 'KRW', 'THB', 'SGD'] as const
+/** Offered in the select; the backend accepts any 3-letter code, so a trip may hold one not listed here. */
+export const CURRENCIES = ['VND', 'USD', 'EUR', 'JPY', 'KRW', 'THB', 'SGD']
 
 export const tripSchema = z
   .object({
@@ -47,7 +49,7 @@ export const tripSchema = z
           })
         }
       }),
-    currency: z.enum(CURRENCIES),
+    currency: z.string().regex(CURRENCY_PATTERN, 'Mã tiền tệ phải gồm 3 chữ cái in hoa, ví dụ VND hoặc USD'),
   })
   .superRefine((v, ctx) => {
     // ISO dates compare correctly as strings
@@ -79,4 +81,46 @@ export function toCreateTripRequest(values: TripValues): CreateTripRequest {
     budgetAmount: values.budgetAmount ? Number(values.budgetAmount) : undefined,
     currency: values.currency,
   }
+}
+
+/** Form values of an existing trip, for the edit form. */
+export function toTripValues(trip: TripResponse): TripValues {
+  return {
+    title: trip.title,
+    description: trip.description ?? '',
+    coverImageUrl: trip.coverImageUrl ?? '',
+    destinationName: trip.destinationName ?? '',
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    budgetAmount: trip.budgetAmount === null ? '' : String(trip.budgetAmount),
+    currency: trip.currency,
+  }
+}
+
+const CLEARABLE_FIELDS = ['description', 'coverImageUrl', 'destinationName', 'budgetAmount'] as const
+
+/**
+ * Optional fields that held a value and were emptied. PATCH cannot clear them yet (design.md 10.2):
+ * sending nothing would silently keep the old value, so the form reports them instead.
+ */
+export function findClearedFields(trip: TripResponse, values: TripValues): (typeof CLEARABLE_FIELDS)[number][] {
+  const before = toTripValues(trip)
+  return CLEARABLE_FIELDS.filter((field) => before[field].trim() !== '' && values[field].trim() === '')
+}
+
+/** Only the fields that differ from the stored trip; an empty object means nothing to save. */
+export function toUpdateTripRequest(trip: TripResponse, values: TripValues): UpdateTripRequest {
+  const next = toCreateTripRequest(values)
+  const body: UpdateTripRequest = {}
+  if (next.title !== trip.title) body.title = next.title
+  if (next.description !== undefined && next.description !== trip.description) body.description = next.description
+  if (next.coverImageUrl !== undefined && next.coverImageUrl !== trip.coverImageUrl) body.coverImageUrl = next.coverImageUrl
+  if (next.destinationName !== undefined && next.destinationName !== trip.destinationName) {
+    body.destinationName = next.destinationName
+  }
+  if (next.startDate !== trip.startDate) body.startDate = next.startDate
+  if (next.endDate !== trip.endDate) body.endDate = next.endDate
+  if (next.budgetAmount !== undefined && next.budgetAmount !== trip.budgetAmount) body.budgetAmount = next.budgetAmount
+  if (next.currency !== trip.currency) body.currency = next.currency
+  return body
 }
