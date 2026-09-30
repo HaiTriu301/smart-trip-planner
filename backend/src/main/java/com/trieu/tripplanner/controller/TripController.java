@@ -5,6 +5,7 @@ import com.trieu.tripplanner.common.PageResponse;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.request.UpdateTripStatusRequest;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
@@ -90,6 +91,16 @@ public class TripController {
                                             @RequestParam(defaultValue = "false") boolean force,
                                             @Valid @RequestBody UpdateTripRequest request) {
         return ApiResponse.ok(tripService.update(id, request, force));
+    }
+
+    @Operation(summary = "Đổi trạng thái chuyến đi",
+               description = "Chuyển tự do giữa DRAFT, PLANNED, ONGOING, COMPLETED, ARCHIVED. Gửi lại trạng thái "
+                       + "đang có vẫn trả 200. Cách duy nhất để đổi trạng thái.")
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("@tripPermission.canEdit(#id, principal)")
+    public ApiResponse<TripResponse> updateStatus(@PathVariable Long id,
+                                                  @Valid @RequestBody UpdateTripStatusRequest request) {
+        return ApiResponse.ok(tripService.updateStatus(id, request.status()));
     }
 
     @Operation(summary = "Xoá chuyến đi", description = "Xoá mềm. Chỉ chủ sở hữu.")

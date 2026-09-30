@@ -31,7 +31,7 @@ public record UpdateActivityRequest(
 
         LocalTime endTime,
 
-        @Size(max = 5000, message = "{validation.activity.note.too-long}")
+        @Size(max = 255, message = "{validation.activity.note.too-long}")
         String note,
 
         @DecimalMin(value = "0", message = "{validation.activity.cost.negative}")

@@ -12,6 +12,6 @@ public record UpdateTripDayRequest(
         @Size(max = 160, message = "{validation.trip-day.title.too-long}")
         String title,
 
-        @Size(max = 5000, message = "{validation.trip-day.note.too-long}")
+        @Size(max = 255, message = "{validation.trip-day.note.too-long}")
         String note) {
 }

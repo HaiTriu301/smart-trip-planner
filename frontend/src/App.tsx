@@ -1,10 +1,13 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { GuestRoute } from './components/GuestRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AppLayout } from './layouts/AppLayout'
+import { CreateTripPage } from './pages/CreateTripPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { TripDetailPage } from './pages/TripDetailPage'
 import { TripsPage } from './pages/TripsPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 
@@ -24,7 +27,16 @@ const router = createBrowserRouter([
   { path: '/reset-password', element: <ResetPasswordPage /> },
   {
     element: <ProtectedRoute />,
-    children: [{ path: '/trips', element: <TripsPage /> }],
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/trips', element: <TripsPage /> },
+          { path: '/trips/new', element: <CreateTripPage /> },
+          { path: '/trips/:id', element: <TripDetailPage /> },
+        ],
+      },
+    ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
 ])
