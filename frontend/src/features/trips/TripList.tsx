@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react'
-import { listTrips } from '../../api/trips'
+import { getTripStatusCounts, listTrips } from '../../api/trips'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { EmptyState } from '../../components/EmptyState'
 import { controlClass } from '../../components/fieldStyles'
 import { LinkButton } from '../../components/LinkButton'
-import type { TripListParams, TripStatus } from '../../types/trip'
+import type { TripListParams, TripStatus, TripStatusCounts } from '../../types/trip'
 import { TripCard, TripCardSkeleton } from './TripCard'
 import { isTripStatus, TRIP_STATUSES, TRIP_STATUS_LABELS } from './tripStatus'
 
@@ -51,6 +51,14 @@ export function TripList() {
     placeholderData: keepPreviousData,
   })
 
+  // Chip counters follow the keyword but not the chosen status, so every chip keeps its own number.
+  // Their key starts with 'trips', so creating, deleting or re-statusing a trip refreshes them too.
+  const { data: statusCounts } = useQuery({
+    queryKey: ['trips', 'status-counts', params.q ?? ''],
+    queryFn: () => getTripStatusCounts(params.q),
+    placeholderData: keepPreviousData,
+  })
+
   /** Changing a filter always goes back to page 1; empty values are removed from the URL. */
   function updateParams(changes: Record<string, string>, replace = false) {
     setSearchParams(
@@ -73,7 +81,11 @@ export function TripList() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-y border-tide py-4 lg:flex-row lg:items-center">
         <SearchBox value={q} onSearch={(value) => updateParams({ q: value }, true)} />
-        <StatusChips value={params.status} onChange={(value) => updateParams({ status: value ?? '' })} />
+        <StatusChips
+          value={params.status}
+          counts={statusCounts}
+          onChange={(value) => updateParams({ status: value ?? '' })}
+        />
         <label className="flex shrink-0 items-center gap-2 text-[13px] text-gray-600 lg:ml-auto">
           Sắp xếp
           <select
@@ -169,14 +181,20 @@ export function TripList() {
 
 interface StatusChipsProps {
   value: TripStatus | undefined
+  /** Undefined while the first count loads: chips show no number rather than a wrong 0 */
+  counts: TripStatusCounts | undefined
   onChange: (value: TripStatus | undefined) => void
 }
 
-/** "Tất cả" + one chip per status; the chosen one is filled ink. Scrolls sideways on narrow screens. */
-function StatusChips({ value, onChange }: StatusChipsProps) {
-  const chips: { status: TripStatus | undefined; label: string }[] = [
-    { status: undefined, label: 'Tất cả' },
-    ...TRIP_STATUSES.map((status) => ({ status, label: TRIP_STATUS_LABELS[status] })),
+/**
+ * "Tất cả" + one chip per status, each with its number (Stitch mockup). The chosen chip is filled ink.
+ * "Đang diễn ra" carries a jade dot; it stays still: motion only answers an action (UI_GUIDE 2.4).
+ * Scrolls sideways on narrow screens.
+ */
+function StatusChips({ value, counts, onChange }: StatusChipsProps) {
+  const chips: { status: TripStatus | undefined; label: string; count: number | undefined }[] = [
+    { status: undefined, label: 'Tất cả', count: counts?.total },
+    ...TRIP_STATUSES.map((status) => ({ status, label: TRIP_STATUS_LABELS[status], count: counts?.counts[status] })),
   ]
   return (
     <div role="group" aria-label="Lọc theo trạng thái" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:pb-0">
@@ -188,11 +206,22 @@ function StatusChips({ value, onChange }: StatusChipsProps) {
             type="button"
             aria-pressed={active}
             onClick={() => onChange(chip.status)}
-            className={`h-9 shrink-0 rounded-control px-4 text-[13px] font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+            className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-control px-3.5 text-[13px] font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
               active ? 'bg-ink text-white' : 'border border-tide bg-white text-gray-600 hover:bg-gray-50'
             }`}
           >
+            {chip.status === 'ONGOING' && <span aria-hidden className="size-2 rounded-full bg-jade" />}
             {chip.label}
+            {chip.count !== undefined && (
+              <span
+                className={`tabular min-w-5 rounded-full px-1.5 text-center text-[11px] leading-[18px] ${
+                  active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {chip.count}
+                <span className="sr-only"> chuyến đi</span>
+              </span>
+            )}
           </button>
         )
       })}

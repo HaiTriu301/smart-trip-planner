@@ -4,10 +4,12 @@ import com.trieu.tripplanner.common.PageResponse;
 import com.trieu.tripplanner.common.util.SlugGenerator;
 import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.dto.internal.TripFilter;
+import com.trieu.tripplanner.dto.internal.TripStatusCount;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripStatusCountsResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
@@ -23,6 +25,7 @@ import com.trieu.tripplanner.repository.spec.TripSpecifications;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -65,6 +68,22 @@ public class TripServiceImpl implements TripService {
         Page<Trip> page = tripRepository.findAll(TripSpecifications.matching(userId, filter), pageable);
         Map<Long, Long> activityCounts = countActivities(page.getContent());
         return PageResponse.from(page.map(trip -> tripMapper.toSummary(trip, activityCounts.getOrDefault(trip.getId(), 0L))));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TripStatusCountsResponse countByStatus(Long userId, String q) {
+        Map<TripStatus, Long> counts = new EnumMap<>(TripStatus.class);
+        for (TripStatus status : TripStatus.values()) {
+            counts.put(status, 0L);
+        }
+        // Same filter as the list, status left open: the chips show every status
+        TripFilter filter = new TripFilter(null, q, null, null);
+        for (TripStatusCount row : tripRepository.countByStatus(TripSpecifications.matching(userId, filter))) {
+            counts.put(row.status(), row.count());
+        }
+        long total = counts.values().stream().mapToLong(Long::longValue).sum();
+        return new TripStatusCountsResponse(total, counts);
     }
 
     @Override

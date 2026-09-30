@@ -136,6 +136,30 @@ class TripFlowIntegrationTest {
     }
 
     @Test
+    void statusCountsFollowStatusChangesTheKeywordAndTheUser() {
+        createTrip(ownerBearer, "Hội An cuối tuần", "2026-11-07", "2026-11-08");
+        long planned = idOf(createTrip(ownerBearer, "Đà Lạt", "2026-10-01", "2026-10-02"));
+        createTrip(ownerBearer, "Hà Giang", "2026-12-01", "2026-12-03");
+        createTrip(strangerBearer, "Hội An của người khác", "2026-11-07", "2026-11-08");
+        assertThat(patchStatus(ownerBearer, planned, "PLANNED")).hasStatusOk();
+
+        assertThat(statusCounts(ownerBearer, ""))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "total": 3,
+                                    "counts": { "DRAFT": 2, "PLANNED": 1, "ONGOING": 0, "COMPLETED": 0, "ARCHIVED": 0 } } }
+                        """);
+        assertThat(statusCounts(ownerBearer, "?q=hội an"))
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "total": 1, "counts": { "DRAFT": 1, "PLANNED": 0 } } }
+                        """);
+        assertThat(statusCounts(strangerBearer, ""))
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "total": 1, "counts": { "DRAFT": 1 } } }
+                        """);
+    }
+
+    @Test
     void listShowsOnlyOwnTripsWithPagingAndFilters() {
         createTrip(ownerBearer, "Hà Giang", "2026-09-01", "2026-09-04");
         createTrip(ownerBearer, "Vũng Tàu", "2026-10-10", "2026-10-11");
@@ -235,6 +259,10 @@ class TripFlowIntegrationTest {
         return patch(bearer, id, "/status", """
                 { "status": "%s" }
                 """.formatted(status));
+    }
+
+    private MvcTestResult statusCounts(String bearer, String query) {
+        return mvc.get().uri(TRIPS_URL + "/status-counts" + query).header(HttpHeaders.AUTHORIZATION, bearer).exchange();
     }
 
     private MvcTestResult list(String bearer, String query) {

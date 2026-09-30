@@ -88,6 +88,12 @@ export interface CreateTripRequest {
  */
 export type UpdateTripRequest = Partial<CreateTripRequest>
 
+/** GET /trips/status-counts: trips per status for the chips; every status is present, 0 when empty. */
+export interface TripStatusCounts {
+  total: number
+  counts: Record<TripStatus, number>
+}
+
 /** Query of GET /trips; page is 0-based, undefined fields are left out of the URL. */
 export interface TripListParams {
   status?: TripStatus

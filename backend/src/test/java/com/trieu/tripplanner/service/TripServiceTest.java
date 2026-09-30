@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -20,9 +21,11 @@ import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.common.util.SlugGenerator;
 import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.dto.internal.TripFilter;
+import com.trieu.tripplanner.dto.internal.TripStatusCount;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripStatusCountsResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
@@ -430,6 +433,32 @@ class TripServiceTest {
 
             assertThat(tripService.list(USER_ID, new TripFilter(null, null, null, null), pageable).items()).isEmpty();
             verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void countByStatusListsEveryStatusWithZeroForMissingOnesAndTheTotal() {
+            when(tripRepository.countByStatus(any(Specification.class))).thenReturn(List.of(
+                    new TripStatusCount(TripStatus.DRAFT, 2), new TripStatusCount(TripStatus.COMPLETED, 1)));
+
+            TripStatusCountsResponse response = tripService.countByStatus(USER_ID, "hội an");
+
+            assertThat(response.total()).isEqualTo(3);
+            // Declaration order, the statuses without trips included as 0
+            assertThat(response.counts()).containsExactly(
+                    entry(TripStatus.DRAFT, 2L), entry(TripStatus.PLANNED, 0L), entry(TripStatus.ONGOING, 0L),
+                    entry(TripStatus.COMPLETED, 1L), entry(TripStatus.ARCHIVED, 0L));
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void countByStatusOfAUserWithoutTripsIsAllZero() {
+            when(tripRepository.countByStatus(any(Specification.class))).thenReturn(List.of());
+
+            TripStatusCountsResponse response = tripService.countByStatus(USER_ID, null);
+
+            assertThat(response.total()).isZero();
+            assertThat(response.counts()).hasSize(5).allSatisfy((status, count) -> assertThat(count).isZero());
         }
 
         @Test

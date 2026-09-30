@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.dto.internal.TripFilter;
+import com.trieu.tripplanner.dto.internal.TripStatusCount;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.TripStatus;
@@ -128,6 +129,32 @@ class TripRepositoryTest {
         tripRepository.flush();
 
         assertThat(titles(new TripFilter(null, null, null, null))).isEmpty();
+    }
+
+    // ---- countByStatus (status chips) -------------------------------------------------------------------------
+
+    @Test
+    void countByStatusGroupsOnlyLiveTripsOfTheOwnerAndHonoursTheKeyword() {
+        tripRepository.save(trip(owner, "Nháp 1", "nhap-1-oooooo", OCT_1, OCT_1));
+        tripRepository.save(trip(owner, "Nháp 2", "nhap-2-pppppp", OCT_1, OCT_1));
+        Trip planned = trip(owner, "Nghỉ lễ", "nghi-le-qqqqqq", OCT_1, OCT_1);
+        planned.setStatus(TripStatus.PLANNED);
+        planned.setDestinationName("Vũng Tàu");
+        tripRepository.save(planned);
+        Trip deleted = trip(owner, "Đã xoá", "da-xoa-rrrrrr", OCT_1, OCT_1);
+        deleted.setStatus(TripStatus.PLANNED);
+        tripRepository.delete(tripRepository.saveAndFlush(deleted));
+        tripRepository.save(trip(stranger, "Của người khác", "nguoi-khac-ssssss", OCT_1, OCT_1));
+        tripRepository.flush();
+
+        assertThat(tripRepository.countByStatus(TripSpecifications.matching(owner.getId(),
+                new TripFilter(null, null, null, null))))
+                .containsExactlyInAnyOrder(new TripStatusCount(TripStatus.DRAFT, 2),
+                        new TripStatusCount(TripStatus.PLANNED, 1));
+        // Keyword on the destination, case- and accent-insensitive like the list
+        assertThat(tripRepository.countByStatus(TripSpecifications.matching(owner.getId(),
+                new TripFilter(null, "VŨNG TÀU", null, null))))
+                .containsExactly(new TripStatusCount(TripStatus.PLANNED, 1));
     }
 
     private List<String> titles(TripFilter filter) {

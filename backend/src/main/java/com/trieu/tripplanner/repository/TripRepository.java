@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
  * Every JPQL/derived query here sees live trips only: @SQLRestriction on Trip appends "deleted_at IS NULL".
  * List filtering goes through {@link JpaSpecificationExecutor} with repository/spec/TripSpecifications.
  */
-public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificationExecutor<Trip> {
+public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificationExecutor<Trip>, TripRepositoryCustom {
 
     /**
      * Owner of a live trip without loading the entity; empty when the trip does not exist or is deleted.
