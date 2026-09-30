@@ -9,6 +9,7 @@ import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { classifyDateChange, type DateChange } from '../../lib/tripDates'
+import { CANNOT_CLEAR_MESSAGE } from '../../lib/validation'
 import type { TripResponse, UpdateTripRequest } from '../../types/trip'
 import { findClearedFields, toTripValues, toUpdateTripRequest, tripSchema, type TripValues } from './schemas'
 import { TripDateFields, TripDestinationFields, TripInfoFields } from './TripFormFields'
@@ -88,7 +89,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
     const cleared = findClearedFields(trip, values)
     if (cleared.length > 0) {
       for (const field of cleared) {
-        setError(field, { type: 'manual', message: 'Chưa hỗ trợ xoá thông tin này, hãy nhập giá trị mới' })
+        setError(field, { type: 'manual', message: CANNOT_CLEAR_MESSAGE })
       }
       return
     }

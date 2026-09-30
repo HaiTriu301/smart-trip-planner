@@ -4,7 +4,8 @@ import { FormField } from '../../components/FormField'
 import { SelectField } from '../../components/SelectField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { countDays } from '../../lib/format'
-import { CURRENCIES, MAX_TRIP_DAYS, type TripValues } from './schemas'
+import { currencyOptions } from '../../lib/validation'
+import { MAX_TRIP_DAYS, type TripValues } from './schemas'
 
 // Field groups shared by the create wizard (one group per step) and the edit dialog (all groups at once)
 
@@ -55,8 +56,6 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
   const { register, control, formState: { errors } } = form
   const [startDate, endDate, currency] = useWatch({ control, name: ['startDate', 'endDate', 'currency'] })
   const dayCount = startDate && endDate && endDate >= startDate ? countDays(startDate, endDate) : null
-  // A trip created through the API may use a code the select does not offer
-  const currencies = CURRENCIES.includes(currency) ? CURRENCIES : [...CURRENCIES, currency]
 
   return (
     <div className="space-y-4">
@@ -78,7 +77,7 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
         />
         <SelectField
           label="Tiền tệ"
-          options={currencies.map((code) => ({ value: code, label: code }))}
+          options={currencyOptions(currency)}
           error={errors.currency?.message}
           {...register('currency')}
         />
