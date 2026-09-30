@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -12,6 +13,8 @@ import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { formatDate, formatWeekday } from '../../lib/format'
+import { findOverlaps } from '../../lib/timeOverlap'
+import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
@@ -26,26 +29,29 @@ interface DaySectionProps {
   tripCurrency: string
 }
 
-/** One day of the timeline: header (date, title, note) and its activities in orderIndex order. */
+/**
+ * One day of the timeline (UI_GUIDE 8.1, cách a): heading, then the rail of stations. Days are separated by
+ * a thin line, not boxed in cards (UI_GUIDE 1: not every block is a card).
+ */
 export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
   const [isEditing, setIsEditing] = useState(false)
 
   return (
-    <section id={`day-${day.id}`} className="scroll-mt-4 space-y-3 rounded-card border border-tide bg-gray-100/60 p-4">
+    <section id={`day-${day.id}`} aria-labelledby={`day-${day.id}-heading`} className="scroll-mt-6 space-y-4 py-6 first:pt-0">
       {isEditing ? (
         <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditing(false)} />
       ) : (
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <h3 className="font-semibold text-gray-800">
+            <h2 id={`day-${day.id}-heading`} className="text-lg leading-[26px] font-semibold text-ink">
               Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-            </h3>
+            </h2>
             {day.title ? (
               <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
             ) : (
-              <p className="italic text-gray-400">Chưa có tiêu đề</p>
+              <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
             )}
-            {day.note && <ExpandableText text={day.note} className="text-sm text-gray-600" />}
+            {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
           </div>
           <Button
             variant="ghost"
@@ -55,7 +61,8 @@ export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
             aria-label={`Sửa ngày ${day.dayIndex}`}
             onClick={() => setIsEditing(true)}
           >
-            <span aria-hidden>✎</span>&nbsp;Sửa
+            <Pencil aria-hidden className="size-3.5" />
+            Sửa
           </Button>
         </header>
       )}
@@ -71,12 +78,14 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
   // undefined: form closed · null: adding · Activity: editing that one
   const [editing, setEditing] = useState<Activity | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Activity | null>(null)
+  const overlaps = findOverlaps(day.activities)
 
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       setDeleting(null)
+      toast.success('Đã xoá hoạt động')
     },
   })
 
@@ -84,7 +93,14 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
     <>
       <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
         {day.activities.length === 0 ? (
-          <p className="px-1 py-3 text-sm text-gray-500">Chưa có hoạt động nào. Có thể kéo hoạt động từ ngày khác vào đây.</p>
+          // An empty day invites the next step and still accepts activities dragged from another day
+          <li className="flex flex-col items-start gap-3 rounded-card border border-dashed border-gray-300 px-4 py-5">
+            <p className="text-sm text-gray-600">Ngày này còn trống. Thêm địa điểm bạn muốn ghé.</p>
+            <Button variant="secondary" fullWidth={false} onClick={() => setEditing(null)}>
+              <Plus aria-hidden className="size-4" />
+              Thêm hoạt động
+            </Button>
+          </li>
         ) : (
           day.activities.map((activity) => (
             <SortableActivity key={activity.id} activity={activity}>
@@ -92,6 +108,7 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
                 <ActivityCard
                   activity={activity}
                   dragHandle={dragHandle}
+                  overlapping={overlaps.has(activity.id)}
                   onEdit={() => setEditing(activity)}
                   onDelete={() => {
                     deletion.reset()
@@ -103,9 +120,15 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
           ))
         )}
       </SortableDayList>
-      <Button variant="ghost" size="sm" fullWidth={false} onClick={() => setEditing(null)}>
-        + Thêm hoạt động
-      </Button>
+      {day.activities.length > 0 && (
+        // Lined up with the cards: past the time column and the rail
+        <div className="pl-16">
+          <Button variant="dashed" onClick={() => setEditing(null)}>
+            <Plus aria-hidden className="size-4" />
+            Thêm hoạt động
+          </Button>
+        </div>
+      )}
 
       <ActivityFormDialog
         tripId={tripId}
@@ -126,7 +149,7 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
         onConfirm={() => deleting && deletion.mutate(deleting)}
       >
         <p>
-          Hoạt động <strong className="text-gray-800">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
+          Hoạt động <strong className="text-ink">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
           này không hoàn tác được.
         </p>
       </ConfirmDialog>
@@ -159,15 +182,16 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       onDone()
+      toast.success('Đã lưu thay đổi')
     },
     onError: (error) => applyFieldErrors(error, setError, ['title', 'note']),
   })
 
   return (
     <form noValidate className="space-y-3" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
-      <h3 className="font-semibold text-gray-800">
+      <h2 className="text-lg leading-[26px] font-semibold text-ink">
         Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-      </h3>
+      </h2>
       {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
       <FormField
         label="Tiêu đề của ngày"
@@ -188,7 +212,7 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
           Huỷ
         </Button>
         <Button type="submit" fullWidth={false} isLoading={mutation.isPending}>
-          Lưu
+          Lưu thay đổi
         </Button>
       </div>
     </form>

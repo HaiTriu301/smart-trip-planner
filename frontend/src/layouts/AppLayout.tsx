@@ -2,6 +2,7 @@ import { Link, Outlet } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Logo } from '../components/Logo'
+import { Toaster } from '../components/Toaster'
 import { useLogout } from '../features/auth/useLogout'
 import { useAuthStore } from '../stores/authStore'
 
@@ -43,6 +44,7 @@ export function AppLayout() {
           © 2026 Smart Trip Planner
         </p>
       </footer>
+      <Toaster />
     </div>
   )
 }

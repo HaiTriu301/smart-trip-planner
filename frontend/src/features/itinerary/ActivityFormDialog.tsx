@@ -12,6 +12,7 @@ import { Modal } from '../../components/Modal'
 import { SelectField } from '../../components/SelectField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { CANNOT_CLEAR_MESSAGE, currencyOptions } from '../../lib/validation'
+import { toast } from '../../stores/toastStore'
 import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../../types/activity'
 import { ACTIVITY_TYPES, ACTIVITY_TYPE_LABELS } from './activityType'
 import {
@@ -89,9 +90,10 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       request.kind === 'create'
         ? createActivity(tripId, dayId, request.body, allowOverlap)
         : updateActivity(tripId, request.activityId, request.body, allowOverlap),
-    onSuccess: async () => {
+    onSuccess: async (_saved, { request }) => {
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       onClose()
+      toast.success(request.kind === 'create' ? 'Đã thêm hoạt động' : 'Đã lưu thay đổi')
     },
     onError: (error, { request }) => {
       const apiError = getApiError(error)
@@ -172,7 +174,7 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
           Huỷ
         </Button>
         <Button type="submit" fullWidth={false} isLoading={mutation.isPending && !overlap}>
-          {activity ? 'Lưu' : 'Thêm'}
+          {activity ? 'Lưu thay đổi' : 'Thêm hoạt động'}
         </Button>
       </div>
 

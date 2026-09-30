@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { Pencil, Trash2 } from 'lucide-react'
 import { deleteTrip } from '../../api/trips'
 import { getErrorMessage } from '../../api/errors'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useAuthStore } from '../../stores/authStore'
+import { toast } from '../../stores/toastStore'
 import type { TripResponse } from '../../types/trip'
 import { EditTripDialog } from './EditTripDialog'
 
@@ -23,16 +25,19 @@ export function TripActions({ trip }: { trip: TripResponse }) {
       navigate('/trips', { replace: true })
       queryClient.removeQueries({ queryKey: ['trip', trip.id] })
       void queryClient.invalidateQueries({ queryKey: ['trips'] })
+      toast.success('Đã xoá chuyến đi')
     },
   })
 
   return (
     <div className="flex gap-2">
       <Button variant="secondary" fullWidth={false} onClick={() => setDialog('edit')}>
+        <Pencil aria-hidden className="size-4" />
         Sửa
       </Button>
       {isOwner && (
         <Button variant="danger" fullWidth={false} onClick={() => setDialog('delete')}>
+          <Trash2 aria-hidden className="size-4" />
           Xoá
         </Button>
       )}
@@ -53,7 +58,7 @@ export function TripActions({ trip }: { trip: TripResponse }) {
         onConfirm={() => deletion.mutate()}
       >
         <p>
-          Chuyến đi <strong className="text-gray-800">{trip.title}</strong> cùng mọi ngày và hoạt động của nó sẽ bị
+          Chuyến đi <strong className="text-ink">{trip.title}</strong> cùng mọi ngày và hoạt động của nó sẽ bị
           xoá khỏi danh sách của bạn.
         </p>
       </ConfirmDialog>

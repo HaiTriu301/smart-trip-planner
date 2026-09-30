@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { classifyDateChange, type DateChange } from '../../lib/tripDates'
 import { CANNOT_CLEAR_MESSAGE } from '../../lib/validation'
+import { toast } from '../../stores/toastStore'
 import type { TripResponse, UpdateTripRequest } from '../../types/trip'
 import { findClearedFields, toTripValues, toUpdateTripRequest, tripSchema, type TripValues } from './schemas'
 import { TripDateFields, TripDestinationFields, TripInfoFields } from './TripFormFields'
@@ -73,6 +74,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
         queryClient.invalidateQueries({ queryKey: ['trips'] }),
       ])
       onClose()
+      toast.success('Đã lưu thay đổi')
     },
     onError: (error, { body }) => {
       const apiError = getApiError(error)
@@ -131,7 +133,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
           Huỷ
         </Button>
         <Button type="submit" fullWidth={false} isLoading={mutation.isPending && !pending}>
-          Lưu
+          Lưu thay đổi
         </Button>
       </div>
 

@@ -4,10 +4,10 @@ export type ButtonVariant =
   | 'primary'
   | 'secondary'
   | 'ghost'
-  | 'ghost-danger'
   | 'ghost-inverse'
   | 'danger'
   | 'danger-solid'
+  | 'dashed'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
 // UI_GUIDE 7.1. Only one primary action per screen.
@@ -16,13 +16,13 @@ const VARIANTS: Record<ButtonVariant, string> = {
   secondary: 'border border-tide bg-white text-gray-800 hover:bg-gray-50',
   // Low-key action repeated on many rows (edit a day, an activity)
   ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-  // Same low-key look, turning red on hover: a delete action next to a ghost edit button
-  'ghost-danger': 'text-gray-600 hover:bg-danger/8 hover:text-danger',
   // Ghost for the dark ink bars (top navigation)
   'ghost-inverse': 'text-gray-300 hover:bg-white/10 hover:text-white',
   // Delete outside a confirmation: outlined; only the confirm button of a dialog is filled red
   danger: 'border border-danger bg-white text-danger hover:bg-danger/8',
   'danger-solid': 'bg-danger text-white hover:bg-danger/90',
+  // "+ Thêm hoạt động" at the end of a day: an empty slot waiting to be filled
+  dashed: 'border border-dashed border-gray-300 text-gray-600 hover:border-jade hover:bg-jade-light/60 hover:text-jade-dark',
 }
 
 // Width and padding live in props, not className: two classes setting the same property on one element

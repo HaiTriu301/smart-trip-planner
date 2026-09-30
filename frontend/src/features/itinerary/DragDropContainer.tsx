@@ -24,12 +24,14 @@ import { CSS } from '@dnd-kit/utilities'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { reorderActivities } from '../../api/activities'
 import { getApiError, getErrorMessage } from '../../api/errors'
-import { Alert } from '../../components/Alert'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { reorderItemsForDrop, type ReorderItem } from '../../lib/orderIndex'
+import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail, TripDetail } from '../../types/trip'
+import { GripVertical } from 'lucide-react'
 import { ActivityCard } from './ActivityCard'
+import { ACTIVITY_ROUTE } from './activityType'
 
 // dnd-kit ids: activities and days share one id space, so they are prefixed ("a-12", "d-3")
 const activityKey = (id: number) => `a-${id}`
@@ -127,6 +129,7 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
       }
       setConflict(null)
       setCachedDays(() => snapshot)
+      toast.error(`Không sắp xếp được: ${getErrorMessage(error)}. Các hoạt động đã về chỗ cũ.`)
     },
   })
 
@@ -190,9 +193,6 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
 
   return (
     <DragDisabledContext.Provider value={mutation.isPending || conflict !== null}>
-      {mutation.isError && !conflict && (
-        <Alert variant="error">Không sắp xếp được: {getErrorMessage(mutation.error)}. Các hoạt động đã về chỗ cũ.</Alert>
-      )}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -202,8 +202,13 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
         onDragCancel={handleDragCancel}
       >
         {children(shownDays)}
+        {/* The card following the pointer: lifted, tilted 2deg, slightly see-through (UI_GUIDE 7.3) */}
         <DragOverlay>
-          {activeActivity && <ActivityCard activity={activeActivity} dragHandle={<DragHandleIcon />} />}
+          {activeActivity && (
+            <div className="rotate-2 rounded-card opacity-90 shadow-lg">
+              <ActivityCard activity={activeActivity} dragHandle={<GripIcon />} />
+            </div>
+          )}
         </DragOverlay>
       </DndContext>
 
@@ -230,23 +235,31 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
   )
 }
 
+// Rail geometry (UI_GUIDE 7.4): a 40px time column, then the rail centred at 48px, then the card.
+// The vertical line is drawn by the list; each row places its dot on it.
+const ROW_GRID = 'grid grid-cols-[40px_16px_minmax(0,1fr)]'
+
 interface SortableDayListProps {
   dayId: number
   activityIds: number[]
   children: ReactNode
 }
 
-/** The activity list of one day: a sortable list and a drop target, so an empty day can receive activities. */
+/**
+ * The rail of one day: a sortable list and a drop target, so an empty day can receive activities.
+ * The 1px tide line runs through the dots; it is hidden while the day is empty.
+ */
 export function SortableDayList({ dayId, activityIds, children }: SortableDayListProps) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(dayId) })
+  const rail = activityIds.length > 0 ? 'before:absolute before:inset-y-3 before:left-12 before:w-px before:bg-tide' : ''
   return (
     <SortableContext id={dayKey(dayId)} items={activityIds.map(activityKey)} strategy={verticalListSortingStrategy}>
-      <div
+      <ol
         ref={setNodeRef}
-        className={`min-h-12 space-y-2 rounded-card transition-colors ${isOver ? 'bg-jade-light ring-2 ring-jade/25' : ''}`}
+        className={`relative min-h-12 space-y-3 rounded-card transition-colors ${rail} ${isOver ? 'bg-jade-light/60' : ''}`}
       >
         {children}
-      </div>
+      </ol>
     </SortableContext>
   )
 }
@@ -257,6 +270,7 @@ interface SortableActivityProps {
   children: (dragHandle: ReactNode) => ReactNode
 }
 
+/** One "station": start time on the left, a dot in the route colour on the rail, the card on the right. */
 export function SortableActivity({ activity, children }: SortableActivityProps) {
   const disabled = useContext(DragDisabledContext)
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -271,27 +285,29 @@ export function SortableActivity({ activity, children }: SortableActivityProps) 
       {...attributes}
       {...listeners}
       aria-label={`Kéo để sắp xếp ${activity.title}`}
-      className="cursor-grab touch-none rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+      className="cursor-grab touch-none rounded-control p-1 hover:bg-gray-100 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
     >
-      <DragHandleIcon />
+      <GripIcon />
     </button>
   )
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={isDragging ? 'opacity-40' : undefined}
-    >
-      {children(handle)}
-    </div>
+    <li ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={ROW_GRID}>
+      <span className="tabular pt-3 pr-2 text-right text-[13px] leading-4 font-semibold tracking-[0.02em] text-gray-700">
+        {activity.startTime ?? <span className="font-normal text-gray-400">—</span>}
+      </span>
+      <span aria-hidden className="relative z-10 flex justify-center pt-3.5">
+        <span className={`size-2.5 rounded-full border-[3px] bg-white ${ACTIVITY_ROUTE[activity.type].dot}`} />
+      </span>
+      {/* While dragging, the row keeps its height and shows where the card will land: a 2px jade line */}
+      <div className="relative pl-2">
+        <div className={isDragging ? 'invisible' : undefined}>{children(handle)}</div>
+        {isDragging && <div aria-hidden className="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-jade" />}
+      </div>
+    </li>
   )
 }
 
-function DragHandleIcon() {
-  return (
-    <span aria-hidden className="text-lg leading-none text-gray-400">
-      ⠿
-    </span>
-  )
+function GripIcon() {
+  return <GripVertical aria-hidden className="size-4 text-gray-400" />
 }
