@@ -18,6 +18,8 @@ export interface TripSummary {
   status: TripStatus
   visibility: TripVisibility
   createdAt: string
+  /** All activities of the trip, every day together */
+  activityCount: number
 }
 
 /** Returned by POST /trips and PATCH /trips/{id}; money is a JSON number (BigDecimal). */

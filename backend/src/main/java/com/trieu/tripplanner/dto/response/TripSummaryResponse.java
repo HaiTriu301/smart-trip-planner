@@ -19,5 +19,7 @@ public record TripSummaryResponse(
         LocalDate endDate,
         TripStatus status,
         TripVisibility visibility,
-        Instant createdAt) {
+        Instant createdAt,
+        // All activities of the trip, every day together (shown on the trip card)
+        long activityCount) {
 }

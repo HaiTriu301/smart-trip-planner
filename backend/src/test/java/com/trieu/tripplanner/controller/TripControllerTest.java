@@ -92,7 +92,7 @@ class TripControllerTest {
     void listPassesUserFromTokenFiltersAndDefaultPaging() {
         TripSummaryResponse row = new TripSummaryResponse(TRIP_ID, "Đà Lạt", "da-lat-x7k2qp", null, "Đà Lạt",
                 LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 3), TripStatus.PLANNED, TripVisibility.PRIVATE,
-                Instant.parse("2026-09-26T10:00:00Z"));
+                Instant.parse("2026-09-26T10:00:00Z"), 12);
         when(tripService.list(eq(USER_ID), any(), any())).thenReturn(new PageResponse<>(List.of(row), 0, 20, 1, 1, false));
 
         assertThat(mvc.get().uri(TRIPS_URL + "?status=PLANNED&q=lat&from=2026-10-01&to=2026-10-31")
@@ -100,7 +100,8 @@ class TripControllerTest {
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": true,
-                          "data": { "items": [ { "id": 5, "title": "Đà Lạt", "startDate": "2026-10-01", "status": "PLANNED" } ],
+                          "data": { "items": [ { "id": 5, "title": "Đà Lạt", "startDate": "2026-10-01", "status": "PLANNED",
+                                                 "activityCount": 12 } ],
                                     "page": 0, "size": 20, "totalElements": 1, "hasNext": false } }
                         """);
 

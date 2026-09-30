@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.when;
 import com.trieu.tripplanner.common.PageResponse;
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.common.util.SlugGenerator;
+import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
@@ -36,6 +38,7 @@ import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
+import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.support.TestUsers;
@@ -81,6 +84,9 @@ class TripServiceTest {
     @Mock
     private TripDayService tripDayService;
 
+    @Mock
+    private ActivityRepository activityRepository;
+
     // Real generated mapper
     private final TripMapper tripMapper = new TripMapperImpl();
 
@@ -88,7 +94,8 @@ class TripServiceTest {
 
     @BeforeEach
     void setUp() {
-        tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator, tripDayService);
+        tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator, tripDayService,
+                activityRepository);
     }
 
     @Nested
@@ -391,6 +398,38 @@ class TripServiceTest {
             assertThat(page.items()).extracting(TripSummaryResponse::id).containsExactly(TRIP_ID);
             assertThat(page.totalElements()).isEqualTo(21);
             assertThat(page.hasNext()).isTrue();
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void listAddsTheActivityCountOfEachTripAndZeroForATripWithoutActivities() {
+            Pageable pageable = PageRequest.of(0, 20);
+            Trip planned = withId(minimalTrip(), TRIP_ID);
+            Trip empty = withId(minimalTrip(), 6L);
+            when(tripRepository.findAll(any(Specification.class), eq(pageable)))
+                    .thenReturn(new PageImpl<>(List.of(planned, empty), pageable, 2));
+            // The grouped query has no row for a trip without activities
+            when(activityRepository.countByTripIds(List.of(TRIP_ID, 6L)))
+                    .thenReturn(List.of(new TripActivityCount(TRIP_ID, 12)));
+
+            PageResponse<TripSummaryResponse> page = tripService.list(USER_ID,
+                    new TripFilter(null, null, null, null), pageable);
+
+            assertThat(page.items()).extracting(TripSummaryResponse::id, TripSummaryResponse::activityCount)
+                    .containsExactly(tuple(TRIP_ID, 12L), tuple(6L, 0L));
+            // One grouped query for the whole page, never one per trip
+            verify(activityRepository, times(1)).countByTripIds(any());
+        }
+
+        @Test
+        @SuppressWarnings("unchecked")
+        void listOfAnEmptyPageDoesNotCountActivities() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(tripRepository.findAll(any(Specification.class), eq(pageable)))
+                    .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+            assertThat(tripService.list(USER_ID, new TripFilter(null, null, null, null), pageable).items()).isEmpty();
+            verifyNoInteractions(activityRepository);
         }
 
         @Test

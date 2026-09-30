@@ -51,7 +51,7 @@ export function TripCard({ trip }: { trip: TripSummary }) {
         </p>
         <p className="mt-auto flex items-center gap-1.5 border-t border-tide pt-3 text-[13px] text-gray-600">
           <Clock aria-hidden className="size-3.5 shrink-0" />
-          {countDays(trip.startDate, trip.endDate)} ngày
+          {countDays(trip.startDate, trip.endDate)} ngày · {trip.activityCount} hoạt động
         </p>
       </div>
     </Link>

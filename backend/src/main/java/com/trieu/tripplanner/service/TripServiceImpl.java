@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.PageResponse;
 import com.trieu.tripplanner.common.util.SlugGenerator;
+import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
@@ -15,6 +16,7 @@ import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
+import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.repository.spec.TripSpecifications;
@@ -22,8 +24,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -51,14 +56,15 @@ public class TripServiceImpl implements TripService {
     private final TripMapper tripMapper;
     private final SlugGenerator slugGenerator;
     private final TripDayService tripDayService;
+    private final ActivityRepository activityRepository;
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<TripSummaryResponse> list(Long userId, TripFilter filter, Pageable pageable) {
         validateSort(pageable.getSort());
-        return PageResponse.from(tripRepository
-                .findAll(TripSpecifications.matching(userId, filter), pageable)
-                .map(tripMapper::toSummary));
+        Page<Trip> page = tripRepository.findAll(TripSpecifications.matching(userId, filter), pageable);
+        Map<Long, Long> activityCounts = countActivities(page.getContent());
+        return PageResponse.from(page.map(trip -> tripMapper.toSummary(trip, activityCounts.getOrDefault(trip.getId(), 0L))));
     }
 
     @Override
@@ -140,6 +146,15 @@ public class TripServiceImpl implements TripService {
         Trip trip = findTrip(tripId);
         tripRepository.delete(trip);
         log.info("Trip {} soft-deleted", tripId);
+    }
+
+    /** One grouped query for the whole page; none at all for an empty page. */
+    private Map<Long, Long> countActivities(List<Trip> trips) {
+        if (trips.isEmpty()) {
+            return Map.of();
+        }
+        return activityRepository.countByTripIds(trips.stream().map(Trip::getId).toList()).stream()
+                .collect(Collectors.toMap(TripActivityCount::tripId, TripActivityCount::count));
     }
 
     private Trip findTrip(Long tripId) {
