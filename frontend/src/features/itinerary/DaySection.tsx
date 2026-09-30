@@ -30,51 +30,12 @@ interface DaySectionProps {
 }
 
 /**
- * One day of the timeline (UI_GUIDE 8.1, cách a): heading, then the rail of stations. Days are separated by
- * a thin line, not boxed in cards (UI_GUIDE 1: not every block is a card).
+ * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
+ * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
  */
 export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
-  const [isEditing, setIsEditing] = useState(false)
-
-  return (
-    <section id={`day-${day.id}`} aria-labelledby={`day-${day.id}-heading`} className="scroll-mt-16 space-y-4 py-6 first:pt-0 lg:scroll-mt-6">
-      {isEditing ? (
-        <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditing(false)} />
-      ) : (
-        <header className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <h2 id={`day-${day.id}-heading`} className="text-lg leading-[26px] font-semibold text-ink">
-              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-            </h2>
-            {day.title ? (
-              <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
-            ) : (
-              <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
-            )}
-            {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            fullWidth={false}
-            className="shrink-0"
-            aria-label={`Sửa ngày ${day.dayIndex}`}
-            onClick={() => setIsEditing(true)}
-          >
-            <Pencil aria-hidden className="size-3.5" />
-            Sửa
-          </Button>
-        </header>
-      )}
-
-      <DayActivities tripId={tripId} day={day} tripCurrency={tripCurrency} />
-    </section>
-  )
-}
-
-/** Activities of the day with add / edit / delete. One form dialog and one delete dialog per day. */
-function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
   const queryClient = useQueryClient()
+  const [isEditingDay, setIsEditingDay] = useState(false)
   // undefined: form closed · null: adding · Activity: editing that one
   const [editing, setEditing] = useState<Activity | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Activity | null>(null)
@@ -90,10 +51,46 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
   })
 
   return (
-    <>
+    <section aria-labelledby="day-heading" className="space-y-4">
+      {isEditingDay ? (
+        <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
+      ) : (
+        <header className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 id="day-heading" className="scroll-mt-20 text-lg leading-[26px] font-semibold text-ink lg:scroll-mt-6">
+              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
+            </h2>
+            {day.title ? (
+              <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
+            )}
+            {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              fullWidth={false}
+              aria-label={`Sửa ngày ${day.dayIndex}`}
+              onClick={() => setIsEditingDay(true)}
+            >
+              <Pencil aria-hidden className="size-3.5" />
+              Sửa
+            </Button>
+            {/* The page's single primary action (UI_GUIDE 7.0); a shorter label on phones */}
+            <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
+              <Plus aria-hidden className="size-4" />
+              <span className="sm:hidden">Thêm</span>
+              <span className="hidden sm:inline">Thêm hoạt động</span>
+            </Button>
+          </div>
+        </header>
+      )}
+
       <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
         {day.activities.length === 0 ? (
-          // An empty day invites the next step and still accepts activities dragged from another day
+          // An empty day invites the next step
           <li className="flex flex-col items-start gap-3 rounded-card border border-dashed border-gray-300 px-4 py-5">
             <p className="text-sm text-gray-600">Ngày này còn trống. Thêm địa điểm bạn muốn ghé.</p>
             <Button variant="secondary" fullWidth={false} onClick={() => setEditing(null)}>
@@ -120,15 +117,6 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
           ))
         )}
       </SortableDayList>
-      {day.activities.length > 0 && (
-        // Lined up with the cards: past the time column and the rail
-        <div className="pl-16">
-          <Button variant="dashed" onClick={() => setEditing(null)}>
-            <Plus aria-hidden className="size-4" />
-            Thêm hoạt động
-          </Button>
-        </div>
-      )}
 
       <ActivityFormDialog
         tripId={tripId}
@@ -153,7 +141,7 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
           này không hoàn tác được.
         </p>
       </ConfirmDialog>
-    </>
+    </section>
   )
 }
 

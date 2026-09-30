@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { LinkButton } from '../../components/LinkButton'
 import { formatDate } from '../../lib/format'
 import type { TripDayDetail } from '../../types/trip'
 import { DaySection } from './DaySection'
@@ -7,29 +10,43 @@ import { DragDropContainer } from './DragDropContainer'
 interface DayTimelineProps {
   tripId: number
   days: TripDayDetail[]
+  /** The day on the URL (/trips/:id/days/:dayIndex), already checked to exist */
+  currentDayIndex: number
   tripCurrency: string
 }
 
+const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${dayIndex}`
+
 /**
- * Left (200px): list of days that jumps to a day and follows the scroll. Right: every day stacked, so an
- * activity can be dragged from one day to another without switching views (UI_GUIDE 8.1, cách a).
- * Below 1024px the left column becomes a sticky row of day chips (UI_GUIDE 8.1, 11). The map column comes in Phase 3.
+ * One day per page (UI_GUIDE 8.1): the list of days on the left (chips on narrow screens) links to each day,
+ * the middle column shows only the chosen one. Drag and drop still knows every day, so later work can move an
+ * activity to another day. The map column comes in Phase 3.
  */
-export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
-  const activeDayId = useVisibleDay(days)
+export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: DayTimelineProps) {
+  const current = days.find((d) => d.dayIndex === currentDayIndex)
+  const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
+  const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
+
+  // Coming from "Ngày sau" at the bottom of a long day: bring the new day's heading back into view.
+  // Clicking the sticky day list leaves the page where it is when the heading is already visible.
+  useEffect(() => {
+    document.getElementById('day-heading')?.scrollIntoView({ block: 'nearest' })
+  }, [currentDayIndex])
+
+  if (!current) return null
 
   return (
     <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]">
-      <DayChips days={days} activeDayId={activeDayId} />
+      <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
       <nav aria-label="Các ngày" className="hidden lg:block">
         <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto">
           {days.map((day) => {
-            const active = day.id === activeDayId
+            const active = day.dayIndex === currentDayIndex
             return (
               <li key={day.id}>
-                <a
-                  href={`#day-${day.id}`}
-                  aria-current={active ? 'location' : undefined}
+                <Link
+                  to={dayPath(tripId, day.dayIndex)}
+                  aria-current={active ? 'page' : undefined}
                   className={`relative flex items-start justify-between gap-2 rounded-control py-2 pr-2 pl-4 text-sm transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                     active
                       ? 'bg-jade-light text-jade-dark before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
@@ -48,40 +65,58 @@ export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
                   <span className="tabular mt-0.5 shrink-0 rounded-control bg-white/70 px-1.5 text-xs text-gray-600">
                     {day.activities.length}
                   </span>
-                </a>
+                </Link>
               </li>
             )
           })}
         </ol>
       </nav>
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-8">
         <DragDropContainer tripId={tripId} days={days}>
-          {(shownDays) => (
-            <div className="divide-y divide-tide">
-              {shownDays.map((day) => (
-                <DaySection key={day.id} tripId={tripId} day={day} tripCurrency={tripCurrency} />
-              ))}
-            </div>
-          )}
+          {(shownDays) => {
+            // While dragging, the working copy is shown; pick the current day from it
+            const shown = shownDays.find((d) => d.id === current.id) ?? current
+            return <DaySection key={shown.id} tripId={tripId} day={shown} tripCurrency={tripCurrency} />
+          }}
         </DragDropContainer>
+
+        {(previous || next) && (
+          <nav aria-label="Chuyển ngày" className="flex justify-between gap-3 border-t border-tide pt-4">
+            {previous ? (
+              <LinkButton variant="secondary" to={dayPath(tripId, previous.dayIndex)}>
+                <ChevronLeft aria-hidden className="size-4" />
+                Ngày {previous.dayIndex}
+              </LinkButton>
+            ) : (
+              <span />
+            )}
+            {next && (
+              <LinkButton variant="secondary" to={dayPath(tripId, next.dayIndex)}>
+                Ngày {next.dayIndex}
+                <ChevronRight aria-hidden className="size-4" />
+              </LinkButton>
+            )}
+          </nav>
+        )}
       </div>
     </div>
   )
 }
 
 interface DayChipsProps {
+  tripId: number
   days: TripDayDetail[]
-  activeDayId: number | undefined
+  currentDayIndex: number
 }
 
-/** Phones and tablets: the day list as chips that scroll sideways, stuck to the top while the days scroll by. */
-function DayChips({ days, activeDayId }: DayChipsProps) {
+/** Phones and tablets: the day list as chips that scroll sideways, stuck to the top of the screen. */
+function DayChips({ tripId, days, currentDayIndex }: DayChipsProps) {
   const activeRef = useRef<HTMLAnchorElement>(null)
 
-  // Keep the chip of the day on screen visible in the row
+  // Keep the chip of the current day visible in the row
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [activeDayId])
+  }, [currentDayIndex])
 
   return (
     <nav
@@ -90,55 +125,23 @@ function DayChips({ days, activeDayId }: DayChipsProps) {
     >
       <ol className="flex gap-2 overflow-x-auto">
         {days.map((day) => {
-          const active = day.id === activeDayId
+          const active = day.dayIndex === currentDayIndex
           return (
             <li key={day.id} className="shrink-0">
-              <a
+              <Link
                 ref={active ? activeRef : undefined}
-                href={`#day-${day.id}`}
-                aria-current={active ? 'location' : undefined}
+                to={dayPath(tripId, day.dayIndex)}
+                aria-current={active ? 'page' : undefined}
                 className={`tabular inline-flex h-9 items-center rounded-control px-3 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                   active ? 'bg-ink text-white' : 'border border-tide bg-white text-gray-600'
                 }`}
               >
                 Ngày {day.dayIndex} · {formatDate(day.date).slice(0, 5)}
-              </a>
+              </Link>
             </li>
           )
         })}
       </ol>
     </nav>
   )
-}
-
-/**
- * The day whose section is nearest the top of the screen (scroll-spy). Sections are watched while they cross a
- * band at the top 30% of the viewport; the first one in that band wins, the first day before any scroll.
- */
-function useVisibleDay(days: TripDayDetail[]): number | undefined {
-  const [visibleId, setVisibleId] = useState<number>()
-  const dayKey = days.map((d) => d.id).join(',')
-
-  useEffect(() => {
-    const inBand = new Map<number, number>()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = Number(entry.target.id.slice('day-'.length))
-          if (entry.isIntersecting) inBand.set(id, entry.boundingClientRect.top)
-          else inBand.delete(id)
-        }
-        const first = [...inBand.entries()].sort((a, b) => a[1] - b[1])[0]
-        if (first) setVisibleId(first[0])
-      },
-      { rootMargin: '0px 0px -70% 0px' },
-    )
-    for (const id of dayKey.split(',')) {
-      const section = document.getElementById(`day-${id}`)
-      if (section) observer.observe(section)
-    }
-    return () => observer.disconnect()
-  }, [dayKey])
-
-  return visibleId ?? days[0]?.id
 }

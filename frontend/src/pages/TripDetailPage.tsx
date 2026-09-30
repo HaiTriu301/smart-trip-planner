@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { CalendarDays, ChevronLeft, Clock, MapPin, Wallet } from 'lucide-react'
 import { getTrip } from '../api/trips'
 import { getApiError, getErrorMessage } from '../api/errors'
@@ -11,9 +11,12 @@ import { TripActions } from '../features/trips/TripActions'
 import { TripStatusSelect } from '../features/trips/TripStatusSelect'
 import { countDays, formatDateRange, formatMoney } from '../lib/format'
 
-/** design.md 15 "màn hình chính": trip header + day timeline. GET /trips/{id} returns everything at once. */
+/**
+ * design.md 15 "màn hình chính": trip header + one day of the itinerary (/trips/:id/days/:dayIndex).
+ * GET /trips/{id} returns every day at once; /trips/:id and an unknown day number go to day 1.
+ */
 export function TripDetailPage() {
-  const { id } = useParams()
+  const { id, dayIndex } = useParams()
   const tripId = Number(id)
   const isValidId = Number.isInteger(tripId) && tripId > 0
 
@@ -38,6 +41,11 @@ export function TripDetailPage() {
         }
       />
     )
+  }
+
+  const currentDayIndex = Number(dayIndex)
+  if (!trip.days.some((d) => d.dayIndex === currentDayIndex)) {
+    return <Navigate to={`/trips/${trip.id}/days/1`} replace />
   }
 
   return (
@@ -84,7 +92,7 @@ export function TripDetailPage() {
         {trip.description && <ExpandableText text={trip.description} className="max-w-[68ch] text-gray-600" />}
       </header>
 
-      <DayTimeline tripId={trip.id} days={trip.days} tripCurrency={trip.currency} />
+      <DayTimeline tripId={trip.id} days={trip.days} currentDayIndex={currentDayIndex} tripCurrency={trip.currency} />
     </div>
   )
 }

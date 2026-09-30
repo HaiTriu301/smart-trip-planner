@@ -256,7 +256,6 @@ Tất cả **tự viết** trong `frontend/src/components/`, không dùng shadcn
 | `ghost-inverse` | trong suốt, chữ `gray-300` | Trên thanh điều hướng tối ("Đăng xuất") |
 | `danger` | nền trắng, viền + chữ `danger` | Nút "Xoá" bên ngoài hộp xác nhận |
 | `danger-solid` | nền `danger`, chữ trắng | **Chỉ** nút xác nhận trong hộp xoá (`ConfirmDialog variant="danger"` tự chọn) |
-| `dashed` | viền nét đứt `gray-300` | Chỗ trống chờ điền: "+ Thêm hoạt động" cuối ngày |
 
 | `size` | Cao | Dùng khi |
 |---|---|---|
@@ -323,8 +322,8 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - Lưới mỗi hàng: cột giờ 40px (căn phải) → cột ray 16px (tâm ray ở 48px) → thẻ.
 - Ray: đường dọc 1px `tide`, chỉ vẽ khi ngày có hoạt động.
 - Chấm: 10px, nền trắng, viền 3px màu tuyến.
-- Ngày trống: khung nét đứt "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." + nút "Thêm hoạt động"; khung này vẫn nhận hoạt động kéo từ ngày khác (sáng nền `jade-light` khi rê qua).
-- Cuối ngày có hoạt động: nút `dashed` "+ Thêm hoạt động", thẳng hàng với thẻ.
+- Ngày trống: khung nét đứt "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." + nút "Thêm hoạt động".
+- "+ Thêm hoạt động" là **nút chính của trang**, đặt ở góc phải tiêu đề ngày (trên điện thoại chữ rút gọn "+ Thêm"), không đặt ở cuối ray.
 - **Chưa áp dụng:** đoạn nét đứt ghi thời gian di chuyển (cần API lộ trình, Phase 3); nút mờ "+ Thêm hoạt động vào khoảng này" khi hai hoạt động cách nhau trên 3 tiếng.
 
 ### 7.5. Huy hiệu — `Badge`
@@ -409,22 +408,23 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 │ Đà Nẵng 4 ngày (tối đa 2 dòng)               [Đang diễn ra ▾] [✎ Sửa] [🗑 Xoá] │
 │ 📍 Đà Nẵng   📅 12/03 – 15/03/2026   🕒 4 ngày   👛 Ngân sách 5.000.000 ₫   │
 │ Mô tả… (tối đa 2 dòng, Đọc thêm)                                         │
-├────────────┬──────────────────────────────────────┬──────────────────────┤
-│ ▌Ngày 1  3 │ Ngày 1 · Thứ năm, 12/03/2026  ✎ Sửa │                      │
-│  12/03     │ Khám phá bán đảo Sơn Trà             │     [ BẢN ĐỒ ]       │
-│  Ngày 2  1 │ 08:00 ─●── [Chùa Linh Ứng       ⋮]  │                      │
-│  13/03     │ 12:00 ─●── [Bún chả cá 109      ⋮]  │   Phase 3            │
-│  Ngày 3  0 │ [ + Thêm hoạt động ]                 │                      │
-│            │──────────────────────────────────────├──────────────────────┤
-│            │ Ngày 2 · Thứ sáu, 13/03/2026         │ 🌤 dải thời tiết     │
-└────────────┴──────────────────────────────────────┴──────────────────────┘
+├────────────┬───────────────────────────────────────────┬─────────────────┤
+│ ▌Ngày 1  3 │ Ngày 1 · Thứ năm, 12/03  ✎ Sửa [+ Thêm hoạt động] │           │
+│  12/03     │ Khám phá bán đảo Sơn Trà                  │   [ BẢN ĐỒ ]    │
+│  Ngày 2  1 │ 08:00 ─●── [Chùa Linh Ứng            ⋮]  │                 │
+│  13/03     │ 12:00 ─●── [Bún chả cá 109           ⋮]  │   Phase 3       │
+│  Ngày 3  0 │ 14:30 ─●── [Cầu Rồng                 ⋮]  │                 │
+│            │───────────────────────────────────────────├─────────────────┤
+│            │                               [ Ngày 2 › ] │ 🌤 thời tiết    │
+└────────────┴───────────────────────────────────────────┴─────────────────┘
     200px                  linh hoạt                        420px (Phase 3)
 ```
 
 **Đã làm:**
 - **Đầu trang:** link quay lại, tên 32px (tối đa 2 dòng, rê chuột xem đủ), cụm ô trạng thái + "Sửa" + "Xoá" **cố định ở góc phải** (không bị tên dài đẩy xuống; trên điện thoại nằm hàng riêng dưới tên), hàng thông tin có icon, mô tả thu gọn.
-- **Cột trái (200px):** các ngày kèm số hoạt động. Cột này **tự sáng lên theo ngày đang cuộn tới** (nền `jade-light` + vạch `jade` 3px ở mép trái); bấm ngày thì trang cuộn tới ngày đó.
-- **Cột giữa:** **tất cả các ngày xếp dọc**, ngăn nhau bằng đường kẻ mảnh (không phải chỉ hiện một ngày), để kéo hoạt động sang ngày khác mà không phải đổi màn hình.
+- **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` và số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
+- **Cột trái (200px):** các ngày kèm số hoạt động, mỗi mục là một link. Ngày đang xem có nền `jade-light` + vạch `jade` 3px ở mép trái (`aria-current="page"`).
+- **Cột giữa:** chỉ ngày đang xem: tiêu đề ngày với nút "Sửa" và nút chính "+ Thêm hoạt động", rồi đến ray. Dưới ray là nút "‹ Ngày trước" / "Ngày sau ›"; bấm "Ngày sau" ở cuối một ngày dài thì trang cuộn lên tiêu đề của ngày mới.
 
 **Phase 3:** cột phải 420px: bản đồ dính khi cuộn, dải thời tiết bên dưới.
 
@@ -432,12 +432,13 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 
 | Bề rộng | Bố cục |
 |---|---|
-| < 1024px | Cột trái thành **dải chip ngày** cuộn ngang, dính ở mép trên khi cuộn; chip của ngày đang xem tô `ink` và tự cuộn vào tầm nhìn. **Đã làm** |
+| < 1024px | Cột trái thành **dải chip ngày** (link) cuộn ngang, dính ở mép trên khi cuộn; chip của ngày đang xem tô `ink` và tự cuộn vào tầm nhìn. **Đã làm** |
 | < 1024px, Phase 3 | Bản đồ chuyển thành tab ngang (Lịch trình / Bản đồ); thêm tab Chi phí ở Phase 7 |
 
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
-- **Màn hình cảm ứng:** không kéo thả (xung đột với cuộn trang); mỗi thẻ có **nút ↑ / ↓** 44px. Qua đầu / cuối một ngày thì sang ngày trước / sau. Việc chọn tay nắm hay mũi tên dựa vào **loại con trỏ** (`pointer-coarse`), không dựa vào độ rộng màn hình.
+- **Màn hình cảm ứng:** không kéo thả (xung đột với cuộn trang); mỗi thẻ có **nút ↑ / ↓** 44px, chỉ đổi thứ tự **trong** ngày (hoạt động đầu ngày không lên được, cuối ngày không xuống được). Việc chọn tay nắm hay mũi tên dựa vào **loại con trỏ** (`pointer-coarse`), không dựa vào độ rộng màn hình.
+- **Chuyển sang ngày khác:** thả thẻ lên tên ngày ở cột trái, hoặc menu "⋮" → "Chuyển sang ngày…" (Task 2.6 commit 11).
 - Kéo thả và nút mũi tên dùng chung một đường lưu: cập nhật giao diện ngay, hỏi lại khi trùng giờ ở ngày mới, trả về chỗ cũ khi lỗi.
 
 ### 8.2. Danh sách chuyến đi — **Đã làm**
@@ -766,9 +767,9 @@ Two columns below.
 LEFT 200px, sticky: list of days "Ngày 1  12/03" with the day title under it in small grey
 text and an activity count at the right. The current day has a light jade background and
 a 3px jade bar on its left edge.
-MIDDLE: every day stacked, separated by 1px lines. Each day starts with
-"Ngày 1 · Thứ năm, 12/03/2026" (18px/600), the day title in jade under it and a small
-ghost button with a pencil icon "Sửa" on the right.
+MIDDLE: only the chosen day. It starts with "Ngày 1 · Thứ năm, 12/03/2026" (18px/600),
+the day title in jade under it, and on the right a small ghost button with a pencil icon
+"Sửa" next to the jade primary button with a plus icon "Thêm hoạt động".
 Then the rail: start times on the left (13px/600, tabular figures, right-aligned,
 "—" when there is no time), a 1px #D7E4E1 vertical line at 48px, a 10px white dot with a
 3px ring in the activity color on the line, and the activity card to the right.
@@ -781,12 +782,13 @@ Show 4 activities on day 1: blue sightseeing, orange food, grey transport, green
 without a time. Two of them overlap in time: their cards have a very light amber
 background and a small warning triangle before the time.
 Hover state on one card: light grey background, a grip-vertical handle at its left edge.
-Under the last card, a full-width dashed button "+ Thêm hoạt động" aligned with the cards.
-Day 3 is empty: a dashed box "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." with a
-secondary button "Thêm hoạt động".
+Under the rail, after a 1px line, a secondary button "Ngày 2 ›" on the right (and
+"‹ Ngày 1" on the left when there is a previous day).
 A small toast in the bottom-right corner: white card, 1px border, green check icon,
 "Đã lưu thay đổi" and a close "×".
 ```
+
+Ngày trống (dựng riêng): cùng trang, ngày 3 được chọn; ray thay bằng một khung nét đứt "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." có nút phụ "Thêm hoạt động"; nút chính "+ Thêm hoạt động" vẫn ở tiêu đề ngày.
 
 #### G. Hộp thoại thêm / sửa hoạt động (chưa tìm địa điểm) — Task 2.5
 
@@ -837,9 +839,11 @@ row and a full-width search field on a second row, both on the dark background.
 Under the header, the title on two lines, then the status select and the "Sửa" / "Xoá"
 buttons on their own row, right-aligned.
 A sticky row of day chips that scrolls sideways: "Ngày 1 · 12/03" (filled #10242B, white
-text) and outlined chips for the other days.
+text) and outlined chips for the other days; only day 1 is shown below.
+The day heading has a small "Sửa" and a jade button "+ Thêm".
 The rail sits 48px from the left. Each activity card shows, instead of a drag handle, two
 stacked 44px arrow buttons (up and down) at its left edge, and the "⋮" menu always visible.
+At the bottom, "Ngày 2 ›" as a secondary button.
 A dialog opened from the bottom edge like a sheet, full width, top corners rounded 14px.
 ```
 

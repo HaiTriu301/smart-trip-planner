@@ -75,14 +75,17 @@ function applyItems(days: TripDayDetail[], items: ReorderItem[]): TripDayDetail[
 interface ReorderContextValue {
   /** True while a reorder is saving or waiting for the overlap question: dragging and moving are paused */
   disabled: boolean
-  /** Move one step up or down; past the first/last activity of a day it goes to the previous/next day */
+  /** Move one step up or down inside its day (one day per page: leaving the day would hide the activity) */
   move: (activityId: number, direction: -1 | 1) => void
-  /** First and last activity of the whole trip: their up / down arrow has nowhere to go */
-  firstId?: number
-  lastId?: number
+  /** False for the first activity of its day going up and the last one going down */
+  canMove: (activityId: number, direction: -1 | 1) => boolean
 }
 
-const ReorderContext = createContext<ReorderContextValue>({ disabled: false, move: () => undefined })
+const ReorderContext = createContext<ReorderContextValue>({
+  disabled: false,
+  move: () => undefined,
+  canMove: () => false,
+})
 
 interface PendingReorder {
   items: ReorderItem[]
@@ -200,24 +203,28 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     mutation.mutate({ items, snapshot: days, allowOverlap: false })
   }
 
+  /** Position of an activity inside its day, and that day */
+  function locate(activityId: number) {
+    const day = days.find((d) => d.activities.some((a) => a.id === activityId))
+    return day ? { day, index: day.activities.findIndex((a) => a.id === activityId) } : undefined
+  }
+
+  function canMove(activityId: number, direction: -1 | 1): boolean {
+    const found = locate(activityId)
+    if (!found) return false
+    const next = found.index + direction
+    return next >= 0 && next < found.day.activities.length
+  }
+
   /** Touch screens have no drag and drop (it fights with scrolling, UI_GUIDE 11): one step per tap instead. */
   function move(activityId: number, direction: -1 | 1) {
-    const dayIndex = days.findIndex((d) => d.activities.some((a) => a.id === activityId))
-    const day = days[dayIndex]
-    if (!day) return
-    const index = day.activities.findIndex((a) => a.id === activityId)
-    const next = index + direction
-    if (next >= 0 && next < day.activities.length) {
-      commitMove(
-        days.map((d) => (d.id === day.id ? { ...d, activities: arrayMove(d.activities, index, next) } : d)),
-        activityId,
-      )
-      return
-    }
-    // Leaving the day: to the end of the previous day, or the start of the next one
-    const neighbour = days[dayIndex + direction]
-    if (!neighbour) return
-    commitMove(moveToDay(days, activityId, neighbour.id, direction < 0 ? neighbour.activities.length : 0), activityId)
+    const found = locate(activityId)
+    if (!found || !canMove(activityId, direction)) return
+    const { day, index } = found
+    commitMove(
+      days.map((d) => (d.id === day.id ? { ...d, activities: arrayMove(d.activities, index, index + direction) } : d)),
+      activityId,
+    )
   }
 
   function handleDragCancel() {
@@ -226,14 +233,9 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
   }
 
   const shownDays = dragDays ?? days
-  const allActivities = shownDays.flatMap((d) => d.activities)
-  const activeActivity = activeId === null ? undefined : allActivities.find((a) => a.id === activeId)
-  const reorder: ReorderContextValue = {
-    disabled: mutation.isPending || conflict !== null,
-    move,
-    firstId: allActivities[0]?.id,
-    lastId: allActivities[allActivities.length - 1]?.id,
-  }
+  const activeActivity =
+    activeId === null ? undefined : shownDays.flatMap((d) => d.activities).find((a) => a.id === activeId)
+  const reorder: ReorderContextValue = { disabled: mutation.isPending || conflict !== null, move, canMove }
 
   return (
     <ReorderContext.Provider value={reorder}>
@@ -316,7 +318,7 @@ interface SortableActivityProps {
 
 /** One "station": start time on the left, a dot in the route colour on the rail, the card on the right. */
 export function SortableActivity({ activity, children }: SortableActivityProps) {
-  const { disabled, move, firstId, lastId } = useContext(ReorderContext)
+  const { disabled, move, canMove } = useContext(ReorderContext)
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: activityKey(activity.id),
     disabled,
@@ -339,14 +341,14 @@ export function SortableActivity({ activity, children }: SortableActivityProps) 
       <div className="hidden flex-col pointer-coarse:flex">
         <MoveButton
           label={`Chuyển ${activity.title} lên`}
-          disabled={disabled || activity.id === firstId}
+          disabled={disabled || !canMove(activity.id, -1)}
           onClick={() => move(activity.id, -1)}
         >
           <ChevronUp aria-hidden className="size-5" />
         </MoveButton>
         <MoveButton
           label={`Chuyển ${activity.title} xuống`}
-          disabled={disabled || activity.id === lastId}
+          disabled={disabled || !canMove(activity.id, 1)}
           onClick={() => move(activity.id, 1)}
         >
           <ChevronDown aria-hidden className="size-5" />
