@@ -7,6 +7,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { TripDetailPage } from './pages/TripDetailPage'
 import { TripsPage } from './pages/TripsPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
         children: [
           { path: '/trips', element: <TripsPage /> },
           { path: '/trips/new', element: <CreateTripPage /> },
+          { path: '/trips/:id', element: <TripDetailPage /> },
         ],
       },
     ],

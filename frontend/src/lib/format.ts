@@ -19,6 +19,18 @@ export function countDays(startDate: string, endDate: string): number {
   return (toUtcMillis(endDate) - toUtcMillis(startDate)) / MS_PER_DAY + 1
 }
 
+const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
+
+/** "2026-10-01" → "Thứ năm" */
+export function formatWeekday(isoDate: string): string {
+  return WEEKDAYS[new Date(toUtcMillis(isoDate)).getUTCDay()]
+}
+
+/** 5000000, "VND" → "5.000.000 ₫" */
+export function formatMoney(amount: number, currency: string): string {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency }).format(amount)
+}
+
 function toUtcMillis(isoDate: string): number {
   const [year, month, day] = isoDate.split('-').map(Number)
   return Date.UTC(year, month - 1, day)

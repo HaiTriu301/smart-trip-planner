@@ -1,10 +1,14 @@
+import { Link } from 'react-router-dom'
 import { countDays, formatDateRange } from '../../lib/format'
 import type { TripSummary } from '../../types/trip'
 import { TRIP_STATUS_LABELS, TRIP_STATUS_STYLES } from './tripStatus'
 
 export function TripCard({ trip }: { trip: TripSummary }) {
   return (
-    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <Link
+      to={`/trips/${trip.id}`}
+      className="block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+    >
       {trip.coverImageUrl ? (
         <img src={trip.coverImageUrl} alt="" className="h-36 w-full object-cover" />
       ) : (
@@ -24,6 +28,6 @@ export function TripCard({ trip }: { trip: TripSummary }) {
           {formatDateRange(trip.startDate, trip.endDate)} · {countDays(trip.startDate, trip.endDate)} ngày
         </p>
       </div>
-    </article>
+    </Link>
   )
 }

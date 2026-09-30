@@ -52,9 +52,9 @@ export function CreateTripWizard() {
 
   const mutation = useMutation({
     mutationFn: createTrip,
-    onSuccess: async () => {
+    onSuccess: async (trip) => {
       await queryClient.invalidateQueries({ queryKey: ['trips'] })
-      navigate('/trips')
+      navigate(`/trips/${trip.id}`)
     },
     onError: (error) => {
       if (!applyFieldErrors(error, setError, ALL_FIELDS)) return

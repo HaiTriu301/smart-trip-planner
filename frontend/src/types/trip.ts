@@ -1,6 +1,8 @@
 // Mirrors backend dto/request + dto/response for /api/v1/trips (design.md 5.2, 10.2 "Quy ước Trip API").
 // Temporary hand-written types; replaced by generated types from OpenAPI in a later task.
 
+import type { Activity } from './activity'
+
 export type TripStatus = 'DRAFT' | 'PLANNED' | 'ONGOING' | 'COMPLETED' | 'ARCHIVED'
 export type TripVisibility = 'PRIVATE' | 'LINK' | 'PUBLIC'
 
@@ -38,6 +40,32 @@ export interface TripResponse {
   version: number
   createdAt: string
   updatedAt: string
+}
+
+/** Returned by PATCH /trips/{id}/days/{dayId}; no activities. */
+export interface TripDay {
+  id: number
+  /** 1-based position in the trip */
+  dayIndex: number
+  date: string
+  title: string | null
+  note: string | null
+}
+
+/** A day inside GET /trips/{id}, activities sorted by orderIndex. */
+export interface TripDayDetail extends TripDay {
+  activities: Activity[]
+}
+
+/** GET /trips/{id}: the trip, its days and their activities in one response. */
+export interface TripDetail extends TripResponse {
+  days: TripDayDetail[]
+}
+
+/** Body of PATCH /trips/{id}/days/{dayId}: undefined keeps the value, "" clears it. */
+export interface UpdateTripDayRequest {
+  title?: string
+  note?: string
 }
 
 /** Body of POST /trips. Coordinates come with the map picker (Task 3.4), visibility with sharing (Phase 4). */

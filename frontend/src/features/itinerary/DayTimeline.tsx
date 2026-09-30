@@ -1,0 +1,44 @@
+import { formatDate } from '../../lib/format'
+import type { TripDayDetail } from '../../types/trip'
+import { DaySection } from './DaySection'
+
+interface DayTimelineProps {
+  tripId: number
+  days: TripDayDetail[]
+}
+
+/**
+ * Left: list of days that scrolls to a day. Right: every day stacked, so an activity can later be dragged
+ * from one day to another without switching views (Task 2.5 Mốc 7). The map column comes in Phase 3.
+ */
+export function DayTimeline({ tripId, days }: DayTimelineProps) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[14rem_1fr]">
+      <nav aria-label="Các ngày" className="hidden lg:block">
+        <ol className="sticky top-4 max-h-[calc(100vh-2rem)] space-y-1 overflow-y-auto">
+          {days.map((day) => (
+            <li key={day.id}>
+              <a
+                href={`#day-${day.id}`}
+                className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-white"
+              >
+                <span className="truncate">
+                  <span className="font-medium">Ngày {day.dayIndex}</span> · {formatDate(day.date).slice(0, 5)}
+                  {day.title && <span className="block truncate text-xs text-slate-500">{day.title}</span>}
+                </span>
+                <span className="shrink-0 rounded-full bg-slate-200 px-2 text-xs text-slate-600">
+                  {day.activities.length}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+      <div className="min-w-0 space-y-4">
+        {days.map((day) => (
+          <DaySection key={day.id} tripId={tripId} day={day} />
+        ))}
+      </div>
+    </div>
+  )
+}
