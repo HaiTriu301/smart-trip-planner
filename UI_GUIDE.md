@@ -3,7 +3,7 @@
 > Tài liệu thiết kế giao diện. Dùng cùng `design.md` (kiến trúc, API) và `WORKFLOW.md` (lịch trình).
 > Mọi màn hình frontend phải dùng token và thành phần trong file này.
 >
-> **Cập nhật 2026-10-01** theo code thật trên nhánh `feat/ui-guide-trial` (9 commit). Mỗi mục ghi rõ:
+> **Cập nhật 2026-10-01** theo code thật của Task 2.6 (nhánh `feat/T2.6-ui-guide`). Mỗi mục ghi rõ:
 > **Đã làm** · **Phase N** (làm cùng tính năng của phase đó) · **Chưa áp dụng** (đã chốt hướng, chưa làm).
 
 ---
@@ -588,9 +588,9 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 
 | Task | Màn hình | Trạng thái |
 |---|---|---|
-| 1.5 | Đăng nhập, đăng ký, quên / đặt lại mật khẩu, xác thực email | Đã làm, làm lại theo guide trên nhánh thử |
-| 2.5 | Danh sách chuyến đi, wizard tạo chuyến, chi tiết chuyến đi (ray thời gian, chưa có bản đồ) | Đã làm, làm lại theo guide trên nhánh thử |
-| Nhánh thử | Token, font, thành phần dùng chung, số đếm chip, số hoạt động trên thẻ, ô tìm trên thanh điều hướng, giao diện điện thoại | Đã làm (`feat/ui-guide-trial`), chờ quyết định giữ |
+| 1.5 | Đăng nhập, đăng ký, quên / đặt lại mật khẩu, xác thực email | Đã làm, làm lại theo guide ở Task 2.6 |
+| 2.5 | Danh sách chuyến đi, wizard tạo chuyến, chi tiết chuyến đi (ray thời gian, chưa có bản đồ) | Đã làm, làm lại theo guide ở Task 2.6 |
+| 2.6 | Token, font, thành phần dùng chung, số đếm chip, số hoạt động trên thẻ, ô tìm trên thanh điều hướng, giao diện điện thoại | Đã làm (`feat/T2.6-ui-guide`) |
 | 3.4 | Cột bản đồ + dải thời tiết, chọn điểm đến trên bản đồ trong wizard, đoạn di chuyển giữa hai ga | Phase 3 |
 | 4.4 | Panel chia sẻ, danh sách thành viên, trang công khai, bình luận, huy hiệu vai trò | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
@@ -622,7 +622,7 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 
 ### 15.2. Màn hình đã làm
 
-#### A. Đăng nhập — Task 1.5, làm lại trên nhánh thử
+#### A. Đăng nhập — Task 1.5, làm lại ở Task 2.6
 
 **Dữ liệu có thật:** email, mật khẩu; lỗi đăng nhập; trạng thái "email chưa xác thực" kèm form gửi lại mail.
 **Không được thêm:** dải trạng thái hệ thống, mã phiên bản, múi giờ, bảng chú thích màu, đăng nhập Google / Facebook, "Ghi nhớ đăng nhập".
@@ -685,7 +685,7 @@ Same sign-in layout. Show three cards side by side as separate states:
    ngay." and a jade link "Đăng nhập".
 ```
 
-#### D. Danh sách chuyến đi — Task 2.5, làm lại trên nhánh thử
+#### D. Danh sách chuyến đi — Task 2.5, làm lại ở Task 2.6
 
 **Dữ liệu có thật:** mỗi chuyến đi: tên, ảnh bìa (có thể không có), điểm đến (có thể không có), ngày đi – ngày về, số ngày, trạng thái, **số hoạt động**; số chuyến đi theo từng trạng thái (theo từ khoá đang tìm); phân trang 12 chuyến / trang.
 **Không được thêm:** ảnh thành viên (Phase 4), thanh "phân bổ lịch trình" nhiều màu, chú thích màu loại hoạt động, khối thống kê, chuông thông báo, mục menu khác ngoài logo, chấm nhấp nháy.
@@ -749,7 +749,7 @@ Footer: a secondary button "Quay lại" on the left, a jade primary button "Ti�
 
 Bước 3 (dựng riêng): hai ô ngày cạnh nhau "Ngày bắt đầu *", "Ngày kết thúc *"; dòng "Chuyến đi dài 3 ngày. Tối đa 60 ngày."; ô "Ngân sách" và ô chọn "Tiền tệ" (VND) trên một hàng; nút chính "Tạo chuyến đi".
 
-#### F. Chi tiết chuyến đi (hai cột, chưa có bản đồ) — Task 2.5, làm lại trên nhánh thử
+#### F. Chi tiết chuyến đi (hai cột, chưa có bản đồ) — Task 2.5, làm lại ở Task 2.6
 
 **Dữ liệu có thật:** tên, trạng thái, điểm đến, ngày đi – ngày về, số ngày, ngân sách + tiền tệ, mô tả; mỗi ngày: số thứ tự, ngày, thứ, tiêu đề (có thể trống), ghi chú; mỗi hoạt động: tên, loại, giờ bắt đầu / kết thúc (có thể trống), ghi chú, chi phí, link đặt chỗ.
 **Không được thêm:** ảnh thành viên, nút "Chia sẻ" (Phase 4), bản đồ và thời tiết (Phase 3), quãng đường giữa hai hoạt động (Phase 3), người tạo hoạt động, tab Chi phí.
@@ -826,7 +826,7 @@ Beside it, a confirmation dialog 480px "Xoá hoạt động khi đổi ngày?" w
 buttons "Huỷ" (secondary) and "Vẫn đổi ngày" filled red #C2453B.
 ```
 
-#### I. Chi tiết chuyến đi trên điện thoại — nhánh thử
+#### I. Chi tiết chuyến đi trên điện thoại — Task 2.6
 
 **Dữ liệu có thật:** như màn F.
 **Không được thêm:** tab Bản đồ / Chi phí (Phase 3 / 7), nút tròn nổi.
