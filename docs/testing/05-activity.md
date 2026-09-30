@@ -1,8 +1,8 @@
 # 05 · Hoạt động trong ngày
 
-> Cập nhật: 2026-09-29 · build xanh tại commit `50bb13c` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
 
-Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Làm ở Task 2.3, hoàn thành ngày 2026-09-29.
+Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Thêm, xem, sửa, xoá làm ở Task 2.3, hoàn thành ngày 2026-09-29. Sắp xếp lại bằng kéo thả làm ở Task 2.4, hoàn thành ngày 2026-09-30.
 
 File này được ghi dần theo từng mốc của task. Mỗi mốc là một commit:
 
@@ -18,6 +18,15 @@ File này được ghi dần theo từng mốc của task. Mỗi mốc là một
 | 8 | Chi tiết chuyến đi kèm hoạt động | H | `e0e2a21` |
 | 9 | Kiểm toàn luồng | I | `50bb13c` |
 
+Task 2.4, sắp xếp lại:
+
+| Mốc | Nội dung | Phần trong file | Commit |
+|---|---|---|---|
+| 1 | Sắp xếp lại theo lô | J | `819651a` |
+| 2 | Chặn trùng giờ khi chuyển ngày | K | `bdfe725` |
+| 3 | Đánh lại số thứ tự khi khoảng cách quá nhỏ | L | `e56f21a` |
+| 4 | Kiểm toàn luồng | M | `1b30b1f` |
+
 Vài từ dùng trong file:
 
 | Từ | Nghĩa |
@@ -25,6 +34,7 @@ Vài từ dùng trong file:
 | Giờ trong ngày | Giờ không kèm ngày, ví dụ 09:00. Ngày lịch lấy theo ngày của chuyến đi |
 | Số phiên bản | Số đếm tăng 1 sau mỗi lần sửa, dùng để phát hiện hai người sửa cùng lúc |
 | Số thứ tự | Vị trí của hoạt động trong ngày. Các số cách nhau 1000 để sau này chèn vào giữa được |
+| Lô | Nhiều lần di chuyển gửi trong một lần gọi. Cả lô được áp dụng cùng lúc, hoặc không gì cả |
 
 ---
 
@@ -288,6 +298,138 @@ Các phần B đến H kiểm từng tầng riêng lẻ, phần lớn bằng th�
 
 ---
 
+## J. Sắp xếp lại hoạt động
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Reorder", 11.3, rule 14.5 · **Kiểm bởi:** `ActivityServiceTest`, `ActivityControllerTest`, `ActivityRepositoryTest`, `TripDayRepositoryTest`, `ActivityMappingTest`
+
+Người dùng kéo thả hoạt động. Trang web gửi lên **những hoạt động bị di chuyển**, mỗi hoạt động kèm ngày đích và số thứ tự mới.
+
+Ví dụ kéo "Chợ đêm" vào giữa hai hoạt động của một ngày:
+
+| Hoạt động | Trước | Sau |
+|---|:--:|:--:|
+| Ăn sáng | 1000 | 1000 |
+| Chợ đêm | 3000 | 1500 |
+| Tham quan | 2000 | 2000 |
+
+Mọi kịch bản bên dưới bắt đầu từ: Ngày 1 có "Ăn sáng" 1000 và "Tham quan" 2000, Ngày 2 có "Chợ đêm" 1000.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-112 | Kéo "Tham quan" lên trên "Ăn sáng" trong cùng ngày | 200. Chỉ "Tham quan" đổi số thứ tự. Phản hồi là Ngày 1 với thứ tự mới | Đúng | Đạt |
+| TC-ACT-113 | Kéo "Chợ đêm" từ Ngày 2 sang giữa hai hoạt động của Ngày 1 | "Chợ đêm" thuộc Ngày 1. Phản hồi có cả hai ngày, xếp theo ngày lịch | Đúng | Đạt |
+| TC-ACT-114 | Ngày 2 mất hoạt động duy nhất của nó | Ngày 2 vẫn có trong phản hồi, với danh sách rỗng, để trang web vẽ lại | Biên | Đạt |
+| TC-ACT-115 | Một lần gọi di chuyển cả ba hoạt động, có cái đổi ngày, có cái không | Cả ba được áp dụng cùng lúc | Đúng | Đạt |
+| TC-ACT-116 | Xem nội dung hoạt động sau khi kéo thả | Tên và người tạo không đổi. Kéo thả chỉ đổi vị trí | Đúng | Đạt |
+| TC-ACT-117 | Xem số phiên bản sau khi kéo thả, rồi sau khi sửa tên | Kéo thả **không** tăng số phiên bản. Sửa tên sau đó vẫn tăng | Biên | Đạt |
+| TC-ACT-118 | Một hoạt động xuất hiện hai lần trong danh sách | 400 ở ô `items`: "Hoạt động 21 xuất hiện nhiều lần trong danh sách". Không hoạt động nào di chuyển | Sai | Đạt |
+| TC-ACT-119 | Danh sách có một dòng hợp lệ và một hoạt động không thuộc chuyến đi | 404 cho cả lô. Dòng hợp lệ **cũng không** được áp dụng | Bảo mật | Đạt |
+| TC-ACT-120 | Ngày đích của một dòng không thuộc chuyến đi | 404 cho cả lô, không hoạt động nào di chuyển | Bảo mật | Đạt |
+| TC-ACT-121 | Sắp xếp trong chuyến đi không tồn tại hoặc đã xoá | 404, hệ thống không tải hoạt động hay ngày | Sai | Đạt |
+| TC-ACT-122 | Gửi danh sách rỗng, hoặc không gửi danh sách | 400 ở ô `items` | Sai | Đạt |
+| TC-ACT-123 | Dòng thiếu mã hoạt động, dòng thiếu mã ngày, số thứ tự bằng 0, số thứ tự vượt 1 tỷ | 400. Chi tiết nêu rõ dòng nào và ô nào, ví dụ `items[0].orderIndex` | Sai | Đạt |
+| TC-ACT-124 | Số thứ tự bằng 1, và bằng đúng 1 tỷ | Chấp nhận | Biên | Đạt |
+| TC-ACT-125 | Gửi đúng 200 dòng, rồi gửi 201 dòng | 200 dòng được chấp nhận. 201 dòng bị từ chối 400 | Biên | Đạt |
+| TC-ACT-126 | Gửi một mảng trần thay vì đối tượng có ô `items` | 400 | Sai | Đạt |
+| TC-ACT-127 | Sắp xếp khi chưa đăng nhập | 401 | Bảo mật | Đạt |
+| TC-ACT-128 | Người lạ sắp xếp hoạt động của chuyến đi người khác | 403 | Bảo mật | Đạt |
+| TC-ACT-129 | Tra hoạt động và ngày theo danh sách mã, trong đó có mã của chuyến đi khác và mã không tồn tại | Chỉ trả về hoạt động và ngày của đúng chuyến đi. Ngày xếp theo ngày lịch | Bảo mật | Đạt |
+
+**Kiểm chứng ngược cho `TC-ACT-117`.** Phần khai báo loại vị trí khỏi số phiên bản đã được tạm gỡ, rồi test được chạy lại. Hai test chuyển sang lỗi, sau đó code được khôi phục.
+
+Ba giới hạn đã biết ở mốc này, sẽ được xử lý ở các mốc sau của Task 2.4:
+
+- Chuyển hoạt động sang ngày khác chưa kiểm trùng giờ. Đã xử lý ở Mốc 2, xem phần K.
+- Khoảng cách giữa các số thứ tự chưa được đo lại. Đã xử lý ở Mốc 3, xem phần L.
+- Hai người kéo thả cùng lúc thì người ghi sau thắng. Thuộc Task 5.3.
+
+---
+
+## K. Chặn trùng giờ khi chuyển hoạt động sang ngày khác
+
+> **Yêu cầu:** design.md rule 14.4, 10.2 "Quy ước Reorder" · **Kiểm bởi:** `ActivityServiceTest`, `ActivityControllerTest`, `ActivityRepositoryTest`
+
+Hoạt động mang theo giờ của nó khi đổi ngày. Hệ thống so nó với **những gì ngày đích sẽ chứa sau khi cả lô được áp dụng**.
+
+Bảng quyết định, với Ngày 1 đang có "Ăn trưa" từ 11:30 đến 13:00:
+
+| Thao tác | Được so với "Ăn trưa" không | Kết quả |
+|---|---|---|
+| Chuyển "Cà phê" 12:00 đến 12:30 từ Ngày 2 sang Ngày 1 | Có | Từ chối 409 |
+| Chuyển "Cà phê" 13:00 đến 13:30 sang Ngày 1 | Có, nhưng chỉ chạm đầu | Chấp nhận |
+| Như dòng đầu, kèm `allowOverlap=true` | Không kiểm | Chấp nhận |
+| Đổi vị trí "Cà phê" trong chính Ngày 2 | Không kiểm, vì giờ không đổi | Chấp nhận |
+| Chuyển "Cà phê" sang Ngày 1 và "Ăn trưa" sang Ngày 2 trong cùng một lần gọi | Không, vì "Ăn trưa" rời Ngày 1 | Chấp nhận |
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-130 | Lô có hai dòng. Dòng thứ hai chuyển "Cà phê" sang ngày đang có hoạt động trùng giờ | 409. Chi tiết trỏ đúng dòng thứ hai. **Cả hai dòng** đều không được áp dụng | Sai | Đạt |
+| TC-ACT-131 | Chuyển hoạt động sang ngày mà nó chỉ chạm đầu hoạt động khác | Chấp nhận | Biên | Đạt |
+| TC-ACT-132 | Chuyển hoạt động trùng giờ, kèm `allowOverlap=true` | Chấp nhận | Đúng | Đạt |
+| TC-ACT-133 | Hai hoạt động của một ngày đang trùng giờ nhau. Đổi vị trí của chúng trong ngày | Chấp nhận, hệ thống không kiểm trùng giờ | Biên | Đạt |
+| TC-ACT-134 | Chuyển hoạt động chỉ có giờ bắt đầu, hoặc không có giờ | Chấp nhận, hệ thống không kiểm trùng giờ | Biên | Đạt |
+| TC-ACT-135 | Hai hoạt động trùng giờ nhau cùng được chuyển tới một ngày đang trống giờ đó | 409. Chi tiết báo **cả hai dòng**, mỗi dòng nêu hoạt động kia | Sai | Đạt |
+| TC-ACT-136 | Hai hoạt động trùng giờ đổi ngày cho nhau trong một lần gọi | Chấp nhận. Hoạt động rời khỏi ngày thì không còn được tính ở ngày đó | Biên | Đạt |
+| TC-ACT-137 | Lô vừa đổi vị trí "Ăn trưa" trong Ngày 1, vừa chuyển "Cà phê" trùng giờ tới Ngày 1 | 409. Hoạt động ở lại ngày vẫn chặn hoạt động chuyển tới | Sai | Đạt |
+| TC-ACT-138 | Lấy các hoạt động có giờ của nhiều ngày, trong đó có hoạt động 03:00 đến 04:00 | Chỉ trả hoạt động có đủ hai giờ của đúng các ngày được hỏi. Giờ sáng sớm đọc ra đúng 03:00 | Đúng | Đạt |
+| TC-ACT-139 | Xem phản hồi khi bị từ chối | 409 `ACTIVITY_TIME_CONFLICT`. Chi tiết: "Hoạt động "Cà phê" trùng giờ với hoạt động "Ăn trưa" (11:30 - 13:00) trong ngày mới" | Sai | Đạt |
+| TC-ACT-140 | Gửi `allowOverlap` với giá trị không phải `true` hoặc `false` | 400 `VALIDATION_ERROR` | Sai | Đạt |
+
+**Kiểm chứng ngược.** Bước kiểm trùng giờ đã được tạm tắt, rồi test được chạy lại. Ba kịch bản `TC-ACT-130`, `TC-ACT-135` và `TC-ACT-137` chuyển sang lỗi, sau đó code được khôi phục.
+
+---
+
+## L. Đánh lại số thứ tự khi khoảng cách quá nhỏ
+
+> **Yêu cầu:** design.md rule 14.5, 10.2 "Quy ước Reorder" · **Kiểm bởi:** `ActivityServiceTest`
+
+Mỗi lần kéo vào giữa hai hoạt động, khoảng cách bị chia đôi: 1500, 1250, 1125, 1062, 1031, 1015, 1007. Tới lúc nào đó sẽ hết chỗ. Vì vậy sau mỗi lần sắp xếp, hệ thống đo lại ngày vừa nhận hoạt động. Có hai hoạt động liền kề cách nhau dưới 10 thì cả ngày được đánh lại thành 1000, 2000, 3000, giữ nguyên thứ tự đang có.
+
+| Ngày trước khi đo | Khoảng cách nhỏ nhất | Kết quả |
+|---|:--:|---|
+| 1000, 1010, 2000 | 10 | Giữ nguyên |
+| 1000, 1009, 2000 | 9 | Đánh lại: 1000, 2000, 3000 |
+| 10, 1000 | 10, tính từ 0 | Giữ nguyên |
+| 9, 1000 | 9, tính từ 0 | Đánh lại: 1000, 2000 |
+| 1000, 1000 | 0 | Đánh lại, hoạt động tạo trước đứng trước |
+
+Mọi kịch bản bên dưới bắt đầu từ: Ngày 1 có "Ăn sáng" 1000 và "Tham quan" 2000, Ngày 2 có "Chợ đêm" 1000.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-141 | Kéo "Tham quan" tới số 1010, cách "Ăn sáng" đúng 10 | Giữ nguyên 1000 và 1010 | Biên | Đạt |
+| TC-ACT-142 | Kéo "Tham quan" tới số 1009, cách "Ăn sáng" 9 | Cả ngày được đánh lại: "Ăn sáng" 1000, "Tham quan" 2000. Thứ tự không đổi | Biên | Đạt |
+| TC-ACT-143 | Kéo lên đầu ngày với số 10, rồi kéo hoạt động khác lên đầu với số 9 | Số 10 được giữ. Số 9 làm cả ngày được đánh lại, vì khoảng cách tính cả từ 0 | Biên | Đạt |
+| TC-ACT-144 | Kéo "Tham quan" tới đúng số 1000 của "Ăn sáng" | Cả ngày được đánh lại. "Ăn sáng" đứng trước vì được tạo trước | Biên | Đạt |
+| TC-ACT-145 | Kéo "Chợ đêm" từ Ngày 2 tới số 1005 của Ngày 1 | Ngày 1 được đánh lại thành 1000, 2000, 3000, gồm cả hoạt động vừa chuyển tới. Không hoạt động nào đổi ngày ngoài ý muốn | Đúng | Đạt |
+| TC-ACT-146 | Xem phản hồi sau khi đánh lại | Phản hồi mang số thứ tự mới, không phải số đã gửi lên | Đúng | Đạt |
+| TC-ACT-147 | Ngày 2 đang chật, nhưng lần kéo chỉ đụng Ngày 1 | Ngày 2 giữ nguyên. Chỉ ngày nhận hoạt động mới được đo | Biên | Đạt |
+| TC-ACT-148 | Ngày 1 đang chật. Kéo một hoạt động từ Ngày 1 sang Ngày 2 | Ngày 1 không được đánh lại, vì nó chỉ mất hoạt động chứ không nhận thêm | Biên | Đạt |
+
+Việc số thứ tự đã đánh lại thật sự được ghi xuống database, chứ không chỉ nằm trong phản hồi, được kiểm trên MySQL thật ở `TC-ACT-154`.
+
+---
+
+## M. Kiểm toàn luồng sắp xếp lại qua mọi tầng
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Reorder", 11.3, rule 14.4, 14.5 · **Kiểm bởi:** `ActivityReorderFlowIntegrationTest`
+
+Các phần J, K, L kiểm từng tầng bằng thành phần giả lập. Phần này chạy cả ứng dụng trên MySQL thật. Bốn điều chỉ chứng minh được ở đây: lô bị từ chối không để lại dấu vết, số đánh lại được ghi xuống database, kéo thả không tăng số phiên bản trên một lệnh UPDATE thật, và giờ được so đúng dù máy chạy múi giờ nào.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-149 | Chủ sở hữu kéo thả trong ngày, sang ngày khác, rồi dọn trống một ngày. Xem lại bằng chi tiết chuyến đi | Database và chi tiết chuyến đi đều đúng thứ tự mới. Ngày trống vẫn có trong phản hồi. Số phiên bản mọi hoạt động vẫn là 0, tên không đổi | Đúng | Đạt |
+| TC-ACT-150 | Gửi lô có dòng hợp lệ kèm dòng sai: mã không tồn tại, ngày của chuyến khác, dòng trùng, số thứ tự 0. Rồi thử qua đường dẫn chuyến khác, bằng người lạ, và khi chưa đăng nhập | Mỗi lần trả đúng mã 404, 400, 403 hoặc 401. Sau tất cả, vị trí trong database y như trước | Bảo mật | Đạt |
+| TC-ACT-151 | Xoá mềm chuyến đi rồi sắp xếp hoạt động của nó | 404, vị trí không đổi | Sai | Đạt |
+| TC-ACT-152 | Chuyển 03:30 đến 05:00 tới ngày có 03:00 đến 04:00, rồi chuyển 20:00 đến 21:00 tới cùng ngày đó | Lần đầu 409, chi tiết trỏ đúng dòng và nêu tên hai hoạt động. Lần sau 200. Tiếp đó chạm đầu được, có xác nhận được, và đổi chỗ trong ngày không bị kiểm | Biên | Đạt |
+| TC-ACT-153 | Hai hoạt động trùng giờ đổi ngày cho nhau trong một lần gọi | 200, mỗi hoạt động nằm ở ngày mới của nó | Biên | Đạt |
+| TC-ACT-154 | Kéo một hoạt động vào cùng một chỗ bảy lần, khoảng cách co từ 500 xuống 7 | Lần thứ bảy phản hồi ghi 1000, 2000, 3000, và database cũng lưu đúng ba số đó. Số phiên bản vẫn là 0 | Biên | Đạt |
+| TC-ACT-155 | Sắp xếp một hoạt động trong ngày có 2 hoạt động, rồi trong ngày có 22 hoạt động | Cả hai lần đều tốn đúng 6 câu SQL. Ngày đông hoạt động không tốn thêm câu nào | Biên | Đạt |
+
+Sáu câu SQL của `TC-ACT-155`: kiểm quyền, kiểm chuyến đi còn sống, tải hoạt động của lô, tải các ngày liên quan, ghi hoạt động bị di chuyển, tải lại hoạt động của các ngày để trả về.
+
+---
+
 ## Kiểm tra thủ công
 
 Làm trên trang Swagger `http://localhost:8080/swagger-ui.html`. Cần có: backend đang chạy bản code mới nhất, đã đăng nhập bằng một tài khoản đã xác thực email, và một chuyến đi từ `2026-10-01` đến `2026-10-02`.
@@ -296,9 +438,9 @@ Lấy mã ngày bằng cách gọi danh sách ngày của chuyến đi. Các bư
 
 ### MT-ACT-01 · Thêm hoạt động
 
-- [ ] Thêm hoạt động với nội dung bên dưới. Trả 201, tên hiển thị đúng dấu tiếng Việt, giờ là `11:30` và `13:00`, số thứ tự `1000`, tiền tệ trùng với chuyến đi.
-- [ ] Thêm hoạt động thứ hai chỉ với `{ "title": "Dạo hồ Xuân Hương" }`. Trả 201, loại là `OTHER`, số thứ tự `2000`.
-- [ ] Chạy câu lệnh SQL bên dưới trong MySQL. Có hai dòng, cột giờ của dòng đầu là `11:30:00` và `13:00:00`.
+- [x] Thêm hoạt động với nội dung bên dưới. Trả 201, tên hiển thị đúng dấu tiếng Việt, giờ là `11:30` và `13:00`, số thứ tự `1000`, tiền tệ trùng với chuyến đi.
+- [x] Thêm hoạt động thứ hai chỉ với `{ "title": "Dạo hồ Xuân Hương" }`. Trả 201, loại là `OTHER`, số thứ tự `2000`.
+- [x] Chạy câu lệnh SQL bên dưới trong MySQL. Có hai dòng, cột giờ của dòng đầu là `11:30:00` và `13:00:00`.
 
 ```json
 {
@@ -315,114 +457,157 @@ Lấy mã ngày bằng cách gọi danh sách ngày của chuyến đi. Các bư
 SELECT id, title, start_time, end_time, order_index, currency, created_by FROM activities ORDER BY id DESC LIMIT 5;
 ```
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-02 · Quy tắc về giờ
 
-- [ ] Thêm hoạt động có `"startTime": "10:00"` và `"endTime": "09:00"`. Trả 400, thông báo "Giờ kết thúc phải sau giờ bắt đầu".
-- [ ] Thêm hoạt động chỉ có `"endTime": "09:00"`. Trả 400, lỗi ở ô `startTime`.
-- [ ] Thêm hoạt động có `"startTime": "03:00"` và `"endTime": "08:15"`. Trả 201. Chạy lại câu lệnh SQL ở `MT-ACT-01`, cột giờ là `03:00:00` và `08:15:00`.
+- [x] Thêm hoạt động có `"startTime": "10:00"` và `"endTime": "09:00"`. Trả 400, thông báo "Giờ kết thúc phải sau giờ bắt đầu".
+- [x] Thêm hoạt động chỉ có `"endTime": "09:00"`. Trả 400, lỗi ở ô `startTime`.
+- [x] Thêm hoạt động có `"startTime": "03:00"` và `"endTime": "08:15"`. Trả 201. Chạy lại câu lệnh SQL ở `MT-ACT-01`, cột giờ là `03:00:00` và `08:15:00`.
 
 Bước cuối kiểm lại lỗi `BUG-ACT-001` trên database thật của máy bạn.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-03 · Người lạ và đường dẫn sai
 
 Cần có: tài khoản thứ hai đã xác thực email, và một chuyến đi thứ hai của tài khoản thứ nhất.
 
-- [ ] Đăng nhập bằng tài khoản thứ hai, thêm hoạt động vào chuyến đi của tài khoản thứ nhất. Trả 403.
-- [ ] Đăng nhập lại bằng tài khoản thứ nhất. Dùng mã của chuyến đi thứ nhất kèm mã ngày của chuyến đi thứ hai. Trả 404.
+- [x] Đăng nhập bằng tài khoản thứ hai, thêm hoạt động vào chuyến đi của tài khoản thứ nhất. Trả 403.
+- [x] Đăng nhập lại bằng tài khoản thứ nhất. Dùng mã của chuyến đi thứ nhất kèm mã ngày của chuyến đi thứ hai. Trả 404.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-04 · Trùng giờ
 
 Cần có: một ngày **chưa có hoạt động nào**. Dùng Ngày 2 của chuyến đi nếu Ngày 1 đã dùng ở các test trên.
 
-- [ ] Thêm "Ăn sáng" từ `09:00` đến `10:00`. Trả 201.
-- [ ] Thêm "Cà phê" từ `09:30` đến `10:30`. Trả 409 `ACTIVITY_TIME_CONFLICT`, chi tiết nêu tên "Ăn sáng" và giờ 09:00 - 10:00.
-- [ ] Thêm lại "Cà phê" như trên, điền `true` vào ô tham số `allowOverlap`. Trả 201.
-- [ ] Thêm "Đi chợ" từ `10:30` đến `11:30`. Trả 201, vì chỉ chạm đầu "Cà phê".
-- [ ] Thêm "Săn mây" từ `03:00` đến `04:00`, rồi thêm "Ngắm bình minh" từ `03:30` đến `05:00`. Lần đầu trả 201, lần sau trả 409 nêu tên "Săn mây".
+- [x] Thêm "Ăn sáng" từ `09:00` đến `10:00`. Trả 201.
+- [x] Thêm "Cà phê" từ `09:30` đến `10:30`. Trả 409 `ACTIVITY_TIME_CONFLICT`, chi tiết nêu tên "Ăn sáng" và giờ 09:00 - 10:00.
+- [x] Thêm lại "Cà phê" như trên, điền `true` vào ô tham số `allowOverlap`. Trả 201.
+- [x] Thêm "Đi chợ" từ `10:30` đến `11:30`. Trả 201, vì chỉ chạm đầu "Cà phê".
+- [x] Thêm "Săn mây" từ `03:00` đến `04:00`, rồi thêm "Ngắm bình minh" từ `03:30` đến `05:00`. Lần đầu trả 201, lần sau trả 409 nêu tên "Săn mây".
 
 Bước cuối kiểm lại lỗi `BUG-ACT-002` trên máy của bạn.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-05 · Xem danh sách hoạt động
 
 Cần có: một ngày đã có ít nhất ba hoạt động từ các test trước, và một ngày chưa có hoạt động nào.
 
-- [ ] Gọi danh sách hoạt động của ngày đã có hoạt động. Trả 200, số thứ tự tăng dần 1000, 2000, 3000.
-- [ ] So với thứ tự bạn đã thêm. Danh sách theo thứ tự thêm vào, không theo giờ.
-- [ ] Gọi danh sách của ngày chưa có hoạt động. Trả 200 với `"data": []`.
-- [ ] Đăng nhập bằng tài khoản thứ hai rồi gọi danh sách của chuyến đi này. Trả 403.
+- [x] Gọi danh sách hoạt động của ngày đã có hoạt động. Trả 200, số thứ tự tăng dần 1000, 2000, 3000.
+- [x] So với thứ tự bạn đã thêm. Danh sách theo thứ tự thêm vào, không theo giờ.
+- [x] Gọi danh sách của ngày chưa có hoạt động. Trả 200 với `"data": []`.
+- [x] Đăng nhập bằng tài khoản thứ hai rồi gọi danh sách của chuyến đi này. Trả 403.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-06 · Sửa hoạt động
 
 Cần có: một ngày có "Ăn sáng" từ `09:00` đến `10:00` kèm ghi chú, và "Cà phê" từ `10:00` đến `11:00`. Ghi lại số phiên bản của "Ăn sáng" trước khi bắt đầu.
 
-- [ ] Sửa "Ăn sáng", chỉ gửi `{ "title": "Ăn sáng muộn" }`. Trả 200, giờ và ghi chú giữ nguyên, số phiên bản tăng 1.
-- [ ] Gửi `{ "note": "" }`. Trả 200, ghi chú trở về `null`.
-- [ ] Gửi `{ "endTime": "10:30" }`. Trả 409, nêu tên "Cà phê". Gọi danh sách hoạt động, giờ kết thúc vẫn là `10:00`.
-- [ ] Gửi lại như trên, điền `true` vào ô tham số `allowOverlap`. Trả 200, giờ kết thúc là `10:30`.
-- [ ] Gửi `{ "title": "Ăn sáng" }`, không kèm `allowOverlap`. Trả 200, dù hoạt động đang trùng giờ với "Cà phê".
-- [ ] Gửi `{ "endTime": "08:00" }`. Trả 400, thông báo "Giờ kết thúc phải sau giờ bắt đầu".
+- [x] Sửa "Ăn sáng", chỉ gửi `{ "title": "Ăn sáng muộn" }`. Trả 200, giờ và ghi chú giữ nguyên, số phiên bản tăng 1.
+- [x] Gửi `{ "note": "" }`. Trả 200, ghi chú trở về `null`.
+- [x] Gửi `{ "endTime": "10:30" }`. Trả 409, nêu tên "Cà phê". Gọi danh sách hoạt động, giờ kết thúc vẫn là `10:00`.
+- [x] Gửi lại như trên, điền `true` vào ô tham số `allowOverlap`. Trả 200, giờ kết thúc là `10:30`.
+- [x] Gửi `{ "title": "Ăn sáng" }`, không kèm `allowOverlap`. Trả 200, dù hoạt động đang trùng giờ với "Cà phê".
+- [x] Gửi `{ "endTime": "08:00" }`. Trả 400, thông báo "Giờ kết thúc phải sau giờ bắt đầu".
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-07 · Xoá hoạt động
 
 Cần có: một ngày có ba hoạt động với số thứ tự 1000, 2000, 3000. Ghi lại mã của hoạt động ở giữa.
 
-- [ ] Xoá hoạt động ở giữa. Trả 200 với `"data": null`.
-- [ ] Gọi danh sách hoạt động của ngày. Còn hai hoạt động, số thứ tự là 1000 và 3000, không bị đánh lại.
-- [ ] Xoá lại đúng hoạt động đó. Trả 404.
-- [ ] Chạy câu lệnh SQL bên dưới với mã đã ghi. Kết quả là 0 dòng, vì hoạt động bị xoá hẳn.
-- [ ] Thêm một hoạt động mới vào ngày đó. Số thứ tự là 4000.
+- [x] Xoá hoạt động ở giữa. Trả 200 với `"data": null`.
+- [x] Gọi danh sách hoạt động của ngày. Còn hai hoạt động, số thứ tự là 1000 và 3000, không bị đánh lại.
+- [x] Xoá lại đúng hoạt động đó. Trả 404.
+- [x] Chạy câu lệnh SQL bên dưới với mã đã ghi. Kết quả là 0 dòng, vì hoạt động bị xoá hẳn.
+- [x] Thêm một hoạt động mới vào ngày đó. Số thứ tự là 4000.
 
 ```sql
 SELECT id, title FROM activities WHERE id = <mã đã ghi>;
 ```
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-08 · Rút ngắn chuyến đi đang có hoạt động
 
 Cần có: một chuyến đi **mới** từ `2026-10-01` đến `2026-10-03`. Thêm một hoạt động vào Ngày 1 và hai hoạt động vào Ngày 3. Ghi lại tên và số phiên bản của chuyến đi.
 
-- [ ] Sửa chuyến đi, gửi `{ "title": "Tên thử", "endDate": "2026-10-02" }`. Trả 409 `TRIP_DAY_HAS_ACTIVITIES`, chi tiết ghi "2 hoạt động trong 1 ngày sẽ bị xoá nếu đổi ngày".
-- [ ] Xem chi tiết chuyến đi. Tên, ngày kết thúc và số phiên bản đều như cũ. Vẫn còn 3 ngày.
-- [ ] Gọi danh sách hoạt động của Ngày 3. Vẫn còn đủ hai hoạt động.
-- [ ] Gửi lại đúng nội dung đó, điền `true` vào ô tham số `force`. Trả 200, tên đổi, ngày kết thúc là `2026-10-02`.
-- [ ] Gọi danh sách ngày. Còn 2 ngày. Gọi danh sách hoạt động của Ngày 1, hoạt động vẫn còn.
-- [ ] Chạy câu lệnh SQL bên dưới. Chỉ còn một dòng, là hoạt động của Ngày 1.
+- [x] Sửa chuyến đi, gửi `{ "title": "Tên thử", "endDate": "2026-10-02" }`. Trả 409 `TRIP_DAY_HAS_ACTIVITIES`, chi tiết ghi "2 hoạt động trong 1 ngày sẽ bị xoá nếu đổi ngày".
+- [x] Xem chi tiết chuyến đi. Tên, ngày kết thúc và số phiên bản đều như cũ. Vẫn còn 3 ngày.
+- [x] Gọi danh sách hoạt động của Ngày 3. Vẫn còn đủ hai hoạt động.
+- [x] Gửi lại đúng nội dung đó, điền `true` vào ô tham số `force`. Trả 200, tên đổi, ngày kết thúc là `2026-10-02`.
+- [x] Gọi danh sách ngày. Còn 2 ngày. Gọi danh sách hoạt động của Ngày 1, hoạt động vẫn còn.
+- [x] Chạy câu lệnh SQL bên dưới. Chỉ còn một dòng, là hoạt động của Ngày 1.
 
 ```sql
 SELECT a.id, a.title, d.date FROM activities a JOIN trip_days d ON d.id = a.trip_day_id ORDER BY a.id DESC LIMIT 5;
 ```
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-ACT-09 · Chi tiết chuyến đi kèm hoạt động
 
 Cần có: một chuyến đi 3 ngày. Ngày 1 có hai hoạt động, Ngày 2 có một hoạt động, Ngày 3 chưa có gì.
 
-- [ ] Gọi chi tiết chuyến đi. Phần `days` có 3 ngày, mỗi ngày có ô `activities`.
-- [ ] Xem Ngày 1. Có hai hoạt động, số thứ tự 1000 rồi 2000.
-- [ ] Xem Ngày 3. Ô `activities` là `[]`, không phải `null` và không bị thiếu.
-- [ ] Gọi danh sách ngày của chuyến đi. Các ngày **không** có ô `activities`.
+- [x] Gọi chi tiết chuyến đi. Phần `days` có 3 ngày, mỗi ngày có ô `activities`.
+- [x] Xem Ngày 1. Có hai hoạt động, số thứ tự 1000 rồi 2000.
+- [x] Xem Ngày 3. Ô `activities` là `[]`, không phải `null` và không bị thiếu.
+- [x] Gọi danh sách ngày của chuyến đi. Các ngày **không** có ô `activities`.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
+
+### MT-ACT-10 · Kéo thả hoạt động
+
+Làm trên Swagger với endpoint sắp xếp lại. Cần có: một chuyến đi có Ngày 1 với ba hoạt động A, B, C theo thứ tự 1000, 2000, 3000, và Ngày 2 chưa có gì. Ghi lại mã của ba hoạt động, mã của hai ngày, và số phiên bản của C.
+
+- [x] Gửi nội dung bên dưới, thay mã thật vào. Trả 200, phần `data` có một ngày, thứ tự là A, C, B.
+- [x] Xem số phiên bản của C trong phản hồi. Vẫn bằng giá trị đã ghi.
+- [x] Gửi một dòng chuyển A sang Ngày 2 với số thứ tự 1000. Trả 200, phần `data` có hai ngày.
+- [x] Gửi hai dòng: dòng đầu hợp lệ, dòng sau dùng mã hoạt động `999999`. Trả 404.
+- [x] Gọi danh sách hoạt động của Ngày 1. Thứ tự **không đổi** so với trước bước trên.
+
+```json
+{ "items": [ { "activityId": <mã của C>, "dayId": <mã Ngày 1>, "orderIndex": 1500 } ] }
+```
+
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
+
+### MT-ACT-11 · Chuyển hoạt động có giờ sang ngày khác
+
+Cần có: Ngày 1 có "Săn mây" từ `03:00` đến `04:00` và "Ăn trưa" từ `11:30` đến `13:00`. Ngày 2 có "Ngắm bình minh" từ `03:30` đến `05:00` và "Cà phê" từ `13:00` đến `13:30`.
+
+- [x] Chuyển "Ngắm bình minh" sang Ngày 1. Trả 409, chi tiết nêu tên "Săn mây" và giờ 03:00 - 04:00.
+- [x] Gọi danh sách hoạt động của Ngày 2. "Ngắm bình minh" vẫn ở đó.
+- [x] Chuyển "Cà phê" sang Ngày 1. Trả 200, vì nó chỉ chạm đầu "Ăn trưa".
+- [x] Chuyển lại "Ngắm bình minh" sang Ngày 1, điền `true` vào ô tham số `allowOverlap`. Trả 200.
+- [x] Đổi vị trí "Ngắm bình minh" và "Săn mây" trong Ngày 1, không kèm `allowOverlap`. Trả 200, dù hai hoạt động đang trùng giờ.
+
+Bước đầu kiểm lại lỗi `BUG-ACT-002` cho trường hợp chuyển ngày, trên máy của bạn.
+
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
+
+### MT-ACT-12 · Đánh lại số thứ tự
+
+Cần có: một ngày có ba hoạt động A, B, C với số thứ tự 1000, 2000, 3000.
+
+- [x] Kéo C vào giữa A và B bằng cách gửi lần lượt các số 1500, 1250, 1125, 1062, 1031, 1015. Mỗi lần trả 200.
+- [x] Gọi danh sách hoạt động. Thứ tự là A 1000, C 1015, B 2000.
+- [x] Gửi số 1007 cho C. Trả 200, phản hồi ghi A 1000, C 2000, B 3000.
+- [x] Gọi lại danh sách hoạt động. Số thứ tự trong database cũng là 1000, 2000, 3000.
+
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ---
 
 ## Lỗi đã phát hiện
 
-Mốc 1 phát sinh `BUG-ACT-001`, Mốc 3 phát sinh `BUG-ACT-002`, Mốc 9 phát sinh `BUG-ACT-003`. Các mốc còn lại không phát sinh lỗi: test mới đều đạt ngay lần chạy đầu.
+Task 2.3: Mốc 1 phát sinh `BUG-ACT-001`, Mốc 3 phát sinh `BUG-ACT-002`, Mốc 9 phát sinh `BUG-ACT-003`. Các mốc còn lại không phát sinh lỗi.
+
+Task 2.4: cả bốn mốc không phát sinh lỗi, test mới đều đạt ngay lần chạy đầu.
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|

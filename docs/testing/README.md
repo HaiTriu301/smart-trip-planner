@@ -1,6 +1,6 @@
 # Tài liệu kiểm thử — Smart Trip Planner
 
-> Cập nhật: 2026-09-29 · build xanh tại commit `50bb13c`
+> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f`
 
 Thư mục này ghi lại **hệ thống phải làm gì, đã kiểm tra thế nào, kết quả ra sao**.
 Mỗi tính năng là một file. Người đọc không cần biết code.
@@ -14,7 +14,7 @@ Mỗi tính năng là một file. Người đọc không cần biết code.
 | [02-auth.md](02-auth.md) | Đăng ký, đăng nhập, xác thực email, đặt lại mật khẩu | Đã ghi |
 | [03-trip.md](03-trip.md) | Chuyến đi: tạo, xem, sửa, xoá | Đã ghi |
 | [04-trip-day.md](04-trip-day.md) | Các ngày của chuyến đi | Đã ghi |
-| [05-activity.md](05-activity.md) | Hoạt động trong ngày | Đã ghi |
+| [05-activity.md](05-activity.md) | Hoạt động trong ngày, kể cả sắp xếp lại | Đã ghi |
 
 ## Cách đọc một test case
 
@@ -43,14 +43,14 @@ Mã `TC-` là test tự động, máy chạy mỗi lần build. Mã `MT-` là te
 
 | Tính năng | Tự động | Thủ công | Đạt | Lỗi | Chưa chạy | Lỗi đã sửa |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| Nền tảng | 28 | 5 | 28 | 0 | 5 | 0 |
-| Xác thực người dùng | 54 | 6 | 54 | 0 | 6 | 4 |
-| Chuyến đi | 42 | 4 | 42 | 0 | 4 | 3 |
-| Các ngày của chuyến đi | 33 | 3 | 33 | 0 | 3 | 3 |
-| Hoạt động trong ngày | 111 | 9 | 111 | 0 | 9 | 3 |
-| **Tổng** | **268** | **27** | **268** | **0** | **27** | **13** |
+| Nền tảng | 28 | 5 | 33 | 0 | 0 | 0 |
+| Xác thực người dùng | 54 | 6 | 60 | 0 | 0 | 5 |
+| Chuyến đi | 42 | 4 | 46 | 0 | 0 | 3 |
+| Các ngày của chuyến đi | 33 | 3 | 36 | 0 | 0 | 3 |
+| Hoạt động trong ngày | 155 | 12 | 167 | 0 | 0 | 3 |
+| **Tổng** | **312** | **30** | **342** | **0** | **0** | **14** |
 
-Dự án có 383 method test trong 39 class, chạy thành 411 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
+Dự án có 434 method test trong 40 class, chạy thành 462 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
 
 ## Chưa kiểm thử
 

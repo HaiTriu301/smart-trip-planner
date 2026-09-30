@@ -1,6 +1,6 @@
 # 02 · Xác thực người dùng
 
-> Cập nhật: 2026-09-29 · build xanh tại commit `50bb13c` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
 
 Tính năng này cho người dùng đăng ký, xác thực email, đăng nhập, giữ phiên đăng nhập, và lấy lại mật khẩu. Làm ở Task 1.1 đến 1.5.
 
@@ -123,46 +123,55 @@ Vài từ dùng trong file:
 ## Kiểm tra thủ công
 
 Chạy bằng PowerShell. Cần có: hạ tầng và backend đang chạy theo `MT-PLAT-01` và `MT-PLAT-02`.
-Nội dung gửi đi chỉ dùng chữ không dấu, vì PowerShell làm hỏng tiếng Việt trong lệnh. Muốn thử tiếng Việt thì dùng trang Swagger.
+
+Hai điều cần biết về PowerShell trước khi chạy:
+
+- **Nội dung JSON phải ghi ra file rồi gửi bằng `-d "@file"`.** Viết JSON thẳng trong dòng lệnh thì PowerShell làm hỏng dấu ngoặc kép trước khi curl nhận được, và server trả 400 "không đúng định dạng JSON". Đây là `BUG-AUTH-005`.
+- **Chỉ dùng chữ không dấu trong file gửi đi.** Muốn thử tiếng Việt thì dùng trang Swagger.
+
+Nên chạy các lệnh trong một thư mục tạm, ví dụ `cd $env:TEMP`, để file JSON và file cookie không lọt vào thư mục dự án.
 
 ### MT-AUTH-01 · Đăng ký qua API
 
-- [ ] Chạy lệnh đăng ký bên dưới. Trả 201, email trong phản hồi là `demo@example.com` chữ thường, không có mật khẩu.
-- [ ] Chạy lại đúng lệnh đó. Trả 409 `EMAIL_ALREADY_EXISTS`, thông báo "Email đã được sử dụng".
-- [ ] Đổi mật khẩu thành `matkhau123` ở cả hai ô và đổi email khác. Trả 400, chi tiết lỗi ở ô `password`.
-- [ ] Đổi ô nhập lại thành giá trị khác mật khẩu. Trả 400, chi tiết lỗi ở ô `confirmPassword`.
+- [x] Chạy hai lệnh bên dưới: lệnh đầu ghi nội dung ra file, lệnh sau gửi đi. Trả 201, email trong phản hồi là `demo@example.com` chữ thường, không có mật khẩu.
+- [x] Chạy lại lệnh gửi. Trả 409 `EMAIL_ALREADY_EXISTS`, thông báo "Email đã được sử dụng".
+- [x] Sửa file: mật khẩu thành `matkhau123` ở cả hai ô và đổi sang email khác. Gửi lại. Trả 400, chi tiết lỗi ở ô `password`.
+- [x] Sửa file: ô nhập lại khác mật khẩu. Gửi lại. Trả 400, chi tiết lỗi ở ô `confirmPassword`.
 
 ```powershell
-curl.exe -s -i -X POST localhost:8080/api/v1/auth/register -H "Content-Type: application/json" -d "{\"email\":\"Demo@Example.com\",\"password\":\"MatKhau123\",\"confirmPassword\":\"MatKhau123\",\"fullName\":\"Demo\"}"
+'{"email":"Demo@Example.com","password":"MatKhau123","confirmPassword":"MatKhau123","fullName":"Demo"}' | Set-Content -Encoding ascii register.json
+curl.exe -s -i -X POST localhost:8080/api/v1/auth/register -H "Content-Type: application/json" -d "@register.json"
 ```
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy sau khi hướng dẫn được sửa; từng lỗi BUG-AUTH-005 cùng ngày
 
 ### MT-AUTH-02 · Xác thực email qua hộp thư
 
 Cần có: vừa đăng ký một tài khoản mới.
 
-- [ ] Mở `http://localhost:8025`. Có mail "Xác thực email", link bắt đầu bằng `http://localhost:5173/verify-email?token=`.
-- [ ] Bấm link khi trang web đang chạy. Trang báo xác thực thành công.
-- [ ] Tải lại trang đó. Trang báo link không hợp lệ, vì link chỉ dùng một lần.
-- [ ] Đăng nhập bằng tài khoản vừa xác thực. Đăng nhập được.
+- [x] Mở `http://localhost:8025`. Có mail "Xác thực email", link bắt đầu bằng `http://localhost:5173/verify-email?token=`.
+- [x] Bấm link khi trang web đang chạy. Trang báo xác thực thành công.
+- [x] Tải lại trang đó. Trang báo link không hợp lệ, vì link chỉ dùng một lần.
+- [x] Đăng nhập bằng tài khoản vừa xác thực. Đăng nhập được.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:** từng lỗi BUG-AUTH-004 ngày 2026-09-25
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy từng lỗi BUG-AUTH-004 ngày 2026-09-25
 
 ### MT-AUTH-03 · Đăng nhập, làm mới phiên, phát hiện dùng lại token
 
 Cần có: tài khoản `demo@example.com` đã xác thực.
 
-- [ ] Chạy lệnh 1. Trả 200, có `accessToken`, và dòng `Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax`.
-- [ ] Chạy lệnh 2 với access token vừa nhận. Trả 200 kèm hồ sơ.
-- [ ] Chạy lệnh 2 nhưng bỏ phần `-H`. Trả 401 `UNAUTHORIZED`.
-- [ ] Chạy lệnh 3. Trả 200, có access token mới và cookie mới.
-- [ ] Chạy lệnh 4, tức là dùng lại cookie cũ. Trả 401.
-- [ ] Chạy lệnh 5, tức là dùng cookie mới. Cũng trả 401, vì mọi phiên đã bị thu hồi.
+- [x] Chạy lệnh 0 để ghi nội dung đăng nhập ra file, rồi lệnh 1. Trả 200, có `accessToken`, và dòng `Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax`.
+- [x] Chạy lệnh 2 với access token vừa nhận. Trả 200 kèm hồ sơ.
+- [x] Chạy lệnh 2 nhưng bỏ phần `-H`. Trả 401 `UNAUTHORIZED`.
+- [x] Chạy lệnh 3. Trả 200, có access token mới và cookie mới.
+- [x] Chạy lệnh 4, tức là dùng lại cookie cũ. Trả 401.
+- [x] Chạy lệnh 5, tức là dùng cookie mới. Cũng trả 401, vì mọi phiên đã bị thu hồi.
 
 ```powershell
+# 0
+'{"email":"demo@example.com","password":"MatKhau123"}' | Set-Content -Encoding ascii login.json
 # 1
-curl.exe -s -i -c cookies.txt -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "{\"email\":\"demo@example.com\",\"password\":\"MatKhau123\"}"
+curl.exe -s -i -c cookies.txt -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "@login.json"
 # 2
 curl.exe -s -i localhost:8080/api/v1/users/me -H "Authorization: Bearer <accessToken>"
 # 3
@@ -173,41 +182,41 @@ curl.exe -s -i -b cookies.txt -X POST localhost:8080/api/v1/auth/refresh
 curl.exe -s -i -b cookies2.txt -X POST localhost:8080/api/v1/auth/refresh
 ```
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-AUTH-04 · Quên và đặt lại mật khẩu
 
 Cần có: tài khoản đã xác thực, trang web đang chạy.
 
-- [ ] Ở trang quên mật khẩu, nhập email của tài khoản. Trang báo đã gửi hướng dẫn.
-- [ ] Mở `http://localhost:8025`. Có mail đặt lại mật khẩu.
-- [ ] Bấm link, nhập mật khẩu mới hai lần. Trang báo thành công.
-- [ ] Đăng nhập bằng mật khẩu mới. Đăng nhập được.
-- [ ] Đăng nhập bằng mật khẩu cũ. Bị từ chối.
-- [ ] Ở trang quên mật khẩu, nhập một email không tồn tại. Trang báo **y hệt** bước đầu, hộp thư không có mail mới.
+- [x] Ở trang quên mật khẩu, nhập email của tài khoản. Trang báo đã gửi hướng dẫn.
+- [x] Mở `http://localhost:8025`. Có mail đặt lại mật khẩu.
+- [x] Bấm link, nhập mật khẩu mới hai lần. Trang báo thành công.
+- [x] Đăng nhập bằng mật khẩu mới. Đăng nhập được.
+- [x] Đăng nhập bằng mật khẩu cũ. Bị từ chối.
+- [x] Ở trang quên mật khẩu, nhập một email không tồn tại. Trang báo **y hệt** bước đầu, hộp thư không có mail mới.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-AUTH-05 · Giữ đăng nhập trên trang web
 
 Cần có: trang web đang chạy ở `http://localhost:5173`.
 
-- [ ] Đăng nhập. Trang chuyển tới danh sách chuyến đi.
-- [ ] Nhấn F5. Vẫn ở trang danh sách, không bị đưa về trang đăng nhập.
-- [ ] Mở thẳng `http://localhost:5173/login` khi đang đăng nhập. Trang tự chuyển về danh sách chuyến đi.
-- [ ] Đăng xuất. Trang về màn hình đăng nhập.
-- [ ] Mở thẳng `http://localhost:5173/trips` sau khi đăng xuất. Trang đưa về màn hình đăng nhập.
+- [x] Đăng nhập. Trang chuyển tới danh sách chuyến đi.
+- [x] Nhấn F5. Vẫn ở trang danh sách, không bị đưa về trang đăng nhập.
+- [x] Mở thẳng `http://localhost:5173/login` khi đang đăng nhập. Trang tự chuyển về danh sách chuyến đi.
+- [x] Đăng xuất. Trang về màn hình đăng nhập.
+- [x] Mở thẳng `http://localhost:5173/trips` sau khi đăng xuất. Trang đưa về màn hình đăng nhập.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-AUTH-06 · Nhiều tab dùng chung một phiên
 
 Cần có: đang đăng nhập, mở trang web ở hai tab.
 
-- [ ] Đăng xuất ở tab thứ nhất, rồi tải lại tab thứ hai. Tab thứ hai về màn hình đăng nhập.
-- [ ] Đăng nhập lại ở tab thứ nhất, rồi tải lại tab thứ hai. Tab thứ hai vào thẳng danh sách chuyến đi.
+- [x] Đăng xuất ở tab thứ nhất, rồi tải lại tab thứ hai. Tab thứ hai về màn hình đăng nhập.
+- [x] Đăng nhập lại ở tab thứ nhất, rồi tải lại tab thứ hai. Tab thứ hai vào thẳng danh sách chuyến đi.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ---
 
@@ -217,9 +226,12 @@ Nguồn: mục "Bẫy đã gặp" của Task 1.3 và 1.5 trong `WORKFLOW.md`. C�
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
+| BUG-AUTH-005 | MT-AUTH-01 | 2026-09-30 | Bước 1 trả 400 `VALIDATION_ERROR` "Nội dung yêu cầu không đúng định dạng JSON hoặc sai kiểu dữ liệu" thay vì 201 | **Hướng dẫn test sai**, hệ thống đúng. PowerShell 5.1 làm hỏng dấu ngoặc kép trong JSON viết thẳng ở tham số `-d`, nên server nhận được nội dung không phải JSON. Tái hiện được trên chính máy phát triển | Hướng dẫn đổi sang ghi JSON ra file rồi gửi bằng `-d "@file"`. Đã thử: server đọc được JSON. Sửa cả `MT-AUTH-03`. Code không đổi | Đã sửa trong tài liệu |
 | BUG-AUTH-001 | TC-AUTH-026 | 2026-09-23 | Token bị đánh cắp vẫn dùng tiếp được. Lệnh thu hồi mọi phiên không có tác dụng | Hệ thống thu hồi xong rồi báo lỗi 401. Việc báo lỗi làm database huỷ luôn lệnh thu hồi vừa ghi | Khai báo rằng lỗi 401 này không được huỷ những gì đã ghi | Đã sửa, commit `4ef93a0` |
 | BUG-AUTH-002 | TC-AUTH-009 | 2026-09-23 | Thời hạn access token trả về là 899 giây thay vì 900 | Thời hạn được tính từ "bây giờ", sau khi vài phần nghìn giây đã trôi qua | Tính từ thời điểm phát token | Đã sửa, commit `bf6f998` |
 | BUG-AUTH-003 | TC-AUTH-051 | 2026-09-23 | Test so sánh thời điểm lúc đạt lúc lỗi | **Test sai.** Java giữ thời gian chi tiết hơn database, database làm tròn khi lưu | Test làm tròn thời điểm trước khi so sánh | Đã sửa, commit `bf6f998` |
 | BUG-AUTH-004 | MT-AUTH-02 | 2026-09-25 | Trang xác thực email báo link không hợp lệ dù xác thực đã thành công | Ở chế độ phát triển, trang gửi mã xác thực hai lần. Lần hai bị từ chối vì mã chỉ dùng một lần | Đổi cách gọi để hai lần gửi trùng nhau được gộp thành một | Đã sửa, commit `9f0d093` |
 
 BUG-AUTH-001 là lỗi đáng nhớ nhất. Test đơn vị đều đạt, chỉ test tích hợp chạy trên database thật mới phát hiện được.
+
+BUG-AUTH-005 là lỗi đầu tiên do **test thủ công** phát hiện, và là lỗi của chính hướng dẫn test. Hệ thống từ chối đúng vì nội dung nhận được không phải JSON. Nó cho thấy vì sao test thủ công phải được chạy thật thay vì chỉ viết ra: một hướng dẫn chưa ai chạy có thể sai ngay từ bước đầu.

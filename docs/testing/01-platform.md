@@ -1,6 +1,6 @@
 # 01 · Nền tảng
 
-> Cập nhật: 2026-09-29 · build xanh tại commit `50bb13c` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
 
 Nền tảng là phần mọi tính năng khác dựa vào: khung của phản hồi, cách báo lỗi, ai được gọi gì, và cấu hình.
 
@@ -83,49 +83,49 @@ Chạy trên máy của bạn bằng PowerShell. Làm xong bước nào thì đ�
 
 Cần có: Docker Desktop đang chạy, file `.env` ở thư mục gốc.
 
-- [ ] Chạy `docker compose up -d mysql redis mailhog`. Lệnh kết thúc không lỗi.
-- [ ] Chạy `docker compose ps`. Ba dịch vụ đều `Up` và `healthy`.
-- [ ] Mở `http://localhost:8025`. Thấy hộp thư MailHog.
+- [x] Chạy `docker compose up -d mysql redis mailhog`. Lệnh kết thúc không lỗi.
+- [x] Chạy `docker compose ps`. Ba dịch vụ đều `Up` và `healthy`.
+- [x] Mở `http://localhost:8025`. Thấy hộp thư MailHog.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-PLAT-02 · Backend khởi động
 
 Cần có: MT-PLAT-01 đã đạt, cổng 8080 trống.
 
-- [ ] Trong `backend/`, chạy `./gradlew bootRun --args='--spring.profiles.active=local'`. Log có dòng `Started TripPlannerApplication`.
-- [ ] Đọc các dòng Flyway trong log. Không có lỗi `checksum mismatch`.
-- [ ] Chạy `curl.exe -s -i http://localhost:8080/actuator/health`. Trả 200 và `{"status":"UP"}`.
+- [x] Trong `backend/`, chạy `./gradlew bootRun --args='--spring.profiles.active=local'`. Log có dòng `Started TripPlannerApplication`.
+- [x] Đọc các dòng Flyway trong log. Không có lỗi `checksum mismatch`.
+- [x] Chạy `curl.exe -s -i http://localhost:8080/actuator/health`. Trả 200 và `{"status":"UP"}`.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-PLAT-03 · Trang tài liệu API
 
 Cần có: backend đang chạy.
 
-- [ ] Mở `http://localhost:8080/swagger-ui.html`. Trang mở được mà không cần đăng nhập.
-- [ ] Xem danh sách nhóm. Có nhóm Auth, Trip, Trip day.
-- [ ] Mở endpoint ping, bấm **Try it out** rồi **Execute**. Trả 200 và `"data": "pong"`.
+- [x] Mở `http://localhost:8080/swagger-ui.html`. Trang mở được mà không cần đăng nhập.
+- [x] Xem danh sách nhóm. Có nhóm Auth, Trip, Trip day.
+- [x] Mở endpoint ping, bấm **Try it out** rồi **Execute**. Trả 200 và `"data": "pong"`.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-PLAT-04 · Trang web gọi được backend
 
 Cần có: backend đang chạy, trong `frontend/` có file `.env` và `npm run dev` đang chạy.
 
-- [ ] Chạy `curl.exe -s -i http://localhost:5173/api/v1/ping`. Trả 200 và `"data":"pong"`.
-- [ ] Chạy `curl.exe -s -i http://localhost:5173/api/v1/khong-ton-tai`. Trả 401 và `"errorCode":"UNAUTHORIZED"`.
+- [x] Chạy `curl.exe -s -i http://localhost:5173/api/v1/ping`. Trả 200 và `"data":"pong"`.
+- [x] Chạy `curl.exe -s -i http://localhost:5173/api/v1/khong-ton-tai`. Trả 401 và `"errorCode":"UNAUTHORIZED"`.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ### MT-PLAT-05 · Frontend build được
 
 Cần có: đã chạy `npm install` trong `frontend/`.
 
-- [ ] Chạy `npm run lint`. Không có lỗi.
-- [ ] Chạy `npm run build`. Build thành công, có thư mục `dist/`.
+- [x] Chạy `npm run lint`. Không có lỗi.
+- [x] Chạy `npm run build`. Build thành công, có thư mục `dist/`.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
 ---
 

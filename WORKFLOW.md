@@ -419,7 +419,7 @@ POST /api/v1/auth/register {email, password, fullName}
   → trả 201 + UserResponse (KHÔNG bao giờ trả passwordHash)
 ```
 
-**Nghiệm thu** (backend chạy `local`; dùng `curl.exe`, body chỉ ASCII vì Git Bash/PowerShell 5.1 làm hỏng UTF-8 trong `-d`):
+**Nghiệm thu** (backend chạy `local`; dùng `curl.exe`, body chỉ ASCII vì Git Bash/PowerShell 5.1 làm hỏng UTF-8 trong `-d`. **Cập nhật 2026-09-30, BUG-AUTH-005:** JSON viết thẳng trong `-d` như dưới đây bị PowerShell 5.1 làm hỏng dấu ngoặc kép → 400; ghi JSON ra file rồi `-d "@file"`, xem `docs/testing/02-auth.md`):
 ```powershell
 curl.exe -s -i -X POST localhost:8080/api/v1/auth/register -H "Content-Type: application/json" -d "{\"email\":\"Demo@Example.com\",\"password\":\"MatKhau123\",\"confirmPassword\":\"MatKhau123\",\"fullName\":\"Demo\"}"
 #   → 201, data.email = "demo@example.com" (lowercase), không có passwordHash
@@ -889,6 +889,15 @@ Mốc 4 — test(activity): add reorder flow integration test
 
 **Cơ chế orderIndex:** đánh số cách nhau 1000. Chèn giữa hai activity 1000 và 2000 → index 1500, không phải update cả danh sách. Khi khoảng cách < 10 thì normalize lại cả ngày.
 
+> **Thực tế khi làm 2.4 (2026-09-30):** 4 commit đúng bảng đã duyệt, thêm commit docs Mốc 0 trên `main`. 51 method test mới (toàn dự án 434 method / 462 lượt chạy), không test nào đỏ ngoài dự kiến. Kiểm chứng ngược 2 lần (gỡ `@OptimisticLock(excluded)` → 2 test đỏ; tắt kiểm trùng giờ → 3 test đỏ).
+> - Endpoint mới: `PUT /trips/{tripId}/activities/reorder?allowOverlap=`, body `{ items: [...] }`, trả các ngày bị ảnh hưởng kèm activities. 6 câu SQL cho một lần kéo thả, không phụ thuộc số activity trong ngày (`ActivityReorderFlowIntegrationTest`).
+> - `Activity.moveTo(day, index)` là cách duy nhất đổi vị trí; `tripDay` và `orderIndex` không có setter.
+> - Normalize chỉ đo những ngày **nhận** activity; ngày chỉ mất activity không bị đánh lại. Khoảng cách tính cả từ 0.
+> - **Việc cho Task 2.5:** giao diện gọi reorder với đúng những activity bị kéo; thay các ngày trong state bằng `data` trả về (đã có orderIndex normalize); 409 `ACTIVITY_TIME_CONFLICT` với `details[i].field = items[<i>].dayId` → hỏi lại → `allowOverlap=true`.
+> - **Việc cho Task 5.3:** `version` không đổi khi reorder là cố ý (design.md 11.3); realtime chỉ cần phát `ACTIVITY_REORDERED` với các ngày trả về.
+>
+> **Bẫy đã gặp khi làm 2.4:** không có bẫy mới. Hai bẫy múi giờ của 2.3 vẫn áp dụng: `findTimedByTripDayIdIn` chỉ đọc giờ, so sánh trong Java.
+>
 > **Quyết định khi duyệt bảng commit 2.4 (2026-09-29)** — chi tiết ở design.md 10.2 "Quy ước Reorder", 11.3, rule 14.5:
 > - Body là `{ "items": [...] }`, không phải mảng trần như bản design cũ.
 > - Chuyển activity sang ngày khác có kiểm trùng giờ ở ngày đích; `allowOverlap` là query param. Tách thành mốc riêng (Mốc 2).
@@ -1399,7 +1408,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.1 Trip CRUD | ☑ | 2026-09-26 |
 | 2 | 2.2 TripDay auto-gen | ☑ | 2026-09-28 |
 | 2 | 2.3 Activity + trùng giờ | ☑ | 2026-09-29 |
-| 2 | 2.4 Reorder | ☐ | |
+| 2 | 2.4 Reorder | ☑ | 2026-09-30 |
 | 2 | 2.5 Itinerary UI | ☐ | |
 | 3 | 3.1 Provider abstraction | ☐ | |
 | 3 | 3.2 Place service | ☐ | |

@@ -1,6 +1,6 @@
 # 03 · Chuyến đi
 
-> Cập nhật: 2026-09-29 · build xanh tại commit `50bb13c` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
 
 Tính năng này cho người dùng tạo, xem danh sách, xem chi tiết, sửa và xoá chuyến đi. Làm ở Task 2.1.
 Ở giai đoạn này chỉ **chủ sở hữu** mới có quyền trên chuyến đi. Chia sẻ cho người khác thuộc Phase 4.
@@ -120,46 +120,46 @@ Cần có: backend đang chạy, và hai tài khoản đã xác thực email, g�
 
 ### MT-TRIP-01 · Tạo và xem chuyến đi
 
-- [ ] Đăng nhập bằng tài khoản A.
-- [ ] Tạo chuyến đi tên "Đà Lạt 3 ngày", từ `2026-10-01` đến `2026-10-03`. Trả 201, trạng thái `DRAFT`, tên rút gọn bắt đầu bằng `da-lat-3-ngay-`.
-- [ ] Xem danh sách chuyến đi. Có chuyến vừa tạo.
-- [ ] Xem chi tiết bằng mã vừa nhận. Trả 200, tên hiển thị đúng dấu tiếng Việt.
+- [x] Đăng nhập bằng tài khoản A.
+- [x] Tạo chuyến đi tên "Đà Lạt 3 ngày", từ `2026-10-01` đến `2026-10-03`. Trả 201, trạng thái `DRAFT`, tên rút gọn bắt đầu bằng `da-lat-3-ngay-`.
+- [x] Xem danh sách chuyến đi. Có chuyến vừa tạo.
+- [x] Xem chi tiết bằng mã vừa nhận. Trả 200, tên hiển thị đúng dấu tiếng Việt.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-TRIP-02 · Giới hạn 60 ngày
 
-- [ ] Tạo chuyến đi từ `2026-10-01` đến `2026-11-29`. Trả 201, vì đây là đúng 60 ngày.
-- [ ] Tạo chuyến đi từ `2026-10-01` đến `2026-11-30`. Trả 400, thông báo "Chuyến đi dài tối đa 60 ngày".
-- [ ] Tạo chuyến đi từ `2026-10-05` đến `2026-10-01`. Trả 400, thông báo ngày kết thúc phải bằng hoặc sau ngày bắt đầu.
+- [x] Tạo chuyến đi từ `2026-10-01` đến `2026-11-29`. Trả 201, vì đây là đúng 60 ngày.
+- [x] Tạo chuyến đi từ `2026-10-01` đến `2026-11-30`. Trả 400, thông báo "Chuyến đi dài tối đa 60 ngày".
+- [x] Tạo chuyến đi từ `2026-10-05` đến `2026-10-01`. Trả 400, thông báo ngày kết thúc phải bằng hoặc sau ngày bắt đầu.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-TRIP-03 · Người lạ không đụng được chuyến đi
 
 Cần có: mã chuyến đi của tài khoản A từ `MT-TRIP-01`.
 
-- [ ] Đăng nhập bằng tài khoản B.
-- [ ] Xem danh sách. Không có chuyến đi của A.
-- [ ] Xem chi tiết chuyến đi của A. Trả 403.
-- [ ] Sửa tên chuyến đi của A. Trả 403.
-- [ ] Xoá chuyến đi của A. Trả 403.
-- [ ] Đăng nhập lại bằng A và xem chi tiết. Tên chuyến đi không đổi.
+- [x] Đăng nhập bằng tài khoản B.
+- [x] Xem danh sách. Không có chuyến đi của A.
+- [x] Xem chi tiết chuyến đi của A. Trả 403.
+- [x] Sửa tên chuyến đi của A. Trả 403.
+- [x] Xoá chuyến đi của A. Trả 403.
+- [x] Đăng nhập lại bằng A và xem chi tiết. Tên chuyến đi không đổi.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-TRIP-04 · Sửa và xoá
 
-- [ ] Đăng nhập bằng A. Sửa chuyến đi, chỉ gửi tên mới. Trả 200, ngày và tên rút gọn giữ nguyên, số phiên bản tăng 1.
-- [ ] Xoá chuyến đi. Trả 200.
-- [ ] Xem chi tiết chuyến đi vừa xoá. Trả 404.
-- [ ] Chạy câu lệnh bên dưới trong MySQL. Dòng dữ liệu vẫn còn, cột `deleted_at` có giá trị.
+- [x] Đăng nhập bằng A. Sửa chuyến đi, chỉ gửi tên mới. Trả 200, ngày và tên rút gọn giữ nguyên, số phiên bản tăng 1.
+- [x] Xoá chuyến đi. Trả 200.
+- [x] Xem chi tiết chuyến đi vừa xoá. Trả 404.
+- [x] Chạy câu lệnh bên dưới trong MySQL. Dòng dữ liệu vẫn còn, cột `deleted_at` có giá trị.
 
 ```sql
 SELECT id, title, deleted_at FROM trips ORDER BY id DESC LIMIT 5;
 ```
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ---
 

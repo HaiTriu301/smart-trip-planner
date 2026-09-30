@@ -1,6 +1,6 @@
 # 04 · Các ngày của chuyến đi
 
-> Cập nhật: 2026-09-29 · build xanh tại commit `50bb13c` · [Về trang chính](README.md)
+> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
 
 Mỗi chuyến đi có sẵn một "ngày" cho mỗi ngày lịch từ ngày bắt đầu tới ngày kết thúc. Người dùng không tự thêm hay xoá ngày. Hệ thống tự làm việc đó khi chuyến đi được tạo hoặc đổi ngày. Làm ở Task 2.2.
 
@@ -111,31 +111,31 @@ Làm trên trang Swagger. Cần có: backend đang chạy, đã đăng nhập b�
 
 ### MT-DAY-01 · Ngày được sinh cùng chuyến đi
 
-- [ ] Tạo chuyến đi từ `2026-10-01` đến `2026-10-03`.
-- [ ] Gọi danh sách ngày của chuyến đi đó. Trả 3 ngày, số thứ tự 1, 2, 3, ngày lịch 01, 02, 03 tháng 10.
-- [ ] Gọi chi tiết chuyến đi. Phần `days` có đúng 3 ngày đó.
+- [x] Tạo chuyến đi từ `2026-10-01` đến `2026-10-03`.
+- [x] Gọi danh sách ngày của chuyến đi đó. Trả 3 ngày, số thứ tự 1, 2, 3, ngày lịch 01, 02, 03 tháng 10.
+- [x] Gọi chi tiết chuyến đi. Phần `days` có đúng 3 ngày đó.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-DAY-02 · Đặt và xoá tiêu đề của ngày
 
 Cần có: chuyến đi từ `MT-DAY-01`.
 
-- [ ] Sửa Ngày 1, gửi tiêu đề "Khám phá trung tâm" và ghi chú "Nhận phòng lúc 14 giờ". Trả 200, dấu tiếng Việt đúng.
-- [ ] Sửa Ngày 1, chỉ gửi ghi chú mới. Tiêu đề vẫn là "Khám phá trung tâm".
-- [ ] Sửa Ngày 1, gửi tiêu đề là chuỗi rỗng `""`. Tiêu đề trở về `null`, ghi chú giữ nguyên.
+- [x] Sửa Ngày 1, gửi tiêu đề "Khám phá trung tâm" và ghi chú "Nhận phòng lúc 14 giờ". Trả 200, dấu tiếng Việt đúng.
+- [x] Sửa Ngày 1, chỉ gửi ghi chú mới. Tiêu đề vẫn là "Khám phá trung tâm".
+- [x] Sửa Ngày 1, gửi tiêu đề là chuỗi rỗng `""`. Tiêu đề trở về `null`, ghi chú giữ nguyên.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ### MT-DAY-03 · Đổi ngày của chuyến đi
 
 Cần có: một chuyến đi mới từ `2026-10-01` đến `2026-10-03`, ba ngày được đặt tiêu đề A, B, C.
 
-- [ ] Sửa chuyến đi thành `2026-10-08` đến `2026-10-10`. Danh sách ngày là 08, 09, 10 với tiêu đề A, B, C.
-- [ ] Sửa ngày kết thúc thành `2026-10-12`. Có 5 ngày, hai ngày cuối không có tiêu đề.
-- [ ] Sửa ngày bắt đầu thành `2026-10-10`. Còn 3 ngày. Ngày 1 là 10/10 với tiêu đề C.
+- [x] Sửa chuyến đi thành `2026-10-08` đến `2026-10-10`. Danh sách ngày là 08, 09, 10 với tiêu đề A, B, C.
+- [x] Sửa ngày kết thúc thành `2026-10-12`. Có 5 ngày, hai ngày cuối không có tiêu đề.
+- [x] Sửa ngày bắt đầu thành `2026-10-10`. Còn 3 ngày. Ngày 1 là 10/10 với tiêu đề C.
 
-**Kết quả:** Chưa chạy · **Ngày:** · **Ghi chú:**
+**Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
 
 ---
 
