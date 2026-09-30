@@ -7,6 +7,16 @@ export interface ApiResponse<T> {
   timestamp: string
 }
 
+/** Mirrors backend common/PageResponse; page is 0-based. */
+export interface PageResponse<T> {
+  items: T[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  hasNext: boolean
+}
+
 export interface FieldError {
   field: string
   message: string | null

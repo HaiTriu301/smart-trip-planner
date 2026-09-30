@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { GuestRoute } from './components/GuestRoute'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { AppLayout } from './layouts/AppLayout'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -24,7 +25,12 @@ const router = createBrowserRouter([
   { path: '/reset-password', element: <ResetPasswordPage /> },
   {
     element: <ProtectedRoute />,
-    children: [{ path: '/trips', element: <TripsPage /> }],
+    children: [
+      {
+        element: <AppLayout />,
+        children: [{ path: '/trips', element: <TripsPage /> }],
+      },
+    ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
 ])
