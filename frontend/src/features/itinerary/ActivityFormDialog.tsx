@@ -17,6 +17,7 @@ import { ACTIVITY_TYPES, ACTIVITY_TYPE_LABELS } from './activityType'
 import {
   activitySchema,
   findClearedActivityFields,
+  NOTE_MAX_LENGTH,
   toActivityValues,
   toCreateActivityRequest,
   toUpdateActivityRequest,
@@ -158,7 +159,12 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
         error={errors.bookingUrl?.message}
         {...register('bookingUrl')}
       />
-      <TextAreaField label="Ghi chú (không bắt buộc)" error={errors.note?.message} {...register('note')} />
+      <TextAreaField
+        label={`Ghi chú (không bắt buộc, tối đa ${NOTE_MAX_LENGTH} ký tự)`}
+        maxLength={NOTE_MAX_LENGTH}
+        error={errors.note?.message}
+        {...register('note')}
+      />
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} disabled={mutation.isPending} onClick={onClose}>
           Huỷ

@@ -7,6 +7,7 @@ import type { CreateTripRequest, TripResponse, UpdateTripRequest } from '../../t
 // The backend stays authoritative; these only give instant feedback with the same Vietnamese messages.
 
 export const MAX_TRIP_DAYS = 60
+export const DESCRIPTION_MAX_LENGTH = 1000
 
 export const tripSchema = z
   .object({
@@ -15,7 +16,9 @@ export const tripSchema = z
       .trim()
       .min(1, 'Tên chuyến đi không được để trống')
       .max(160, 'Tên chuyến đi không được vượt quá 160 ký tự'),
-    description: z.string().max(5000, 'Mô tả không được vượt quá 5000 ký tự'),
+    description: z
+      .string()
+      .max(DESCRIPTION_MAX_LENGTH, `Mô tả không được vượt quá ${DESCRIPTION_MAX_LENGTH} ký tự`),
     coverImageUrl: urlText('Đường dẫn ảnh bìa'),
     destinationName: z.string().trim().max(200, 'Tên điểm đến không được vượt quá 200 ký tự'),
     // <input type="date"> yields "YYYY-MM-DD", or "" when empty

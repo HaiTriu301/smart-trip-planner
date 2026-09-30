@@ -21,7 +21,7 @@ public record UpdateTripRequest(
         @Size(max = 160, message = "{validation.trip.title.too-long}")
         String title,
 
-        @Size(max = 5000, message = "{validation.trip.description.too-long}")
+        @Size(max = 1000, message = "{validation.trip.description.too-long}")
         String description,
 
         @Size(max = 512, message = "{validation.trip.cover-image-url.too-long}")

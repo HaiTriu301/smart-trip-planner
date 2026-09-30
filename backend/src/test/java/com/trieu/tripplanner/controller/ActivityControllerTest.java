@@ -241,6 +241,45 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createAcceptsNoteOfExactly255Characters() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
+
+        // Vietnamese letters: the limit counts characters, not bytes
+        assertThat(post("""
+                { "title": "An trua", "note": "%s" }
+                """.formatted("ă".repeat(255))))
+                .hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void createWithNoteOver255CharactersReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(post("""
+                { "title": "An trua", "note": "%s" }
+                """.formatted("a".repeat(256))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "note", "message": "Ghi chú của hoạt động không được vượt quá 255 ký tự" } ] }
+                        """);
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void updateWithNoteOver255CharactersReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "note": "%s" }
+                """.formatted("a".repeat(256))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("note");
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
     void createWithUnknownTypeOrImpossibleTimeReturns400() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
 

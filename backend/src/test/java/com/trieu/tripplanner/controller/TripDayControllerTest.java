@@ -155,6 +155,34 @@ class TripDayControllerTest {
     }
 
     @Test
+    void updateAcceptsNoteOfExactly255Characters() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripDayService.update(eq(TRIP_ID), eq(DAY_ID), any()))
+                .thenReturn(new TripDayResponse(DAY_ID, 1, LocalDate.of(2026, 10, 1), null, "ă".repeat(255)));
+
+        // Vietnamese letters: the limit counts characters, not bytes
+        assertThat(patchDay("""
+                { "note": "%s" }
+                """.formatted("ă".repeat(255))))
+                .hasStatusOk();
+    }
+
+    @Test
+    void updateWithNoteOver255CharactersReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(patchDay("""
+                { "note": "%s" }
+                """.formatted("a".repeat(256))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "note", "message": "Ghi chú của ngày không được vượt quá 255 ký tự" } ] }
+                        """);
+        verify(tripDayService, never()).update(any(), any(), any());
+    }
+
+    @Test
     void updateReturns404WhenDayIsNotInTheTrip() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
         when(tripDayService.update(eq(TRIP_ID), eq(DAY_ID), any()))

@@ -5,9 +5,12 @@ import { ACTIVITY_TYPES } from './activityType'
 
 // Mirrors backend dto/request (UpdateTripDayRequest...), same Vietnamese messages as messages.properties.
 
+/** Day note and activity note: a short reminder, not a document (Task 2.5) */
+export const NOTE_MAX_LENGTH = 255
+
 export const daySchema = z.object({
   title: z.string().trim().max(160, 'Tiêu đề của ngày không được vượt quá 160 ký tự'),
-  note: z.string().max(5000, 'Ghi chú của ngày không được vượt quá 5000 ký tự'),
+  note: z.string().max(NOTE_MAX_LENGTH, `Ghi chú của ngày không được vượt quá ${NOTE_MAX_LENGTH} ký tự`),
 })
 export type DayValues = z.infer<typeof daySchema>
 
@@ -24,7 +27,7 @@ export const activitySchema = z
     // <input type="time"> yields "HH:mm", or "" when empty
     startTime: z.string(),
     endTime: z.string(),
-    note: z.string().max(5000, 'Ghi chú của hoạt động không được vượt quá 5000 ký tự'),
+    note: z.string().max(NOTE_MAX_LENGTH, `Ghi chú của hoạt động không được vượt quá ${NOTE_MAX_LENGTH} ký tự`),
     costAmount: moneyText('Chi phí'),
     currency: currencyCode,
     bookingUrl: urlText('Đường dẫn đặt chỗ'),

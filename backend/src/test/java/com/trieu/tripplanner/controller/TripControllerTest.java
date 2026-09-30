@@ -417,6 +417,50 @@ class TripControllerTest {
         verify(tripService, never()).updateStatus(any(), any());
     }
 
+    // ---- description length (1000) ---------------------------------------------------------------------------
+
+    @Test
+    void createAcceptsDescriptionOfExactly1000Characters() {
+        when(tripService.create(eq(USER_ID), any())).thenReturn(sampleTrip());
+
+        // Vietnamese letters: the limit counts characters, not bytes
+        assertThat(mvc.post().uri(TRIPS_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Da Lat", "startDate": "2026-10-01", "endDate": "2026-10-03", "description": "%s" }
+                        """.formatted("ă".repeat(1000))))
+                .hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void createWithDescriptionOver1000CharactersReturns400() {
+        assertThat(mvc.post().uri(TRIPS_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Da Lat", "startDate": "2026-10-01", "endDate": "2026-10-03", "description": "%s" }
+                        """.formatted("a".repeat(1001))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "description", "message": "Mô tả không được vượt quá 1000 ký tự" } ] }
+                        """);
+        verify(tripService, never()).create(any(), any());
+    }
+
+    @Test
+    void updateWithDescriptionOver1000CharactersReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "description": "%s" }
+                        """.formatted("a".repeat(1001))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("description");
+        verify(tripService, never()).update(any(), any(), anyBoolean());
+    }
+
     // ---- DELETE /trips/{id} ----------------------------------------------------------------------------------
 
     @Test

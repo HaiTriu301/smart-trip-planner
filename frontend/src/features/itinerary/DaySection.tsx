@@ -16,7 +16,7 @@ import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFormDialog } from './ActivityFormDialog'
 import { SortableActivity, SortableDayList } from './DragDropContainer'
-import { daySchema, type DayValues } from './schemas'
+import { daySchema, NOTE_MAX_LENGTH, type DayValues } from './schemas'
 
 interface DaySectionProps {
   tripId: number
@@ -174,7 +174,12 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
         error={errors.title?.message}
         {...register('title')}
       />
-      <TextAreaField label="Ghi chú" error={errors.note?.message} {...register('note')} />
+      <TextAreaField
+        label={`Ghi chú (tối đa ${NOTE_MAX_LENGTH} ký tự)`}
+        maxLength={NOTE_MAX_LENGTH}
+        error={errors.note?.message}
+        {...register('note')}
+      />
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} onClick={onDone}>
           Huỷ

@@ -5,7 +5,7 @@ import { SelectField } from '../../components/SelectField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { countDays } from '../../lib/format'
 import { currencyOptions } from '../../lib/validation'
-import { MAX_TRIP_DAYS, type TripValues } from './schemas'
+import { DESCRIPTION_MAX_LENGTH, MAX_TRIP_DAYS, type TripValues } from './schemas'
 
 // Field groups shared by the create wizard (one group per step) and the edit dialog (all groups at once)
 
@@ -19,7 +19,12 @@ export function TripInfoFields({ form, autoFocus }: SectionProps) {
   return (
     <div className="space-y-4">
       <FormField label="Tên chuyến đi" autoFocus={autoFocus} error={errors.title?.message} {...register('title')} />
-      <TextAreaField label="Mô tả (không bắt buộc)" error={errors.description?.message} {...register('description')} />
+      <TextAreaField
+        label={`Mô tả (không bắt buộc, tối đa ${DESCRIPTION_MAX_LENGTH} ký tự)`}
+        maxLength={DESCRIPTION_MAX_LENGTH}
+        error={errors.description?.message}
+        {...register('description')}
+      />
       <FormField
         label="Đường dẫn ảnh bìa (không bắt buộc)"
         type="url"
