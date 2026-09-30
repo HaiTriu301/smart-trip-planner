@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatDate } from '../../lib/format'
 import type { TripDayDetail } from '../../types/trip'
 import { DaySection } from './DaySection'
@@ -13,13 +13,14 @@ interface DayTimelineProps {
 /**
  * Left (200px): list of days that jumps to a day and follows the scroll. Right: every day stacked, so an
  * activity can be dragged from one day to another without switching views (UI_GUIDE 8.1, cách a).
- * The map column comes in Phase 3.
+ * Below 1024px the left column becomes a sticky row of day chips (UI_GUIDE 8.1, 11). The map column comes in Phase 3.
  */
 export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
   const activeDayId = useVisibleDay(days)
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[200px_minmax(0,1fr)]">
+    <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <DayChips days={days} activeDayId={activeDayId} />
       <nav aria-label="Các ngày" className="hidden lg:block">
         <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto">
           {days.map((day) => {
@@ -65,6 +66,48 @@ export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
         </DragDropContainer>
       </div>
     </div>
+  )
+}
+
+interface DayChipsProps {
+  days: TripDayDetail[]
+  activeDayId: number | undefined
+}
+
+/** Phones and tablets: the day list as chips that scroll sideways, stuck to the top while the days scroll by. */
+function DayChips({ days, activeDayId }: DayChipsProps) {
+  const activeRef = useRef<HTMLAnchorElement>(null)
+
+  // Keep the chip of the day on screen visible in the row
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeDayId])
+
+  return (
+    <nav
+      aria-label="Các ngày"
+      className="sticky top-0 z-20 -mx-4 border-b border-tide bg-paper px-4 py-2 sm:-mx-6 sm:px-6 lg:hidden"
+    >
+      <ol className="flex gap-2 overflow-x-auto">
+        {days.map((day) => {
+          const active = day.id === activeDayId
+          return (
+            <li key={day.id} className="shrink-0">
+              <a
+                ref={active ? activeRef : undefined}
+                href={`#day-${day.id}`}
+                aria-current={active ? 'location' : undefined}
+                className={`tabular inline-flex h-9 items-center rounded-control px-3 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                  active ? 'bg-ink text-white' : 'border border-tide bg-white text-gray-600'
+                }`}
+              >
+                Ngày {day.dayIndex} · {formatDate(day.date).slice(0, 5)}
+              </a>
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
   )
 }
 

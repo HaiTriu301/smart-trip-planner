@@ -37,7 +37,7 @@ export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
   const [isEditing, setIsEditing] = useState(false)
 
   return (
-    <section id={`day-${day.id}`} aria-labelledby={`day-${day.id}-heading`} className="scroll-mt-6 space-y-4 py-6 first:pt-0">
+    <section id={`day-${day.id}`} aria-labelledby={`day-${day.id}-heading`} className="scroll-mt-16 space-y-4 py-6 first:pt-0 lg:scroll-mt-6">
       {isEditing ? (
         <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditing(false)} />
       ) : (

@@ -29,7 +29,7 @@ import { reorderItemsForDrop, type ReorderItem } from '../../lib/orderIndex'
 import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail, TripDetail } from '../../types/trip'
-import { GripVertical } from 'lucide-react'
+import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 import { ActivityCard } from './ActivityCard'
 import { ACTIVITY_ROUTE } from './activityType'
 
@@ -72,8 +72,17 @@ function applyItems(days: TripDayDetail[], items: ReorderItem[]): TripDayDetail[
   }))
 }
 
-/** True while a reorder is saving or waiting for the overlap question: dragging is paused. */
-const DragDisabledContext = createContext(false)
+interface ReorderContextValue {
+  /** True while a reorder is saving or waiting for the overlap question: dragging and moving are paused */
+  disabled: boolean
+  /** Move one step up or down; past the first/last activity of a day it goes to the previous/next day */
+  move: (activityId: number, direction: -1 | 1) => void
+  /** First and last activity of the whole trip: their up / down arrow has nowhere to go */
+  firstId?: number
+  lastId?: number
+}
+
+const ReorderContext = createContext<ReorderContextValue>({ disabled: false, move: () => undefined })
 
 interface PendingReorder {
   items: ReorderItem[]
@@ -168,8 +177,16 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
       finalDays = working.map((d) => (d.id === day.id ? { ...d, activities: arrayMove(d.activities, from, to) } : d))
     }
 
-    const target = findDay(finalDays, active.id)
-    const origin = findDay(days, active.id)
+    commitMove(finalDays, movedId)
+  }
+
+  /**
+   * Shared by drag and drop and the arrow buttons: show the new order at once, then send only the moved activity.
+   * The overlap question and the rollback on error work the same for both.
+   */
+  function commitMove(finalDays: TripDayDetail[], movedId: number) {
+    const target = findDay(finalDays, activityKey(movedId))
+    const origin = findDay(days, activityKey(movedId))
     if (!target || !origin) return
     const unchanged =
       target.id === origin.id &&
@@ -183,16 +200,43 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     mutation.mutate({ items, snapshot: days, allowOverlap: false })
   }
 
+  /** Touch screens have no drag and drop (it fights with scrolling, UI_GUIDE 11): one step per tap instead. */
+  function move(activityId: number, direction: -1 | 1) {
+    const dayIndex = days.findIndex((d) => d.activities.some((a) => a.id === activityId))
+    const day = days[dayIndex]
+    if (!day) return
+    const index = day.activities.findIndex((a) => a.id === activityId)
+    const next = index + direction
+    if (next >= 0 && next < day.activities.length) {
+      commitMove(
+        days.map((d) => (d.id === day.id ? { ...d, activities: arrayMove(d.activities, index, next) } : d)),
+        activityId,
+      )
+      return
+    }
+    // Leaving the day: to the end of the previous day, or the start of the next one
+    const neighbour = days[dayIndex + direction]
+    if (!neighbour) return
+    commitMove(moveToDay(days, activityId, neighbour.id, direction < 0 ? neighbour.activities.length : 0), activityId)
+  }
+
   function handleDragCancel() {
     setDragDays(null)
     setActiveId(null)
   }
 
   const shownDays = dragDays ?? days
-  const activeActivity = activeId === null ? undefined : shownDays.flatMap((d) => d.activities).find((a) => a.id === activeId)
+  const allActivities = shownDays.flatMap((d) => d.activities)
+  const activeActivity = activeId === null ? undefined : allActivities.find((a) => a.id === activeId)
+  const reorder: ReorderContextValue = {
+    disabled: mutation.isPending || conflict !== null,
+    move,
+    firstId: allActivities[0]?.id,
+    lastId: allActivities[allActivities.length - 1]?.id,
+  }
 
   return (
-    <DragDisabledContext.Provider value={mutation.isPending || conflict !== null}>
+    <ReorderContext.Provider value={reorder}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -231,7 +275,7 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
         </ul>
         <p>Bạn vẫn muốn chuyển hoạt động sang ngày này? Chọn Huỷ để đưa hoạt động về chỗ cũ.</p>
       </ConfirmDialog>
-    </DragDisabledContext.Provider>
+    </ReorderContext.Provider>
   )
 }
 
@@ -272,23 +316,43 @@ interface SortableActivityProps {
 
 /** One "station": start time on the left, a dot in the route colour on the rail, the card on the right. */
 export function SortableActivity({ activity, children }: SortableActivityProps) {
-  const disabled = useContext(DragDisabledContext)
+  const { disabled, move, firstId, lastId } = useContext(ReorderContext)
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: activityKey(activity.id),
     disabled,
   })
 
+  // Mouse / pen: the grip. Touch screens: two 44px arrow buttons (UI_GUIDE 11, 12), chosen by pointer type,
+  // not by screen width, so a narrow desktop window keeps drag and drop
   const handle = (
-    <button
-      type="button"
-      ref={setActivatorNodeRef}
-      {...attributes}
-      {...listeners}
-      aria-label={`Kéo để sắp xếp ${activity.title}`}
-      className="cursor-grab touch-none rounded-control p-1 hover:bg-gray-100 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
-    >
-      <GripIcon />
-    </button>
+    <>
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={`Kéo để sắp xếp ${activity.title}`}
+        className="cursor-grab touch-none rounded-control p-1 hover:bg-gray-100 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none active:cursor-grabbing aria-disabled:cursor-not-allowed aria-disabled:opacity-40 pointer-coarse:hidden"
+      >
+        <GripIcon />
+      </button>
+      <div className="hidden flex-col pointer-coarse:flex">
+        <MoveButton
+          label={`Chuyển ${activity.title} lên`}
+          disabled={disabled || activity.id === firstId}
+          onClick={() => move(activity.id, -1)}
+        >
+          <ChevronUp aria-hidden className="size-5" />
+        </MoveButton>
+        <MoveButton
+          label={`Chuyển ${activity.title} xuống`}
+          disabled={disabled || activity.id === lastId}
+          onClick={() => move(activity.id, 1)}
+        >
+          <ChevronDown aria-hidden className="size-5" />
+        </MoveButton>
+      </div>
+    </>
   )
 
   return (
@@ -305,6 +369,27 @@ export function SortableActivity({ activity, children }: SortableActivityProps) 
         {isDragging && <div aria-hidden className="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-jade" />}
       </div>
     </li>
+  )
+}
+
+interface MoveButtonProps {
+  label: string
+  disabled: boolean
+  onClick: () => void
+  children: ReactNode
+}
+
+function MoveButton({ label, disabled, onClick, children }: MoveButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex size-11 items-center justify-center rounded-control text-gray-600 hover:bg-gray-100 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none disabled:opacity-30"
+    >
+      {children}
+    </button>
   )
 }
 
