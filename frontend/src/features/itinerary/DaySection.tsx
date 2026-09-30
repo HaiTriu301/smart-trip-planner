@@ -8,6 +8,7 @@ import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { formatDate, formatWeekday } from '../../lib/format'
@@ -40,11 +41,11 @@ export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
               Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
             </h3>
             {day.title ? (
-              <p className="font-medium text-sky-800">{day.title}</p>
+              <p className="font-medium wrap-anywhere text-sky-800">{day.title}</p>
             ) : (
               <p className="italic text-slate-400">Chưa có tiêu đề</p>
             )}
-            {day.note && <p className="whitespace-pre-line text-sm text-slate-600">{day.note}</p>}
+            {day.note && <ExpandableText text={day.note} className="text-sm text-slate-600" />}
           </div>
           <Button
             variant="ghost"

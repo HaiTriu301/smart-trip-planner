@@ -16,7 +16,7 @@ export function TripCard({ trip }: { trip: TripSummary }) {
       )}
       <div className="space-y-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h2 className="line-clamp-2 font-semibold text-slate-800">{trip.title}</h2>
+          <h2 title={trip.title} className="line-clamp-2 min-w-0 font-semibold wrap-anywhere text-slate-800">{trip.title}</h2>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${TRIP_STATUS_STYLES[trip.status]}`}
           >

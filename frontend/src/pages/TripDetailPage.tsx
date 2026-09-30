@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getTrip } from '../api/trips'
 import { getApiError, getErrorMessage } from '../api/errors'
 import { Alert } from '../components/Alert'
+import { ExpandableText } from '../components/ExpandableText'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
 import { TripActions } from '../features/trips/TripActions'
 import { TripStatusSelect } from '../features/trips/TripStatusSelect'
@@ -44,19 +45,23 @@ export function TripDetailPage() {
       </Link>
 
       <header className="space-y-2">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-800">{trip.title}</h1>
+        {/* Title takes the free width and stops at two lines; status and actions keep one fixed spot on the
+            right (on their own row under the title on narrow screens), whatever the title length */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <h1 title={trip.title} className="line-clamp-2 min-w-0 flex-1 text-2xl font-bold wrap-anywhere text-slate-800">
+            {trip.title}
+          </h1>
+          <div className="flex shrink-0 items-center justify-end gap-2 sm:pt-1">
             <TripStatusSelect trip={trip} />
+            <TripActions trip={trip} />
           </div>
-          <TripActions trip={trip} />
         </div>
-        <p className="text-slate-600">
+        <p className="wrap-anywhere text-slate-600">
           {trip.destinationName && <>{trip.destinationName} · </>}
           {formatDateRange(trip.startDate, trip.endDate)} · {countDays(trip.startDate, trip.endDate)} ngày
           {trip.budgetAmount !== null && <> · Ngân sách {formatMoney(trip.budgetAmount, trip.currency)}</>}
         </p>
-        {trip.description && <p className="whitespace-pre-line text-slate-600">{trip.description}</p>}
+        {trip.description && <ExpandableText text={trip.description} className="text-slate-600" />}
       </header>
 
       <DayTimeline tripId={trip.id} days={trip.days} tripCurrency={trip.currency} />
