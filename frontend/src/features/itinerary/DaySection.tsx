@@ -2,24 +2,30 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { deleteActivity } from '../../api/activities'
 import { updateTripDay } from '../../api/trips'
 import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { formatDate, formatWeekday } from '../../lib/format'
+import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
+import { ActivityFormDialog } from './ActivityFormDialog'
 import { daySchema, type DayValues } from './schemas'
 
 interface DaySectionProps {
   tripId: number
   day: TripDayDetail
+  /** Default currency of a new activity cost */
+  tripCurrency: string
 }
 
 /** One day of the timeline: header (date, title, note) and its activities in orderIndex order. */
-export function DaySection({ tripId, day }: DaySectionProps) {
+export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
   const [isEditing, setIsEditing] = useState(false)
 
   return (
@@ -52,20 +58,79 @@ export function DaySection({ tripId, day }: DaySectionProps) {
         </header>
       )}
 
+      <DayActivities tripId={tripId} day={day} tripCurrency={tripCurrency} />
+    </section>
+  )
+}
+
+/** Activities of the day with add / edit / delete. One form dialog and one delete dialog per day. */
+function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
+  const queryClient = useQueryClient()
+  // undefined: form closed · null: adding · Activity: editing that one
+  const [editing, setEditing] = useState<Activity | null | undefined>(undefined)
+  const [deleting, setDeleting] = useState<Activity | null>(null)
+
+  const deletion = useMutation({
+    mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
+      setDeleting(null)
+    },
+  })
+
+  return (
+    <>
       {day.activities.length === 0 ? (
         <p className="text-sm text-slate-500">Chưa có hoạt động nào.</p>
       ) : (
         <div className="space-y-2">
           {day.activities.map((activity) => (
-            <ActivityCard key={activity.id} activity={activity} />
+            <ActivityCard
+              key={activity.id}
+              activity={activity}
+              onEdit={() => setEditing(activity)}
+              onDelete={() => {
+                deletion.reset()
+                setDeleting(activity)
+              }}
+            />
           ))}
         </div>
       )}
-    </section>
+      <Button variant="ghost" size="sm" fullWidth={false} onClick={() => setEditing(null)}>
+        + Thêm hoạt động
+      </Button>
+
+      <ActivityFormDialog
+        tripId={tripId}
+        dayId={day.id}
+        tripCurrency={tripCurrency}
+        activity={editing ?? null}
+        open={editing !== undefined}
+        onClose={() => setEditing(undefined)}
+      />
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Xoá hoạt động?"
+        confirmLabel="Xoá hoạt động"
+        variant="danger"
+        isLoading={deletion.isPending}
+        error={deletion.isError ? getErrorMessage(deletion.error) : undefined}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => deleting && deletion.mutate(deleting)}
+      >
+        <p>
+          Hoạt động <strong className="text-slate-800">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
+          này không hoàn tác được.
+        </p>
+      </ConfirmDialog>
+    </>
   )
 }
 
-interface DayEditFormProps extends DaySectionProps {
+interface DayEditFormProps {
+  tripId: number
+  day: TripDayDetail
   onDone: () => void
 }
 

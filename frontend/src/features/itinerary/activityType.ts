@@ -1,5 +1,14 @@
 import type { ActivityType } from '../../types/activity'
 
+export const ACTIVITY_TYPES = [
+  'SIGHTSEEING',
+  'FOOD',
+  'TRANSPORT',
+  'ACCOMMODATION',
+  'SHOPPING',
+  'OTHER',
+] as const satisfies readonly ActivityType[]
+
 export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   SIGHTSEEING: 'Tham quan',
   FOOD: 'Ăn uống',

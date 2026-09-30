@@ -1,3 +1,4 @@
+import { Button } from '../../components/Button'
 import { formatMoney } from '../../lib/format'
 import type { Activity } from '../../types/activity'
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_STYLES } from './activityType'
@@ -8,7 +9,13 @@ function formatTimeRange(activity: Activity): string | null {
   return activity.endTime ? `${activity.startTime} – ${activity.endTime}` : activity.startTime
 }
 
-export function ActivityCard({ activity }: { activity: Activity }) {
+interface ActivityCardProps {
+  activity: Activity
+  onEdit: () => void
+  onDelete: () => void
+}
+
+export function ActivityCard({ activity, onEdit, onDelete }: ActivityCardProps) {
   const time = formatTimeRange(activity)
 
   return (
@@ -39,6 +46,20 @@ export function ActivityCard({ activity }: { activity: Activity }) {
             </a>
           )}
         </div>
+      </div>
+      <div className="flex shrink-0 items-start gap-1">
+        <Button variant="ghost" size="sm" fullWidth={false} aria-label={`Sửa ${activity.title}`} onClick={onEdit}>
+          <span aria-hidden>✎</span>&nbsp;Sửa
+        </Button>
+        <Button
+          variant="ghost-danger"
+          size="sm"
+          fullWidth={false}
+          aria-label={`Xoá ${activity.title}`}
+          onClick={onDelete}
+        >
+          Xoá
+        </Button>
       </div>
     </article>
   )

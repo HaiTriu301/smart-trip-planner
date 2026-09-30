@@ -21,3 +21,21 @@ export interface Activity {
   createdAt: string
   updatedAt: string
 }
+
+/** Body of POST /trips/{tripId}/days/{dayId}/activities; orderIndex is assigned by the server. */
+export interface CreateActivityRequest {
+  title: string
+  type?: ActivityType
+  startTime?: string
+  endTime?: string
+  note?: string
+  costAmount?: number
+  currency?: string
+  bookingUrl?: string
+}
+
+/**
+ * Body of PATCH /trips/{tripId}/activities/{activityId}: undefined keeps the value. note and bookingUrl
+ * accept "" to clear; times, cost and currency cannot be cleared yet (design.md 10.2 "Quy ước Activity API").
+ */
+export type UpdateActivityRequest = Partial<CreateActivityRequest>

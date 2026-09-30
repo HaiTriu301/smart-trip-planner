@@ -59,7 +59,7 @@ export function TripDetailPage() {
         {trip.description && <p className="whitespace-pre-line text-slate-600">{trip.description}</p>}
       </header>
 
-      <DayTimeline tripId={trip.id} days={trip.days} />
+      <DayTimeline tripId={trip.id} days={trip.days} tripCurrency={trip.currency} />
     </div>
   )
 }

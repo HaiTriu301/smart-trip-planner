@@ -5,13 +5,14 @@ import { DaySection } from './DaySection'
 interface DayTimelineProps {
   tripId: number
   days: TripDayDetail[]
+  tripCurrency: string
 }
 
 /**
  * Left: list of days that scrolls to a day. Right: every day stacked, so an activity can later be dragged
  * from one day to another without switching views (Task 2.5 Mốc 7). The map column comes in Phase 3.
  */
-export function DayTimeline({ tripId, days }: DayTimelineProps) {
+export function DayTimeline({ tripId, days, tripCurrency }: DayTimelineProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-[14rem_1fr]">
       <nav aria-label="Các ngày" className="hidden lg:block">
@@ -40,7 +41,7 @@ export function DayTimeline({ tripId, days }: DayTimelineProps) {
       </nav>
       <div className="min-w-0 space-y-4">
         {days.map((day) => (
-          <DaySection key={day.id} tripId={tripId} day={day} />
+          <DaySection key={day.id} tripId={tripId} day={day} tripCurrency={tripCurrency} />
         ))}
       </div>
     </div>
