@@ -22,7 +22,10 @@ import com.trieu.tripplanner.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -151,7 +154,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     @Transactional
-    public List<TripDayDetailResponse> reorder(Long tripId, ReorderActivitiesRequest request) {
+    public List<TripDayDetailResponse> reorder(Long tripId, ReorderActivitiesRequest request,
+                                               boolean allowOverlap) {
         requireLiveTrip(tripId);
         List<ReorderActivitiesRequest.Item> items = request.items();
         requireEachActivityOnce(items);
@@ -162,6 +166,9 @@ public class ActivityServiceImpl implements ActivityService {
         activities.values().forEach(activity -> affectedDayIds.add(activity.getTripDay().getId()));
         items.forEach(item -> affectedDayIds.add(item.dayId()));
         Map<Long, TripDay> days = findDaysOfTrip(affectedDayIds, tripId);
+        if (!allowOverlap) {
+            validateNoTimeConflictAfterMove(items, activities);
+        }
 
         // Everything was checked above, so from here on nothing can fail half-way
         items.forEach(item -> activities.get(item.activityId()).moveTo(days.get(item.dayId()), item.orderIndex()));
@@ -229,6 +236,72 @@ public class ActivityServiceImpl implements ActivityService {
             throw new ResourceNotFoundException(TRIP_DAY, missing);
         });
         return found;
+    }
+
+    /**
+     * design.md rule 14.4 for a reorder: an activity that arrives in another day must not overlap what that day
+     * will contain once the whole request is applied, i.e. the activities that stay in it plus the other
+     * activities arriving with the same request. Activities leaving that day in the same request do not count,
+     * so two activities can swap days in one go.
+     * <p>
+     * Every conflicting move is reported, each on its own item, so the client can mark them all at once.
+     */
+    private void validateNoTimeConflictAfterMove(List<ReorderActivitiesRequest.Item> items,
+                                                 Map<Long, Activity> activities) {
+        Map<Long, Long> targetDayOf = items.stream()
+                .collect(Collectors.toMap(ReorderActivitiesRequest.Item::activityId,
+                        ReorderActivitiesRequest.Item::dayId));
+        // Only an activity that changes day and has a full range can create a new overlap
+        List<ReorderActivitiesRequest.Item> arrivals = items.stream()
+                .filter(item -> changesDay(activities.get(item.activityId()), item.dayId()))
+                .filter(item -> hasRange(activities.get(item.activityId())))
+                .toList();
+        if (arrivals.isEmpty()) {
+            return;
+        }
+
+        Set<Long> arrivalDayIds = arrivals.stream().map(ReorderActivitiesRequest.Item::dayId)
+                .collect(Collectors.toSet());
+        Map<Long, List<Activity>> timedByDay = new HashMap<>();
+        activityRepository.findTimedByTripDayIdIn(arrivalDayIds).stream()
+                .filter(resident -> !changesDay(resident, targetDayOf.getOrDefault(resident.getId(),
+                        resident.getTripDay().getId())))
+                .forEach(resident -> timedByDay
+                        .computeIfAbsent(resident.getTripDay().getId(), id -> new ArrayList<>()).add(resident));
+        arrivals.forEach(item -> timedByDay
+                .computeIfAbsent(item.dayId(), id -> new ArrayList<>()).add(activities.get(item.activityId())));
+
+        List<FieldViolation> violations = new ArrayList<>();
+        for (int index = 0; index < items.size(); index++) {
+            ReorderActivitiesRequest.Item item = items.get(index);
+            if (!arrivals.contains(item)) {
+                continue;
+            }
+            Activity moved = activities.get(item.activityId());
+            final int position = index;
+            timedByDay.get(item.dayId()).stream()
+                    .filter(other -> other != moved)
+                    .filter(other -> overlaps(other, moved.getStartTime(), moved.getEndTime()))
+                    // The earliest one is enough for the message
+                    .min(Comparator.comparing(Activity::getStartTime).thenComparing(Activity::getId))
+                    .ifPresent(first -> violations.add(FieldViolation.of("items[" + position + "].dayId",
+                            "error.reorder.time-conflict", moved.getTitle(), first.getTitle(),
+                            first.getStartTime().toString(), first.getEndTime().toString())));
+        }
+        if (!violations.isEmpty()) {
+            throw new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
+                    "%d of %d moved activities would overlap another activity in their new day"
+                            .formatted(violations.size(), arrivals.size()),
+                    violations);
+        }
+    }
+
+    private static boolean changesDay(Activity activity, Long targetDayId) {
+        return !activity.getTripDay().getId().equals(targetDayId);
+    }
+
+    private static boolean hasRange(Activity activity) {
+        return activity.getStartTime() != null && activity.getEndTime() != null;
     }
 
     /** The given days in the order received, each with its activities in display order: one query. */

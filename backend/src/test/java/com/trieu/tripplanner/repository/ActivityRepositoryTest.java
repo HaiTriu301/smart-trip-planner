@@ -277,6 +277,26 @@ class ActivityRepositoryTest {
     }
 
     @Test
+    void timedOfSeveralDaysReturnsOnlyTimedActivitiesOfThoseDays() {
+        TripDay dayThree = entityManager.persist(
+                TripDay.builder().trip(dayOne.getTrip()).dayIndex(3).date(OCT_1.plusDays(2)).build());
+        entityManager.persist(timed(dayOne, "Ngày 1 - chiều", "14:00", "15:00"));
+        entityManager.persist(timed(dayTwo, "Ngày 2 - sáng", "09:00", "10:00"));
+        entityManager.persist(timed(dayThree, "Ngày 3", "08:00", "09:00"));
+        entityManager.persist(activity(dayOne, "Chưa xếp giờ", 1000));
+        entityManager.persist(timed(dayOne, "Ngày 1 - sáng sớm", "03:00", "04:00"));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(activityRepository.findTimedByTripDayIdIn(List.of(dayOne.getId(), dayTwo.getId())))
+                .extracting(Activity::getTitle, Activity::getStartTime)
+                .containsExactly(
+                        tuple("Ngày 1 - sáng sớm", LocalTime.of(3, 0)),
+                        tuple("Ngày 2 - sáng", LocalTime.of(9, 0)),
+                        tuple("Ngày 1 - chiều", LocalTime.of(14, 0)));
+    }
+
+    @Test
     void timedIsEmptyForADayWithoutTimedActivities() {
         entityManager.persist(activity(dayOne, "Chưa xếp giờ", 1000));
         entityManager.flush();

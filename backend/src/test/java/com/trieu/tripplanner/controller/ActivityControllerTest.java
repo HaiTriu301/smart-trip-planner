@@ -542,7 +542,7 @@ class ActivityControllerTest {
     @Test
     void reorderReturnsTheAffectedDaysWhenEditAllowed() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.reorder(eq(TRIP_ID), any())).thenReturn(List.of(
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(false))).thenReturn(List.of(
                 new TripDayDetailResponse(DAY_ID, 1, LocalDate.of(2026, 10, 1), null, null, List.of(sampleActivity())),
                 new TripDayDetailResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null, List.of())));
 
@@ -559,7 +559,7 @@ class ActivityControllerTest {
                         """);
 
         ArgumentCaptor<ReorderActivitiesRequest> request = ArgumentCaptor.forClass(ReorderActivitiesRequest.class);
-        verify(activityService).reorder(eq(TRIP_ID), request.capture());
+        verify(activityService).reorder(eq(TRIP_ID), request.capture(), eq(false));
         assertThat(request.getValue().items()).containsExactly(
                 new ReorderActivitiesRequest.Item(21L, 11L, 1500),
                 new ReorderActivitiesRequest.Item(22L, 12L, 1000));
@@ -625,7 +625,7 @@ class ActivityControllerTest {
     @Test
     void reorderAcceptsTheLowestAndHighestOrderIndex() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.reorder(eq(TRIP_ID), any())).thenReturn(List.of());
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(false))).thenReturn(List.of());
 
         assertThat(put("""
                 { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 1 },
@@ -650,7 +650,7 @@ class ActivityControllerTest {
     @Test
     void reorderWithExactly200ItemsIsAccepted() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.reorder(eq(TRIP_ID), any())).thenReturn(List.of());
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(false))).thenReturn(List.of());
 
         assertThat(put(itemsJson(200))).hasStatusOk();
     }
@@ -671,7 +671,7 @@ class ActivityControllerTest {
     @Test
     void reorderReturns404WhenAnActivityIsNotInTheTrip() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.reorder(eq(TRIP_ID), any())).thenThrow(new ResourceNotFoundException("Activity", 99L));
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(false))).thenThrow(new ResourceNotFoundException("Activity", 99L));
 
         assertThat(put("""
                 { "items": [ { "activityId": 99, "dayId": 11, "orderIndex": 1500 } ] }
@@ -683,7 +683,7 @@ class ActivityControllerTest {
     @Test
     void reorderRejectedForADuplicateActivityReturns400OnItems() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.reorder(eq(TRIP_ID), any()))
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(false)))
                 .thenThrow(BusinessRuleException.invalidField("items", "error.reorder.duplicate-activity",
                         "Activity 21 appears more than once in the reorder request", "21"));
 
@@ -697,6 +697,59 @@ class ActivityControllerTest {
                           "details": [ { "field": "items",
                                          "message": "Hoạt động 21 xuất hiện nhiều lần trong danh sách" } ] }
                         """);
+    }
+
+    @Test
+    void reorderReturns409WhenAMovedActivityOverlapsInItsNewDay() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(false)))
+                .thenThrow(new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
+                        "1 of 1 moved activities would overlap another activity in their new day",
+                        List.of(FieldViolation.of("items[1].dayId", "error.reorder.time-conflict",
+                                "Cà phê", "Ăn trưa", "11:30", "13:00"))));
+
+        MvcTestResult result = put("""
+                { "items": [ { "activityId": 21, "dayId": 11, "orderIndex": 500 },
+                             { "activityId": 22, "dayId": 11, "orderIndex": 1500 } ] }
+                """);
+
+        assertThat(result)
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "ACTIVITY_TIME_CONFLICT",
+                          "message": "Hoạt động bị trùng giờ với một hoạt động khác trong ngày",
+                          "details": [ { "field": "items[1].dayId" } ] }
+                        """);
+        assertThat(result).bodyJson().extractingPath("$.details[0].message").isEqualTo(
+                "Hoạt động \"Cà phê\" trùng giờ với hoạt động \"Ăn trưa\" (11:30 - 13:00) trong ngày mới");
+    }
+
+    @Test
+    void reorderWithAllowOverlapPassesTheFlagToTheService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.reorder(eq(TRIP_ID), any(), eq(true))).thenReturn(List.of());
+
+        assertThat(mvc.put().uri(REORDER_URL + "?allowOverlap=true").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "items": [ { "activityId": 22, "dayId": 11, "orderIndex": 1500 } ] }
+                        """))
+                .hasStatusOk();
+        verify(activityService).reorder(eq(TRIP_ID), any(), eq(true));
+    }
+
+    @Test
+    void reorderWithAllowOverlapThatIsNotABooleanReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.put().uri(REORDER_URL + "?allowOverlap=maybe").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "items": [ { "activityId": 22, "dayId": 11, "orderIndex": 1500 } ] }
+                        """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(activityService);
     }
 
     private MvcTestResult put(String json) {

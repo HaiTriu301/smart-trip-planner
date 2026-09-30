@@ -38,6 +38,7 @@ import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -646,6 +647,9 @@ class ActivityServiceTest {
         private Activity sightseeing;
         private Activity market;
 
+        /** What the database holds; tests about times add activities that have a range. */
+        private final List<Activity> stored = new ArrayList<>();
+
         @BeforeEach
         void twoDaysWithThreeActivities() {
             dayTwo = TripDay.builder().trip(trip).dayIndex(2).date(OCT_1.plusDays(1)).build();
@@ -654,6 +658,7 @@ class ActivityServiceTest {
             breakfast = placed(31L, day, "Ăn sáng", 1000);
             sightseeing = placed(32L, day, "Tham quan", 2000);
             market = placed(41L, dayTwo, "Chợ đêm", 1000);
+            stored.addAll(List.of(breakfast, sightseeing, market));
 
             // lenient: the rejected requests stop before some of these are reached
             lenient().when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
@@ -665,14 +670,22 @@ class ActivityServiceTest {
             lenient().when(activityRepository.findAllByIdInAndTripId(anyCollection(), eq(TRIP_ID)))
                     .thenAnswer(invocation -> {
                         Collection<Long> ids = invocation.getArgument(0);
-                        return Stream.of(breakfast, sightseeing, market)
-                                .filter(a -> ids.contains(a.getId())).toList();
+                        return stored.stream().filter(a -> ids.contains(a.getId())).toList();
+                    });
+            lenient().when(activityRepository.findTimedByTripDayIdIn(anyCollection()))
+                    .thenAnswer(invocation -> {
+                        Collection<Long> dayIds = invocation.getArgument(0);
+                        return stored.stream()
+                                .filter(a -> a.getStartTime() != null && a.getEndTime() != null)
+                                .filter(a -> dayIds.contains(a.getTripDay().getId()))
+                                .sorted(Comparator.comparing(Activity::getStartTime).thenComparing(Activity::getId))
+                                .toList();
                     });
             // What the database would answer after the flush: the current state, in display order
             lenient().when(activityRepository.findByTripDayIdInDisplayOrder(anyCollection()))
                     .thenAnswer(invocation -> {
                         Collection<Long> dayIds = invocation.getArgument(0);
-                        return Stream.of(breakfast, sightseeing, market)
+                        return stored.stream()
                                 .filter(a -> dayIds.contains(a.getTripDay().getId()))
                                 .sorted(Comparator.comparingInt(Activity::getOrderIndex).thenComparing(Activity::getId))
                                 .toList();
@@ -682,7 +695,7 @@ class ActivityServiceTest {
         @Test
         void movesAnActivityInsideItsDayAndReturnsThatDayInTheNewOrder() {
             // sightseeing is dragged above breakfast
-            List<TripDayDetailResponse> days = activityService.reorder(TRIP_ID, moves(move(32L, DAY_ID, 500)));
+            List<TripDayDetailResponse> days = reorder(moves(move(32L, DAY_ID, 500)));
 
             assertThat(sightseeing.getOrderIndex()).isEqualTo(500);
             assertThat(sightseeing.getTripDay()).isSameAs(day);
@@ -698,7 +711,7 @@ class ActivityServiceTest {
         @Test
         void movesAnActivityToAnotherDayAndReturnsBothDaysInCalendarOrder() {
             // market is dragged from day 2 to day 1, between breakfast and sightseeing
-            List<TripDayDetailResponse> days = activityService.reorder(TRIP_ID, moves(move(41L, DAY_ID, 1500)));
+            List<TripDayDetailResponse> days = reorder(moves(move(41L, DAY_ID, 1500)));
 
             assertThat(market.getTripDay()).isSameAs(day);
             assertThat(market.getOrderIndex()).isEqualTo(1500);
@@ -713,7 +726,7 @@ class ActivityServiceTest {
 
         @Test
         void appliesSeveralMovesOfOneRequestTogether() {
-            activityService.reorder(TRIP_ID, moves(
+            reorder(moves(
                     move(31L, DAY_TWO_ID, 2000),
                     move(41L, DAY_ID, 3000),
                     move(32L, DAY_ID, 1000)));
@@ -727,7 +740,7 @@ class ActivityServiceTest {
 
         @Test
         void keepsTheContentOfTheActivity() {
-            activityService.reorder(TRIP_ID, moves(move(31L, DAY_TWO_ID, 2000)));
+            reorder(moves(move(31L, DAY_TWO_ID, 2000)));
 
             assertThat(breakfast.getTitle()).isEqualTo("Ăn sáng");
             assertThat(breakfast.getCreatedBy()).isSameAs(creator);
@@ -735,7 +748,7 @@ class ActivityServiceTest {
 
         @Test
         void sameActivityTwiceIsRejectedAndNothingMoves() {
-            assertThatThrownBy(() -> activityService.reorder(TRIP_ID, moves(
+            assertThatThrownBy(() -> reorder(moves(
                     move(31L, DAY_ID, 500),
                     move(32L, DAY_ID, 700),
                     move(31L, DAY_TWO_ID, 900))))
@@ -751,7 +764,7 @@ class ActivityServiceTest {
         @Test
         void activityOfAnotherTripRejectsTheWholeBatchAndNothingMoves() {
             // 99 is not an activity of this trip; the valid move before it must not be applied either
-            assertThatThrownBy(() -> activityService.reorder(TRIP_ID, moves(
+            assertThatThrownBy(() -> reorder(moves(
                     move(32L, DAY_ID, 500),
                     move(99L, DAY_ID, 700))))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -763,7 +776,7 @@ class ActivityServiceTest {
 
         @Test
         void dayOfAnotherTripRejectsTheWholeBatchAndNothingMoves() {
-            assertThatThrownBy(() -> activityService.reorder(TRIP_ID, moves(
+            assertThatThrownBy(() -> reorder(moves(
                     move(32L, DAY_ID, 500),
                     move(31L, 77L, 1000))))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -777,10 +790,142 @@ class ActivityServiceTest {
         void missingOrDeletedTripIsNotFoundAndNothingIsLoaded() {
             when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
 
-            assertThatThrownBy(() -> activityService.reorder(TRIP_ID, moves(move(31L, DAY_ID, 500))))
+            assertThatThrownBy(() -> reorder(moves(move(31L, DAY_ID, 500))))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Trip");
             verifyNoInteractions(activityRepository, tripDayRepository);
+        }
+
+        // ---- rule 14.4: an activity that changes day takes its times with it --------------------------------
+
+        @Test
+        void movingIntoADayWhereItOverlapsIsRejectedWith409AndNothingMoves() {
+            Activity lunch = timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            Activity coffee = timedAt(52L, dayTwo, "Cà phê", "12:00", "12:30");
+
+            assertThatThrownBy(() -> reorder(moves(
+                    move(32L, DAY_ID, 500),
+                    move(52L, DAY_ID, 1500))))
+                    .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.ACTIVITY_TIME_CONFLICT);
+                        // The second item of the request is the one in conflict
+                        assertThat(ex.getDetails()).containsExactly(FieldViolation.of("items[1].dayId",
+                                "error.reorder.time-conflict", "Cà phê", "Ăn trưa", "11:30", "13:00"));
+                    });
+
+            assertThat(coffee.getTripDay()).isSameAs(dayTwo);
+            assertThat(lunch.getTripDay()).isSameAs(day);
+            assertNothingMoved();
+        }
+
+        @Test
+        void movingNextToAnActivityItOnlyTouchesIsAllowed() {
+            timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            Activity coffee = timedAt(52L, dayTwo, "Cà phê", "13:00", "13:30");
+
+            reorder(moves(move(52L, DAY_ID, 3000)));
+
+            assertThat(coffee.getTripDay()).isSameAs(day);
+        }
+
+        @Test
+        void allowOverlapSkipsTheCheckAndMoves() {
+            timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            Activity coffee = timedAt(52L, dayTwo, "Cà phê", "12:00", "12:30");
+
+            activityService.reorder(TRIP_ID, moves(move(52L, DAY_ID, 1500)), true);
+
+            assertThat(coffee.getTripDay()).isSameAs(day);
+            verify(activityRepository, never()).findTimedByTripDayIdIn(anyCollection());
+        }
+
+        @Test
+        void reorderInsideADayIsNeverCheckedEvenWhenItsActivitiesOverlap() {
+            // Saved earlier with allowOverlap: they overlap, and may still be reordered
+            Activity lunch = timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            Activity coffee = timedAt(52L, day, "Cà phê", "12:00", "12:30");
+
+            reorder(moves(move(52L, DAY_ID, 500), move(51L, DAY_ID, 700)));
+
+            assertThat(coffee.getOrderIndex()).isEqualTo(500);
+            assertThat(lunch.getOrderIndex()).isEqualTo(700);
+            verify(activityRepository, never()).findTimedByTripDayIdIn(anyCollection());
+        }
+
+        @Test
+        void activityWithoutAFullRangeIsNeverChecked() {
+            timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            Activity startOnly = placed(53L, dayTwo, "Chỉ có giờ bắt đầu", 2000);
+            startOnly.setStartTime(LocalTime.of(12, 0));
+            stored.add(startOnly);
+
+            reorder(moves(move(53L, DAY_ID, 1500), move(41L, DAY_ID, 1700)));
+
+            assertThat(startOnly.getTripDay()).isSameAs(day);
+            verify(activityRepository, never()).findTimedByTripDayIdIn(anyCollection());
+        }
+
+        @Test
+        void twoActivitiesArrivingTogetherAreComparedWithEachOtherAndBothReported() {
+            // Day 1 has nothing at noon; the two arrivals overlap each other
+            timedAt(52L, dayTwo, "Cà phê", "12:00", "12:30");
+            TripDay dayThree = TripDay.builder().trip(trip).dayIndex(3).date(OCT_1.plusDays(2)).build();
+            ReflectionTestUtils.setField(dayThree, "id", 13L);
+            timedAt(61L, dayThree, "Ăn trưa", "11:30", "13:00");
+            when(tripDayRepository.findAllByIdInAndTripId(anyCollection(), eq(TRIP_ID)))
+                    .thenReturn(List.of(day, dayTwo, dayThree));
+
+            assertThatThrownBy(() -> reorder(moves(
+                    move(52L, DAY_ID, 1500),
+                    move(61L, DAY_ID, 1700))))
+                    .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.ACTIVITY_TIME_CONFLICT);
+                        assertThat(ex.getDetails()).containsExactly(
+                                FieldViolation.of("items[0].dayId", "error.reorder.time-conflict",
+                                        "Cà phê", "Ăn trưa", "11:30", "13:00"),
+                                FieldViolation.of("items[1].dayId", "error.reorder.time-conflict",
+                                        "Ăn trưa", "Cà phê", "12:00", "12:30"));
+                    });
+            assertNothingMoved();
+        }
+
+        @Test
+        void twoOverlappingActivitiesCanSwapDaysInOneRequest() {
+            // Each one overlaps what the other day holds now, but not what it will hold after the swap
+            Activity lunch = timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            Activity coffee = timedAt(52L, dayTwo, "Cà phê", "12:00", "12:30");
+
+            reorder(moves(move(51L, DAY_TWO_ID, 2000), move(52L, DAY_ID, 3000)));
+
+            assertThat(lunch.getTripDay()).isSameAs(dayTwo);
+            assertThat(coffee.getTripDay()).isSameAs(day);
+        }
+
+        @Test
+        void anActivityThatStaysInItsDayStillBlocksAnArrival() {
+            // lunch is part of the request too, but it only changes position inside day 1
+            timedAt(51L, day, "Ăn trưa", "11:30", "13:00");
+            timedAt(52L, dayTwo, "Cà phê", "12:00", "12:30");
+
+            assertThatThrownBy(() -> reorder(moves(
+                    move(51L, DAY_ID, 500),
+                    move(52L, DAY_ID, 1500))))
+                    .isInstanceOfSatisfying(BusinessRuleException.class,
+                            ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.ACTIVITY_TIME_CONFLICT));
+            assertNothingMoved();
+        }
+
+        /** The default case of the endpoint: allowOverlap = false. */
+        private List<TripDayDetailResponse> reorder(ReorderActivitiesRequest request) {
+            return activityService.reorder(TRIP_ID, request, false);
+        }
+
+        private Activity timedAt(long id, TripDay onDay, String title, String start, String end) {
+            Activity activity = placed(id, onDay, title, 5000);
+            activity.setStartTime(LocalTime.parse(start));
+            activity.setEndTime(LocalTime.parse(end));
+            stored.add(activity);
+            return activity;
         }
 
         private void assertNothingMoved() {

@@ -81,12 +81,15 @@ public class ActivityController {
                description = "Gửi những hoạt động bị di chuyển, mỗi hoạt động kèm ngày đích và số thứ tự mới. Cùng "
                        + "ngày: đổi thứ tự. Khác ngày: chuyển sang ngày đó. Cả lô được áp dụng cùng lúc hoặc không "
                        + "gì cả. Trả về các ngày bị ảnh hưởng kèm hoạt động theo thứ tự mới. 404 nếu một hoạt động "
-                       + "hoặc một ngày không thuộc chuyến đi.")
+                       + "hoặc một ngày không thuộc chuyến đi. Chuyển sang ngày khác mà trùng giờ với hoạt động "
+                       + "của ngày đó: 409 ACTIVITY_TIME_CONFLICT, gửi lại kèm allowOverlap=true để vẫn chuyển.")
     @PutMapping("/activities/reorder")
     @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
-    public ApiResponse<List<TripDayDetailResponse>> reorder(@PathVariable Long tripId,
-                                                            @Valid @RequestBody ReorderActivitiesRequest request) {
-        return ApiResponse.ok(activityService.reorder(tripId, request));
+    public ApiResponse<List<TripDayDetailResponse>> reorder(
+            @PathVariable Long tripId,
+            @RequestParam(defaultValue = "false") boolean allowOverlap,
+            @Valid @RequestBody ReorderActivitiesRequest request) {
+        return ApiResponse.ok(activityService.reorder(tripId, request, allowOverlap));
     }
 
     @Operation(summary = "Xoá hoạt động",

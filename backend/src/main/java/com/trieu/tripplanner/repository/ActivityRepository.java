@@ -38,6 +38,16 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findTimedByTripDayId(@Param("dayId") Long dayId);
 
     /**
+     * Same candidates for several days in one query: the days that receive an activity in a reorder request.
+     * Times are read, never compared in SQL, for the reason given above.
+     */
+    @Query("""
+            select a from Activity a
+            where a.tripDay.id in :dayIds and a.startTime is not null and a.endTime is not null
+            order by a.startTime, a.id""")
+    List<Activity> findTimedByTripDayIdIn(@Param("dayIds") Collection<Long> dayIds);
+
+    /**
      * Activities of the day in display order. Served by idx_activities_day_order (trip_day_id, order_index).
      * The id breaks the tie when two activities share an index (two simultaneous inserts): the older one first.
      */
