@@ -358,6 +358,65 @@ class TripControllerTest {
         verify(tripService, never()).update(any(), any(), anyBoolean());
     }
 
+    // ---- PATCH /trips/{id}/status ----------------------------------------------------------------------------
+
+    @Test
+    void updateStatusPassesTheNewStatusWhenEditAllowed() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripService.updateStatus(TRIP_ID, TripStatus.PLANNED)).thenReturn(sampleTrip());
+
+        assertThat(mvc.patch().uri(TRIP_URL + "/status").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "status": "PLANNED" }
+                        """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.id").isEqualTo(5);
+        verify(tripService).updateStatus(TRIP_ID, TripStatus.PLANNED);
+    }
+
+    @Test
+    void updateStatusReturns403WhenEditDenied() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.patch().uri(TRIP_URL + "/status").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "status": "ARCHIVED" }
+                        """))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        verify(tripService, never()).updateStatus(any(), any());
+    }
+
+    @Test
+    void updateStatusWithoutStatusReturns400OnTheStatusField() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.patch().uri(TRIP_URL + "/status").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "status", "message": "Trạng thái không được để trống" } ] }
+                        """);
+        verify(tripService, never()).updateStatus(any(), any());
+    }
+
+    @Test
+    void updateStatusWithUnknownValueReturns400() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.patch().uri(TRIP_URL + "/status").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "status": "CANCELLED" }
+                        """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verify(tripService, never()).updateStatus(any(), any());
+    }
+
     // ---- DELETE /trips/{id} ----------------------------------------------------------------------------------
 
     @Test

@@ -7,6 +7,7 @@ import com.trieu.tripplanner.dto.request.UpdateTripRequest;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
+import com.trieu.tripplanner.model.enums.TripStatus;
 import org.springframework.data.domain.Pageable;
 
 /**
@@ -50,6 +51,14 @@ public interface TripService {
      *                                                                   force is false (409), nothing is saved
      */
     TripResponse update(Long tripId, UpdateTripRequest request, boolean force);
+
+    /**
+     * Sets the status chosen by the user; any transition is allowed and setting the current status again is a
+     * no-op that still answers the trip. The only way to change the status: {@link #update} leaves it alone.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     */
+    TripResponse updateStatus(Long tripId, TripStatus status);
 
     /**
      * Soft delete (design.md 14.8): the row keeps existing with deleted_at set.

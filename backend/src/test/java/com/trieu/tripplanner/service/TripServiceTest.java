@@ -290,6 +290,46 @@ class TripServiceTest {
     }
 
     @Nested
+    class UpdateStatus {
+
+        @Test
+        void changesOnlyTheStatus() {
+            Trip trip = withId(minimalTrip(), TRIP_ID);
+            trip.setStatus(TripStatus.PLANNED);
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+            when(tripRepository.saveAndFlush(trip)).thenReturn(trip);
+
+            TripResponse response = tripService.updateStatus(TRIP_ID, TripStatus.ARCHIVED);
+
+            assertThat(trip.getStatus()).isEqualTo(TripStatus.ARCHIVED);
+            assertThat(trip.getTitle()).isEqualTo("Huế");
+            assertThat(trip.getEndDate()).isEqualTo(OCT_1);
+            assertThat(response.status()).isEqualTo(TripStatus.ARCHIVED);
+            verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
+        }
+
+        @Test
+        void anyStatusMayGoBackToDraft() {
+            Trip trip = withId(minimalTrip(), TRIP_ID);
+            trip.setStatus(TripStatus.COMPLETED);
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+            when(tripRepository.saveAndFlush(trip)).thenReturn(trip);
+
+            assertThat(tripService.updateStatus(TRIP_ID, TripStatus.DRAFT).status()).isEqualTo(TripStatus.DRAFT);
+        }
+
+        @Test
+        void missingTripThrowsNotFoundAndSavesNothing() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> tripService.updateStatus(TRIP_ID, TripStatus.PLANNED))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(tripRepository, never()).saveAndFlush(any());
+        }
+
+    }
+
+    @Nested
     class ReadAndDelete {
 
         @Test

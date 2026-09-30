@@ -6,6 +6,7 @@ import type {
   TripDetail,
   TripListParams,
   TripResponse,
+  TripStatus,
   TripSummary,
   UpdateTripDayRequest,
   UpdateTripRequest,
@@ -35,6 +36,12 @@ export async function getTrip(id: number): Promise<TripDetail> {
  */
 export async function updateTrip(id: number, body: UpdateTripRequest, force = false): Promise<TripResponse> {
   const { data } = await apiClient.patch<ApiResponse<TripResponse>>(`/trips/${id}`, body, { params: { force } })
+  return data.data
+}
+
+/** The only way to change the status; any transition is allowed (design.md 10.2). */
+export async function updateTripStatus(id: number, status: TripStatus): Promise<TripResponse> {
+  const { data } = await apiClient.patch<ApiResponse<TripResponse>>(`/trips/${id}/status`, { status })
   return data.data
 }
 

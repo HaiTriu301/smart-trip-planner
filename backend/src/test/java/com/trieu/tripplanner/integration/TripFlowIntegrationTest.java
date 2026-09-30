@@ -101,6 +101,41 @@ class TripFlowIntegrationTest {
     }
 
     @Test
+    void ownerChangesStatusFreelyAndTheListFiltersByIt() {
+        long id = idOf(createTrip(ownerBearer, "Nha Trang", "2026-11-01", "2026-11-03"));
+
+        assertThat(patchStatus(ownerBearer, id, "PLANNED"))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "status": "PLANNED", "title": "Nha Trang", "version": 1 } }
+                        """);
+        assertThat(titles(list(ownerBearer, "?status=PLANNED"))).containsExactly("Nha Trang");
+        assertThat(titles(list(ownerBearer, "?status=DRAFT"))).isEmpty();
+
+        // Same status again: 200, nothing written, so the version does not move
+        assertThat(patchStatus(ownerBearer, id, "PLANNED"))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+
+        // Any transition is allowed, including back to DRAFT; the MySQL ENUM column accepts every value
+        for (String status : List.of("ONGOING", "COMPLETED", "ARCHIVED", "DRAFT")) {
+            assertThat(patchStatus(ownerBearer, id, status)).hasStatusOk();
+            String stored = jdbcTemplate.queryForObject("SELECT status FROM trips WHERE id = ?", String.class, id);
+            assertThat(stored).isEqualTo(status);
+        }
+    }
+
+    @Test
+    void strangerCannotChangeTheStatus() {
+        long id = idOf(createTrip(ownerBearer, "Riêng tư", "2026-10-01", "2026-10-02"));
+
+        assertThat(patchStatus(strangerBearer, id, "ARCHIVED"))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        String stored = jdbcTemplate.queryForObject("SELECT status FROM trips WHERE id = ?", String.class, id);
+        assertThat(stored).isEqualTo("DRAFT");
+    }
+
+    @Test
     void listShowsOnlyOwnTripsWithPagingAndFilters() {
         createTrip(ownerBearer, "Hà Giang", "2026-09-01", "2026-09-04");
         createTrip(ownerBearer, "Vũng Tàu", "2026-10-10", "2026-10-11");
@@ -186,10 +221,20 @@ class TripFlowIntegrationTest {
     }
 
     private MvcTestResult patch(String bearer, long id, String json) {
-        return mvc.patch().uri(TRIPS_URL + "/" + id).header(HttpHeaders.AUTHORIZATION, bearer)
+        return patch(bearer, id, "", json);
+    }
+
+    private MvcTestResult patch(String bearer, long id, String subPath, String json) {
+        return mvc.patch().uri(TRIPS_URL + "/" + id + subPath).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json)
                 .exchange();
+    }
+
+    private MvcTestResult patchStatus(String bearer, long id, String status) {
+        return patch(bearer, id, "/status", """
+                { "status": "%s" }
+                """.formatted(status));
     }
 
     private MvcTestResult list(String bearer, String query) {

@@ -13,6 +13,7 @@ import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.exception.SlugGenerationException;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -119,6 +120,18 @@ public class TripServiceImpl implements TripService {
 
         // Flush now so the response carries the incremented version and updatedAt
         return tripMapper.toResponse(tripRepository.saveAndFlush(trip));
+    }
+
+    @Override
+    @Transactional
+    public TripResponse updateStatus(Long tripId, TripStatus status) {
+        Trip trip = findTrip(tripId);
+        TripStatus previous = trip.getStatus();
+        trip.setStatus(status);
+        // Same status: Hibernate finds nothing dirty, so no UPDATE and the version stays
+        TripResponse response = tripMapper.toResponse(tripRepository.saveAndFlush(trip));
+        log.info("Trip {} status {} -> {}", tripId, previous, status);
+        return response;
     }
 
     @Override
