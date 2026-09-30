@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { Check } from 'lucide-react'
 import { createTrip } from '../../api/trips'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -19,6 +20,50 @@ const STEPS = [
 
 const ALL_FIELDS = STEPS.flatMap((step) => step.fields)
 const LAST_STEP = STEPS.length - 1
+
+/**
+ * The steps drawn as a short transit line (UI_GUIDE 1): a numbered station per step, the track turns jade up to
+ * the current one, and passed stations get a check.
+ */
+function StepRail({ current }: { current: number }) {
+  return (
+    <ol aria-label="Các bước" className="flex items-start">
+      {STEPS.map((s, index) => {
+        const done = index < current
+        const active = index === current
+        return (
+          <li
+            key={s.title}
+            aria-current={active ? 'step' : undefined}
+            className="relative flex flex-1 flex-col items-center gap-1.5 text-center"
+          >
+            {index > 0 && (
+              <span
+                aria-hidden
+                className={`absolute top-3.5 right-1/2 left-[-50%] h-0.5 ${index <= current ? 'bg-jade' : 'bg-tide'}`}
+              />
+            )}
+            <span
+              className={`tabular relative flex size-7 items-center justify-center rounded-full border-2 text-[13px] font-semibold ${
+                done
+                  ? 'border-jade bg-jade text-white'
+                  : active
+                    ? 'border-jade bg-white text-jade-dark'
+                    : 'border-gray-300 bg-white text-gray-500'
+              }`}
+            >
+              {done ? <Check aria-hidden className="size-4" strokeWidth={3} /> : index + 1}
+            </span>
+            <span className={`text-[13px] ${active ? 'font-semibold text-ink' : 'text-gray-600'}`}>
+              {s.title}
+              {done && <span className="sr-only"> (đã xong)</span>}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
 
 /** One form across three steps; "Tiếp" validates only the fields of the current step. */
 export function CreateTripWizard() {
@@ -74,23 +119,7 @@ export function CreateTripWizard() {
 
   return (
     <form noValidate className="space-y-6" onSubmit={handleFormSubmit}>
-      <ol className="flex gap-2 text-sm" aria-label="Các bước">
-        {STEPS.map((s, index) => (
-          <li
-            key={s.title}
-            aria-current={index === step ? 'step' : undefined}
-            className={`flex-1 rounded-control border px-3 py-2 text-center ${
-              index === step
-                ? 'border-jade bg-jade-light font-medium text-jade-dark'
-                : index < step
-                  ? 'border-gray-200 bg-white text-gray-600'
-                  : 'border-gray-200 bg-gray-50 text-gray-400'
-            }`}
-          >
-            {index + 1}. {s.title}
-          </li>
-        ))}
-      </ol>
+      <StepRail current={step} />
 
       {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
 

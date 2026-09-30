@@ -6,6 +6,7 @@ import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { FormField } from '../../components/FormField'
+import { PasswordField } from '../../components/PasswordField'
 import { registerSchema, type RegisterValues } from './schemas'
 
 interface RegisterFormProps {
@@ -58,26 +59,22 @@ export function RegisterForm({ onRegistered }: RegisterFormProps) {
         error={errors.email?.message}
         {...register('email')}
       />
-      <FormField
+      <PasswordField
         label="Mật khẩu"
         required
-        type="password"
         autoComplete="new-password"
+        hint="8–72 ký tự, có chữ hoa, chữ thường, chữ số và không chứa khoảng trắng."
         error={errors.password?.message}
         {...register('password')}
       />
-      <FormField
+      <PasswordField
         label="Nhập lại mật khẩu"
         required
-        type="password"
         autoComplete="new-password"
         error={errors.confirmPassword?.message}
         {...register('confirmPassword')}
       />
-      <p className="text-xs text-gray-500">
-        Mật khẩu 8–72 ký tự, có chữ hoa, chữ thường, chữ số và không chứa khoảng trắng.
-      </p>
-      <Button type="submit" isLoading={mutation.isPending}>
+      <Button type="submit" size="lg" isLoading={mutation.isPending}>
         Tạo tài khoản
       </Button>
     </form>

@@ -12,7 +12,7 @@ export function RegisterPage() {
   const footer = (
     <>
       Đã có tài khoản?{' '}
-      <Link to="/login" className="font-medium text-jade-dark hover:underline">
+      <Link to="/login" className="font-medium text-jade hover:underline">
         Đăng nhập
       </Link>
     </>

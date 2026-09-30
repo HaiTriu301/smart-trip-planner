@@ -7,7 +7,7 @@ import { AuthLayout } from '../features/auth/AuthLayout'
 import { ResendVerificationForm } from '../features/auth/ResendVerificationForm'
 
 const loginLink = (
-  <Link to="/login" className="font-medium text-jade-dark hover:underline">
+  <Link to="/login" className="font-medium text-jade hover:underline">
     Đến trang đăng nhập
   </Link>
 )

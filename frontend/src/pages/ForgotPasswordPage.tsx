@@ -28,7 +28,7 @@ export function ForgotPasswordPage() {
   })
 
   const footer = (
-    <Link to="/login" className="font-medium text-jade-dark hover:underline">
+    <Link to="/login" className="font-medium text-jade hover:underline">
       Quay lại đăng nhập
     </Link>
   )
@@ -66,7 +66,7 @@ export function ForgotPasswordPage() {
           error={errors.email?.message}
           {...register('email')}
         />
-        <Button type="submit" isLoading={mutation.isPending}>
+        <Button type="submit" size="lg" isLoading={mutation.isPending}>
           Gửi link đặt lại
         </Button>
       </form>
