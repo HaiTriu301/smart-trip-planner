@@ -21,7 +21,7 @@ export function SelectField({ label, options, hint, error, required, id, classNa
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(inputId, error, hint)}
-        className={`h-10 ${controlClass(Boolean(error))} ${className ?? ''}`}
+        className={`h-10 w-full px-3 ${controlClass(Boolean(error))} ${className ?? ''}`}
         {...selectProps}
       >
         {options.map((option) => (

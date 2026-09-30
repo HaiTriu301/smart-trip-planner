@@ -21,7 +21,7 @@ export function TextAreaField({ label, hint, error, required, id, className, row
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(inputId, error, hint)}
-        className={`py-2 ${controlClass(Boolean(error))} ${className ?? ''}`}
+        className={`w-full px-3 py-2 ${controlClass(Boolean(error))} ${className ?? ''}`}
         {...textareaProps}
       />
     </FieldShell>

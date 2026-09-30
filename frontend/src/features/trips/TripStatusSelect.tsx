@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateTripStatus } from '../../api/trips'
 import { getErrorMessage } from '../../api/errors'
 import type { TripResponse, TripStatus } from '../../types/trip'
-import { isTripStatus, TRIP_STATUSES, TRIP_STATUS_LABELS, TRIP_STATUS_STYLES } from './tripStatus'
+import { badgeToneClass } from '../../components/badgeStyles'
+import { isTripStatus, TRIP_STATUSES, TRIP_STATUS_LABELS, TRIP_STATUS_TONES } from './tripStatus'
 
 /** Status badge that is also a select: picking a value saves it right away through PATCH /trips/{id}/status. */
 export function TripStatusSelect({ trip }: { trip: TripResponse }) {
@@ -28,7 +29,7 @@ export function TripStatusSelect({ trip }: { trip: TripResponse }) {
         onChange={(e) => {
           if (isTripStatus(e.target.value)) mutation.mutate(e.target.value)
         }}
-        className={`cursor-pointer rounded-full border-0 py-0.5 pl-2 pr-7 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-jade disabled:cursor-wait ${TRIP_STATUS_STYLES[shown]}`}
+        className={`cursor-pointer rounded-full border-0 py-0.5 pl-2 pr-7 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-jade disabled:cursor-wait ${badgeToneClass(TRIP_STATUS_TONES[shown])}`}
       >
         {TRIP_STATUSES.map((value) => (
           <option key={value} value={value}>

@@ -20,7 +20,7 @@ export function FormField({ label, hint, error, required, id, className, ...inpu
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(inputId, error, hint)}
-        className={`h-10 ${controlClass(Boolean(error))} ${className ?? ''}`}
+        className={`h-10 w-full px-3 ${controlClass(Boolean(error))} ${className ?? ''}`}
         {...inputProps}
       />
     </FieldShell>

@@ -90,6 +90,8 @@ export type UpdateTripRequest = Partial<CreateTripRequest>
 export interface TripListParams {
   status?: TripStatus
   q?: string
+  /** "property,direction"; the backend accepts createdAt, updatedAt, startDate, title (design.md 10.2) */
+  sort?: string
   page?: number
   size?: number
 }

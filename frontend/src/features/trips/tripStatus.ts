@@ -1,3 +1,4 @@
+import type { BadgeTone } from '../../components/badgeStyles'
 import type { TripStatus } from '../../types/trip'
 
 export const TRIP_STATUSES: readonly TripStatus[] = ['DRAFT', 'PLANNED', 'ONGOING', 'COMPLETED', 'ARCHIVED']
@@ -10,12 +11,13 @@ export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
   ARCHIVED: 'Đã lưu trữ',
 }
 
-export const TRIP_STATUS_STYLES: Record<TripStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-700',
-  PLANNED: 'bg-jade-light text-jade-dark',
-  ONGOING: 'bg-amber-100 text-amber-800',
-  COMPLETED: 'bg-success/12 text-success',
-  ARCHIVED: 'bg-gray-200 text-gray-500',
+/** Badge colour per status: in progress stands out in the brand colour, archived fades (UI_GUIDE 7.5) */
+export const TRIP_STATUS_TONES: Record<TripStatus, BadgeTone> = {
+  DRAFT: 'neutral',
+  PLANNED: 'info',
+  ONGOING: 'brand',
+  COMPLETED: 'success',
+  ARCHIVED: 'muted',
 }
 
 export function isTripStatus(value: string | null): value is TripStatus {

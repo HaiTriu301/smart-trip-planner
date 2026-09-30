@@ -49,6 +49,14 @@
   --shadow-sm: 0 1px 2px rgba(16, 36, 43, .06);
   --shadow-md: 0 2px 8px rgba(16, 36, 43, .08);
   --shadow-lg: 0 8px 24px rgba(16, 36, 43, .12);
+
+  /* Skeleton shimmer: a light band sweeping across every 1.6s (UI_GUIDE 7.8) */
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
 }
 
 /* Semantic surface variables, ready for a dark theme toggle (not wired yet, UI_GUIDE 3.5) */
