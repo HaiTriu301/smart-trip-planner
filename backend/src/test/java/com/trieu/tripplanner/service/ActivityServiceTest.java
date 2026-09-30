@@ -915,6 +915,98 @@ class ActivityServiceTest {
             assertNothingMoved();
         }
 
+        // ---- rule 14.5: renumber a crowded day ----------------------------------------------------------------
+
+        @Test
+        void gapOfExactlyTenIsKept() {
+            // sightseeing lands 10 above breakfast: still enough room
+            List<TripDayDetailResponse> days = reorder(moves(move(32L, DAY_ID, 1010)));
+
+            assertThat(indexes(day)).containsExactly(1000, 1010);
+            assertThat(days.getFirst().activities()).extracting(ActivityResponse::orderIndex)
+                    .containsExactly(1000, 1010);
+        }
+
+        @Test
+        void gapOfNineRenumbersTheWholeDayInItsCurrentOrder() {
+            reorder(moves(move(32L, DAY_ID, 1009)));
+
+            // breakfast (1000) still comes before sightseeing (1009): renumbered 1000, 2000
+            assertThat(breakfast.getOrderIndex()).isEqualTo(1000);
+            assertThat(sightseeing.getOrderIndex()).isEqualTo(2000);
+        }
+
+        @Test
+        void insertingAtTheTopCountsTheGapFromZero() {
+            reorder(moves(move(32L, DAY_ID, 10)));
+            assertThat(indexes(day)).containsExactly(10, 1000);
+
+            reorder(moves(move(31L, DAY_ID, 9)));
+            // breakfast (9) now leads, sightseeing (10) follows: renumbered in that order
+            assertThat(breakfast.getOrderIndex()).isEqualTo(1000);
+            assertThat(sightseeing.getOrderIndex()).isEqualTo(2000);
+        }
+
+        @Test
+        void twoActivitiesOnTheSamePositionAreRenumberedOlderFirst() {
+            // The gap between them is 0; the tie is broken by id, like the list endpoint does
+            reorder(moves(move(32L, DAY_ID, 1000)));
+
+            assertThat(breakfast.getOrderIndex()).isEqualTo(1000);
+            assertThat(sightseeing.getOrderIndex()).isEqualTo(2000);
+        }
+
+        @Test
+        void renumberingKeepsEveryActivityInItsDayAndCoversArrivals() {
+            // market arrives from day 2 at 1005, just above breakfast
+            reorder(moves(move(41L, DAY_ID, 1005)));
+
+            assertThat(breakfast.getOrderIndex()).isEqualTo(1000);
+            assertThat(market.getOrderIndex()).isEqualTo(2000);
+            assertThat(sightseeing.getOrderIndex()).isEqualTo(3000);
+            assertThat(market.getTripDay()).isSameAs(day);
+        }
+
+        @Test
+        void responseCarriesTheRenumberedPositions() {
+            List<TripDayDetailResponse> days = reorder(moves(move(41L, DAY_ID, 1005)));
+
+            assertThat(days.getFirst().activities())
+                    .extracting(ActivityResponse::title, ActivityResponse::orderIndex)
+                    .containsExactly(tuple("Ăn sáng", 1000), tuple("Chợ đêm", 2000), tuple("Tham quan", 3000));
+        }
+
+        @Test
+        void onlyDaysThatReceivedAnActivityAreChecked() {
+            // Day 2 is crowded on its own, but the request only touches day 1
+            Activity nightMarketTwo = placed(42L, dayTwo, "Chợ đêm 2", 1003);
+            stored.add(nightMarketTwo);
+
+            reorder(moves(move(32L, DAY_ID, 500)));
+
+            assertThat(market.getOrderIndex()).isEqualTo(1000);
+            assertThat(nightMarketTwo.getOrderIndex()).isEqualTo(1003);
+        }
+
+        @Test
+        void aDayThatOnlyLostAnActivityIsNotRenumbered() {
+            // Day 1 is crowded; moving breakfast out of it must not renumber what stays behind
+            sightseeing.moveTo(day, 1005);
+
+            reorder(moves(move(31L, DAY_TWO_ID, 2000)));
+
+            assertThat(sightseeing.getOrderIndex()).isEqualTo(1005);
+            assertThat(breakfast.getTripDay()).isSameAs(dayTwo);
+        }
+
+        private List<Integer> indexes(TripDay ofDay) {
+            return stored.stream()
+                    .filter(a -> a.getTripDay() == ofDay)
+                    .sorted(Comparator.comparingInt(Activity::getOrderIndex).thenComparing(Activity::getId))
+                    .map(Activity::getOrderIndex)
+                    .toList();
+        }
+
         /** The default case of the endpoint: allowOverlap = false. */
         private List<TripDayDetailResponse> reorder(ReorderActivitiesRequest request) {
             return activityService.reorder(TRIP_ID, request, false);

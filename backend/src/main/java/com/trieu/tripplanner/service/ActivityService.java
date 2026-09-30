@@ -69,6 +69,10 @@ public interface ActivityService {
      * <p>
      * An activity that changes day takes its times with it, so rule 14.4 is applied to the day it arrives in.
      * A move inside a day changes no time and is never checked.
+     * <p>
+     * Afterwards every day that received an activity is checked for crowding (rule 14.5): when two neighbouring
+     * positions are less than 10 apart, the whole day is renumbered 1000, 2000, 3000... in its current order.
+     * The response carries the renumbered positions.
      *
      * @param allowOverlap true: the client confirmed that a moved activity may overlap another one
      * @return the days that lost or received an activity, in calendar order, each with its activities in the

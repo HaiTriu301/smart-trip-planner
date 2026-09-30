@@ -23,7 +23,6 @@ import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,6 +46,8 @@ public class ActivityServiceImpl implements ActivityService {
 
     /** design.md 14.5: indexes are spaced so that an insert in between renumbers nothing. */
     static final int ORDER_STEP = 1000;
+    /** design.md 14.5: below this distance between neighbours the whole day is renumbered. */
+    static final int MIN_GAP = 10;
 
     private static final String TRIP = "Trip";
     private static final String TRIP_DAY = "TripDay";
@@ -175,7 +176,18 @@ public class ActivityServiceImpl implements ActivityService {
         activityRepository.flush();
         log.info("{} activities of trip {} reordered over {} days", items.size(), tripId, affectedDayIds.size());
 
-        return daysWithActivities(days.values(), affectedDayIds);
+        // One query for every affected day, in display order; the same list feeds the crowding check and the answer
+        Map<Long, List<Activity>> activitiesByDay = activityRepository.findByTripDayIdInDisplayOrder(affectedDayIds)
+                .stream()
+                .collect(Collectors.groupingBy(activity -> activity.getTripDay().getId()));
+        // Only a day that received an activity can have become crowded
+        items.stream().map(ReorderActivitiesRequest.Item::dayId).distinct()
+                .forEach(dayId -> normalizeIfCrowded(dayId, activitiesByDay.getOrDefault(dayId, List.of())));
+
+        return days.values().stream()
+                .map(day -> tripDayMapper.toDetail(day, activitiesByDay.getOrDefault(day.getId(), List.of()).stream()
+                        .map(activityMapper::toResponse).toList()))
+                .toList();
     }
 
     // findById goes through JPQL, so @SQLRestriction hides soft-deleted trips. Needed because the permission
@@ -304,15 +316,36 @@ public class ActivityServiceImpl implements ActivityService {
         return activity.getStartTime() != null && activity.getEndTime() != null;
     }
 
-    /** The given days in the order received, each with its activities in display order: one query. */
-    private List<TripDayDetailResponse> daysWithActivities(Collection<TripDay> days, Set<Long> dayIds) {
-        Map<Long, List<ActivityResponse>> activitiesByDay =
-                activityRepository.findByTripDayIdInDisplayOrder(dayIds).stream()
-                        .collect(Collectors.groupingBy(activity -> activity.getTripDay().getId(),
-                                Collectors.mapping(activityMapper::toResponse, Collectors.toList())));
-        return days.stream()
-                .map(day -> tripDayMapper.toDetail(day, activitiesByDay.getOrDefault(day.getId(), List.of())))
-                .toList();
+    /**
+     * design.md rule 14.5: inserting between neighbours halves the gap each time (1500, 1250, 1125...). Once a
+     * gap is smaller than {@link #MIN_GAP}, the next insert could no longer find a free position, so the whole
+     * day is renumbered with the full step again. The gap before the first activity counts too, otherwise
+     * inserting at the top of the day (500, 250, 125...) would never trigger it.
+     * <p>
+     * The renumbering keeps the order the user sees ({@code orderIndex}, then {@code id}, i.e. the order of the
+     * query). The entities are managed, so the new positions are written when the transaction commits.
+     *
+     * @param inDisplayOrder the activities of the day as the query returned them
+     */
+    private void normalizeIfCrowded(Long dayId, List<Activity> inDisplayOrder) {
+        int previous = 0;
+        boolean crowded = false;
+        for (Activity activity : inDisplayOrder) {
+            if (activity.getOrderIndex() - previous < MIN_GAP) {
+                crowded = true;
+                break;
+            }
+            previous = activity.getOrderIndex();
+        }
+        if (!crowded) {
+            return;
+        }
+        int index = ORDER_STEP;
+        for (Activity activity : inDisplayOrder) {
+            activity.moveTo(activity.getTripDay(), index);
+            index += ORDER_STEP;
+        }
+        log.info("Day {} renumbered: {} activities spaced by {} again", dayId, inDisplayOrder.size(), ORDER_STEP);
     }
 
     /**
