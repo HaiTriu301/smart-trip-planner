@@ -19,26 +19,31 @@ import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFormDialog } from './ActivityFormDialog'
+import { MoveToDayDialog } from './MoveToDayDialog'
 import { SortableActivity, SortableDayList } from './DragDropContainer'
 import { daySchema, NOTE_MAX_LENGTH, type DayValues } from './schemas'
 
 interface DaySectionProps {
   tripId: number
   day: TripDayDetail
+  /** Every day of the trip, for "Chuyển sang ngày…" */
+  days: TripDayDetail[]
   /** Default currency of a new activity cost */
   tripCurrency: string
+  onMoveToDay: (activityId: number, dayId: number) => void
 }
 
 /**
  * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
  * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
  */
-export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
+export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: DaySectionProps) {
   const queryClient = useQueryClient()
   const [isEditingDay, setIsEditingDay] = useState(false)
   // undefined: form closed · null: adding · Activity: editing that one
   const [editing, setEditing] = useState<Activity | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Activity | null>(null)
+  const [moving, setMoving] = useState<Activity | null>(null)
   const overlaps = findOverlaps(day.activities)
 
   const deletion = useMutation({
@@ -111,6 +116,7 @@ export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
                     deletion.reset()
                     setDeleting(activity)
                   }}
+                  onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
                 />
               )}
             </SortableActivity>
@@ -126,6 +132,7 @@ export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
         open={editing !== undefined}
         onClose={() => setEditing(undefined)}
       />
+      <MoveToDayDialog activity={moving} days={days} onMove={onMoveToDay} onClose={() => setMoving(null)} />
       <ConfirmDialog
         open={deleting !== null}
         title="Xoá hoạt động?"

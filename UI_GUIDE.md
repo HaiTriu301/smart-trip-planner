@@ -299,7 +299,7 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 
 - **Nghỉ:** nền trắng, viền `tide` 1px ở ba cạnh, viền trái 3px màu tuyến.
 - **Rê chuột hoặc Tab tới thẻ:** nền `gray-50`; hiện tay nắm kéo (`GripVertical`) ở mép trái và menu "⋮" ở mép phải. **Màn hình cảm ứng:** hai nút này luôn hiện.
-- **Menu "⋮"** (`ActivityMenu`, Radix): "Sửa", "Xoá" (chữ đỏ). Dùng được bằng bàn phím: Enter mở, mũi tên chọn, Esc đóng.
+- **Menu "⋮"** (`ActivityMenu`, Radix): "Sửa", "Chuyển sang ngày…" (không có khi chuyến đi chỉ có 1 ngày), "Xoá" (chữ đỏ). Dùng được bằng bàn phím: Enter mở, mũi tên chọn, Esc đóng.
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
 - **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền `warning` mờ 8% và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
@@ -348,7 +348,8 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 
 - Góc dưới bên phải trên máy tính, trên cùng trên điện thoại; rộng 360px; tự tắt sau 4 giây; có nút "×".
 - Vùng chứa là `aria-live="polite"`; thông báo lỗi có `role="alert"`.
-- Chữ dùng thể hoàn thành, khớp với nút đã bấm: "Lưu thay đổi" → "Đã lưu thay đổi"; "Thêm hoạt động" → "Đã thêm hoạt động". Hiện có: "Đã lưu thay đổi", "Đã thêm hoạt động", "Đã xoá hoạt động", "Đã đổi trạng thái", "Đã xoá chuyến đi".
+- Chữ dùng thể hoàn thành, khớp với nút đã bấm: "Lưu thay đổi" → "Đã lưu thay đổi"; "Thêm hoạt động" → "Đã thêm hoạt động". Hiện có: "Đã lưu thay đổi", "Đã thêm hoạt động", "Đã xoá hoạt động", "Đã đổi trạng thái", "Đã xoá chuyến đi", `Đã chuyển "…" sang Ngày N`.
+- Toast có thể kèm **một link** dẫn tới kết quả không nằm trên màn hình: `Đã chuyển "…" sang Ngày 3` + "Mở Ngày 3".
 - Lỗi của thao tác không có form (kéo thả, đổi trạng thái) báo bằng toast đỏ, không báo bằng khung đỏ nằm xa chỗ thao tác.
 - **Không có nút "Hoàn tác"** cho tới khi API hỗ trợ khôi phục: hoạt động bị xoá cứng ngay.
 
@@ -438,7 +439,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
 - **Màn hình cảm ứng:** không kéo thả (xung đột với cuộn trang); mỗi thẻ có **nút ↑ / ↓** 44px, chỉ đổi thứ tự **trong** ngày (hoạt động đầu ngày không lên được, cuối ngày không xuống được). Việc chọn tay nắm hay mũi tên dựa vào **loại con trỏ** (`pointer-coarse`), không dựa vào độ rộng màn hình.
-- **Chuyển sang ngày khác:** thả thẻ lên tên ngày ở cột trái, hoặc menu "⋮" → "Chuyển sang ngày…" (Task 2.6 commit 11).
+- **Chuyển sang ngày khác:** trên máy tính, kéo thẻ **thả lên tên ngày ở cột trái** (mục đó có viền `jade` khi rê qua; chỉ tính khi con trỏ nằm đúng trên mục, nên kéo trong ngày không bị hút sang). Mọi thiết bị: menu "⋮" → **"Chuyển sang ngày…"** (hộp chọn ngày). Hoạt động xuống **cuối** ngày đích và biến khỏi ngày đang xem, nên thông báo có link "Mở Ngày N". Vẫn hỏi lại khi trùng giờ ở ngày mới.
 - Kéo thả và nút mũi tên dùng chung một đường lưu: cập nhật giao diện ngay, hỏi lại khi trùng giờ ở ngày mới, trả về chỗ cũ khi lỗi.
 
 ### 8.2. Danh sách chuyến đi — **Đã làm**

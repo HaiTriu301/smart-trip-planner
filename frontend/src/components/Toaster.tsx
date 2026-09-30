@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { CircleAlert, CircleCheck, X } from 'lucide-react'
 import { useToastStore } from '../stores/toastStore'
 
@@ -26,7 +27,14 @@ export function Toaster() {
           ) : (
             <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-danger" />
           )}
-          <p className="min-w-0 flex-1">{t.message}</p>
+          <div className="min-w-0 flex-1">
+            <p>{t.message}</p>
+            {t.link && (
+              <Link to={t.link.to} onClick={() => dismiss(t.id)} className="font-medium text-jade hover:underline">
+                {t.link.label}
+              </Link>
+            )}
+          </div>
           <button
             type="button"
             aria-label="Đóng thông báo"

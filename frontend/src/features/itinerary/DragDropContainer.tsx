@@ -5,9 +5,11 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -33,19 +35,35 @@ import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 import { ActivityCard } from './ActivityCard'
 import { ACTIVITY_ROUTE } from './activityType'
 
-// dnd-kit ids: activities and days share one id space, so they are prefixed ("a-12", "d-3")
+// dnd-kit ids share one id space, so they are prefixed: "a-12" an activity, "d-3" the rail of the day on screen,
+// "n-3" the entry of a day in the day list (drop there to move the activity to that day)
 const activityKey = (id: number) => `a-${id}`
 const dayKey = (id: number) => `d-${id}`
+const navKey = (id: number) => `n-${id}`
 
-function parseKey(key: UniqueIdentifier): { kind: 'activity' | 'day'; id: number } {
+type KeyKind = 'activity' | 'day' | 'nav'
+const KINDS: Record<string, KeyKind> = { a: 'activity', d: 'day', n: 'nav' }
+
+function parseKey(key: UniqueIdentifier): { kind: KeyKind; id: number } {
   const [prefix, id] = String(key).split('-')
-  return { kind: prefix === 'd' ? 'day' : 'activity', id: Number(id) }
+  return { kind: KINDS[prefix] ?? 'activity', id: Number(id) }
 }
 
-/** The day a key points at: the day itself, or the day holding that activity. */
+/** The day a key points at: the day itself (rail or day-list entry), or the day holding that activity. */
 function findDay(days: TripDayDetail[], key: UniqueIdentifier): TripDayDetail | undefined {
   const { kind, id } = parseKey(key)
-  return kind === 'day' ? days.find((d) => d.id === id) : days.find((d) => d.activities.some((a) => a.id === id))
+  return kind === 'activity' ? days.find((d) => d.activities.some((a) => a.id === id)) : days.find((d) => d.id === id)
+}
+
+/**
+ * The day list only counts when the pointer is right on an entry, so dragging inside the day never snaps to it;
+ * everything else (the rail and its cards) uses the usual closest-corners rule.
+ */
+const collisionDetection: CollisionDetection = (args) => {
+  const isNav = (id: UniqueIdentifier) => String(id).startsWith('n-')
+  const onDayList = pointerWithin({ ...args, droppableContainers: args.droppableContainers.filter((c) => isNav(c.id)) })
+  if (onDayList.length > 0) return onDayList
+  return closestCorners({ ...args, droppableContainers: args.droppableContainers.filter((c) => !isNav(c.id)) })
 }
 
 /** New days with the activity taken out of its day and inserted into `targetDayId` at `index`. */
@@ -91,13 +109,18 @@ interface PendingReorder {
   items: ReorderItem[]
   /** Days as they were before the drop, restored on failure or cancel */
   snapshot: TripDayDetail[]
+  /** Set when the activity leaves the day on screen: it disappears from view, so the toast links to its new day */
+  movedTo?: { dayIndex: number; title: string }
 }
 
 interface DragDropContainerProps {
   tripId: number
   days: TripDayDetail[]
-  /** Renders the days; during a drag they already show the activity at its hover position */
-  children: (days: TripDayDetail[]) => ReactNode
+  /**
+   * Renders the days; during a drag they already show the activity at its hover position.
+   * moveToOtherDay goes through the same save path as a drop (menu "Chuyển sang ngày…").
+   */
+  children: (days: TripDayDetail[], actions: { moveToOtherDay: (activityId: number, dayId: number) => void }) => ReactNode
 }
 
 /**
@@ -126,17 +149,23 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
   const mutation = useMutation({
     mutationFn: ({ items, allowOverlap }: PendingReorder & { allowOverlap: boolean }) =>
       reorderActivities(tripId, items, allowOverlap),
-    onSuccess: (affected) => {
+    onSuccess: (affected, { movedTo }) => {
       setConflict(null)
       // The response carries the final orderIndex, including a backend renumbering
       setCachedDays((current) => current.map((day) => affected.find((d) => d.id === day.id) ?? day))
+      if (movedTo) {
+        toast.success(`Đã chuyển "${movedTo.title}" sang Ngày ${movedTo.dayIndex}`, {
+          label: `Mở Ngày ${movedTo.dayIndex}`,
+          to: `/trips/${tripId}/days/${movedTo.dayIndex}`,
+        })
+      }
     },
-    onError: (error, { items, snapshot }) => {
+    onError: (error, { items, snapshot, movedTo }) => {
       const apiError = getApiError(error)
       if (apiError?.errorCode === 'ACTIVITY_TIME_CONFLICT') {
         // details: 'Trùng giờ với hoạt động "..." (09:00 - 10:00)', one per moved activity that overlaps
         const messages = apiError.details.flatMap((d) => (d.message ? [d.message] : []))
-        setConflict({ items, snapshot, messages: messages.length > 0 ? messages : [apiError.message] })
+        setConflict({ items, snapshot, movedTo, messages: messages.length > 0 ? messages : [apiError.message] })
         return
       }
       setConflict(null)
@@ -151,9 +180,12 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     setDragDays(days)
   }
 
-  /** Hovering over another day moves the activity there in the working copy. */
+  /**
+   * Hovering over another day's rail moves the activity there in the working copy. A day-list entry does not:
+   * that day is not on screen, so the move happens on drop only.
+   */
   function handleDragOver({ active, over }: DragOverEvent) {
-    if (!over || !dragDays) return
+    if (!over || !dragDays || parseKey(over.id).kind === 'nav') return
     const from = findDay(dragDays, active.id)
     const to = findDay(dragDays, over.id)
     if (!from || !to || from.id === to.id) return
@@ -170,9 +202,16 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     if (!over || !working) return
 
     const movedId = parseKey(active.id).id
+    const overTarget = parseKey(over.id)
+    // Dropped on a day in the day list: to the end of that day
+    if (overTarget.kind === 'nav') {
+      const target = working.find((d) => d.id === overTarget.id)
+      if (target) commitMove(moveToDay(working, movedId, target.id, target.activities.length), movedId)
+      return
+    }
+
     let finalDays = working
     const day = findDay(working, active.id)
-    const overTarget = parseKey(over.id)
     // Same day: dnd-kit only animated the order, apply it now
     if (day && overTarget.kind === 'activity' && overTarget.id !== movedId && findDay(working, over.id)?.id === day.id) {
       const from = day.activities.findIndex((a) => a.id === movedId)
@@ -197,10 +236,18 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     if (unchanged) return
 
     const items = reorderItemsForDrop(target.id, target.activities, movedId)
+    const moved = origin.activities.find((a) => a.id === movedId)
+    const movedTo = target.id !== origin.id && moved ? { dayIndex: target.dayIndex, title: moved.title } : undefined
     // Stop a background refetch from overwriting the optimistic view with the old order
     void queryClient.cancelQueries({ queryKey: ['trip', tripId] })
     setCachedDays(() => applyItems(finalDays, items))
-    mutation.mutate({ items, snapshot: days, allowOverlap: false })
+    mutation.mutate({ items, snapshot: days, movedTo, allowOverlap: false })
+  }
+
+  function moveToOtherDay(activityId: number, dayId: number) {
+    const target = days.find((d) => d.id === dayId)
+    if (!target || target.activities.some((a) => a.id === activityId)) return
+    commitMove(moveToDay(days, activityId, dayId, target.activities.length), activityId)
   }
 
   /** Position of an activity inside its day, and that day */
@@ -235,19 +282,23 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
   const shownDays = dragDays ?? days
   const activeActivity =
     activeId === null ? undefined : shownDays.flatMap((d) => d.activities).find((a) => a.id === activeId)
-  const reorder: ReorderContextValue = { disabled: mutation.isPending || conflict !== null, move, canMove }
+  const reorder: ReorderContextValue = {
+    disabled: mutation.isPending || conflict !== null,
+    move,
+    canMove,
+  }
 
   return (
     <ReorderContext.Provider value={reorder}>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        {children(shownDays)}
+        {children(shownDays, { moveToOtherDay })}
         {/* The card following the pointer: lifted, tilted 2deg, slightly see-through (UI_GUIDE 7.3) */}
         <DragOverlay>
           {activeActivity && (
@@ -268,7 +319,15 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
           setConflict(null)
           mutation.reset()
         }}
-        onConfirm={() => conflict && mutation.mutate({ items: conflict.items, snapshot: conflict.snapshot, allowOverlap: true })}
+        onConfirm={() =>
+          conflict &&
+          mutation.mutate({
+            items: conflict.items,
+            snapshot: conflict.snapshot,
+            movedTo: conflict.movedTo,
+            allowOverlap: true,
+          })
+        }
       >
         <ul className="list-disc space-y-1 pl-5">
           {conflict?.messages.map((message) => (
@@ -307,6 +366,21 @@ export function SortableDayList({ dayId, activityIds, children }: SortableDayLis
         {children}
       </ol>
     </SortableContext>
+  )
+}
+
+interface DayDropTargetProps {
+  dayId: number
+  children: ReactNode
+}
+
+/** An entry of the day list that accepts a dragged activity; lights up while the card is over it. */
+export function DayDropTarget({ dayId, children }: DayDropTargetProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: navKey(dayId) })
+  return (
+    <div ref={setNodeRef} className={`rounded-control transition-shadow ${isOver ? 'ring-2 ring-jade ring-offset-2' : ''}`}>
+      {children}
+    </div>
   )
 }
 

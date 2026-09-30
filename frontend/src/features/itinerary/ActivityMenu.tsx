@@ -1,10 +1,12 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
+import { CalendarArrowUp, EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
 
 interface ActivityMenuProps {
   title: string
   onEdit: () => void
   onDelete: () => void
+  /** Absent for a one-day trip: there is nowhere to move to */
+  onMoveToDay?: () => void
   /** Classes of the trigger's wrapper, e.g. to show it only on hover */
   className?: string
 }
@@ -16,7 +18,7 @@ const ITEM =
  * "⋮" menu of an activity card (UI_GUIDE 7.3). Radix handles keyboard navigation, focus and screen readers;
  * the look is ours (tokens), no ready-made theme.
  */
-export function ActivityMenu({ title, onEdit, onDelete, className }: ActivityMenuProps) {
+export function ActivityMenu({ title, onEdit, onDelete, onMoveToDay, className }: ActivityMenuProps) {
   return (
     <DropdownMenu.Root>
       <div className={className}>
@@ -40,6 +42,12 @@ export function ActivityMenu({ title, onEdit, onDelete, className }: ActivityMen
             <Pencil aria-hidden className="size-4 text-gray-500" />
             Sửa
           </DropdownMenu.Item>
+          {onMoveToDay && (
+            <DropdownMenu.Item onSelect={onMoveToDay} className={ITEM}>
+              <CalendarArrowUp aria-hidden className="size-4 text-gray-500" />
+              Chuyển sang ngày…
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Item onSelect={onDelete} className={`${ITEM} text-danger`}>
             <Trash2 aria-hidden className="size-4" />
             Xoá

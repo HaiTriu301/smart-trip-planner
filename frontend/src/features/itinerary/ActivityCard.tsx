@@ -24,13 +24,21 @@ interface ActivityCardProps {
   /** Without handlers the card is read-only (the preview that follows the pointer while dragging) */
   onEdit?: () => void
   onDelete?: () => void
+  onMoveToDay?: () => void
 }
 
 /**
  * The most important component (UI_GUIDE 7.3): white card, 1px tide border, 3px left edge in the route colour.
  * First row: time range + type (icon and label, so colour is never the only signal) + "⋮" menu.
  */
-export function ActivityCard({ activity, dragHandle, overlapping = false, onEdit, onDelete }: ActivityCardProps) {
+export function ActivityCard({
+  activity,
+  dragHandle,
+  overlapping = false,
+  onEdit,
+  onDelete,
+  onMoveToDay,
+}: ActivityCardProps) {
   const time = formatTimeRange(activity)
   const route = ACTIVITY_ROUTE[activity.type]
 
@@ -84,7 +92,13 @@ export function ActivityCard({ activity, dragHandle, overlapping = false, onEdit
       </div>
 
       {onEdit && onDelete && (
-        <ActivityMenu title={activity.title} onEdit={onEdit} onDelete={onDelete} className={`shrink-0 self-start ${REVEAL}`} />
+        <ActivityMenu
+          title={activity.title}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onMoveToDay={onMoveToDay}
+          className={`shrink-0 self-start ${REVEAL}`}
+        />
       )}
     </article>
   )

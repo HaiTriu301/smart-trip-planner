@@ -5,7 +5,7 @@ import { LinkButton } from '../../components/LinkButton'
 import { formatDate } from '../../lib/format'
 import type { TripDayDetail } from '../../types/trip'
 import { DaySection } from './DaySection'
-import { DragDropContainer } from './DragDropContainer'
+import { DayDropTarget, DragDropContainer } from './DragDropContainer'
 
 interface DayTimelineProps {
   tripId: number
@@ -19,8 +19,8 @@ const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${d
 
 /**
  * One day per page (UI_GUIDE 8.1): the list of days on the left (chips on narrow screens) links to each day,
- * the middle column shows only the chosen one. Drag and drop still knows every day, so later work can move an
- * activity to another day. The map column comes in Phase 3.
+ * the middle column shows only the chosen one. The whole grid sits inside the drag and drop area, so a card can
+ * be dropped on another day of the list to move it there. The map column comes in Phase 3.
  */
 export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
@@ -36,70 +36,81 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: Day
   if (!current) return null
 
   return (
-    <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]">
-      <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
-      <nav aria-label="Các ngày" className="hidden lg:block">
-        <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto">
-          {days.map((day) => {
-            const active = day.dayIndex === currentDayIndex
-            return (
-              <li key={day.id}>
-                <Link
-                  to={dayPath(tripId, day.dayIndex)}
-                  aria-current={active ? 'page' : undefined}
-                  className={`relative flex items-start justify-between gap-2 rounded-control py-2 pr-2 pl-4 text-sm transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
-                    active
-                      ? 'bg-jade-light text-jade-dark before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span className="font-semibold">Ngày {day.dayIndex}</span>{' '}
-                    <span className="tabular text-gray-500">{formatDate(day.date).slice(0, 5)}</span>
-                    {day.title ? (
-                      <span className="block truncate text-xs text-gray-500">{day.title}</span>
-                    ) : (
-                      <span className="block text-xs text-gray-400 italic">Chưa có tiêu đề</span>
-                    )}
-                  </span>
-                  <span className="tabular mt-0.5 shrink-0 rounded-control bg-white/70 px-1.5 text-xs text-gray-600">
-                    {day.activities.length}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ol>
-      </nav>
-      <div className="min-w-0 space-y-8">
-        <DragDropContainer tripId={tripId} days={days}>
-          {(shownDays) => {
-            // While dragging, the working copy is shown; pick the current day from it
-            const shown = shownDays.find((d) => d.id === current.id) ?? current
-            return <DaySection key={shown.id} tripId={tripId} day={shown} tripCurrency={tripCurrency} />
-          }}
-        </DragDropContainer>
+    <DragDropContainer tripId={tripId} days={days}>
+      {(shownDays, { moveToOtherDay }) => {
+        // While dragging inside the day, the working copy is shown; pick the current day from it
+        const shown = shownDays.find((d) => d.id === current.id) ?? current
+        return (
+          <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+            <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
+            <nav aria-label="Các ngày" className="hidden lg:block">
+              <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto p-1">
+                {days.map((day) => {
+                  const active = day.dayIndex === currentDayIndex
+                  return (
+                    <li key={day.id}>
+                      <DayDropTarget dayId={day.id}>
+                        <Link
+                          to={dayPath(tripId, day.dayIndex)}
+                          aria-current={active ? 'page' : undefined}
+                          className={`relative flex items-start justify-between gap-2 rounded-control py-2 pr-2 pl-4 text-sm transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                            active
+                              ? 'bg-jade-light text-jade-dark before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="font-semibold">Ngày {day.dayIndex}</span>{' '}
+                            <span className="tabular text-gray-500">{formatDate(day.date).slice(0, 5)}</span>
+                            {day.title ? (
+                              <span className="block truncate text-xs text-gray-500">{day.title}</span>
+                            ) : (
+                              <span className="block text-xs text-gray-400 italic">Chưa có tiêu đề</span>
+                            )}
+                          </span>
+                          <span className="tabular mt-0.5 shrink-0 rounded-control bg-white/70 px-1.5 text-xs text-gray-600">
+                            {day.activities.length}
+                          </span>
+                        </Link>
+                      </DayDropTarget>
+                    </li>
+                  )
+                })}
+              </ol>
+            </nav>
+            <div className="min-w-0 space-y-8">
+              <DaySection
+                key={shown.id}
+                tripId={tripId}
+                day={shown}
+                days={days}
+                tripCurrency={tripCurrency}
+                onMoveToDay={moveToOtherDay}
+              />
 
-        {(previous || next) && (
-          <nav aria-label="Chuyển ngày" className="flex justify-between gap-3 border-t border-tide pt-4">
-            {previous ? (
-              <LinkButton variant="secondary" to={dayPath(tripId, previous.dayIndex)}>
-                <ChevronLeft aria-hidden className="size-4" />
-                Ngày {previous.dayIndex}
-              </LinkButton>
-            ) : (
-              <span />
-            )}
-            {next && (
-              <LinkButton variant="secondary" to={dayPath(tripId, next.dayIndex)}>
-                Ngày {next.dayIndex}
-                <ChevronRight aria-hidden className="size-4" />
-              </LinkButton>
-            )}
-          </nav>
-        )}
-      </div>
-    </div>
+              {(previous || next) && (
+                <nav aria-label="Chuyển ngày" className="flex justify-between gap-3 border-t border-tide pt-4">
+                  {previous ? (
+                    <LinkButton variant="secondary" to={dayPath(tripId, previous.dayIndex)}>
+                      <ChevronLeft aria-hidden className="size-4" />
+                      Ngày {previous.dayIndex}
+                    </LinkButton>
+                  ) : (
+                    <span />
+                  )}
+                  {next && (
+                    <LinkButton variant="secondary" to={dayPath(tripId, next.dayIndex)}>
+                      Ngày {next.dayIndex}
+                      <ChevronRight aria-hidden className="size-4" />
+                    </LinkButton>
+                  )}
+                </nav>
+              )}
+            </div>
+          </div>
+        )
+      }}
+    </DragDropContainer>
   )
 }
 
