@@ -1,0 +1,109 @@
+{
+  "source": "Names, addresses and coordinates looked up on OpenStreetMap (Nominatim) on 2026-10-01. Data © OpenStreetMap contributors, ODbL 1.0 - https://www.openstreetmap.org/copyright",
+  "places": [
+    {
+      "externalId": "da-nang-chua-linh-ung",
+      "name": "Chùa Linh Ứng",
+      "address": "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng",
+      "lat": 16.1001567,
+      "lng": 108.2784112,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-cau-rong",
+      "name": "Cầu Rồng",
+      "address": "Đường Nguyễn Văn Linh, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0611682,
+      "lng": 108.2278968,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-ngu-hanh-son",
+      "name": "Ngũ Hành Sơn",
+      "address": "Phường Ngũ Hành Sơn, Đà Nẵng",
+      "lat": 16.00402,
+      "lng": 108.2627745,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-sun-world-ba-na-hills",
+      "name": "Sun World Bà Nà Hills",
+      "address": "Xã Bà Nà, Đà Nẵng",
+      "lat": 15.9958569,
+      "lng": 107.9890712,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-bao-tang-dieu-khac-cham",
+      "name": "Bảo tàng Nghệ thuật Điêu khắc Chăm Đà Nẵng",
+      "address": "Đường Bạch Đằng, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0601209,
+      "lng": 108.223084,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-bai-bien-my-khe",
+      "name": "Bãi biển Mỹ Khê",
+      "address": "Phường An Hải, Đà Nẵng",
+      "lat": 16.0756254,
+      "lng": 108.2468784,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-cho-han",
+      "name": "Chợ Hàn",
+      "address": "119 Trần Phú, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0683525,
+      "lng": 108.224283,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "da-nang-cho-con",
+      "name": "Chợ Cồn",
+      "address": "290 Hùng Vương, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0681275,
+      "lng": 108.2145213,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "da-nang-mi-quang-ba-mua",
+      "name": "Mì Quảng Bà Mua",
+      "address": "Đường Hồ Nghinh, Phường An Hải, Đà Nẵng",
+      "lat": 16.0662211,
+      "lng": 108.2433013,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "da-nang-bun-cha-ca-109",
+      "name": "Bún chả cá 109",
+      "address": "Đường Nguyễn Chí Thanh, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0743887,
+      "lng": 108.2207958,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "da-nang-khach-san-novotel",
+      "name": "Khách sạn Novotel Đà Nẵng",
+      "address": "Đường Trần Phú, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0774605,
+      "lng": 108.2235631,
+      "category": "ACCOMMODATION"
+    },
+    {
+      "externalId": "da-nang-san-bay-quoc-te",
+      "name": "Sân bay quốc tế Đà Nẵng",
+      "address": "Đường Trần Can, Phường Thanh Khê, Đà Nẵng",
+      "lat": 16.0425792,
+      "lng": 108.1971613,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "da-nang-ga-da-nang",
+      "name": "Ga Đà Nẵng",
+      "address": "Đường Hải Phòng, Phường Thanh Khê, Đà Nẵng",
+      "lat": 16.0715831,
+      "lng": 108.2092693,
+      "category": "TRANSPORT"
+    }
+  ]
+}
