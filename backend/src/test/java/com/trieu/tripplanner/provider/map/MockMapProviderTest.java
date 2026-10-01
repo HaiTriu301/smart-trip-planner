@@ -128,14 +128,29 @@ class MockMapProviderTest {
         Coordinate sonTra = point("16.1000", "108.2780");
         Coordinate baNa = point("15.9958", "107.9890");
 
-        List<String> fromSonTra = provider.search("da nang", 20, sonTra).stream().map(PlaceResult::name).toList();
-        List<String> fromBaNa = provider.search("da nang", 20, baNa).stream().map(PlaceResult::name).toList();
+        List<String> fromSonTra = provider.search("da nang", 100, sonTra).stream().map(PlaceResult::name).toList();
+        List<String> fromBaNa = provider.search("da nang", 100, baNa).stream().map(PlaceResult::name).toList();
 
         assertThat(fromSonTra).containsExactlyInAnyOrderElementsOf(fromBaNa);
         assertThat(fromSonTra.indexOf("Chùa Linh Ứng")).isLessThan(fromSonTra.indexOf("Sun World Bà Nà Hills"));
         assertThat(fromBaNa.indexOf("Sun World Bà Nà Hills")).isLessThan(fromBaNa.indexOf("Chùa Linh Ứng"));
         // Still deterministic with a reference point
-        assertThat(provider.search("da nang", 20, sonTra).stream().map(PlaceResult::name).toList()).isEqualTo(fromSonTra);
+        assertThat(provider.search("da nang", 100, sonTra).stream().map(PlaceResult::name).toList()).isEqualTo(fromSonTra);
+    }
+
+    @Test
+    void bundledDataShowsTheMarketsOfTheCityBeingPlannedFirst() {
+        // The real file has markets in all five destinations
+        assertThat(provider.search("cho", 8, null)).extracting(PlaceResult::name)
+                .startsWith("Chợ Hàn", "Chợ Cồn", "Chợ Đồng Xuân");
+
+        assertThat(provider.search("cho", 8, HO_CHI_MINH_CENTRE)).extracting(PlaceResult::name)
+                .startsWith("Chợ Bến Thành", "Chợ Bình Tây");
+        assertThat(provider.search("cho", 8, point("21.0285", "105.8542"))).extracting(PlaceResult::name)
+                .startsWith("Chợ Đồng Xuân");
+        // Hội An is 25 km from Đà Nẵng: inside the 50 km circle, after the two markets of the city itself
+        assertThat(provider.search("cho", 8, DA_NANG_CENTRE)).extracting(PlaceResult::name)
+                .startsWith("Chợ Cồn", "Chợ Hàn", "Chợ Hội An");
     }
 
     private static MockMapProvider.MockPlace place(String externalId, String name, String address, String lat, String lng) {
