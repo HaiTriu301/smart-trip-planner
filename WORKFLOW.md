@@ -1142,7 +1142,7 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 > 4. Thời tiết lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau); chưa có toạ độ → 200 kèm trạng thái "chưa có điểm đến", không phải lỗi. Dự báo chỉ có cho **16 ngày tới** (giới hạn của dịch vụ dự báo thật): quy tắc nằm ở service nên mock cũng tuân theo; ngày đã qua hoặc xa hơn trả "chưa có dự báo". ✔
 > 5. Cảnh báo ngoài trời: ngày có xác suất mưa ≥ 60% **và** có activity loại `SIGHTSEEING` → cảnh báo cấp ngày kèm danh sách activity. Nguồn dự báo: mock ở Task 3.3, Open-Meteo thật ở Task 3.8. ✔
 > 6. Bỏ cache `trip:detail` (design 8.1): `GET /trips/{id}` đã chỉ 4 câu SQL, trong khi phải xoá cache ở 8 chỗ ghi và dễ ra dữ liệu cũ khi làm realtime (Phase 5). ✔
-> 7. Dữ liệu mock: **khoảng 50 địa điểm ở 5 điểm đến** (Hà Nội, Đà Nẵng, Hội An, Đà Lạt, TP. Hồ Chí Minh), toạ độ tra từ OpenStreetMap lúc soạn file, có ghi nguồn. Giảm so với ~120 đề xuất ban đầu vì provider thật có ngay ở Task 3.8; mock chỉ còn phục vụ test và chạy khi không có mạng. ✔
+> 7. Dữ liệu mock: **56 địa điểm ở 5 điểm đến** (Hà Nội, Đà Nẵng, Hội An, Đà Lạt, TP. Hồ Chí Minh), toạ độ tra từ OpenStreetMap lúc soạn file, có ghi nguồn. Giảm so với ~120 đề xuất ban đầu vì provider thật có ngay ở Task 3.8; mock chỉ còn phục vụ test và chạy khi không có mạng. ✔
 > 8. Test có Redis: thêm container Redis vào `TestcontainersConfiguration`; `@DataJpaTest` / `@WebMvcTest` không nạp cache nên không đổi. ✔
 > 9. Provider thật (Photon / Nominatim, OSRM, Open-Meteo) + Resilience4j: **Task 3.8**, ngay sau 3.7 (không đợi Phase 8). Mặc định mọi profile vẫn `mock`; bản thật bật bằng cấu hình. Port ở 3.1 / 3.3 / 3.5 thiết kế theo hình dạng dữ liệu của API thật để tới 3.8 không phải sửa service. ✔
 >
@@ -1184,6 +1184,37 @@ Mốc 5 — test(place): add place search flow integration test
 ```
 
 **Nhớ:** `category` của mock dùng đúng 6 tên của `ActivityType` để form gợi ý sẵn loại hoạt động. `PlaceProvider` (Java) lớn dần theo task: `MOCK` ở 3.1, `MANUAL` ở 3.2, `OSM` ở 3.8; cột ENUM của V9 khai báo sẵn cả ba.
+
+> **Thực tế khi làm 3.1 (2026-10-01):** 5 commit đúng bảng đã duyệt, thêm commit docs Mốc 0 trên `main` (`1e4736f`). Số PR điền ở commit docs đầu Task 3.2.
+>
+> | Commit | Nội dung |
+> |---|---|
+> | `f0cd0f8` refactor(common): extract accent stripping from the slug generator | `VietnameseText.stripAccents`, `SlugGenerator` gọi lại; hành vi không đổi |
+> | `458a670` feat(place): add place search endpoint with mock map provider | `MapProvider`, `MockMapProvider`, `PlaceService`, `PlaceController`, 13 địa điểm Đà Nẵng |
+> | `0ff1b50` feat(place): rank search results near a coordinate | `Coordinate` (haversine), `search(query, limit, near)`, `lat` / `lng` |
+> | `3ba2e85` feat(place): extend mock places to five destinations | 56 địa điểm, `MockPlacesDataTest` kiểm chính dữ liệu |
+> | `2c84e02` test(place): add place search flow integration test | Cả ứng dụng thật, không mock |
+>
+> Endpoint mới: `GET /api/v1/places/search?q=&limit=&lat=&lng=` (Auth). 60 lượt test mới, toàn dự án 592 lượt; 49 kịch bản trong `docs/testing/07-place.md`. Kiểm chứng ngược 2 lần (tắt bỏ dấu → 5 test đỏ; bỏ qua toạ độ → 3 test đỏ). Bài thủ công `MT-PLACE-01` **chưa chạy** lúc đóng task.
+>
+> Quyết định khi làm (chi tiết ở design.md 5.2, 7.2, 10.2 "Quy ước Place API"):
+> - **Thứ tự kết quả:** không có toạ độ → tên bắt đầu bằng từ khoá, tên chứa từ khoá, rồi khớp qua địa chỉ; cùng hạng giữ thứ tự trong file. Có toạ độ → địa điểm trong **50 km** đứng trước, rồi độ khớp tên, rồi gần hơn trước. Không xếp thuần theo khoảng cách: trong một thành phố người dùng cần kết quả khớp tên nhất.
+> - Mọi từ của từ khoá phải có trong "tên + địa chỉ" đã bỏ dấu; phần chữ để so được chuẩn bị một lần lúc khởi động.
+> - `q` kiểm bằng `@Pattern` (còn ít nhất 2 ký tự sau khi bỏ khoảng trắng đầu cuối) + `@Size(max = 100)` ngay trên tham số; "đủ cả `lat` và `lng` hoặc bỏ cả hai" kiểm ở service.
+> - Dữ liệu: **56** địa điểm (Đà Nẵng 13, Hà Nội 12, Đà Lạt 11, Hội An 10, TP. Hồ Chí Minh 10), không phải ~50. Mọi tên, địa chỉ, toạ độ lấy từ Nominatim ngày 2026-10-01, file có trường `source` ghi nguồn và giấy phép ODbL; không toạ độ nào viết theo trí nhớ.
+> - Toạ độ dùng `BigDecimal` (khớp `DECIMAL(10,7)` của Task 3.2), chỉ đổi sang `double` lúc tính khoảng cách.
+>
+> **Bẫy đã gặp khi làm 3.1:**
+> 1. **Dữ liệu cũng cần test (BUG-PLACE-001):** lần tra "Bến xe Hội An" không ra kết quả, điểm đến này bị bỏ trống loại di chuyển mà người soạn không nhận ra; `MockPlacesDataTest` đếm hộ. Ngoài đếm loại, test còn so từng địa điểm với trung tâm điểm đến của nó (dưới 40 km) để bắt đảo vĩ độ / kinh độ.
+> 2. **Sáp nhập hành chính 2025 trên OpenStreetMap:** Hội An nay ghi "Phường Hội An, … Thành phố Đà Nẵng", Đà Lạt ghi "Phường Xuân Hương - Đà Lạt, Tỉnh Lâm Đồng". Hệ quả: tìm "da nang" ra cả địa điểm Hội An (23 kết quả), test "cùng tập kết quả" với `limit` 20 không còn đúng nghĩa → nới lên 100. Viết kỳ vọng theo tên địa điểm, đừng theo số lượng.
+> 3. **Hai constructor trong một `@Component`:** `MockMapProvider` có constructor cho Spring (đọc file) và constructor cho test (nhận danh sách) → Spring không tự chọn, phải đặt `@Autowired` trên constructor chính. Đây không phải `@Autowired` trên field (rule 4).
+> 4. **Nominatim:** tối đa 1 lần hỏi mỗi giây, phải gửi `User-Agent` định danh, và cấm dùng cho gợi ý khi đang gõ. Tên quán ăn / khách sạn hay thiếu hoặc khác chính tả ("Pho Thin", "Tan Ky"): thử tên khác, không tự điền. Nhiều kết quả thiếu số nhà hoặc tên đường: giữ đúng như nguồn.
+> 5. **Script sửa nhiều file:** viết script Python ra file rồi chạy; nhét script dài có cả nháy đơn lẫn nháy kép vào heredoc của Bash đã hai lần làm lệnh hỏng trước khi chạy. Khi thay chuỗi, luôn kiểm số lần khớp trước khi ghi file (một lần đếm sai 17 thay vì 15 đã được chặn nhờ vậy).
+>
+> **Việc cho Task 3.2:** thêm `MapProvider.lookup(externalId)` (mock: tra theo `externalId` trong danh sách đã nạp); `PlaceProvider` thêm `MANUAL`, cột ENUM của V9 khai báo sẵn `MOCK`, `OSM`, `MANUAL`; `PlaceMapper` thêm chiều entity → `PlaceResponse`; kết quả tìm kiếm đã mang `provider` + `externalId` để `POST /places` dùng.
+> **Việc cho Task 3.4:** khoá cache của tìm kiếm phải gồm từ khoá đã chuẩn hoá, `limit` và toạ độ làm tròn, vì `near` làm đổi thứ tự.
+> **Việc cho Task 3.6:** giao diện gửi `lat` / `lng` của điểm đến chuyến đi; `category` của kết quả là một trong 6 loại hoạt động, dùng để gợi ý sẵn ô "Loại".
+> **Việc cho Task 3.8:** quy tắc "50 km trước" là của mock; Photon có sẵn ưu tiên theo toạ độ. Hợp đồng của `search` chỉ hứa "quanh `near` đứng trước" và "cùng input cùng kết quả".
 
 ---
 
@@ -1793,7 +1824,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.5 Itinerary UI | ☑ | 2026-09-30 |
 | 2 | 2.6 Làm lại giao diện theo UI_GUIDE | ☑ | 2026-10-01 |
 | 2 | 2.7 Sửa lỗi sau rà soát Phase 1–2 | ☑ | 2026-10-01 |
-| 3 | 3.1 Tìm địa điểm | ☐ | |
+| 3 | 3.1 Tìm địa điểm | ☑ | 2026-10-01 |
 | 3 | 3.2 Gắn địa điểm vào hoạt động | ☐ | |
 | 3 | 3.3 Thời tiết của chuyến đi | ☐ | |
 | 3 | 3.4 Redis cache | ☐ | |

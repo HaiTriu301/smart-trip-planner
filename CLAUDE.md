@@ -103,6 +103,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 ### Third-party
 19. Mọi lời gọi ra ngoài phải đi qua interface trong `provider/`. Service **không** import SDK của Stripe/Google/Anthropic trực tiếp. Gửi mail cũng là gọi ra ngoài: `provider/mail/MailProvider` (`smtp` | `mock`), service không import `JavaMailSender`.
 20. Mặc định môi trường local là `mock` cho tất cả provider. Code mới phải chạy được khi chưa có API key nào.
+    - `provider/map/MapProvider` (`mock` | `osm` từ Task 3.8): bản mock đọc `resources/mock/places.json`. Thêm / sửa địa điểm trong file này thì toạ độ phải tra từ OpenStreetMap (Nominatim: 1 lần hỏi mỗi giây, có `User-Agent`), không viết theo trí nhớ; `MockPlacesDataTest` phải xanh (Task 3.1).
 
 ### Realtime
 21. Broadcast WebSocket chỉ được phát **sau khi transaction commit** (`@TransactionalEventListener(phase = AFTER_COMMIT)`).
