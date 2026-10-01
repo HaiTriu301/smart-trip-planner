@@ -28,6 +28,7 @@ import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.VerificationToken;
 import com.trieu.tripplanner.model.enums.Plan;
+import com.trieu.tripplanner.model.enums.RevokedReason;
 import com.trieu.tripplanner.model.enums.Role;
 import com.trieu.tripplanner.model.enums.UserStatus;
 import com.trieu.tripplanner.model.enums.VerificationTokenType;
@@ -42,6 +43,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -233,16 +236,58 @@ class AuthServiceTest {
         }
 
         @Test
-        void reusedRevokedTokenIsTreatedAsTheftAndKillsAllSessions() {
+        void reusedRotatedTokenIsTreatedAsTheftAndKillsAllSessions() {
             RefreshToken revoked = liveToken(user);
-            revoked.revoke(Instant.now().minusSeconds(30));
+            revoked.revoke(Instant.now().minusSeconds(30), RevokedReason.ROTATED);
             when(refreshTokenService.findByRawToken("old")).thenReturn(Optional.of(revoked));
 
             assertThatThrownBy(() -> authService.refresh("old", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
 
-            verify(refreshTokenService).revokeAll(7L);
+            verify(refreshTokenService).revokeAll(7L, RevokedReason.REUSE_DETECTED);
             verify(refreshTokenService, never()).issue(any(), any());
             verifyNoInteractions(jwtTokenProvider);
+        }
+
+        @Test
+        void tokenRevokedBeforeTheReasonColumnExistedIsStillTreatedAsTheft() {
+            RefreshToken legacy = liveToken(user);
+            legacy.revoke(Instant.now().minusSeconds(30), null);
+            when(refreshTokenService.findByRawToken("old")).thenReturn(Optional.of(legacy));
+
+            assertThatThrownBy(() -> authService.refresh("old", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
+
+            verify(refreshTokenService).revokeAll(7L, RevokedReason.REUSE_DETECTED);
+        }
+
+        // BUG-AUTH-006: a cookie left on another device after a logout or a password reset is not a theft
+        @ParameterizedTest
+        @EnumSource(value = RevokedReason.class, names = "ROTATED", mode = EnumSource.Mode.EXCLUDE)
+        void tokenRevokedForAnyOtherReasonIsRejectedWithoutTouchingOtherSessions(RevokedReason reason) {
+            RefreshToken stale = liveToken(user);
+            stale.revoke(Instant.now().minusSeconds(30), reason);
+            when(refreshTokenService.findByRawToken("stale")).thenReturn(Optional.of(stale));
+
+            assertThatThrownBy(() -> authService.refresh("stale", CLIENT))
+                    .isInstanceOf(InvalidRefreshTokenException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.UNAUTHORIZED);
+
+            verify(refreshTokenService, never()).revokeAll(any(), any());
+            verify(refreshTokenService, never()).issue(any(), any());
+            verifyNoInteractions(jwtTokenProvider);
+        }
+
+        @Test
+        void expiredTokenIsOnlyRejectedEvenIfItWasRotated() {
+            // Expiry is checked first: past its lifetime a rotated token can no longer close every session
+            RefreshToken rotatedLongAgo = RefreshToken.builder().user(user).tokenHash("h")
+                    .expiresAt(Instant.now().minusSeconds(1)).build();
+            rotatedLongAgo.revoke(Instant.now().minus(Duration.ofDays(8)), RevokedReason.ROTATED);
+            when(refreshTokenService.findByRawToken("ancient")).thenReturn(Optional.of(rotatedLongAgo));
+
+            assertThatThrownBy(() -> authService.refresh("ancient", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
+
+            verify(refreshTokenService, never()).revokeAll(any(), any());
+            verify(refreshTokenService, never()).issue(any(), any());
         }
 
         @Test
@@ -253,7 +298,7 @@ class AuthServiceTest {
 
             assertThatThrownBy(() -> authService.refresh("stale", CLIENT)).isInstanceOf(InvalidRefreshTokenException.class);
 
-            verify(refreshTokenService).revoke(expired);
+            verify(refreshTokenService).revoke(expired, RevokedReason.EXPIRED);
             verify(refreshTokenService, never()).issue(any(), any());
         }
 
@@ -264,7 +309,7 @@ class AuthServiceTest {
 
             assertThatThrownBy(() -> authService.refresh("ok", CLIENT)).isInstanceOf(AccountBlockedException.class);
 
-            verify(refreshTokenService).revokeAll(8L);
+            verify(refreshTokenService).revokeAll(8L, RevokedReason.BLOCKED);
             verify(refreshTokenService, never()).issue(any(), any());
         }
 
@@ -276,9 +321,9 @@ class AuthServiceTest {
 
             AuthTokens tokens = authService.refresh("current", CLIENT);
 
-            verify(refreshTokenService).revoke(current);
+            verify(refreshTokenService).revoke(current, RevokedReason.ROTATED);
             verify(refreshTokenService).issue(user, CLIENT);
-            verify(refreshTokenService, never()).revokeAll(any());
+            verify(refreshTokenService, never()).revokeAll(any(), any());
             assertThat(tokens.refreshToken()).isEqualTo("raw-refresh-2");
             assertThat(tokens.response().accessToken()).isEqualTo("jwt-2");
         }
@@ -302,7 +347,7 @@ class AuthServiceTest {
 
             authService.logout("ghost");
 
-            verify(refreshTokenService, never()).revoke(any());
+            verify(refreshTokenService, never()).revoke(any(), any());
         }
 
         @Test
@@ -312,7 +357,7 @@ class AuthServiceTest {
 
             authService.logout("current");
 
-            verify(refreshTokenService).revoke(token);
+            verify(refreshTokenService).revoke(token, RevokedReason.LOGOUT);
         }
 
     }
@@ -430,14 +475,14 @@ class AuthServiceTest {
             VerificationToken token = VerificationToken.builder().user(user).tokenHash("h")
                     .type(VerificationTokenType.PASSWORD_RESET).expiresAt(Instant.now().plus(Duration.ofMinutes(30))).build();
             when(verificationTokenService.consume("raw", VerificationTokenType.PASSWORD_RESET)).thenReturn(token);
-            when(refreshTokenService.revokeAll(7L)).thenReturn(2);
+            when(refreshTokenService.revokeAll(7L, RevokedReason.PASSWORD_RESET)).thenReturn(2);
 
             authService.resetPassword(new ResetPasswordRequest("raw", "MatKhauMoi456", "MatKhauMoi456"));
 
             assertThat(user.getPasswordHash()).isNotEqualTo(oldHash).startsWith("$2a$12$");
             assertThat(passwordEncoder.matches("MatKhauMoi456", user.getPasswordHash())).isTrue();
             assertThat(passwordEncoder.matches(RAW_PASSWORD, user.getPasswordHash())).isFalse();
-            verify(refreshTokenService).revokeAll(7L);
+            verify(refreshTokenService).revokeAll(7L, RevokedReason.PASSWORD_RESET);
         }
 
         @Test

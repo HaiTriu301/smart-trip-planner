@@ -3,6 +3,7 @@ package com.trieu.tripplanner.exception;
 
 import com.trieu.tripplanner.common.ErrorResponse;
 import com.trieu.tripplanner.common.constant.ErrorCode;
+import com.trieu.tripplanner.security.RefreshTokenCookies;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
@@ -48,6 +49,7 @@ public class GlobalExceptionHandler {
             .thenComparing(ErrorResponse.FieldError::message, Comparator.nullsFirst(Comparator.naturalOrder()));
 
     private final MessageSource messageSource;
+    private final RefreshTokenCookies refreshTokenCookies;
 
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ErrorResponse> handleAppException(AppException ex, HttpServletRequest request) {
@@ -64,6 +66,19 @@ public class GlobalExceptionHandler {
                 .sorted(DETAILS_ORDER)
                 .toList();
         return build(errorCode, message(errorCode.getMessageKey()), details, request);
+    }
+
+    /**
+     * The refresh cookie is dead (missing, unknown, expired or revoked). Besides the 401, the browser is told to
+     * drop the cookie; otherwise it would present the same dead token again on every page load (design.md 6.1).
+     */
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException ex,
+                                                                   HttpServletRequest request) {
+        log.warn("Application error {} on {}: {}", ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, refreshTokenCookies.clear().toString());
+        return build(ex.getErrorCode(), headers, request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

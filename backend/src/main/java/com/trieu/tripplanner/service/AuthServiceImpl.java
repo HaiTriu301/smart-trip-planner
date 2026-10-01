@@ -16,6 +16,7 @@ import com.trieu.tripplanner.mapper.UserMapper;
 import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.VerificationToken;
+import com.trieu.tripplanner.model.enums.RevokedReason;
 import com.trieu.tripplanner.model.enums.UserStatus;
 import com.trieu.tripplanner.model.enums.VerificationTokenType;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -104,6 +105,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
+     * The checks run in the order of design.md 6.1 "Refresh token không còn dùng được bị gửi lại". Only a token
+     * that was rotated away is a sign of theft; one revoked by a logout or a password reset is a stale cookie on
+     * another device and must not take the user's other sessions down with it.
+     * <p>
      * noRollbackFor: when we reject the request AFTER revoking sessions (theft, expiry, blocked account),
      * those revocations must still be committed. Without it the exception would roll the UPDATE back and
      * the stolen token's siblings would stay alive.
@@ -120,25 +125,32 @@ public class AuthServiceImpl implements AuthService {
         User user = stored.getUser();
         Instant now = Instant.now();
 
-        if (stored.isRevoked()) {
-            // A token we already rotated away is being presented again: someone else holds a copy.
-            // We cannot tell which party is the attacker, so every session of this user is terminated.
-            int revoked = refreshTokenService.revokeAll(user.getId());
-            log.warn("Reuse of revoked refresh token id={} for user id={}; revoked {} live session(s)",
-                    stored.getId(), user.getId(), revoked);
-            throw new InvalidRefreshTokenException("token already used");
-        }
+        // Expiry first: past its 7 days an old token is simply dead, it can no longer switch every session off
         if (stored.isExpired(now)) {
-            refreshTokenService.revoke(stored);
+            refreshTokenService.revoke(stored, RevokedReason.EXPIRED);
             throw new InvalidRefreshTokenException("token expired");
         }
+        if (stored.wasRotated()) {
+            // A token we already rotated away is being presented again: someone else holds a copy.
+            // We cannot tell which party is the attacker, so every session of this user is terminated.
+            int revoked = refreshTokenService.revokeAll(user.getId(), RevokedReason.REUSE_DETECTED);
+            log.warn("Reuse of rotated refresh token id={} for user id={}; revoked {} live session(s)",
+                    stored.getId(), user.getId(), revoked);
+            throw new InvalidRefreshTokenException("rotated token reused");
+        }
+        if (stored.isRevoked()) {
+            // Revoked by a logout, a password reset, a block or an earlier theft response: a stale cookie
+            log.info("Refresh token id={} of user id={} was revoked earlier ({}); other sessions untouched",
+                    stored.getId(), user.getId(), stored.getRevokedReason());
+            throw new InvalidRefreshTokenException("token revoked: " + stored.getRevokedReason());
+        }
         if (user.getStatus() == UserStatus.BLOCKED) {
-            refreshTokenService.revokeAll(user.getId());
+            refreshTokenService.revokeAll(user.getId(), RevokedReason.BLOCKED);
             throw new AccountBlockedException(user.getId());
         }
 
         // Rotation: the old session ends, a brand-new one starts
-        refreshTokenService.revoke(stored);
+        refreshTokenService.revoke(stored, RevokedReason.ROTATED);
         return issueTokens(user, client);
     }
 
@@ -149,7 +161,7 @@ public class AuthServiceImpl implements AuthService {
             return;
         }
         refreshTokenService.findByRawToken(rawRefreshToken).ifPresent(token -> {
-            refreshTokenService.revoke(token);
+            refreshTokenService.revoke(token, RevokedReason.LOGOUT);
             log.info("User id={} logged out session id={}", token.getUser().getId(), token.getId());
         });
     }
@@ -203,7 +215,7 @@ public class AuthServiceImpl implements AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         // Whoever held the old password (or a stolen session) is signed out everywhere (design.md 14.16)
-        int revoked = refreshTokenService.revokeAll(user.getId());
+        int revoked = refreshTokenService.revokeAll(user.getId(), RevokedReason.PASSWORD_RESET);
         log.info("User id={} reset password; revoked {} live session(s)", user.getId(), revoked);
     }
 

@@ -29,11 +29,12 @@ public interface AuthService {
     AuthTokens login(LoginRequest request, ClientInfo client);
 
     /**
-     * Rotation: the presented refresh token is revoked and a new pair is issued. Presenting an already
-     * revoked token is treated as theft and kills every session of that user.
+     * Rotation: the presented refresh token is revoked and a new pair is issued. Presenting a token that was
+     * already rotated away is treated as theft and kills every session of that user; a token revoked by a logout
+     * or a password reset is only rejected (design.md 6.1).
      *
      * @param rawRefreshToken cookie value, may be null when the cookie is absent
-     * @throws com.trieu.tripplanner.exception.InvalidRefreshTokenException missing, unknown, expired or reused (401)
+     * @throws com.trieu.tripplanner.exception.InvalidRefreshTokenException missing, unknown, expired or revoked (401)
      * @throws com.trieu.tripplanner.exception.AccountBlockedException      user was blocked meanwhile (403)
      */
     AuthTokens refresh(String rawRefreshToken, ClientInfo client);

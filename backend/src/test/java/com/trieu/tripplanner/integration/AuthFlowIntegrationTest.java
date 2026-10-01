@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.provider.mail.MailMessage;
 import com.trieu.tripplanner.provider.mail.MockMailProvider;
+import com.trieu.tripplanner.service.RefreshTokenService;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.util.regex.Matcher;
@@ -179,6 +180,70 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
+    void staleCookieAfterPasswordResetIsRejectedWithoutKillingTheNewSession() {
+        // BUG-AUTH-006: the phone still holds a cookie from before the reset done on the laptop
+        Cookie phone = login().getResponse().getCookie("refresh_token");
+
+        assertThat(postJson("/api/v1/auth/forgot-password", """
+                {"email": "%s"}
+                """.formatted(EMAIL))).hasStatusOk();
+        String resetToken = tokenFromMail(2, EMAIL, RESET_LINK);
+        assertThat(postJson("/api/v1/auth/reset-password", resetBody(resetToken, NEW_PASSWORD))).hasStatusOk();
+        assertThat(revokedReason(phone)).isEqualTo("PASSWORD_RESET");
+
+        MvcTestResult laptopLogin = postJson("/api/v1/auth/login", """
+                {"email": "%s", "password": "%s"}
+                """.formatted(EMAIL, NEW_PASSWORD));
+        assertThat(laptopLogin).hasStatusOk();
+        Cookie laptop = laptopLogin.getResponse().getCookie("refresh_token");
+
+        MvcTestResult stale = mvc.post().uri("/api/v1/auth/refresh").cookie(phone).exchange();
+
+        assertThat(stale).hasStatus(HttpStatus.UNAUTHORIZED);
+        // The browser is told to drop the dead cookie, so it stops sending it on every page load
+        assertThat(stale.getResponse().getCookie("refresh_token").getMaxAge()).isZero();
+        // Not a theft: the session opened after the reset survives
+        assertThat(liveSessions()).isEqualTo(1);
+        assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(laptop)).hasStatusOk();
+    }
+
+    @Test
+    void cookieOfALoggedOutSessionIsRejectedWithoutKillingOtherSessions() {
+        MvcTestResult phoneLogin = login();
+        Cookie phone = phoneLogin.getResponse().getCookie("refresh_token");
+        Cookie laptop = login().getResponse().getCookie("refresh_token");
+
+        assertThat(mvc.post().uri("/api/v1/auth/logout")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(phoneLogin))
+                .cookie(phone)).hasStatusOk();
+        assertThat(revokedReason(phone)).isEqualTo("LOGOUT");
+
+        // A copy of the logged-out cookie comes back (restored tab, second browser profile...)
+        assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(phone)).hasStatus(HttpStatus.UNAUTHORIZED);
+
+        assertThat(liveSessions()).isEqualTo(1);
+        assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(laptop)).hasStatusOk();
+    }
+
+    @Test
+    void expiredTokenIsRejectedWithoutKillingOtherSessionsEvenIfItWasRotated() {
+        Cookie first = login().getResponse().getCookie("refresh_token");
+        MvcTestResult refreshed = mvc.post().uri("/api/v1/auth/refresh").cookie(first).exchange();
+        assertThat(refreshed).hasStatusOk();
+        assertThat(revokedReason(first)).isEqualTo("ROTATED");
+        // More than 7 days later the rotated token has also expired. The time is computed by MySQL in UTC: a
+        // java.sql.Timestamp bound through JdbcTemplate is written in the JVM's zone, while Hibernate reads the
+        // column as UTC (hibernate.jdbc.time_zone), so on a +07:00 machine "one minute ago" would read as the future
+        jdbcTemplate.update("UPDATE refresh_tokens SET expires_at = UTC_TIMESTAMP(6) - INTERVAL 1 MINUTE WHERE token_hash = ?",
+                RefreshTokenService.hash(first.getValue()));
+
+        assertThat(mvc.post().uri("/api/v1/auth/refresh").cookie(first)).hasStatus(HttpStatus.UNAUTHORIZED);
+
+        // Expiry is checked before reuse: an old token cannot switch every session off forever
+        assertThat(liveSessions()).isEqualTo(1);
+    }
+
+    @Test
     void wrongPasswordUnverifiedAndBlockedAccountsAreRejectedInDesignOrder() {
         assertThat(postJson("/api/v1/auth/login", """
                 {"email": "flow@example.com", "password": "SaiMatKhau1"}
@@ -319,6 +384,12 @@ class AuthFlowIntegrationTest {
         catch (java.io.UnsupportedEncodingException ex) {
             throw new IllegalStateException(ex);
         }
+    }
+
+    /** Why the session behind this cookie was revoked, read straight from the table; null while it is alive. */
+    private String revokedReason(Cookie cookie) {
+        return jdbcTemplate.queryForObject("SELECT revoked_reason FROM refresh_tokens WHERE token_hash = ?",
+                String.class, RefreshTokenService.hash(cookie.getValue()));
     }
 
     private int liveSessions() {

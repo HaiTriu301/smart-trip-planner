@@ -1,7 +1,10 @@
 package com.trieu.tripplanner.model;
 
+import com.trieu.tripplanner.model.enums.RevokedReason;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -18,7 +21,7 @@ import org.hibernate.type.SqlTypes;
 /**
  * One login session (design.md 5.2 "refresh_tokens"). Only the SHA-256 of the token is stored; the raw value
  * lives in the client's httpOnly cookie. A row is "alive" while {@code revoked_at} is null and {@code expires_at}
- * is in the future. No setters: the only state change is {@link #revoke(Instant)}.
+ * is in the future. No setters: the only state change is {@link #revoke(Instant, RevokedReason)}.
  */
 @Entity
 @Table(name = "refresh_tokens")
@@ -43,6 +46,11 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    /** Null while alive, and on rows revoked before V8 (those count as rotated). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "revoked_reason")
+    private RevokedReason revokedReason;
+
     @Column(name = "user_agent", length = 255)
     private String userAgent;
 
@@ -61,10 +69,19 @@ public class RefreshToken extends BaseEntity {
         return !isRevoked() && !isExpired(now);
     }
 
-    /** Idempotent: keeps the first revocation time. */
-    public void revoke(Instant now) {
+    /**
+     * True when the token was exchanged for a newer one. Presenting it again is the theft signal of design.md 6.1;
+     * a token revoked for any other reason is only a stale cookie.
+     */
+    public boolean wasRotated() {
+        return isRevoked() && (revokedReason == null || revokedReason == RevokedReason.ROTATED);
+    }
+
+    /** Idempotent: keeps the first revocation time and reason. */
+    public void revoke(Instant now, RevokedReason reason) {
         if (revokedAt == null) {
             revokedAt = now;
+            revokedReason = reason;
         }
     }
 
