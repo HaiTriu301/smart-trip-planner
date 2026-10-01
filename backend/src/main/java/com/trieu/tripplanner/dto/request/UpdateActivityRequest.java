@@ -15,6 +15,9 @@ import java.time.LocalTime;
  * The two optional texts, {@code note} and {@code bookingUrl}, can also be cleared: "" or only spaces → stored
  * as NULL. Times, cost and currency cannot be cleared once set (same limit as the trip PATCH).
  * <p>
+ * {@code placeId} replaces the place of the activity with another one (an id returned by POST /places or
+ * POST /places/manual); whether that place may be used by this user is checked in the service.
+ * <p>
  * Not in the body on purpose: the day and orderIndex change only through the reorder endpoint (Task 2.4).
  * Constraints mirror {@link CreateActivityRequest}; every annotation used here ignores null, so omitted fields
  * are never rejected. The rules between startTime and endTime are checked in ActivityService on the merged state.
@@ -44,5 +47,7 @@ public record UpdateActivityRequest(
         // Blank is allowed: it means "remove the link"
         @Size(max = 512, message = "{validation.activity.booking-url.too-long}")
         @Pattern(regexp = "^\\s*$|^https?://\\S+$", message = "{validation.activity.booking-url.invalid}")
-        String bookingUrl) {
+        String bookingUrl,
+
+        Long placeId) {
 }

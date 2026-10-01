@@ -106,6 +106,7 @@ public class Activity extends BaseEntity {
      * Where the activity happens: the app's own copy of a place (design.md rule 14.18), shared with every other
      * activity that uses it. Null = no place. Deleting the activity never deletes the place.
      */
+    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "place_id")
     private Place place;

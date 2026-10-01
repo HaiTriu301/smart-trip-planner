@@ -72,9 +72,10 @@ public class ActivityController {
     @PatchMapping("/activities/{activityId}")
     @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
     public ApiResponse<ActivityResponse> update(@PathVariable Long tripId, @PathVariable Long activityId,
+                                                @AuthenticationPrincipal CustomUserDetails principal,
                                                 @RequestParam(defaultValue = "false") boolean allowOverlap,
                                                 @Valid @RequestBody UpdateActivityRequest request) {
-        return ApiResponse.ok(activityService.update(tripId, activityId, request, allowOverlap));
+        return ApiResponse.ok(activityService.update(tripId, activityId, principal.getId(), request, allowOverlap));
     }
 
     @Operation(summary = "Sắp xếp lại hoạt động (kéo thả)",

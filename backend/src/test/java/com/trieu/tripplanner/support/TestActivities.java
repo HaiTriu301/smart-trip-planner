@@ -33,11 +33,18 @@ public final class TestActivities {
                 request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId);
     }
 
-    /** Body of PATCH .../activities/{id}; null means "keep the current value". */
+    /** Body of PATCH .../activities/{id} that leaves the place alone; null means "keep the current value". */
     public static UpdateActivityRequest updateRequest(String title, ActivityType type, LocalTime startTime,
                                                       LocalTime endTime, String note, BigDecimal costAmount,
                                                       String currency, String bookingUrl) {
-        return new UpdateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl);
+        return new UpdateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl,
+                null);
+    }
+
+    /** The same body, also moving the activity to the place {@code placeId}. */
+    public static UpdateActivityRequest withPlace(UpdateActivityRequest request, Long placeId) {
+        return new UpdateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
+                request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId);
     }
 
     /** An activity as the API returns it, without a place. */

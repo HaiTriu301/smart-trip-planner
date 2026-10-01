@@ -458,9 +458,30 @@ class ActivityControllerTest {
     // ---- PATCH /trips/{tripId}/activities/{activityId} ------------------------------------------------------
 
     @Test
+    void updatePassesThePlaceIdWithTheUserOfTheTokenAndShowsTheNewPlace() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenReturn(TestActivities.withPlace(sampleActivity(), new PlaceResponse(72L, PlaceProvider.MOCK,
+                        "Bảo tàng Lâm Đồng", null, new BigDecimal("11.9416000"), new BigDecimal("108.4583000"), null)));
+
+        // userId in the body is ignored: the place is checked against the user inside the token (id 7)
+        assertThat(patch(ACTIVITY_URL, """
+                { "placeId": 72, "userId": 99 }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "id": 21, "place": { "id": 72, "name": "Bảo tàng Lâm Đồng" } } }
+                        """);
+
+        ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), request.capture(), eq(false));
+        assertThat(request.getValue().placeId()).isEqualTo(72L);
+    }
+
+    @Test
     void updateReturnsTheActivityWhenEditAllowed() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false))).thenReturn(sampleActivity());
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL, """
                 { "title": "An trua", "endTime": "13:00", "note": "", "bookingUrl": "" }
@@ -474,7 +495,7 @@ class ActivityControllerTest {
 
         // "" must reach the service untouched: it means "clear", unlike an omitted field
         ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
-        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), request.capture(), eq(false));
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), request.capture(), eq(false));
         assertThat(request.getValue()).isEqualTo(
                 TestActivities.updateRequest("An trua", null, null, LocalTime.of(13, 0), "", null, null, ""));
     }
@@ -482,7 +503,7 @@ class ActivityControllerTest {
     @Test
     void updateWithEmptyBodyObjectIsAcceptedAsNoChange() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false))).thenReturn(sampleActivity());
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL, "{}")).hasStatusOk();
     }
@@ -525,7 +546,7 @@ class ActivityControllerTest {
     @Test
     void updateReturns409WhenNewTimesOverlap() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false)))
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
                 .thenThrow(new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
                         "Activity 09:30-10:30 overlaps 1 activities of day 11, first is activity 32",
                         List.of(FieldViolation.of("startTime", "error.activity.time-conflict-with",
@@ -544,19 +565,19 @@ class ActivityControllerTest {
     @Test
     void updateWithAllowOverlapPassesTheFlagToTheService() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(true))).thenReturn(sampleActivity());
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(true))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL + "?allowOverlap=true", """
                 { "startTime": "09:30", "endTime": "10:30" }
                 """))
                 .hasStatusOk();
-        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(true));
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(true));
     }
 
     @Test
     void updateReturns404WhenActivityIsNotInTheTrip() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false)))
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
                 .thenThrow(new ResourceNotFoundException("Activity", ACTIVITY_ID));
 
         assertThat(patch(ACTIVITY_URL, """

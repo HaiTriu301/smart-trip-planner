@@ -643,7 +643,7 @@ class ActivityServiceTest {
 
         @Test
         void allowOverlapSkipsTheCheckAndSaves() {
-            activityService.update(TRIP_ID, ACTIVITY_ID, times(LocalTime.of(9, 30), TEN_THIRTY), true);
+            activityService.update(TRIP_ID, ACTIVITY_ID, USER_ID, times(LocalTime.of(9, 30), TEN_THIRTY), true);
 
             assertThat(stored.getStartTime()).isEqualTo(LocalTime.of(9, 30));
             verify(activityRepository, never()).findTimedByTripDayId(anyLong());
@@ -693,9 +693,66 @@ class ActivityServiceTest {
             assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
         }
 
+        @Test
+        void placeIdGivesAPlaceToAnActivityThatHadNone() {
+            Place market = market();
+            when(placeService.findAttachable(71L, USER_ID)).thenReturn(market);
+
+            ActivityResponse response = update(TestActivities.withPlace(titled(null), 71L));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(response.place().id()).isEqualTo(71L);
+            // Nothing else moved
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getOrderIndex()).isEqualTo(2000);
+        }
+
+        @Test
+        void placeIdReplacesThePlaceTheActivityAlreadyHas() {
+            stored.setPlace(market());
+            Place museum = Place.builder().provider(PlaceProvider.MOCK).externalId("da-lat-bao-tang")
+                    .name("Bảo tàng Lâm Đồng").lat(new BigDecimal("11.9416000")).lng(new BigDecimal("108.4583000"))
+                    .build();
+            ReflectionTestUtils.setField(museum, "id", 72L);
+            when(placeService.findAttachable(72L, USER_ID)).thenReturn(museum);
+
+            ActivityResponse response = update(TestActivities.withPlace(titled(null), 72L));
+
+            assertThat(stored.getPlace()).isSameAs(museum);
+            assertThat(response.place().name()).isEqualTo("Bảo tàng Lâm Đồng");
+        }
+
+        @Test
+        void withoutPlaceIdThePlaceStaysAndNoPlaceIsLookedUp() {
+            Place market = market();
+            stored.setPlace(market);
+
+            ActivityResponse response = update(titled("Ăn sáng muộn"));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(response.place().id()).isEqualTo(71L);
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
+        void placeThatCannotBeUsedLeavesTheActivityExactlyAsItWas() {
+            Place market = market();
+            stored.setPlace(market);
+            when(placeService.findAttachable(999L, USER_ID)).thenThrow(BusinessRuleException.invalidField("placeId",
+                    "error.activity.place-not-found", "Place 999 cannot be attached by user 7"));
+
+            // A new title in the same request must not be applied either
+            assertThatThrownBy(() -> update(TestActivities.withPlace(titled("Tên mới"), 999L)))
+                    .satisfies(ex -> assertSingleViolation(ex, "placeId", "error.activity.place-not-found"));
+
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getPlace()).isSameAs(market);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
         /** The default case of the endpoint: allowOverlap = false. */
         private ActivityResponse update(UpdateActivityRequest request) {
-            return activityService.update(TRIP_ID, ACTIVITY_ID, request, false);
+            return activityService.update(TRIP_ID, ACTIVITY_ID, USER_ID, request, false);
         }
 
         private static UpdateActivityRequest titled(String title) {
@@ -1331,7 +1388,7 @@ class ActivityServiceTest {
         }
 
         private void update(UpdateActivityRequest request) {
-            activityService.update(TRIP_ID, EDITED_ID, request, false);
+            activityService.update(TRIP_ID, EDITED_ID, USER_ID, request, false);
         }
 
         private static CreateActivityRequest startingAt(String start) {

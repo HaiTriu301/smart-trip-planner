@@ -116,7 +116,7 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     @Transactional
-    public ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request,
+    public ActivityResponse update(Long tripId, Long activityId, Long userId, UpdateActivityRequest request,
                                    boolean allowOverlap) {
         Trip trip = findLiveTrip(tripId);
         Activity activity = findActivityOfTrip(activityId, tripId);
@@ -125,6 +125,10 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime startTime = request.startTime() != null ? toMinutes(request.startTime()) : activity.getStartTime();
         LocalTime endTime = request.endTime() != null ? toMinutes(request.endTime()) : activity.getEndTime();
         validateTimeRange(startTime, endTime);
+        // As in create: the place is checked before the overlap, so a retry with allowOverlap cannot fail on it
+        Place place = request.placeId() != null
+                ? placeService.findAttachable(request.placeId(), userId)
+                : activity.getPlace();
 
         LocalTime originalStart = activity.getStartTime();
         boolean rangeChanged = !Objects.equals(startTime, activity.getStartTime())
@@ -148,6 +152,7 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setCostAmount(costAmount);
         activity.setCurrency(resolveCurrency(currency, costAmount, trip));
         activity.setBookingUrl(applyText(request.bookingUrl(), activity.getBookingUrl()));
+        activity.setPlace(place);
         // Only a new start time moves the activity; a new name, note, cost or end time leaves it where it is
         if (startTime != null && !startTime.equals(originalStart)) {
             placeByStartTime(activity, activity.getTripDay(), startTime);
@@ -155,7 +160,7 @@ public class ActivityServiceImpl implements ActivityService {
 
         // Flush now so the response carries the incremented version and updatedAt
         Activity saved = activityRepository.saveAndFlush(activity);
-        log.info("Activity {} of trip {} updated", activityId, tripId);
+        log.info("Activity {} of trip {} updated by user {}", activityId, tripId, userId);
         return activityMapper.toResponse(saved);
     }
 
