@@ -1,6 +1,6 @@
 # 02 · Xác thực người dùng
 
-> Cập nhật: 2026-10-01 · build xanh tại commit `ea4d7a9` · 2 lỗi đang mở (BUG-AUTH-006, BUG-AUTH-007, sửa ở Task 2.7) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-01 · build xanh tại commit `025799a` (Task 2.7, 532 lượt test) · BUG-AUTH-007 đã sửa, chờ chạy MT-AUTH-08 · [Về trang chính](README.md)
 
 Tính năng này cho người dùng đăng ký, xác thực email, đăng nhập, giữ phiên đăng nhập, và lấy lại mật khẩu. Làm ở Task 1.1 đến 1.5.
 
@@ -67,14 +67,20 @@ Vài từ dùng trong file:
 |---|---|---|---|---|
 | TC-AUTH-024 | Xin token mới bằng refresh token hợp lệ | 200. Refresh token cũ bị thu hồi, một cặp token mới được phát | Đúng | Đạt |
 | TC-AUTH-025 | Xin token mới mà không có cookie, hoặc cookie chứa giá trị lạ | 401 | Sai | Đạt |
-| TC-AUTH-026 | **Dùng lại** một refresh token đã bị thu hồi | 401, và **mọi phiên** của người dùng đó bị thu hồi. Hệ thống coi đây là dấu hiệu token bị đánh cắp | Bảo mật | Đạt · từng lỗi BUG-AUTH-001 |
-| TC-AUTH-027 | Xin token mới bằng refresh token đã hết hạn | 401, token đó bị thu hồi | Sai | Đạt |
+| TC-AUTH-026 | **Dùng lại** một refresh token đã được đổi lấy token mới (đã xoay vòng) | 401, và **mọi phiên** của người dùng đó bị thu hồi. Hệ thống coi đây là dấu hiệu token bị đánh cắp, vì token đã xoay chỉ còn ở bản sao bị lấy trộm. Kịch bản được thu hẹp ở Task 2.7: trước đó áp dụng cho **mọi** token đã bị thu hồi | Bảo mật | Đạt · từng lỗi BUG-AUTH-001, BUG-AUTH-006 |
+| TC-AUTH-027 | Xin token mới bằng refresh token đã hết hạn | 401, token đó bị thu hồi. Phiên khác không bị đụng tới | Sai | Đạt |
 | TC-AUTH-028 | Tài khoản bị khoá xin token mới | Bị từ chối, mọi phiên bị thu hồi | Bảo mật | Đạt |
 | TC-AUTH-029 | Xem refresh token trong database | Chỉ có mã băm SHA-256. Người đọc được database cũng không dùng được token | Bảo mật | Đạt |
 | TC-AUTH-030 | Thu hồi mọi phiên của một người | Phiên của người khác không bị ảnh hưởng | Đúng | Đạt |
 | TC-AUTH-031 | Đăng xuất khi đang đăng nhập | 200, phiên bị thu hồi, cookie bị xoá | Đúng | Đạt |
 | TC-AUTH-032 | Đăng xuất mà không có access token | 401 | Bảo mật | Đạt |
 | TC-AUTH-033 | Đăng xuất khi cookie đã mất hoặc không còn hợp lệ | Vẫn 200, không báo lỗi | Biên | Đạt |
+| TC-AUTH-055 | Đăng nhập trên điện thoại. Đặt lại mật khẩu rồi đăng nhập lại trên laptop. Điện thoại gửi lại refresh token cũ | Điện thoại nhận 401. Phiên mới của laptop **vẫn sống** và xin được token mới. Đây là cookie cũ, không phải token bị trộm | Bảo mật | Đạt · từng lỗi BUG-AUTH-006 |
+| TC-AUTH-056 | Đăng nhập trên hai thiết bị, đăng xuất ở thiết bị thứ nhất, rồi refresh token của thiết bị đó bị gửi lại | 401. Phiên của thiết bị thứ hai vẫn sống | Bảo mật | Đạt · từng lỗi BUG-AUTH-006 |
+| TC-AUTH-057 | Một token đã xoay vòng **và** đã quá hạn 7 ngày bị gửi lại | 401, không thu hồi phiên nào khác. Hết hạn được kiểm trước, nên token cũ không thể dùng làm "nút tắt mọi phiên" mãi mãi | Biên | Đạt · từng lỗi BUG-AUTH-008 |
+| TC-AUTH-058 | Refresh token bị từ chối vì bất kỳ lý do nào ở trên | Phản hồi 401 kèm lệnh xoá cookie, để trình duyệt thôi gửi lại token chết mỗi lần tải trang. Phản hồi **không nói lý do**, lý do chỉ nằm trong log máy chủ | Bảo mật | Đạt · từng lỗi BUG-AUTH-006 |
+| TC-AUTH-059 | Xem một phiên đã bị thu hồi trong database | Có ghi **lý do**: xoay vòng, đăng xuất, đặt lại mật khẩu, tài khoản bị khoá, hết hạn, hoặc phát hiện dùng lại. Cả 6 lý do đều lưu được. Phiên đã bị thu hồi từ trước giữ nguyên lý do đầu tiên | Đúng | Đạt |
+| TC-AUTH-060 | Một phiên bị thu hồi **trước** khi hệ thống biết ghi lý do bị gửi lại | Xử lý như token đã xoay vòng: mọi phiên bị thu hồi. Giữ nguyên mức an toàn cũ cho dữ liệu cũ | Biên | Đạt |
 
 ## E. Xác thực email
 
@@ -218,6 +224,50 @@ Cần có: đang đăng nhập, mở trang web ở hai tab.
 
 **Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
 
+### MT-AUTH-07 · Cookie cũ của phiên đã đăng xuất không làm mất phiên khác
+
+Thêm ở Task 2.7 Mốc 2 để kiểm lại lỗi `BUG-AUTH-006` trên máy của bạn. Cần có: backend chạy bản mới (lúc khởi động log có dòng Flyway áp dụng phiên bản 8), tài khoản `demo@example.com` đã xác thực, file `login.json` của `MT-AUTH-03`.
+
+- [ ] Chạy lệnh 1 (thiết bị A) và lệnh 2 (thiết bị B). Cả hai trả 200. Ghi lại `accessToken` của lệnh 1.
+- [ ] Chạy lệnh 3: đăng xuất thiết bị A. Trả 200.
+- [ ] Chạy lệnh 4: thiết bị A gửi lại cookie cũ. Trả 401, và có dòng `Set-Cookie: refresh_token=; ... Max-Age=0`.
+- [ ] Chạy lệnh 5: thiết bị B xin token mới. Trả **200**. Trước khi sửa, bước này trả 401 vì lệnh 4 đã làm mất luôn phiên của B.
+
+```powershell
+# 1
+curl.exe -s -i -c cookiesA.txt -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "@login.json"
+# 2
+curl.exe -s -i -c cookiesB.txt -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "@login.json"
+# 3
+curl.exe -s -i -b cookiesA.txt -X POST localhost:8080/api/v1/auth/logout -H "Authorization: Bearer <accessToken của lệnh 1>"
+# 4
+curl.exe -s -i -b cookiesA.txt -X POST localhost:8080/api/v1/auth/refresh
+# 5
+curl.exe -s -i -b cookiesB.txt -X POST localhost:8080/api/v1/auth/refresh
+```
+
+**Kết quả:** Chưa chạy
+
+### MT-AUTH-08 · Phiên bị rớt thì dữ liệu của người trước không còn hiện (Task 2.7)
+
+> Trạng thái: Chưa chạy sau khi sửa · kiểm lại lỗi BUG-AUTH-007
+
+Cần có: hai tài khoản đã xác thực (A và B), A có ít nhất một chuyến đi. Chạy backend với access token sống 1 phút để không phải chờ 15 phút: `./gradlew bootRun --args='--spring.profiles.active=local --app.jwt.access-ttl=1m'`.
+
+- [ ] Đăng nhập bằng A, mở trang chi tiết một chuyến đi của A.
+- [ ] Làm cho phiên của A hết hiệu lực từ phía máy chủ bằng lệnh bên dưới (nhập mật khẩu database khi được hỏi).
+- [ ] Chờ hơn 1 phút, bấm sang cửa sổ khác rồi quay lại trình duyệt. Trang đưa về màn hình đăng nhập.
+- [ ] Đăng nhập **ngay** bằng B. Trang đưa tới đúng địa chỉ chuyến đi của A và báo "Bạn không có quyền xem chuyến đi này." Không lúc nào thấy tên hay hoạt động của chuyến đi A. Trước khi sửa, chuyến đi của A hiện ra vài giây rồi mới tới câu báo.
+- [ ] Bấm "Chuyến đi của bạn": danh sách chỉ có chuyến đi của B.
+- [ ] Đăng xuất bằng nút trên thanh điều hướng, đăng nhập lại bằng A: thấy lại chuyến đi của A (đăng xuất thường vẫn hoạt động như cũ).
+- [ ] Chạy lại backend không có `--app.jwt.access-ttl=1m`.
+
+```powershell
+docker exec -it tripplanner-mysql mysql -u tripuser -p tripplanner -e "UPDATE refresh_tokens SET revoked_at = UTC_TIMESTAMP(6), revoked_reason = 'LOGOUT' WHERE revoked_at IS NULL;"
+```
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
@@ -226,8 +276,9 @@ Nguồn: mục "Bẫy đã gặp" của Task 1.3 và 1.5 trong `WORKFLOW.md`. C�
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
-| BUG-AUTH-007 | Chưa có, thêm ở Task 2.7 Mốc 9 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **chưa chạy thử**. Phiên của người A hết hiệu lực giữa chừng, trang đưa về màn hình đăng nhập. Người B đăng nhập trên cùng tab trong vòng 5 phút thì được đưa tới đúng trang A đang xem và thấy dữ liệu chuyến đi của A trong vài giây, trước khi hệ thống báo không có quyền | Dữ liệu đã tải được giữ trong bộ nhớ của trang để hiện lại cho nhanh. Bộ nhớ này chỉ được xoá khi người dùng **tự** bấm đăng xuất, không được xoá khi phiên bị rớt | | Đang mở |
-| BUG-AUTH-006 | TC-AUTH-026 (tách thành hai kịch bản ở Task 2.7 Mốc 2) | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **chưa chạy thử**. Một người đăng nhập trên điện thoại và laptop, đặt lại mật khẩu trên laptop rồi đăng nhập lại. Khi điện thoại mở lại trang, nó gửi refresh token cũ (đã bị thu hồi lúc đặt lại mật khẩu). Hệ thống coi đó là token bị đánh cắp và thu hồi **mọi** phiên, kể cả phiên mới của laptop. Điện thoại không được bảo xoá cookie nên mỗi lần tải trang lại lặp lại | **Yêu cầu sai**, code làm đúng yêu cầu cũ. Hệ thống chỉ ghi "token đã bị thu hồi", không ghi **vì sao**, nên token bị thu hồi do đặt lại mật khẩu hay đăng xuất bị xử lý giống token đã xoay vòng bị dùng lại. `design.md` 6.1 (dùng lại token đã thu hồi là trộm) mâu thuẫn với rule 14.16 (đặt lại mật khẩu thu hồi mọi token). `design.md` 6.1 đã sửa ngày 2026-10-01 | | Đang mở |
+| BUG-AUTH-008 | TC-AUTH-057 | 2026-10-01 | `AuthFlowIntegrationTest > expiredTokenIsRejectedWithoutKillingOtherSessionsEvenIfItWasRotated() FAILED`: sau khi gửi lại token đã hết hạn, test mong đợi còn 1 phiên sống, thực tế 0 (`expected: 1 but was: 0`). Hai test mới còn lại của mốc và 531 lượt khác đều đạt | **Test sai**, hệ thống đúng. Test tự sửa thời điểm hết hạn trong database thành "một phút trước" theo giờ của máy chạy test (giờ Việt Nam), còn ứng dụng đọc cột đó theo giờ quốc tế. Lệch 7 tiếng nên với ứng dụng, token vẫn chưa hết hạn và bị xử lý đúng như token đã xoay bị dùng lại | Test để chính database tính "một phút trước" theo giờ quốc tế. Code không đổi | Đã sửa, commit `d219c3a` |
+| BUG-AUTH-007 | MT-AUTH-08 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **chưa chạy thử**. Phiên của người A hết hiệu lực giữa chừng, trang đưa về màn hình đăng nhập. Người B đăng nhập trên cùng tab trong vòng 5 phút thì được đưa tới đúng trang A đang xem và thấy dữ liệu chuyến đi của A trong vài giây, trước khi hệ thống báo không có quyền | Dữ liệu đã tải được giữ trong bộ nhớ của trang để hiện lại cho nhanh. Bộ nhớ này chỉ được xoá khi người dùng **tự** bấm đăng xuất, không được xoá khi phiên bị rớt | Một quy tắc duy nhất thay cho việc nhớ xoá ở từng chỗ: hễ trạng thái chuyển từ "đã đăng nhập" sang "chưa đăng nhập", vì bất kỳ lý do gì, dữ liệu đã tải bị xoá hết | Đã sửa trong commit `025799a`, chờ chạy MT-AUTH-08 |
+| BUG-AUTH-006 | TC-AUTH-026, TC-AUTH-055, TC-AUTH-056, TC-AUTH-058 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2; **đã tái hiện** bằng ba test mới ở Mốc 2 trước khi sửa (mong đợi còn 1 phiên sống, thực tế 0; cookie không bị xoá). Một người đăng nhập trên điện thoại và laptop, đặt lại mật khẩu trên laptop rồi đăng nhập lại. Khi điện thoại mở lại trang, nó gửi refresh token cũ (đã bị thu hồi lúc đặt lại mật khẩu). Hệ thống coi đó là token bị đánh cắp và thu hồi **mọi** phiên, kể cả phiên mới của laptop. Điện thoại không được bảo xoá cookie nên mỗi lần tải trang lại lặp lại | **Yêu cầu sai**, code làm đúng yêu cầu cũ. Hệ thống chỉ ghi "token đã bị thu hồi", không ghi **vì sao**, nên token bị thu hồi do đặt lại mật khẩu hay đăng xuất bị xử lý giống token đã xoay vòng bị dùng lại. `design.md` 6.1 (dùng lại token đã thu hồi là trộm) mâu thuẫn với rule 14.16 (đặt lại mật khẩu thu hồi mọi token). `design.md` 6.1 đã sửa ngày 2026-10-01 | Mỗi phiên bị thu hồi được ghi kèm lý do. Chỉ token bị thu hồi do xoay vòng mới bị coi là dấu hiệu trộm khi gửi lại; token bị thu hồi vì lý do khác chỉ bị từ chối. Token hết hạn được kiểm trước. Mọi lần từ chối đều kèm lệnh xoá cookie | Đã sửa, commit `d219c3a` |
 | BUG-AUTH-005 | MT-AUTH-01 | 2026-09-30 | Bước 1 trả 400 `VALIDATION_ERROR` "Nội dung yêu cầu không đúng định dạng JSON hoặc sai kiểu dữ liệu" thay vì 201 | **Hướng dẫn test sai**, hệ thống đúng. PowerShell 5.1 làm hỏng dấu ngoặc kép trong JSON viết thẳng ở tham số `-d`, nên server nhận được nội dung không phải JSON. Tái hiện được trên chính máy phát triển | Hướng dẫn đổi sang ghi JSON ra file rồi gửi bằng `-d "@file"`. Đã thử: server đọc được JSON. Sửa cả `MT-AUTH-03`. Code không đổi | Đã sửa trong tài liệu |
 | BUG-AUTH-001 | TC-AUTH-026 | 2026-09-23 | Token bị đánh cắp vẫn dùng tiếp được. Lệnh thu hồi mọi phiên không có tác dụng | Hệ thống thu hồi xong rồi báo lỗi 401. Việc báo lỗi làm database huỷ luôn lệnh thu hồi vừa ghi | Khai báo rằng lỗi 401 này không được huỷ những gì đã ghi | Đã sửa, commit `4ef93a0` |
 | BUG-AUTH-002 | TC-AUTH-009 | 2026-09-23 | Thời hạn access token trả về là 899 giây thay vì 900 | Thời hạn được tính từ "bây giờ", sau khi vài phần nghìn giây đã trôi qua | Tính từ thời điểm phát token | Đã sửa, commit `bf6f998` |
@@ -235,6 +286,8 @@ Nguồn: mục "Bẫy đã gặp" của Task 1.3 và 1.5 trong `WORKFLOW.md`. C�
 | BUG-AUTH-004 | MT-AUTH-02 | 2026-09-25 | Trang xác thực email báo link không hợp lệ dù xác thực đã thành công | Ở chế độ phát triển, trang gửi mã xác thực hai lần. Lần hai bị từ chối vì mã chỉ dùng một lần | Đổi cách gọi để hai lần gửi trùng nhau được gộp thành một | Đã sửa, commit `9f0d093` |
 
 BUG-AUTH-006 là lỗi của yêu cầu, không phải của code: `TC-AUTH-026` vẫn đạt vì nó kiểm đúng điều yêu cầu cũ ghi. Test chỉ chứng minh code khớp yêu cầu, không chứng minh yêu cầu đúng. Lỗi lộ ra khi ghép hai quy tắc đúng riêng lẻ (thu hồi khi đặt lại mật khẩu, coi token đã thu hồi là trộm) vào một tình huống hai thiết bị.
+
+BUG-AUTH-008 là bẫy múi giờ quen thuộc ở một chỗ mới: lần này nằm trong chính test, khi test tự ghi thời gian vào database bằng đường khác với ứng dụng. Nó được ghi vào tài liệu trước khi tìm nguyên nhân, đúng quy tắc "ghi trước, sửa sau".
 
 BUG-AUTH-001 là lỗi đáng nhớ nhất. Test đơn vị đều đạt, chỉ test tích hợp chạy trên database thật mới phát hiện được.
 

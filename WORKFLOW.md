@@ -1081,6 +1081,35 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 > - Tài liệu lệch, **đã sửa** trong commit docs Mốc 0: `docs/testing/README.md` ghi 491 lượt (thật là 507); design 10.2 ghi danh sách "luôn 2 câu SQL" (trang đầy là 3: có thêm câu đếm); design 10.3 ghi `UNAUTHORIZED` là "thiếu/hết hạn" (hết hạn là `TOKEN_EXPIRED`); design 17.3 ghi local "tất cả mock" (mail là `smtp`).
 > - Tài liệu lệch, **chưa sửa**: Swagger của `POST` / `PATCH` activity còn ghi "nằm cuối ngày" / "không đổi thứ tự" (trước "Xếp theo giờ" của Task 2.6) → sửa trong code ở Task 3.2 khi đụng `ActivityController`. UI_GUIDE 7.0 "một nút chính mỗi màn" mâu thuẫn với màn rỗng của danh sách (15.2 D: nút ở đầu trang và nút trong khung rỗng đều là nút chính) → chờ chủ dự án chọn, rồi sửa UI_GUIDE và code ở Task 3.6.
 
+> **Thực tế khi làm 2.7 (2026-10-01):** 9 commit đúng bảng đã duyệt, mỗi lỗi một commit, thêm commit docs Mốc 0 trên `main` (`1400774`).
+>
+> | Commit | Lỗi | Nội dung |
+> |---|---|---|
+> | `622cba1` fix(api): return 4xx for unsupported media type and missing parameters | BUG-PLAT-003 | 415, 406, thiếu tham số → 400; mọi `ErrorResponse` đặt sẵn `Content-Type` JSON |
+> | `d219c3a` fix(auth): treat only rotated refresh tokens as theft | BUG-AUTH-006 | V8 `revoked_reason`, thứ tự kiểm mới của `refresh`, 401 kèm xoá cookie |
+> | `2cc814d` fix(frontend): focus the first field when a dialog opens | BUG-UI-003 | `Modal` tự đặt con trỏ vào phần tử đầu tiên của nội dung |
+> | `009e696` fix(frontend): keep form dialogs open while saving | BUG-UI-004 | `useIsMutating` ở vỏ hộp thoại, Esc và "×" bị bỏ qua lúc đang lưu |
+> | `752f383` fix(frontend): keep the trip page when a background refetch fails | BUG-UI-005 | Giữ trang + khung lỗi + "Thử lại"; 404 / 403 vẫn thay cả trang |
+> | `ae2af3b` fix(frontend): do not retry requests the server rejected | BUG-UI-006 | `lib/queryClient.ts`: 4xx không thử lại |
+> | `e4f4520` fix(frontend): keep the space typed in the trip search | BUG-UI-007 | Ô tìm kiếm chỉ chép từ URL khi URL nói khác với ô |
+> | `dcfcfbe` fix(frontend): ignore a drop on the day being viewed | BUG-UI-008 | Thả lên ngày gốc của hoạt động = không làm gì |
+> | `025799a` fix(frontend): clear cached data when the session is dropped | BUG-AUTH-007 | Phiên kết thúc (mọi đường) → `queryClient.clear()` |
+>
+> Khác với bảng đã duyệt (chi tiết ở design.md 6.1, 10.3 và `UI_GUIDE.md` 7.6, 8.1):
+> - **Mốc 1:** biểu hiện thật của `Accept: text/xml` là **401 ở `/error`**, không phải 500. Việc ghi `ErrorResponse` thất bại, container chuyển sang `/error`, mà `/error` không nằm trong `PUBLIC_PATHS`. Sửa gốc: mọi `ErrorResponse` đặt sẵn `Content-Type: application/json`.
+> - **Mốc 2:** lỗi 403 (tài khoản bị khoá lúc refresh) **không** xoá cookie, vì `AccountBlockedException` dùng chung với đăng nhập; lần gửi lại kế tiếp nhận 401 và cookie bị xoá ở đó.
+> - **Mốc 3:** sửa ở `Modal` nên mọi hộp thoại được sửa cùng lúc; hộp xác nhận đặt con trỏ ở "Huỷ". Gỡ `autoFocus` ở ba form trong hộp thoại.
+> - **Mốc 9:** không sửa `api/client.ts`; một `useAuthStore.subscribe` trong `lib/queryClient.ts` che mọi đường làm mất phiên, `useLogout` bỏ lệnh xoá riêng.
+>
+> Kiểm chứng: 532 lượt test backend (thêm 25). `BUG-PLAT-003` chạy lại trên máy chủ thật (cổng 8081); `BUG-AUTH-006` được tái hiện bằng test tích hợp **trước khi** sửa (mong đợi 1 phiên sống, thực tế 0). Bảy mốc frontend chỉ có `lint` + `build`; chủ dự án đã thử Mốc 3, các bài `MT-UI-43`, `MT-UI-44`, `MT-UI-12`, `MT-UI-02`, `MT-UI-26`, `MT-AUTH-07`, `MT-AUTH-08` **chưa chạy** lúc đóng task.
+>
+> **Bẫy đã gặp khi làm 2.7:**
+> 1. **Lỗi mà 507 test xanh không thấy:** mọi test đều gửi request đúng kiểu và mọi kịch bản chỉ có một thiết bị. Rà soát bằng câu hỏi "người gọi làm sai thì sao" và "có hai thiết bị thì sao" mới ra. Test chỉ chứng minh code khớp yêu cầu; BUG-AUTH-006 là lỗi của chính yêu cầu (design 6.1 mâu thuẫn rule 14.16).
+> 2. **`/error` không công khai:** bất cứ lỗi nào container tự xử lý (`sendError`) đều đi qua `/error` và ra 401 "Bạn cần đăng nhập". MockMvc không có bước chuyển này (chỉ thấy 406 rỗng), phải chạy máy chủ thật mới thấy.
+> 3. **Test tự ghi thời gian vào DB (BUG-AUTH-008):** `JdbcTemplate` + `java.sql.Timestamp` ghi theo múi giờ của JVM, Hibernate đọc cột theo UTC (`hibernate.jdbc.time_zone`). "Một phút trước" ở máy +07:00 thành gần 7 tiếng sau. Để MySQL tự tính: `UTC_TIMESTAMP(6) - INTERVAL 1 MINUTE`.
+> 4. **`autoFocus` trong `<dialog>`:** React gọi `focus()` lúc phần tử được gắn, khi hộp còn đóng nên không có tác dụng; `showModal()` sau đó đặt con trỏ vào phần tử bấm được đầu tiên (nút "×").
+> 5. **Trạng thái "đang lưu" nằm trong form con, phím Esc do vỏ hộp xử lý:** không đẩy state lên bằng effect; đặt `mutationKey` rồi dùng `useIsMutating` ở vỏ.
+
 > ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26). Trước khi sang Phase 3: rà lại Phase 3 theo quy ước A.2 "Rà soát theo phase".
 
 ---
@@ -1758,7 +1787,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.4 Reorder | ☑ | 2026-09-30 |
 | 2 | 2.5 Itinerary UI | ☑ | 2026-09-30 |
 | 2 | 2.6 Làm lại giao diện theo UI_GUIDE | ☑ | 2026-10-01 |
-| 2 | 2.7 Sửa lỗi sau rà soát Phase 1–2 | ☐ | |
+| 2 | 2.7 Sửa lỗi sau rà soát Phase 1–2 | ☑ | 2026-10-01 |
 | 3 | 3.1 Tìm địa điểm | ☐ | |
 | 3 | 3.2 Gắn địa điểm vào hoạt động | ☐ | |
 | 3 | 3.3 Thời tiết của chuyến đi | ☐ | |

@@ -1,6 +1,6 @@
 # 01 · Nền tảng
 
-> Cập nhật: 2026-10-01 · build xanh tại commit `ea4d7a9` · 1 lỗi đang mở (BUG-PLAT-003, sửa ở Task 2.7) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-01 · build xanh tại commit `025799a` (Task 2.7, 532 lượt test) · [Về trang chính](README.md)
 
 Nền tảng là phần mọi tính năng khác dựa vào: khung của phản hồi, cách báo lỗi, ai được gọi gì, và cấu hình.
 
@@ -36,6 +36,10 @@ Mọi lỗi dùng chung một khung: mã lỗi, thông báo tiếng Việt, đư
 | TC-PLAT-013 | Gọi thao tác xoá vào endpoint chỉ cho đọc | 405, cho biết thao tác nào được phép | Sai | Đạt |
 | TC-PLAT-014 | Máy chủ gặp lỗi không lường trước | 500 với thông báo chung, **không lộ** chi tiết nội bộ | Bảo mật | Đạt |
 | TC-PLAT-015 | Tra từng mã lỗi trong file thông báo | Mã nào cũng có thông báo, dấu tiếng Việt đọc đúng | Đúng | Đạt |
+| TC-PLAT-029 | Gửi nội dung kiểu form (không phải JSON) vào một endpoint nhận JSON | 415 `UNSUPPORTED_MEDIA_TYPE`, thông báo nêu API chỉ nhận JSON, phản hồi cho biết kiểu nội dung được nhận. **Không phải** lỗi 500 | Sai | Đạt · từng lỗi BUG-PLAT-003 |
+| TC-PLAT-030 | Gọi một endpoint nhưng đòi dữ liệu trả về kiểu XML | 406 `NOT_ACCEPTABLE`, thông báo lỗi vẫn ở dạng JSON đúng khung | Sai | Đạt · từng lỗi BUG-PLAT-003 |
+| TC-PLAT-031 | Yêu cầu một bản ghi không tồn tại, đồng thời đòi dữ liệu trả về kiểu XML | Vẫn 404 `RESOURCE_NOT_FOUND` ở dạng JSON: lỗi thật không bị che mất vì kiểu dữ liệu người gọi đòi | Biên | Đạt · từng lỗi BUG-PLAT-003 |
+| TC-PLAT-032 | Gọi endpoint mà thiếu một tham số bắt buộc | 400 `VALIDATION_ERROR`, nêu tên tham số thiếu và câu "Thiếu tham số bắt buộc" | Sai | Đạt · từng lỗi BUG-PLAT-003 |
 
 ## C. Khoá truy cập mặc định
 
@@ -135,6 +139,6 @@ Mã `BUG-PLAT-001` và `BUG-PLAT-002` là ví dụ giả định trong [hướng
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
-| BUG-PLAT-003 | Chưa có, thêm ở Task 2.7 Mốc 1 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **đã chạy thử** trên backend local. (1) Gửi đăng nhập với nội dung kiểu form thay vì JSON (`curl.exe -X POST localhost:8080/api/v1/auth/login -d "x=1"`): nhận 500 `INTERNAL_ERROR` "Đã có lỗi xảy ra, vui lòng thử lại sau", trong khi lỗi là của người gọi. (2) Gọi endpoint công khai `GET /api/v1/ping` kèm `Accept: text/xml`: nhận 401 `UNAUTHORIZED` "Bạn cần đăng nhập để tiếp tục" với `path` là `/error`. (3) Chưa chạy thử được vì chưa có endpoint nào như vậy: thiếu một tham số bắt buộc trên đường dẫn cũng sẽ ra 500 | Ba loại lỗi do người gọi gây ra (sai kiểu nội dung gửi lên, đòi kiểu dữ liệu trả về mà hệ thống không có, thiếu tham số) chưa được xử lý riêng nên rơi vào nhóm "lỗi không lường trước". Ở trường hợp (2), chính việc ghi thông báo lỗi cũng thất bại, máy chủ chuyển sang trang lỗi mặc định, và trang đó lại yêu cầu đăng nhập | | Đang mở |
+| BUG-PLAT-003 | TC-PLAT-029 đến TC-PLAT-032 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **đã chạy thử** trên backend local. (1) Gửi đăng nhập với nội dung kiểu form thay vì JSON (`curl.exe -X POST localhost:8080/api/v1/auth/login -d "x=1"`): nhận 500 `INTERNAL_ERROR` "Đã có lỗi xảy ra, vui lòng thử lại sau", trong khi lỗi là của người gọi. (2) Gọi endpoint công khai `GET /api/v1/ping` kèm `Accept: text/xml`: nhận 401 `UNAUTHORIZED` "Bạn cần đăng nhập để tiếp tục" với `path` là `/error`. (3) Chưa chạy thử được vì chưa có endpoint nào như vậy: thiếu một tham số bắt buộc trên đường dẫn cũng sẽ ra 500 | Ba loại lỗi do người gọi gây ra (sai kiểu nội dung gửi lên, đòi kiểu dữ liệu trả về mà hệ thống không có, thiếu tham số) chưa được xử lý riêng nên rơi vào nhóm "lỗi không lường trước". Ở trường hợp (2), chính việc ghi thông báo lỗi cũng thất bại, máy chủ chuyển sang trang lỗi mặc định, và trang đó lại yêu cầu đăng nhập | Mỗi loại lỗi có mã riêng: 415 cho sai kiểu nội dung gửi lên, 406 cho kiểu dữ liệu trả về không có, 400 kèm tên tham số cho tham số thiếu. Mọi thông báo lỗi luôn được ghi ở dạng JSON, không phụ thuộc kiểu dữ liệu người gọi đòi. Đã chạy lại hai lệnh ở cột hiện tượng trên bản mới (cổng 8081): nhận 415 và 406 | Đã sửa, commit `622cba1` |
 
 BUG-PLAT-003 không do test nào bắt được: 507 lượt test đều xanh vì mọi test đều gửi JSON đúng kiểu. Nó lộ ra khi đọc lại code theo câu hỏi "người gọi làm sai thì hệ thống trả gì".

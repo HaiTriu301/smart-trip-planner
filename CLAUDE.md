@@ -94,6 +94,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
     - Mật khẩu chỉ đi qua `PasswordEncoder` bean (BCrypt 12); DTO response không bao giờ có field password/hash.
 16. Không bao giờ tin `userId` từ request body — luôn lấy từ `SecurityContext`.
 17. Không log password, token, JWT, Stripe secret, payload thẻ.
+    - Refresh token bị thu hồi luôn kèm lý do (`revoked_reason`). Chỉ token đã **xoay vòng** (`ROTATED`) bị gửi lại mới là dấu hiệu trộm và làm thu hồi mọi phiên; token bị thu hồi do đăng xuất / đặt lại mật khẩu chỉ trả 401. Thứ tự kiểm ở design.md 6.1 (chốt Task 2.7).
     - Refresh token chỉ lưu **SHA-256 hex** trong DB, token thô chỉ nằm trong cookie `refresh_token` (HttpOnly, SameSite=Lax, Path=/api/v1/auth). Access token không lưu server.
     - JWT hết hạn → `TOKEN_EXPIRED`, JWT sai/thiếu → `UNAUTHORIZED`, sai mật khẩu → `INVALID_CREDENTIALS`. Không trộn ba mã này: frontend dựa vào `TOKEN_EXPIRED` để tự refresh.
     - JJWT dùng `jjwt-api` + `jjwt-impl` với `security/JwtJsonCodec` (Jackson 3). Không thêm `jjwt-jackson` (kéo Jackson 2).
@@ -122,7 +123,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 ### Frontend
 31. Mọi lời gọi HTTP đi qua `apiClient` trong `src/api/client.ts`. Component không import `axios` trực tiếp; mỗi module API là một file trong `src/api/` trả về body đã có type.
 32. `baseURL` là đường dẫn **tương đối** (`VITE_API_URL`, mặc định `/api/v1`) để đi qua proxy Vite (dev) / nginx (prod). Không hardcode `http://localhost:8080` trong `frontend/src`.
-33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand.
+33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand. `QueryClient` duy nhất nằm ở `src/lib/queryClient.ts`: lỗi 4xx không tự gửi lại, và cache bị xoá mỗi khi phiên đăng nhập kết thúc (Task 2.7) — không tạo `QueryClient` thứ hai, không tự `queryClient.clear()` ở nơi khác.
 34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
 35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
 36. Auth phía client (chốt Task 1.5): access token chỉ ở `stores/authStore` (memory), không `localStorage`. Chỉ `refreshAccessToken()` trong `api/client.ts` được gọi `/auth/refresh` (single-flight + Web Lock giữa các tab) — không tự gọi refresh ở nơi khác, hai lần refresh song song bị backend coi là trộm token và thu hồi mọi phiên. Lỗi API hiển thị qua `api/errors.ts` (`getErrorMessage`, `applyFieldErrors`), không tự đọc `error.response`.
@@ -213,7 +214,7 @@ Cập nhật mục này sau mỗi phase hoàn thành.
 
 - [x] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler, init frontend (2026-09-18)
 - [x] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password, auth UI (2026-09-25)
-- [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30); làm lại giao diện theo UI_GUIDE — Task 2.6 (2026-10-01)
+- [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30); làm lại giao diện theo UI_GUIDE — Task 2.6 (2026-10-01); sửa 9 lỗi sau rà soát Phase 1–2 — Task 2.7 (2026-10-01)
 - [ ] Phase 3 — Place + Weather (mock provider + Redis cache)
 - [ ] Phase 4 — Sharing + Permission (member, share link, PermissionEvaluator)
 - [ ] Phase 5 — Realtime WebSocket + optimistic locking
@@ -248,6 +249,12 @@ Khi review code, kiểm tra lại các điểm này:
 - Ghi đè lớp Tailwind của component bằng một lớp cùng thuộc tính qua `className` (ví dụ `w-auto` đè `w-full`, `hover:text-red-700` đè `hover:text-slate-800`): không chắc lớp nào thắng. Thuộc tính thay đổi theo chỗ dùng phải là prop của component (`Button` có `variant` / `size` / `fullWidth`) — BUG-UI-001, WORKFLOW.md Task 2.5
 - Hai phần tử cùng `z-index` chồng lên nhau khi cuộn (chấm trên ray `z-10` đè khối dính `z-10`): danh sách có phần tử `z` riêng phải `isolate` — BUG-UI-002, WORKFLOW.md Task 2.6
 - `scrollIntoView` tới phần tử nằm trong khối `sticky`: trình duyệt coi như luôn hiện nên không cuộn. Cuộn tới phần tử cha không dính, đặt `scroll-margin` — WORKFLOW.md Task 2.6
+- Lỗi do người gọi gây ra (sai `Content-Type`, thiếu `@RequestParam` bắt buộc, `Accept` không nhận JSON) không có handler riêng → rơi vào 500. `ErrorResponse` không đặt sẵn `Content-Type` JSON → việc ghi lỗi thất bại, container chuyển sang `/error` và client nhận 401 sai nghĩa; MockMvc không tái hiện, phải thử trên máy chủ thật — BUG-PLAT-003, WORKFLOW.md Task 2.7
+- Coi mọi token / phiên "đã thu hồi" như nhau: thu hồi phải kèm lý do, nếu không cookie cũ sau khi đặt lại mật khẩu làm đăng xuất cả thiết bị mới — BUG-AUTH-006
+- Test tự ghi thời gian vào DB bằng `JdbcTemplate` + `java.sql.Timestamp`: ghi theo múi giờ JVM trong khi Hibernate đọc theo UTC. Dùng `UTC_TIMESTAMP(6)` trong câu SQL — BUG-AUTH-008
+- `autoFocus` cho ô trong `Modal`: không có tác dụng (hộp còn đóng lúc React focus). `Modal` tự đặt con trỏ vào phần tử đầu tiên của nội dung — BUG-UI-003
+- Hộp thoại có form đóng được bằng Esc / "×" trong lúc đang lưu → câu trả lời của máy chủ không còn chỗ hiện. Vỏ hộp dùng `useIsMutating` với `mutationKey` của form — BUG-UI-004
+- Kiểm `error` trước `data` của `useQuery`: một lần tải lại ngầm lỗi thay cả trang (và form đang gõ) bằng ô báo lỗi. Còn dữ liệu thì giữ trang, báo lỗi kèm "Thử lại" — BUG-UI-005
 - Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")
 
 ---

@@ -493,7 +493,7 @@ Claims: `sub` (userId), `email`, `role`, `plan`, `iat`, `exp`, `jti`.
 4. Token bị thu hồi vì lý do khác (`LOGOUT`, `PASSWORD_RESET`, `BLOCKED`, `EXPIRED`, `REUSE_DETECTED`) → **chỉ** 401. Đây là thiết bị cũ còn giữ cookie sau khi người dùng đăng xuất hoặc đặt lại mật khẩu ở nơi khác, không phải dấu hiệu trộm.
 5. Token còn sống nhưng tài khoản `BLOCKED` → revoke toàn bộ (`BLOCKED`), 403 `ACCOUNT_BLOCKED`.
 
-Mọi lần refresh thất bại, response kèm `Set-Cookie` xoá `refresh_token` (`Max-Age=0`) để trình duyệt thôi gửi lại token chết.
+Mọi lần refresh bị từ chối vì token (401, bước 1–4), response kèm `Set-Cookie` xoá `refresh_token` (`Max-Age=0`) để trình duyệt thôi gửi lại token chết. Bước 5 (403) không xoá cookie: token vừa bị thu hồi với lý do `BLOCKED`, lần gửi lại kế tiếp rơi vào bước 4 và cookie bị xoá ở đó.
 
 > Trước Task 2.7, mọi token đã revoke bị gửi lại đều bị coi là theft. Hệ quả (BUG-AUTH-006): đặt lại mật khẩu ở máy A (rule 14.16 revoke mọi token), máy B còn cookie cũ mở trang → phiên mới của A bị thu hồi, lặp lại mỗi lần B tải trang.
 

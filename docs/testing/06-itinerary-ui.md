@@ -1,6 +1,6 @@
 # 06 · Giao diện lịch trình
 
-> Cập nhật: 2026-10-01 · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · 6 lỗi đang mở (BUG-UI-003 đến BUG-UI-008, sửa ở Task 2.7) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-01 · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
 
 Giao diện web để người dùng xem danh sách chuyến đi, tạo chuyến đi, xem và sửa lịch trình từng ngày, thêm hoạt động và kéo thả để sắp xếp lại. Làm ở Task 2.5.
 
@@ -45,6 +45,18 @@ Task 2.6 (`feat/T2.6-ui-guide`): áp dụng hệ thống giao diện trong `UI_G
 | 12 | Hoạt động tự vào đúng chỗ theo giờ bắt đầu khi thêm hoặc đổi giờ. Chỉ đổi backend, test tự động ở [05-activity.md](05-activity.md) phần N | MT-UI-40 | `db74c66` |
 | 13 | Ngày dài: khối mô tả ngày dính ở trên, ngang hàng cột ngày bên trái (màn hình rộng); nút "Đầu ngày" trong khối mô tả và nút tròn nhỏ "Lên đầu trang" ở góc dưới phải khi cuộn sâu | MT-UI-41 | `b73fc79` |
 
+Task 2.7 (`fix/T2.7-review-fixes`): sửa các lỗi tìm ra khi rà soát code Phase 1–2. Mỗi mốc một lỗi, một commit.
+
+| Mốc | Nội dung | Kiểm tra thủ công | Commit |
+|---|---|---|---|
+| 3 | Mở hộp thoại thì con trỏ nằm ở ô đầu tiên của nội dung, không nằm ở nút "×" (`BUG-UI-003`) | MT-UI-42 | `2cc814d` |
+| 4 | Esc và nút "×" không đóng hộp sửa / thêm trong lúc đang lưu (`BUG-UI-004`) | MT-UI-43 | `009e696` |
+| 5 | Tải lại ngầm bị lỗi thì trang chi tiết vẫn giữ nguyên, có khung báo và nút "Thử lại" (`BUG-UI-005`) | MT-UI-44 | `752f383` |
+| 6 | Yêu cầu bị máy chủ từ chối (404, 403...) không còn bị tự gửi lại 3 lần: thông báo hiện ngay (`BUG-UI-006`) | MT-UI-12 (đã thêm yêu cầu về thời gian) | `ae2af3b` |
+| 7 | Ô tìm kiếm giữ dấu cách đang gõ khi ngừng tay giữa hai từ (`BUG-UI-007`) | MT-UI-02 (đã thêm một bước) | `e4f4520` |
+| 8 | Thả một hoạt động lên chính ngày đang xem ở cột trái thì không có gì thay đổi (`BUG-UI-008`) | MT-UI-26, bước 3 | `dcfcfbe` |
+| 9 | Phiên bị rớt thì dữ liệu đã tải bị xoá, người đăng nhập sau không thấy dữ liệu của người trước (`BUG-AUTH-007`, ghi ở [02-auth.md](02-auth.md)) | MT-AUTH-08 | `025799a` |
+
 ---
 
 ## Kiểm tra thủ công
@@ -78,11 +90,14 @@ Từ Mốc 2 có thể tạo chuyến đi ngay trên giao diện (`MT-UI-06`). V
 
 ### MT-UI-02 · Tìm chuyến đi
 
+> Trạng thái: Chưa chạy sau khi sửa · kiểm lại lỗi BUG-UI-007
+
 Ô tìm kiếm nằm giữa thanh điều hướng màu tối (từ Task 2.6, commit 9; trước đó nằm trong hàng lọc của trang danh sách).
 
 - [ ] Ở trang danh sách, gõ `hội an` vào ô tìm kiếm trên thanh điều hướng rồi dừng tay. Khoảng nửa giây sau chỉ còn thẻ "Hội An cuối tuần". Thanh địa chỉ có `?q=hội+an` (hoặc dạng mã hoá của nó).
 - [ ] Nhấn F5. Ô tìm kiếm vẫn ghi `hội an`, danh sách vẫn chỉ có một thẻ.
 - [ ] Gõ `đà` (tìm theo tên chuyến đi và điểm đến, không phân biệt hoa thường). Còn thẻ "Đà Lạt mùa hoa".
+- [ ] Gõ tiếp **một dấu cách**, ngừng tay 1 giây, rồi gõ `lạt`. Ô tìm kiếm ghi `đà lạt` (có dấu cách), vẫn còn thẻ "Đà Lạt mùa hoa". Trước khi sửa, dấu cách biến mất trong lúc ngừng tay, ô thành `đàlạt` và không tìm ra gì.
 - [ ] Gõ `không có chuyến này`. Trang ghi "Không tìm thấy chuyến đi nào phù hợp. Thử từ khoá khác hoặc bỏ bớt bộ lọc." kèm nút "Xoá bộ lọc". Bấm nút đó: ô tìm kiếm trên thanh điều hướng cũng trống theo.
 - [ ] Chọn chip "Nháp" rồi gõ từ khoá: chip "Nháp" vẫn được giữ, chỉ lọc thêm theo từ khoá.
 - [ ] Xoá hết chữ trong ô tìm kiếm. Hiện lại cả ba thẻ, thanh địa chỉ không còn `?q=`.
@@ -214,7 +229,9 @@ Từ Mốc 6 có thể thêm hoạt động ngay trên giao diện (`MT-UI-20`).
 
 ### MT-UI-12 · Không mở được chuyến đi
 
-- [ ] Sửa thanh địa chỉ thành `http://localhost:5173/trips/999999`. Trang báo "Không tìm thấy chuyến đi. Có thể chuyến đi đã bị xoá." kèm link về danh sách.
+> Trạng thái: Chưa chạy sau khi sửa · kiểm lại lỗi BUG-UI-006
+
+- [ ] Sửa thanh địa chỉ thành `http://localhost:5173/trips/999999`. Trang báo "Không tìm thấy chuyến đi. Có thể chuyến đi đã bị xoá." kèm link về danh sách. Thông báo hiện **gần như ngay** (dưới 1 giây); trước khi sửa phải nhìn khung chờ khoảng 7 giây. Trong DevTools, thẻ Network chỉ có **một** request tới `/trips/999999`, không phải bốn.
 - [ ] Sửa thành `http://localhost:5173/trips/abc`. Trang báo "Không tìm thấy chuyến đi.".
 - [ ] Đăng nhập bằng tài khoản thứ hai, mở địa chỉ chi tiết của "Sapa săn mây" (của tài khoản đầu). Trang báo "Bạn không có quyền xem chuyến đi này."
 - [ ] Quay lại tài khoản đầu, xoá một chuyến đi bằng Swagger (`DELETE /api/v1/trips/{id}`), rồi mở địa chỉ chi tiết của nó. Trang báo "Không tìm thấy chuyến đi. Có thể chuyến đi đã bị xoá."
@@ -377,11 +394,13 @@ ORDER BY d.day_index, a.order_index;
 
 ### MT-UI-26 · Chuyển hoạt động sang ngày khác
 
+> Trạng thái: Chưa chạy sau khi sửa · kiểm lại lỗi BUG-UI-008 (bước 3)
+
 Từ Task 2.6 mỗi trang chỉ hiện một ngày, nên có hai cách chuyển (commit 11). Dùng chuyến đi 3 ngày: Ngày 1 có ít nhất 3 hoạt động, Ngày 3 trống.
 
 - [ ] Màn hình rộng, đang ở Ngày 1: kéo một hoạt động **không có giờ** bằng tay nắm, rê lên mục "Ngày 3" ở cột trái. Mục đó có viền xanh ngọc. Thả ra: hoạt động biến khỏi Ngày 1; góc dưới bên phải hiện thông báo `Đã chuyển "…" sang Ngày 3` kèm link "Mở Ngày 3".
 - [ ] Số bên cạnh "Ngày 1" ở cột trái giảm 1, "Ngày 3" tăng 1. Bấm link "Mở Ngày 3" trong thông báo: trang chuyển sang Ngày 3, hoạt động nằm ở **cuối** ngày.
-- [ ] Kéo một hoạt động nhưng thả lên chính "Ngày 1" (ngày đang xem) ở cột trái: không có gì thay đổi.
+- [ ] Kéo hoạt động **đầu tiên** của ngày nhưng thả lên chính "Ngày 1" (ngày đang xem) ở cột trái: không có gì thay đổi, hoạt động vẫn ở đầu ngày. Trước khi sửa, nó nhảy xuống cuối ngày.
 - [ ] Kéo một hoạt động qua lại trong ngày, đi ngang cột trái mà không dừng trên mục nào: thẻ không bị hút sang ngày khác, thả vào giữa ngày thì chỉ đổi thứ tự như bình thường.
 - [ ] Mở menu "⋮" của một hoạt động ở Ngày 1: có mục "Chuyển sang ngày…". Chọn: hộp "Chuyển sang ngày khác" có ô "Ngày" liệt kê Ngày 2 và Ngày 3 (không có Ngày 1). Chọn "Ngày 2", bấm "Chuyển sang ngày": hoạt động chuyển xuống cuối Ngày 2, hiện thông báo có link "Mở Ngày 2".
 - [ ] Bấm "Huỷ" trong hộp chuyển ngày: không có gì thay đổi.
@@ -591,6 +610,54 @@ Dùng một ngày có khoảng 20 hoạt động, đủ để phải cuộn nhi�
 
 **Kết quả:** Chưa chạy
 
+### MT-UI-42 · Con trỏ khi mở hộp thoại (Task 2.7)
+
+> Trạng thái: Chạy một phần sau khi sửa · kiểm lại lỗi BUG-UI-003
+
+Dùng một chuyến đi có ít nhất 2 ngày và 1 hoạt động. Không dùng chuột sau khi hộp đã mở, chỉ dùng bàn phím.
+
+- [ ] Bấm "+ Thêm hoạt động" rồi gõ ngay `Ăn sáng`: chữ vào ô "Tên hoạt động". Nhấn Esc để đóng.
+- [ ] Mở menu "⋮" của một hoạt động, chọn "Sửa": con trỏ nằm trong ô "Tên hoạt động" đang có sẵn tên. Gõ thêm một chữ thì chữ đó vào ô tên. Nhấn Esc.
+- [ ] Bấm "Sửa" của chuyến đi: con trỏ nằm trong ô "Tên chuyến đi". Nhấn Esc.
+- [ ] Mở menu "⋮", chọn "Chuyển sang ngày…": con trỏ nằm ở ô "Ngày", nhấn mũi tên xuống thì ngày được chọn đổi. Nhấn Esc.
+- [ ] Mở menu "⋮", chọn "Xoá": nút "Huỷ" đang có vòng focus. Nhấn Enter: hộp đóng, hoạt động **vẫn còn**.
+- [ ] Bấm "Xoá" của chuyến đi: nút "Huỷ" đang có vòng focus. Nhấn Enter: hộp đóng, chuyến đi vẫn còn.
+- [ ] Trong hộp "Thêm hoạt động", nhấn Tab nhiều lần: con trỏ đi hết các ô, tới nút "×", rồi quay lại ô đầu. Không lọt ra trang phía sau.
+
+**Kết quả:** Chạy một phần · **Ngày:** 2026-10-01 · **Ghi chú:** chủ dự án thử sau khi sửa và báo "con trỏ tự vào ô đầu tiên" khi mở hộp. Chưa có kết quả cho các bước về hộp xác nhận (nút "Huỷ", phím Enter) và phím Tab, nên các ô trên chưa được đánh dấu
+
+### MT-UI-43 · Không đóng được hộp thoại lúc đang lưu (Task 2.7)
+
+> Trạng thái: Chưa chạy sau khi sửa · kiểm lại lỗi BUG-UI-004
+
+Cần làm chậm mạng để kịp bấm: mở DevTools (F12), thẻ Network, đổi "No throttling" thành "Slow 4G". Dùng một ngày đã có hoạt động 09:00 đến 10:00.
+
+- [ ] Bấm "+ Thêm hoạt động", nhập tên, giờ `09:30` đến `10:30` (trùng giờ), bấm "Thêm hoạt động" rồi **nhấn Esc ngay** khi nút đang quay. Hộp **không đóng**.
+- [ ] Vài giây sau hộp hỏi "Trùng giờ với hoạt động khác" hiện ra. Trước khi sửa, hộp đã đóng ở bước trên và câu hỏi này không bao giờ hiện.
+- [ ] Bấm "Huỷ" ở hộp hỏi. Bấm lại "Thêm hoạt động", lần này bấm nút "×" khi nút đang quay. Hộp không đóng.
+- [ ] Khi hộp hỏi hiện lại, bấm "Huỷ", rồi nhấn Esc: lúc này không còn đang lưu nên hộp "Thêm hoạt động" đóng bình thường.
+- [ ] Bấm "Sửa" của chuyến đi, rút ngắn để bỏ một ngày đang có hoạt động, bấm "Lưu thay đổi" rồi nhấn Esc ngay. Hộp không đóng, vài giây sau hộp hỏi "Xoá hoạt động khi đổi ngày?" hiện ra. Bấm "Huỷ".
+- [ ] Đổi lại "No throttling".
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-44 · Trang chi tiết khi máy chủ không trả lời (Task 2.7)
+
+> Trạng thái: Chưa chạy sau khi sửa · kiểm lại lỗi BUG-UI-005
+
+Cần hai cửa sổ: trình duyệt và cửa sổ đang chạy backend.
+
+- [ ] Mở trang chi tiết một chuyến đi. Bấm "+ Thêm hoạt động", gõ tên `Đang gõ dở` nhưng **chưa lưu**.
+- [ ] Tắt backend (Ctrl+C ở cửa sổ backend). Bấm sang một cửa sổ khác rồi bấm quay lại trình duyệt, chờ khoảng 10 giây.
+- [ ] Trang chi tiết **vẫn còn nguyên**, hộp "Thêm hoạt động" vẫn mở và vẫn có chữ `Đang gõ dở`. Trước khi sửa, cả trang bị thay bằng một khung báo lỗi và chữ đang gõ mất.
+- [ ] Nhấn Esc đóng hộp. Phía trên tên chuyến đi có khung đỏ "Không kết nối được máy chủ, vui lòng thử lại. Đang hiển thị dữ liệu đã tải trước đó." và nút "Thử lại".
+- [ ] Bật lại backend, chờ nó khởi động xong, bấm "Thử lại". Nút quay một lúc rồi khung đỏ biến mất.
+- [ ] Về trang danh sách. Tắt backend, bấm vào một chuyến đi **chưa mở lần nào** trong phiên này. Sau khoảng 10 giây trang chỉ có khung báo lỗi, nút "Thử lại" và link "Chuyến đi của bạn".
+- [ ] Bật lại backend, bấm "Thử lại". Trang chi tiết hiện ra.
+- [ ] Mở địa chỉ `/trips/999999`: vẫn là câu "Không tìm thấy chuyến đi. Có thể chuyến đi đã bị xoá." và **không có** nút "Thử lại" (thử lại cũng không tìm thấy).
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
@@ -599,12 +666,12 @@ Dùng một ngày có khoảng 20 hoạt động, đủ để phải cuộn nhi�
 |---|---|---|---|---|---|---|
 | BUG-UI-001 | MT-UI-09, MT-UI-11 | 2026-09-30 | Trên màn hình rộng, dòng tiêu đề của mỗi ngày bị bẻ mỗi chữ một dòng ("Ngày / 1 / · / Thứ / bảy, / 03/10/2026"), nút sửa ngày nằm lơ lửng giữa khung. Chủ dự án phát hiện khi xem trang chi tiết, có ảnh chụp màn hình | Mọi nút của hệ thống mặc định rộng hết khung chứa. Chỗ cần nút vừa chữ thì ghi thêm một lớp "rộng vừa nội dung" để ghi đè, nhưng khi một phần tử có hai lớp cùng quy định độ rộng, công cụ tạo giao diện (Tailwind) không đảm bảo lớp nào thắng. Ở đây lớp "rộng hết khung" thắng. Nút sửa ngày lại được đặt là không được co, nên chiếm gần hết bề ngang và ép phần chữ bên trái co về hẹp nhất | Độ rộng của nút thành một tuỳ chọn riêng (`fullWidth`), không ghi đè bằng lớp nữa. Sửa mọi chỗ đang ghi đè (16 nút trong 7 file) | Đã sửa trong commit Mốc 4, chờ chạy lại MT-UI-09 và MT-UI-11 |
 | BUG-UI-002 | MT-UI-41 | 2026-10-01 | Task 2.6 commit 13, trước khi commit: khi cuộn một ngày dài trên màn hình rộng, các thẻ hoạt động trượt khuất dưới khối mô tả ngày, nhưng chấm tròn đánh dấu mốc giờ trên ray không bị che mà vẽ đè lên khối. Chủ dự án phát hiện khi thử trên trình duyệt | Chấm mốc được đặt "nổi" một bậc (`z-10`) để nằm trên đường ray. Khối mô tả ngày cũng nổi đúng một bậc đó. Hai thứ ngang bậc thì cái nằm sau trong trang được vẽ sau, tức là chấm đè lên khối | Danh sách hoạt động thành một lớp riêng (`isolate`): bậc nổi của chấm chỉ có tác dụng bên trong danh sách, cả danh sách nằm dưới khối mô tả | Đã sửa trong commit 13 `b73fc79`, chờ chạy lại MT-UI-41 |
-| BUG-UI-003 | MT-UI-20 (thêm bước kiểm con trỏ ở Task 2.7 Mốc 3) | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **chưa chạy trên trình duyệt** (chủ dự án thử để xác nhận trước khi sửa). Mở hộp "Thêm hoạt động" rồi gõ ngay: không có chữ nào vào ô tên, vì con trỏ nằm ở nút "×" đóng hộp. Nhấn Space hoặc Enter lúc đó làm hộp đóng lại. Tương tự ở hộp sửa chuyến đi và hộp chuyển ngày | Ô đầu tiên được đánh dấu "tự nhận con trỏ", nhưng việc đó xảy ra lúc hộp thoại còn đang ẩn nên không có tác dụng. Khi hộp hiện ra, trình duyệt đặt con trỏ vào phần tử bấm được đầu tiên, là nút "×" | | Đang mở |
-| BUG-UI-004 | Chưa có, thêm ở Task 2.7 Mốc 4 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Bấm "Thêm hoạt động" rồi nhấn Esc (hoặc "×") trước khi máy chủ trả lời: hộp đóng. Nếu máy chủ từ chối vì trùng giờ, câu hỏi "Vẫn lưu?" không hiện ra, cũng không có thông báo nào: hoạt động không được lưu mà người dùng không biết. Tương tự ở hộp sửa chuyến đi (câu hỏi xoá ngày có hoạt động) | Nút "Huỷ" bị khoá trong lúc đang lưu, nhưng phím Esc và nút "×" thì không. Hộp xác nhận (`ConfirmDialog`) đã chặn đúng, hai hộp có form thì chưa | | Đang mở |
-| BUG-UI-005 | Chưa có, thêm ở Task 2.7 Mốc 5 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Đang ở trang chi tiết chuyến đi, có thể đang gõ dở form hoạt động. Chuyển sang cửa sổ khác rồi quay lại, đúng lúc backend đang khởi động lại hoặc mạng chập chờn: cả trang bị thay bằng ô báo lỗi, form đang gõ mất, không có nút "Thử lại" | Trang tự tải lại dữ liệu khi người dùng quay lại cửa sổ. Lần tải lại lỗi thì trang hiện lỗi **thay cho** dữ liệu đang có, dù dữ liệu cũ vẫn còn trong bộ nhớ. Trang danh sách xử lý đúng (báo lỗi phía trên, giữ danh sách cũ) | | Đang mở |
-| BUG-UI-006 | MT-UI-12 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Mở địa chỉ của một chuyến đi không tồn tại hoặc không có quyền xem: khung chờ hiện khoảng 7 giây rồi mới tới câu "Không tìm thấy chuyến đi". `MT-UI-12` kiểm đúng câu thông báo nhưng chưa nêu thời gian chờ | Yêu cầu bị máy chủ **từ chối** (404, 403) được tự gửi lại 3 lần, cách nhau 1, 2 và 4 giây, như thể đó là lỗi mạng tạm thời | | Đang mở |
-| BUG-UI-007 | MT-UI-02 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Ở ô tìm kiếm của trang danh sách, gõ `đà` kèm một dấu cách rồi ngừng tay khoảng 0,3 giây: dấu cách biến mất. Gõ tiếp `nẵng` thì ô thành `đànẵng` và không tìm ra gì. `MT-UI-02` chỉ gõ liền một mạch nên không gặp | Khi ngừng gõ, từ khoá được cắt khoảng trắng thừa rồi ghi lên thanh địa chỉ. Ô tìm kiếm thấy thanh địa chỉ đổi liền chép ngược giá trị đã cắt vào chính nó | | Đang mở |
-| BUG-UI-008 | MT-UI-26, bước 3 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Kéo một hoạt động rồi thả lên chính ngày đang xem ở cột trái: hoạt động nhảy xuống **cuối ngày**. `MT-UI-26` bước 3 mong đợi "không có gì thay đổi"; bài này chưa được chạy nên lỗi chưa lộ | Đường thả lên tên ngày luôn chuyển hoạt động xuống cuối ngày đích mà không kiểm ngày đích có phải ngày hiện tại hay không. Đường menu "⋮" có kiểm này | | Đang mở |
+| BUG-UI-003 | MT-UI-42 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2. **Chủ dự án đã thử trên trình duyệt và xác nhận** ngày 2026-10-01: con trỏ nằm ở nút "×" ở hộp thêm hoạt động, hộp sửa hoạt động và hộp sửa chuyến đi. Mở hộp "Thêm hoạt động" rồi gõ ngay: không có chữ nào vào ô tên, vì con trỏ nằm ở nút "×" đóng hộp. Nhấn Space hoặc Enter lúc đó làm hộp đóng lại. Tương tự ở hộp sửa chuyến đi và hộp chuyển ngày | Ô đầu tiên được đánh dấu "tự nhận con trỏ", nhưng việc đó xảy ra lúc hộp thoại còn đang ẩn nên không có tác dụng. Khi hộp hiện ra, trình duyệt đặt con trỏ vào phần tử bấm được đầu tiên, là nút "×" | Sửa ở thành phần hộp thoại dùng chung, nên mọi hộp đều được sửa cùng lúc: ngay sau khi hộp hiện ra, con trỏ được chuyển tới phần tử đầu tiên của nội dung (ô nhập đầu tiên của form; nút "Huỷ" của hộp xác nhận, để nhấn Enter không bao giờ xoá nhầm). Bỏ dấu "tự nhận con trỏ" không có tác dụng ở ba form | Đã sửa, commit `2cc814d`. Chủ dự án thử lại ngày 2026-10-01: con trỏ vào ô đầu tiên |
+| BUG-UI-004 | MT-UI-43 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Bấm "Thêm hoạt động" rồi nhấn Esc (hoặc "×") trước khi máy chủ trả lời: hộp đóng. Nếu máy chủ từ chối vì trùng giờ, câu hỏi "Vẫn lưu?" không hiện ra, cũng không có thông báo nào: hoạt động không được lưu mà người dùng không biết. Tương tự ở hộp sửa chuyến đi (câu hỏi xoá ngày có hoạt động) | Nút "Huỷ" bị khoá trong lúc đang lưu, nhưng phím Esc và nút "×" thì không. Hộp xác nhận (`ConfirmDialog`) đã chặn đúng, hai hộp có form thì chưa | Vỏ hộp thoại hỏi "form bên trong có đang lưu không" và bỏ qua Esc cùng nút "×" trong lúc đó. Lưu xong (thành công hay bị từ chối) thì đóng được như thường | Đã sửa trong commit `009e696`, chờ chạy MT-UI-43 |
+| BUG-UI-005 | MT-UI-44 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Đang ở trang chi tiết chuyến đi, có thể đang gõ dở form hoạt động. Chuyển sang cửa sổ khác rồi quay lại, đúng lúc backend đang khởi động lại hoặc mạng chập chờn: cả trang bị thay bằng ô báo lỗi, form đang gõ mất, không có nút "Thử lại" | Trang tự tải lại dữ liệu khi người dùng quay lại cửa sổ. Lần tải lại lỗi thì trang hiện lỗi **thay cho** dữ liệu đang có, dù dữ liệu cũ vẫn còn trong bộ nhớ. Trang danh sách xử lý đúng (báo lỗi phía trên, giữ danh sách cũ) | Còn dữ liệu đã tải thì giữ nguyên trang, thêm khung báo và nút "Thử lại" phía trên tên chuyến đi. Chỉ thay cả trang bằng thông báo khi chưa tải được gì, hoặc khi máy chủ trả lời rõ là chuyến đi không còn (404) hay không có quyền (403) | Đã sửa trong commit `752f383`, chờ chạy MT-UI-44 |
+| BUG-UI-006 | MT-UI-12 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Mở địa chỉ của một chuyến đi không tồn tại hoặc không có quyền xem: khung chờ hiện khoảng 7 giây rồi mới tới câu "Không tìm thấy chuyến đi". `MT-UI-12` kiểm đúng câu thông báo nhưng chưa nêu thời gian chờ | Yêu cầu bị máy chủ **từ chối** (404, 403) được tự gửi lại 3 lần, cách nhau 1, 2 và 4 giây, như thể đó là lỗi mạng tạm thời | Quy định chung cho mọi lần tải dữ liệu: máy chủ đã trả lời từ chối (mã 4xx) thì không gửi lại. Mất mạng, quá thời gian chờ và lỗi máy chủ (5xx) vẫn được thử lại 3 lần như cũ | Đã sửa trong commit `ae2af3b`, chờ chạy MT-UI-12 |
+| BUG-UI-007 | MT-UI-02 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Ở ô tìm kiếm của trang danh sách, gõ `đà` kèm một dấu cách rồi ngừng tay khoảng 0,3 giây: dấu cách biến mất. Gõ tiếp `nẵng` thì ô thành `đànẵng` và không tìm ra gì. `MT-UI-02` chỉ gõ liền một mạch nên không gặp | Khi ngừng gõ, từ khoá được cắt khoảng trắng thừa rồi ghi lên thanh địa chỉ. Ô tìm kiếm thấy thanh địa chỉ đổi liền chép ngược giá trị đã cắt vào chính nó | Ô tìm kiếm chỉ chép từ thanh địa chỉ khi thanh địa chỉ nói **khác** với ô (nút Back, "Xoá bộ lọc", rời trang danh sách). Khi thanh địa chỉ đã khớp với chữ trong ô thì giữ nguyên chữ đang gõ | Đã sửa trong commit `e4f4520`, chờ chạy MT-UI-02 |
+| BUG-UI-008 | MT-UI-26, bước 3 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Kéo một hoạt động rồi thả lên chính ngày đang xem ở cột trái: hoạt động nhảy xuống **cuối ngày**. `MT-UI-26` bước 3 mong đợi "không có gì thay đổi"; bài này chưa được chạy nên lỗi chưa lộ | Đường thả lên tên ngày luôn chuyển hoạt động xuống cuối ngày đích mà không kiểm ngày đích có phải ngày hiện tại hay không. Đường menu "⋮" có kiểm này | Thả lên đúng ngày mà hoạt động đang ở thì coi như người dùng đổi ý: không làm gì, không gọi máy chủ | Đã sửa trong commit `dcfcfbe`, chờ chạy MT-UI-26 |
 
 BUG-UI-003 đến BUG-UI-008 được tìm ra bằng cách đọc lại code ngày 2026-10-01, trước khi vào Phase 3, vì 41 bài kiểm tra thủ công của file này chưa được chạy. Ít nhất hai lỗi (006, 008) nằm đúng ở bước mà một bài có sẵn sẽ kiểm. Cột "Kết quả" của các bài `MT-UI` vẫn là "Chưa chạy": chỉ người thật chạy mới được ghi kết quả.
 

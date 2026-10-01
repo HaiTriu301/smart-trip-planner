@@ -1,6 +1,6 @@
 # Tài liệu kiểm thử — Smart Trip Planner
 
-> Cập nhật: 2026-10-01 · build backend xanh tại commit `ea4d7a9` (507 lượt test, chạy lại không dùng cache) · 9 lỗi đang mở sau rà soát Phase 1–2, sửa ở Task 2.7
+> Cập nhật: 2026-10-01 · build backend xanh tại commit `025799a` (Task 2.7, 532 lượt test) · không còn lỗi đang mở, 6 lỗi đã sửa chờ chủ dự án kiểm lại sau rà soát Phase 1–2, sửa ở Task 2.7
 
 Thư mục này ghi lại **hệ thống phải làm gì, đã kiểm tra thế nào, kết quả ra sao**.
 Mỗi tính năng là một file. Người đọc không cần biết code.
@@ -44,17 +44,17 @@ Mã `TC-` là test tự động, máy chạy mỗi lần build. Mã `MT-` là te
 
 | Tính năng | Tự động | Thủ công | Đạt | Lỗi | Chưa chạy | Lỗi đã sửa |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| Nền tảng | 28 | 5 | 33 | 0 | 0 | 0 |
-| Xác thực người dùng | 54 | 6 | 60 | 0 | 0 | 5 |
+| Nền tảng | 32 | 5 | 37 | 0 | 0 | 1 |
+| Xác thực người dùng | 60 | 8 | 66 | 0 | 2 | 7 |
 | Chuyến đi | 65 | 5 | 69 | 0 | 1 | 3 |
 | Các ngày của chuyến đi | 35 | 3 | 38 | 0 | 0 | 3 |
 | Hoạt động trong ngày | 174 | 12 | 186 | 0 | 0 | 4 |
-| Giao diện lịch trình | 0 | 41 | 0 | 0 | 41 | 2 |
-| **Tổng** | **356** | **72** | **386** | **0** | **42** | **17** |
+| Giao diện lịch trình | 0 | 44 | 0 | 0 | 44 | 3 |
+| **Tổng** | **366** | **77** | **396** | **0** | **47** | **21** |
 
-**Lỗi đang mở: 9.** Tìm ra khi đọc lại code Phase 1–2 ngày 2026-10-01, không phải do test đỏ: `BUG-PLAT-003` ([01](01-platform.md)), `BUG-AUTH-006`, `BUG-AUTH-007` ([02](02-auth.md)), `BUG-UI-003` đến `BUG-UI-008` ([06](06-itinerary-ui.md)). Cột "Lỗi" ở bảng trên đếm test case đang lỗi nên vẫn là 0: phần lớn các lỗi này chưa có test case, test case được thêm cùng lúc với bản sửa ở Task 2.7.
+**Lỗi đang mở: 0.** Rà soát code Phase 1–2 ngày 2026-10-01 tìm ra 9 lỗi mà test không bắt được; cả 9 đã sửa ở Task 2.7 (một lỗi một commit). Ba lỗi đã được xác nhận: `BUG-PLAT-003` và `BUG-AUTH-006` bằng test tự động và chạy thử, `BUG-UI-003` do chủ dự án thử lại. Sáu lỗi giao diện còn lại **đã sửa trong code nhưng chưa ai chạy lại trên trình duyệt**: `BUG-UI-004` (`MT-UI-43`), `BUG-UI-005` (`MT-UI-44`), `BUG-UI-006` (`MT-UI-12`), `BUG-UI-007` (`MT-UI-02`), `BUG-UI-008` (`MT-UI-26`), `BUG-AUTH-007` (`MT-AUTH-08`). Trong lúc sửa phát sinh thêm `BUG-AUTH-008` (test sai), đã sửa.
 
-Dự án có 478 method test trong 40 file test, chạy thành 507 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
+Dự án có 492 method test trong 40 file test, chạy thành 532 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
 
 ## Chưa kiểm thử
 
