@@ -7,6 +7,7 @@ import type {
   TripListParams,
   TripResponse,
   TripStatus,
+  TripStatusCounts,
   TripSummary,
   UpdateTripDayRequest,
   UpdateTripRequest,
@@ -15,6 +16,12 @@ import type {
 /** Trips of the signed-in user, newest first (backend default sort=createdAt,desc). */
 export async function listTrips(params: TripListParams): Promise<PageResponse<TripSummary>> {
   const { data } = await apiClient.get<ApiResponse<PageResponse<TripSummary>>>('/trips', { params })
+  return data.data
+}
+
+/** Counters of the status chips, with the same keyword filter as the list. */
+export async function getTripStatusCounts(q: string | undefined): Promise<TripStatusCounts> {
+  const { data } = await apiClient.get<ApiResponse<TripStatusCounts>>('/trips/status-counts', { params: { q } })
   return data.data
 }
 

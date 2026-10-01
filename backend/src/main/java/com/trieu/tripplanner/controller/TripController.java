@@ -8,6 +8,7 @@ import com.trieu.tripplanner.dto.request.UpdateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripStatusRequest;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripStatusCountsResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.security.CustomUserDetails;
@@ -62,6 +63,16 @@ public class TripController {
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
         return ApiResponse.ok(tripService.list(principal.getId(), new TripFilter(status, q, from, to), pageable));
+    }
+
+    @Operation(summary = "Số chuyến đi theo trạng thái",
+               description = "Đếm chuyến đi của tôi theo từng trạng thái cho các chip lọc, có tính từ khoá q giống "
+                       + "GET /trips. Đủ 5 trạng thái, trạng thái không có chuyến nào trả 0.")
+    @GetMapping("/status-counts")
+    public ApiResponse<TripStatusCountsResponse> statusCounts(
+            @AuthenticationPrincipal CustomUserDetails principal,
+            @RequestParam(required = false) @Size(max = 200, message = "{validation.trip.query.too-long}") String q) {
+        return ApiResponse.ok(tripService.countByStatus(principal.getId(), q));
     }
 
     @Operation(summary = "Tạo chuyến đi",

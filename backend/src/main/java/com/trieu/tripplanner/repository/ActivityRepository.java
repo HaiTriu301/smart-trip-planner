@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.repository;
 
 import com.trieu.tripplanner.dto.internal.DroppedActivities;
+import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.model.Activity;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -90,5 +91,16 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             where d.trip.id = :tripId and (d.date < :start or d.date > :end)""")
     DroppedActivities countInDaysOutsideRange(@Param("tripId") Long tripId, @Param("start") LocalDate start,
                                               @Param("end") LocalDate end);
+
+    /**
+     * Activities per trip for one page of the trip list, in a single grouped query instead of one count per card
+     * (no N+1). Trips without activities are absent from the result: the caller reads them as 0.
+     */
+    @Query("""
+            select new com.trieu.tripplanner.dto.internal.TripActivityCount(d.trip.id, count(a))
+            from Activity a join a.tripDay d
+            where d.trip.id in :tripIds
+            group by d.trip.id""")
+    List<TripActivityCount> countByTripIds(@Param("tripIds") Collection<Long> tripIds);
 
 }

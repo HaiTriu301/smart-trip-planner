@@ -6,12 +6,12 @@ import { resetPassword } from '../api/auth'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../api/errors'
 import { Alert } from '../components/Alert'
 import { Button } from '../components/Button'
-import { FormField } from '../components/FormField'
+import { PasswordField } from '../components/PasswordField'
 import { AuthLayout } from '../features/auth/AuthLayout'
 import { resetPasswordSchema, type ResetPasswordValues } from '../features/auth/schemas'
 
 const forgotLink = (
-  <Link to="/forgot-password" className="font-medium text-sky-700 hover:underline">
+  <Link to="/forgot-password" className="font-medium text-jade hover:underline">
     Yêu cầu link mới
   </Link>
 )
@@ -25,6 +25,7 @@ export function ResetPasswordPage() {
     setError,
     formState: { errors },
   } = useForm<ResetPasswordValues>({
+    mode: 'onTouched',
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { newPassword: '', confirmPassword: '' },
   })
@@ -49,7 +50,7 @@ export function ResetPasswordPage() {
             Đã đổi mật khẩu. Mọi thiết bị đang đăng nhập đã bị đăng xuất; hãy đăng nhập lại bằng mật khẩu mới.
           </Alert>
           <p className="text-center">
-            <Link to="/login" className="font-medium text-sky-700 hover:underline">
+            <Link to="/login" className="font-medium text-jade hover:underline">
               Đến trang đăng nhập
             </Link>
           </p>
@@ -73,22 +74,23 @@ export function ResetPasswordPage() {
             {invalidToken && '. Link có thể đã hết hạn hoặc đã được dùng, hãy yêu cầu link mới.'}
           </Alert>
         )}
-        <FormField
+        <PasswordField
           label="Mật khẩu mới"
-          type="password"
+          required
           autoComplete="new-password"
+          hint="8–72 ký tự, có chữ hoa, chữ thường, chữ số và không chứa khoảng trắng."
           autoFocus
           error={errors.newPassword?.message}
           {...register('newPassword')}
         />
-        <FormField
+        <PasswordField
           label="Nhập lại mật khẩu mới"
-          type="password"
+          required
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}
         />
-        <Button type="submit" isLoading={mutation.isPending}>
+        <Button type="submit" size="lg" isLoading={mutation.isPending}>
           Đổi mật khẩu
         </Button>
       </form>

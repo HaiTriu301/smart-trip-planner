@@ -1,23 +1,28 @@
 import type { ReactNode } from 'react'
+import { Logo } from '../../components/Logo'
 
 interface AuthLayoutProps {
   title: string
   subtitle?: string
   children: ReactNode
+  /** Line under the card, e.g. "Chưa có tài khoản? Đăng ký" */
   footer?: ReactNode
 }
 
+/** Sign-in pages (Stitch mockup): logo with tagline, a 400px card with a 1px border, then the switch link below. */
 export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <p className="mb-6 text-center text-lg font-bold text-sky-700">Smart Trip Planner</p>
-        <div className="rounded-xl bg-white p-8 shadow">
-          <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+    <main className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-[400px] space-y-6">
+        <div className="flex justify-center">
+          <Logo tone="light" tagline="Kế hoạch hành trình theo dòng thời gian" />
+        </div>
+        <div className="rounded-card border border-tide bg-white p-6 sm:p-8">
+          <h1 className="text-[28px] leading-9 font-bold tracking-[-0.02em] text-ink">{title}</h1>
+          {subtitle && <p className="mt-1 text-gray-600">{subtitle}</p>}
           <div className="mt-6">{children}</div>
         </div>
-        {footer && <div className="mt-6 text-center text-sm text-slate-600">{footer}</div>}
+        {footer && <div className="text-center text-gray-600">{footer}</div>}
       </div>
     </main>
   )

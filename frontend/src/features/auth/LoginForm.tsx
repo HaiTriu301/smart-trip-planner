@@ -7,6 +7,7 @@ import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { FormField } from '../../components/FormField'
+import { PasswordField } from '../../components/PasswordField'
 import { useAuthStore } from '../../stores/authStore'
 import { ResendVerificationForm } from './ResendVerificationForm'
 import { loginSchema, type LoginValues } from './schemas'
@@ -21,6 +22,7 @@ export function LoginForm() {
     getValues,
     formState: { errors },
   } = useForm<LoginValues>({
+    mode: 'onTouched',
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   })
@@ -54,25 +56,26 @@ export function LoginForm() {
       )}
       <FormField
         label="Email"
+        required
         type="email"
         autoComplete="email"
         autoFocus
         error={errors.email?.message}
         {...register('email')}
       />
-      <FormField
+      <PasswordField
         label="Mật khẩu"
-        type="password"
+        required
         autoComplete="current-password"
+        labelAction={
+          <Link to="/forgot-password" className="text-[13px] font-medium text-jade hover:underline">
+            Quên mật khẩu?
+          </Link>
+        }
         error={errors.password?.message}
         {...register('password')}
       />
-      <div className="text-right text-sm">
-        <Link to="/forgot-password" className="text-sky-700 hover:underline">
-          Quên mật khẩu?
-        </Link>
-      </div>
-      <Button type="submit" isLoading={mutation.isPending}>
+      <Button type="submit" size="lg" isLoading={mutation.isPending}>
         Đăng nhập
       </Button>
     </form>

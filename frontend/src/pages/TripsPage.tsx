@@ -1,17 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { LinkButton } from '../components/LinkButton'
 import { TripList } from '../features/trips/TripList'
 
 export function TripsPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-800">Chuyến đi của tôi</h1>
-        <Link
-          to="/trips/new"
-          className="rounded-lg bg-sky-600 px-4 py-2 font-medium text-white transition-colors hover:bg-sky-700"
-        >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[32px] leading-10 font-bold tracking-[-0.02em] text-ink">Chuyến đi của bạn</h1>
+          <p className="mt-1 text-gray-600">Quản lý lịch trình và các điểm dừng của từng chuyến đi.</p>
+        </div>
+        <LinkButton to="/trips/new" className="shrink-0">
+          <Plus aria-hidden className="size-4" />
           Tạo chuyến đi
-        </Link>
+        </LinkButton>
       </div>
       <TripList />
     </div>

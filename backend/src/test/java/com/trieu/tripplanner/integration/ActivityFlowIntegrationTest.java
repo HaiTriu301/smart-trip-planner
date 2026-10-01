@@ -155,6 +155,48 @@ class ActivityFlowIntegrationTest {
         assertThat(row(onDayTwo)).containsEntry("title", "Chợ đêm");
     }
 
+    // ---- rule 14.5, placement by start time (Task 2.6) --------------------------------------------------------
+
+    @Test
+    void startTimePlacesTheActivityAndOtherEditsLeaveItWhereItIs() {
+        long morning = id(send("POST", dayUrl(0), ownerBearer, """
+                { "title": "Ăn sáng", "startTime": "08:00" }
+                """));
+        send("POST", dayUrl(0), ownerBearer, """
+                { "title": "Dạo phố" }
+                """);
+        // nothing starts later than 12:00: to the end of the day, the untimed one stays after "Ăn sáng"
+        long noon = id(send("POST", dayUrl(0), ownerBearer, """
+                { "title": "Ăn trưa", "startTime": "12:00" }
+                """));
+        assertThat(titles(send("GET", dayUrl(0), ownerBearer, null)))
+                .containsExactly("Ăn sáng", "Dạo phố", "Ăn trưa");
+
+        // created last, shown before the first activity that starts later; the untimed one is skipped over
+        assertThat(send("POST", dayUrl(0), ownerBearer, """
+                { "title": "Bảo tàng", "startTime": "10:00", "endTime": "11:00" }
+                """)).hasStatus(HttpStatus.CREATED);
+        assertThat(titles(send("GET", dayUrl(0), ownerBearer, null)))
+                .containsExactly("Ăn sáng", "Dạo phố", "Bảo tàng", "Ăn trưa");
+
+        // a new start time moves it; the untimed activity keeps its place after "Ăn sáng"
+        assertThat(send("PATCH", activityUrl(noon), ownerBearer, """
+                { "startTime": "07:00" }
+                """)).hasStatusOk();
+        assertThat(titles(send("GET", dayUrl(0), ownerBearer, null)))
+                .containsExactly("Ăn trưa", "Ăn sáng", "Dạo phố", "Bảo tàng");
+
+        // after a drag, 08:00 above 07:00 is out of time order; a new name keeps it there
+        assertThat(send("PUT", TRIPS_URL + "/" + tripId + "/activities/reorder", ownerBearer, """
+                { "items": [ { "activityId": %d, "dayId": %d, "orderIndex": 1 } ] }
+                """.formatted(morning, dayIds.get(0)))).hasStatusOk();
+        assertThat(send("PATCH", activityUrl(morning), ownerBearer, """
+                { "title": "Ăn sáng sớm", "startTime": "08:00" }
+                """)).hasStatusOk();
+        assertThat(titles(send("GET", dayUrl(0), ownerBearer, null)))
+                .containsExactly("Ăn sáng sớm", "Ăn trưa", "Dạo phố", "Bảo tàng");
+    }
+
     // ---- rule 14.4 -----------------------------------------------------------------------------------------------
 
     @Test
@@ -428,6 +470,7 @@ class ActivityFlowIntegrationTest {
     private MvcTestResult send(String method, String url, String bearer, String json) {
         var request = switch (method) {
             case "POST" -> mvc.post();
+            case "PUT" -> mvc.put();
             case "PATCH" -> mvc.patch();
             case "DELETE" -> mvc.delete();
             default -> mvc.get();

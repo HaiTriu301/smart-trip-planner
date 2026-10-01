@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,84 +8,118 @@ import { updateTripDay } from '../../api/trips'
 import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
+import { BackToTopButton } from '../../components/BackToTopButton'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { formatDate, formatWeekday } from '../../lib/format'
+import { findOverlaps } from '../../lib/timeOverlap'
+import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFormDialog } from './ActivityFormDialog'
+import { MoveToDayDialog } from './MoveToDayDialog'
 import { SortableActivity, SortableDayList } from './DragDropContainer'
 import { daySchema, NOTE_MAX_LENGTH, type DayValues } from './schemas'
 
 interface DaySectionProps {
   tripId: number
   day: TripDayDetail
+  /** Every day of the trip, for "Chuyển sang ngày…" */
+  days: TripDayDetail[]
   /** Default currency of a new activity cost */
   tripCurrency: string
+  onMoveToDay: (activityId: number, dayId: number) => void
 }
 
-/** One day of the timeline: header (date, title, note) and its activities in orderIndex order. */
-export function DaySection({ tripId, day, tripCurrency }: DaySectionProps) {
-  const [isEditing, setIsEditing] = useState(false)
-
-  return (
-    <section id={`day-${day.id}`} className="scroll-mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-100/60 p-4">
-      {isEditing ? (
-        <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditing(false)} />
-      ) : (
-        <header className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <h3 className="font-semibold text-slate-800">
-              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-            </h3>
-            {day.title ? (
-              <p className="font-medium wrap-anywhere text-sky-800">{day.title}</p>
-            ) : (
-              <p className="italic text-slate-400">Chưa có tiêu đề</p>
-            )}
-            {day.note && <ExpandableText text={day.note} className="text-sm text-slate-600" />}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            fullWidth={false}
-            className="shrink-0"
-            aria-label={`Sửa ngày ${day.dayIndex}`}
-            onClick={() => setIsEditing(true)}
-          >
-            <span aria-hidden>✎</span>&nbsp;Sửa
-          </Button>
-        </header>
-      )}
-
-      <DayActivities tripId={tripId} day={day} tripCurrency={tripCurrency} />
-    </section>
-  )
-}
-
-/** Activities of the day with add / edit / delete. One form dialog and one delete dialog per day. */
-function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
+/**
+ * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
+ * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
+ * <p>
+ * On wide screens the heading block is sticky (UI_GUIDE 8.1 "Ngày dài"): its 24px top padding lines it up with
+ * the pinned day list on the left, and its paper background covers the cards scrolling underneath. The negative
+ * top margin cancels that padding while nothing is scrolled, so the page looks the same as before at rest.
+ */
+export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: DaySectionProps) {
   const queryClient = useQueryClient()
+  const [isEditingDay, setIsEditingDay] = useState(false)
   // undefined: form closed · null: adding · Activity: editing that one
   const [editing, setEditing] = useState<Activity | null | undefined>(undefined)
   const [deleting, setDeleting] = useState<Activity | null>(null)
+  const [moving, setMoving] = useState<Activity | null>(null)
+  const overlaps = findOverlaps(day.activities)
 
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       setDeleting(null)
+      toast.success('Đã xoá hoạt động')
     },
   })
 
   return (
-    <>
+    // id day-start: target of "Đầu ngày" and of the scroll after a day change. Not the heading: on wide screens it
+    // sits in the pinned header, always "in view", so scrolling to it would do nothing. The scroll margins land
+    // the section under the sticky day chips (phones) or 24px down, where the pinned header rests (wide screens).
+    <section
+      id="day-start"
+      aria-labelledby="day-heading"
+      tabIndex={-1}
+      className="scroll-mt-20 space-y-4 focus:outline-none lg:scroll-mt-6"
+    >
+      {isEditingDay ? (
+        <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
+      ) : (
+        <header className="flex items-start justify-between gap-3 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
+          <div className="min-w-0 space-y-1">
+            <h2 id="day-heading" className="text-lg leading-[26px] font-semibold text-ink">
+              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
+            </h2>
+            {day.title ? (
+              <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
+            )}
+            {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Wide screens only, where this header stays pinned; phones have the floating button */}
+            <div className="hidden lg:block">
+              <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              fullWidth={false}
+              aria-label={`Sửa ngày ${day.dayIndex}`}
+              onClick={() => setIsEditingDay(true)}
+            >
+              <Pencil aria-hidden className="size-3.5" />
+              Sửa
+            </Button>
+            {/* The page's single primary action (UI_GUIDE 7.0); a shorter label on phones */}
+            <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
+              <Plus aria-hidden className="size-4" />
+              <span className="sm:hidden">Thêm</span>
+              <span className="hidden sm:inline">Thêm hoạt động</span>
+            </Button>
+          </div>
+        </header>
+      )}
+
       <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
         {day.activities.length === 0 ? (
-          <p className="px-1 py-3 text-sm text-slate-500">Chưa có hoạt động nào. Có thể kéo hoạt động từ ngày khác vào đây.</p>
+          // An empty day invites the next step
+          <li className="flex flex-col items-start gap-3 rounded-card border border-dashed border-gray-300 px-4 py-5">
+            <p className="text-sm text-gray-600">Ngày này còn trống. Thêm địa điểm bạn muốn ghé.</p>
+            <Button variant="secondary" fullWidth={false} onClick={() => setEditing(null)}>
+              <Plus aria-hidden className="size-4" />
+              Thêm hoạt động
+            </Button>
+          </li>
         ) : (
           day.activities.map((activity) => (
             <SortableActivity key={activity.id} activity={activity}>
@@ -92,20 +127,19 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
                 <ActivityCard
                   activity={activity}
                   dragHandle={dragHandle}
+                  overlapping={overlaps.has(activity.id)}
                   onEdit={() => setEditing(activity)}
                   onDelete={() => {
                     deletion.reset()
                     setDeleting(activity)
                   }}
+                  onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
                 />
               )}
             </SortableActivity>
           ))
         )}
       </SortableDayList>
-      <Button variant="ghost" size="sm" fullWidth={false} onClick={() => setEditing(null)}>
-        + Thêm hoạt động
-      </Button>
 
       <ActivityFormDialog
         tripId={tripId}
@@ -115,6 +149,7 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
         open={editing !== undefined}
         onClose={() => setEditing(undefined)}
       />
+      <MoveToDayDialog activity={moving} days={days} onMove={onMoveToDay} onClose={() => setMoving(null)} />
       <ConfirmDialog
         open={deleting !== null}
         title="Xoá hoạt động?"
@@ -126,11 +161,11 @@ function DayActivities({ tripId, day, tripCurrency }: DaySectionProps) {
         onConfirm={() => deleting && deletion.mutate(deleting)}
       >
         <p>
-          Hoạt động <strong className="text-slate-800">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
+          Hoạt động <strong className="text-ink">{deleting?.title}</strong> sẽ bị xoá khỏi ngày này. Thao tác
           này không hoàn tác được.
         </p>
       </ConfirmDialog>
-    </>
+    </section>
   )
 }
 
@@ -149,6 +184,7 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
     setError,
     formState: { errors },
   } = useForm<DayValues>({
+    mode: 'onTouched',
     resolver: zodResolver(daySchema),
     defaultValues: { title: day.title ?? '', note: day.note ?? '' },
   })
@@ -158,15 +194,16 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       onDone()
+      toast.success('Đã lưu thay đổi')
     },
     onError: (error) => applyFieldErrors(error, setError, ['title', 'note']),
   })
 
   return (
     <form noValidate className="space-y-3" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
-      <h3 className="font-semibold text-slate-800">
+      <h2 className="text-lg leading-[26px] font-semibold text-ink">
         Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-      </h3>
+      </h2>
       {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
       <FormField
         label="Tiêu đề của ngày"
@@ -176,7 +213,8 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
         {...register('title')}
       />
       <TextAreaField
-        label={`Ghi chú (tối đa ${NOTE_MAX_LENGTH} ký tự)`}
+        label="Ghi chú"
+        hint={`Tối đa ${NOTE_MAX_LENGTH} ký tự`}
         maxLength={NOTE_MAX_LENGTH}
         error={errors.note?.message}
         {...register('note')}
@@ -186,7 +224,7 @@ function DayEditForm({ tripId, day, onDone }: DayEditFormProps) {
           Huỷ
         </Button>
         <Button type="submit" fullWidth={false} isLoading={mutation.isPending}>
-          Lưu
+          Lưu thay đổi
         </Button>
       </div>
     </form>

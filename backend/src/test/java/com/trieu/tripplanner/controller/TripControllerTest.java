@@ -20,6 +20,7 @@ import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripStatusCountsResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
@@ -36,7 +37,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -92,7 +95,7 @@ class TripControllerTest {
     void listPassesUserFromTokenFiltersAndDefaultPaging() {
         TripSummaryResponse row = new TripSummaryResponse(TRIP_ID, "Đà Lạt", "da-lat-x7k2qp", null, "Đà Lạt",
                 LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 3), TripStatus.PLANNED, TripVisibility.PRIVATE,
-                Instant.parse("2026-09-26T10:00:00Z"));
+                Instant.parse("2026-09-26T10:00:00Z"), 12);
         when(tripService.list(eq(USER_ID), any(), any())).thenReturn(new PageResponse<>(List.of(row), 0, 20, 1, 1, false));
 
         assertThat(mvc.get().uri(TRIPS_URL + "?status=PLANNED&q=lat&from=2026-10-01&to=2026-10-31")
@@ -100,7 +103,8 @@ class TripControllerTest {
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": true,
-                          "data": { "items": [ { "id": 5, "title": "Đà Lạt", "startDate": "2026-10-01", "status": "PLANNED" } ],
+                          "data": { "items": [ { "id": 5, "title": "Đà Lạt", "startDate": "2026-10-01", "status": "PLANNED",
+                                                 "activityCount": 12 } ],
                                     "page": 0, "size": 20, "totalElements": 1, "hasNext": false } }
                         """);
 
@@ -135,6 +139,42 @@ class TripControllerTest {
     @Test
     void listWithUnknownStatusReturns400() {
         assertThat(mvc.get().uri(TRIPS_URL + "?status=FLYING").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(tripService);
+    }
+
+    // ---- GET /trips/status-counts ----------------------------------------------------------------------------
+
+    @Test
+    void statusCountsCountsTheTripsOfTheUserFromTokenWithTheKeyword() {
+        Map<TripStatus, Long> counts = new EnumMap<>(TripStatus.class);
+        for (TripStatus status : TripStatus.values()) {
+            counts.put(status, 0L);
+        }
+        counts.put(TripStatus.DRAFT, 2L);
+        when(tripService.countByStatus(USER_ID, "hội an")).thenReturn(new TripStatusCountsResponse(2, counts));
+
+        assertThat(mvc.get().uri(TRIPS_URL + "/status-counts?q=hội an").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": { "total": 2,
+                                    "counts": { "DRAFT": 2, "PLANNED": 0, "ONGOING": 0, "COMPLETED": 0, "ARCHIVED": 0 } } }
+                        """);
+        verify(tripService).countByStatus(USER_ID, "hội an");
+    }
+
+    @Test
+    void statusCountsWithoutTokenReturns401() {
+        assertThat(mvc.get().uri(TRIPS_URL + "/status-counts"))
+                .hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(tripService);
+    }
+
+    @Test
+    void statusCountsWithTooLongKeywordReturns400() {
+        assertThat(mvc.get().uri(TRIPS_URL + "/status-counts?q=" + "a".repeat(201)).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(tripService);

@@ -18,6 +18,8 @@ export interface TripSummary {
   status: TripStatus
   visibility: TripVisibility
   createdAt: string
+  /** All activities of the trip, every day together */
+  activityCount: number
 }
 
 /** Returned by POST /trips and PATCH /trips/{id}; money is a JSON number (BigDecimal). */
@@ -86,10 +88,18 @@ export interface CreateTripRequest {
  */
 export type UpdateTripRequest = Partial<CreateTripRequest>
 
+/** GET /trips/status-counts: trips per status for the chips; every status is present, 0 when empty. */
+export interface TripStatusCounts {
+  total: number
+  counts: Record<TripStatus, number>
+}
+
 /** Query of GET /trips; page is 0-based, undefined fields are left out of the URL. */
 export interface TripListParams {
   status?: TripStatus
   q?: string
+  /** "property,direction"; the backend accepts createdAt, updatedAt, startDate, title (design.md 10.2) */
+  sort?: string
   page?: number
   size?: number
 }

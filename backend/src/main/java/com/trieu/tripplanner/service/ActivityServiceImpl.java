@@ -88,9 +88,10 @@ public class ActivityServiceImpl implements ActivityService {
                 .type(request.type() != null ? request.type() : ActivityType.OTHER)
                 .startTime(startTime)
                 .endTime(endTime)
-                // Two simultaneous inserts may read the same maximum and share an index; the list breaks the tie
-                // by id, and the reorder endpoint (Task 2.4) rewrites indexes anyway
-                .orderIndex(activityRepository.findMaxOrderIndexByTripDayId(dayId) + ORDER_STEP)
+                // Without a start time: at the end of the day. Two simultaneous inserts may read the same maximum
+                // and share an index; the list breaks the tie by id, and the reorder endpoint rewrites indexes anyway.
+                // With a start time the position is worked out below, among the activities of the day.
+                .orderIndex(startTime == null ? activityRepository.findMaxOrderIndexByTripDayId(dayId) + ORDER_STEP : 0)
                 .note(blankToNull(request.note()))
                 .costAmount(request.costAmount())
                 .currency(resolveCurrency(request.currency(), request.costAmount(), trip))
@@ -98,6 +99,9 @@ public class ActivityServiceImpl implements ActivityService {
                 // A reference is enough for the FK: no SELECT on users
                 .createdBy(userRepository.getReferenceById(userId))
                 .build();
+        if (startTime != null) {
+            placeByStartTime(activity, day, startTime);
+        }
 
         Activity saved = activityRepository.save(activity);
         log.info("Activity {} added to day {} of trip {} by user {}", saved.getId(), dayId, tripId, userId);
@@ -116,6 +120,7 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime endTime = request.endTime() != null ? toMinutes(request.endTime()) : activity.getEndTime();
         validateTimeRange(startTime, endTime);
 
+        LocalTime originalStart = activity.getStartTime();
         boolean rangeChanged = !Objects.equals(startTime, activity.getStartTime())
                 || !Objects.equals(endTime, activity.getEndTime());
         if (rangeChanged && !allowOverlap) {
@@ -137,6 +142,10 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setCostAmount(costAmount);
         activity.setCurrency(resolveCurrency(currency, costAmount, trip));
         activity.setBookingUrl(applyText(request.bookingUrl(), activity.getBookingUrl()));
+        // Only a new start time moves the activity; a new name, note, cost or end time leaves it where it is
+        if (startTime != null && !startTime.equals(originalStart)) {
+            placeByStartTime(activity, activity.getTripDay(), startTime);
+        }
 
         // Flush now so the response carries the incremented version and updatedAt
         Activity saved = activityRepository.saveAndFlush(activity);
@@ -314,6 +323,56 @@ public class ActivityServiceImpl implements ActivityService {
 
     private static boolean hasRange(Activity activity) {
         return activity.getStartTime() != null && activity.getEndTime() != null;
+    }
+
+    /**
+     * design.md rule 14.5 (Task 2.6): an activity given a start time goes right before the first activity of the
+     * day, in the current order, that starts later. With none, it goes to the end of the day, after the activities
+     * without a start time too: those stay with the timed activity they follow. Two activities starting at the
+     * same minute keep the older one first.
+     * <p>
+     * Only the activity whose time was set moves: activities without a start time and the order the user dragged
+     * are left alone, so a day that was dragged out of time order is not sorted as a whole. Times are compared
+     * here in Java, never as a query parameter (see {@link ActivityRepository#findTimedByTripDayId}).
+     * <p>
+     * The new position is the middle of the gap between the two neighbours; when the gap is used up the day is
+     * renumbered, exactly as after a drag and drop.
+     *
+     * @param activity new (no id yet) or edited; for an edited one the list of the day contains it
+     */
+    private void placeByStartTime(Activity activity, TripDay day, LocalTime startTime) {
+        List<Activity> inDisplayOrder = activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(day.getId());
+        int currentPosition = -1;
+        List<Activity> others = new ArrayList<>(inDisplayOrder.size());
+        for (Activity other : inDisplayOrder) {
+            if (activity.getId() != null && activity.getId().equals(other.getId())) {
+                currentPosition = others.size();
+            } else {
+                others.add(other);
+            }
+        }
+
+        int position = others.size();
+        for (int i = 0; i < others.size(); i++) {
+            LocalTime otherStart = others.get(i).getStartTime();
+            if (otherStart != null && otherStart.isAfter(startTime)) {
+                position = i;
+                break;
+            }
+        }
+        if (position == currentPosition) {
+            return;
+        }
+
+        long previous = position > 0 ? others.get(position - 1).getOrderIndex() : 0;
+        int newIndex = position < others.size()
+                ? (int) ((previous + others.get(position).getOrderIndex()) / 2)
+                : (int) previous + ORDER_STEP;
+        activity.moveTo(day, newIndex);
+
+        List<Activity> placed = new ArrayList<>(others);
+        placed.add(position, activity);
+        normalizeIfCrowded(day.getId(), placed);
     }
 
     /**

@@ -1,38 +1,29 @@
 import { useId, type ComponentProps } from 'react'
+import { FieldShell } from './FieldShell'
+import { controlClass, describedBy } from './fieldStyles'
 
 type TextAreaFieldProps = ComponentProps<'textarea'> & {
   label: string
+  hint?: string
   error?: string
 }
 
 /** Multi-line counterpart of FormField: spread register('x') into it. */
-export function TextAreaField({ label, error, id, className, rows = 3, ...textareaProps }: TextAreaFieldProps) {
+export function TextAreaField({ label, hint, error, required, id, className, rows = 3, ...textareaProps }: TextAreaFieldProps) {
   const generatedId = useId()
   const inputId = id ?? generatedId
-  const errorId = `${inputId}-error`
 
   return (
-    <div className="space-y-1">
-      <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
-        {label}
-      </label>
+    <FieldShell id={inputId} label={label} required={required} hint={hint} error={error}>
       <textarea
         id={inputId}
         rows={rows}
+        required={required}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
-        className={`block w-full rounded-lg border px-3 py-2 text-slate-900 shadow-sm outline-none focus:ring-2 ${
-          error
-            ? 'border-red-400 focus:ring-red-200'
-            : 'border-slate-300 focus:border-sky-500 focus:ring-sky-200'
-        } ${className ?? ''}`}
+        aria-describedby={describedBy(inputId, error, hint)}
+        className={`w-full px-3 py-2 ${controlClass(Boolean(error))} ${className ?? ''}`}
         {...textareaProps}
       />
-      {error && (
-        <p id={errorId} className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-    </div>
+    </FieldShell>
   )
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.dto.internal.DroppedActivities;
+import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
@@ -121,6 +122,35 @@ class ActivityRepositoryTest {
 
         assertThat(dropped).isEqualTo(new DroppedActivities(0, 0));
         assertThat(dropped.isEmpty()).isTrue();
+    }
+
+    // ---- countByTripIds (activity count on trip cards) ---------------------------------------------------------
+
+    @Test
+    void countsActivitiesPerTripOverAllDaysAndLeavesOutTripsWithoutActivities() {
+        Trip withOne = entityManager.persist(Trip.builder()
+                .owner(owner).title("Huế").slug("hue-ghi789").startDate(OCT_1).endDate(OCT_1).build());
+        TripDay withOneDay = entityManager.persist(TripDay.builder().trip(withOne).dayIndex(1).date(OCT_1).build());
+        Trip empty = entityManager.persist(Trip.builder()
+                .owner(owner).title("Chưa lên lịch").slug("trong-jkl012").startDate(OCT_1).endDate(OCT_1).build());
+        Trip notAsked = entityManager.persist(Trip.builder()
+                .owner(owner).title("Không hỏi tới").slug("khac-mno345").startDate(OCT_1).endDate(OCT_1).build());
+        TripDay notAskedDay = entityManager.persist(TripDay.builder().trip(notAsked).dayIndex(1).date(OCT_1).build());
+        entityManager.persist(activity(dayOne, "Ăn sáng", 1000));
+        entityManager.persist(activity(dayOne, "Ăn trưa", 2000));
+        entityManager.persist(activity(dayTwo, "Chợ đêm", 1000));
+        entityManager.persist(activity(withOneDay, "Đại Nội", 1000));
+        entityManager.persist(activity(notAskedDay, "Không được đếm", 1000));
+        entityManager.flush();
+        Long threeActivities = dayOne.getTrip().getId();
+
+        List<TripActivityCount> counts = activityRepository.countByTripIds(
+                List.of(threeActivities, withOne.getId(), empty.getId()));
+
+        // Both days of the first trip together; the empty trip has no row; the trip not asked for is not counted
+        assertThat(counts).containsExactlyInAnyOrder(
+                new TripActivityCount(threeActivities, 3),
+                new TripActivityCount(withOne.getId(), 1));
     }
 
     // ---- findByTripIdInDisplayOrder (trip detail) -------------------------------------------------------------

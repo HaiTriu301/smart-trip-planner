@@ -6,6 +6,7 @@ import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripStatusCountsResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,15 @@ public interface TripService {
      * @throws com.trieu.tripplanner.exception.BusinessRuleException sort on an unsupported property (400)
      */
     PageResponse<TripSummaryResponse> list(Long userId, TripFilter filter, Pageable pageable);
+
+    /**
+     * Trips of the user per status, with the same keyword filter as {@link #list} so the chip counters match the
+     * search results. Every status is present, 0 when no trip has it.
+     *
+     * @param userId from the authenticated principal (CLAUDE.md rule 16)
+     * @param q      optional keyword on title or destination, as in the list
+     */
+    TripStatusCountsResponse countByStatus(Long userId, String q);
 
     /**
      * Creates a DRAFT trip owned by the user, with a fresh unique slug.

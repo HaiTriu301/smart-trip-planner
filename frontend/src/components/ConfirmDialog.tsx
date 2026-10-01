@@ -30,13 +30,19 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Modal open={open} title={title} onClose={() => !isLoading && onCancel()}>
-      <div className="space-y-2 text-slate-600">{children}</div>
+      <div className="space-y-2 text-gray-600">{children}</div>
       {error && <Alert variant="error">{error}</Alert>}
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} disabled={isLoading} onClick={onCancel}>
           Huỷ
         </Button>
-        <Button variant={variant} fullWidth={false} isLoading={isLoading} onClick={onConfirm}>
+        {/* The confirm button of a destructive dialog is the only red-filled button (UI_GUIDE 7.1) */}
+        <Button
+          variant={variant === 'danger' ? 'danger-solid' : 'primary'}
+          fullWidth={false}
+          isLoading={isLoading}
+          onClick={onConfirm}
+        >
           {confirmLabel}
         </Button>
       </div>

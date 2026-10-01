@@ -26,7 +26,8 @@ public interface TripMapper {
     @Mapping(target = "ownerId", source = "owner.id")
     TripResponse toResponse(Trip trip);
 
-    TripSummaryResponse toSummary(Trip trip);
+    /** activityCount comes from ActivityRepository.countByTripIds: one grouped query for the whole page. */
+    TripSummaryResponse toSummary(Trip trip, long activityCount);
 
     /**
      * Two sources: the trip and its days with their activities, assembled by TripDayService from one query per

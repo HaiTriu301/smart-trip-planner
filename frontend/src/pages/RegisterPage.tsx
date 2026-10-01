@@ -12,7 +12,7 @@ export function RegisterPage() {
   const footer = (
     <>
       Đã có tài khoản?{' '}
-      <Link to="/login" className="font-medium text-sky-700 hover:underline">
+      <Link to="/login" className="font-medium text-jade hover:underline">
         Đăng nhập
       </Link>
     </>
@@ -26,7 +26,7 @@ export function RegisterPage() {
             Đã gửi mail xác thực tới <strong>{registeredEmail}</strong>. Mở link trong mail để kích hoạt
             tài khoản rồi đăng nhập.
           </Alert>
-          <p className="text-sm text-slate-600">Không nhận được mail?</p>
+          <p className="text-sm text-gray-600">Không nhận được mail?</p>
           <ResendVerificationForm defaultEmail={registeredEmail} />
         </div>
       </AuthLayout>

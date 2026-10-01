@@ -18,6 +18,7 @@ export function ForgotPasswordPage() {
     getValues,
     formState: { errors },
   } = useForm<EmailOnlyValues>({
+    mode: 'onTouched',
     resolver: zodResolver(emailOnlySchema),
     defaultValues: { email: '' },
   })
@@ -27,7 +28,7 @@ export function ForgotPasswordPage() {
   })
 
   const footer = (
-    <Link to="/login" className="font-medium text-sky-700 hover:underline">
+    <Link to="/login" className="font-medium text-jade hover:underline">
       Quay lại đăng nhập
     </Link>
   )
@@ -58,13 +59,14 @@ export function ForgotPasswordPage() {
         {mutation.isError && <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>}
         <FormField
           label="Email"
+          required
           type="email"
           autoComplete="email"
           autoFocus
           error={errors.email?.message}
           {...register('email')}
         />
-        <Button type="submit" isLoading={mutation.isPending}>
+        <Button type="submit" size="lg" isLoading={mutation.isPending}>
           Gửi link đặt lại
         </Button>
       </form>
