@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.model.enums.ActivityType;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import jakarta.persistence.PersistenceException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,9 +22,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Checks Activity.java against V7__create_activities.sql on a real MySQL (Testcontainers, Flyway,
- * ddl-auto=validate), plus the constraints the service will rely on: the time and cost CHECKs, cascade from the
- * day, no cascade from the creator. ActivityRepository arrives with the create endpoint, so this test talks to
+ * Checks Activity.java against V7__create_activities.sql and V10__add_place_to_activities.sql on a real MySQL
+ * (Testcontainers, Flyway, ddl-auto=validate), plus the constraints the service will rely on: the time and cost
+ * CHECKs, cascade from the day, no cascade from the creator, no cascade to or from the place. ActivityRepository arrives with the create endpoint, so this test talks to
  * the EntityManager directly. Each test runs in a rolled-back transaction.
  */
 @DataJpaTest
@@ -74,6 +75,7 @@ class ActivityMappingTest {
         assertThat(saved.getCostAmount()).isNull();
         assertThat(saved.getCurrency()).isNull();
         assertThat(saved.getBookingUrl()).isNull();
+        assertThat(saved.getPlace()).isNull();
     }
 
     @Test
@@ -225,6 +227,82 @@ class ActivityMappingTest {
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasStackTraceContaining("fk_activities_created_by");
         assertThat(countActivities()).isEqualTo(1);
+    }
+
+    // ---------- place (V10) ----------
+
+    @Test
+    void activityKeepsItsPlaceAndSeveralActivitiesShareOne() {
+        Place market = entityManager.persist(market().build());
+        Activity shopping = entityManager.persist(minimal("Mua đặc sản").place(market).build());
+        Activity breakfast = entityManager.persist(minimal("Ăn sáng ở chợ").orderIndex(2000).place(market).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Place ofShopping = entityManager.find(Activity.class, shopping.getId()).getPlace();
+        Place ofBreakfast = entityManager.find(Activity.class, breakfast.getId()).getPlace();
+
+        assertThat(ofShopping.getId()).isEqualTo(market.getId());
+        assertThat(ofShopping.getName()).isEqualTo("Chợ Đà Lạt");
+        // One row of places serves both activities
+        assertThat(ofBreakfast.getId()).isEqualTo(market.getId());
+        assertThat(countPlaces()).isEqualTo(1);
+    }
+
+    @Test
+    void activitiesCreatedBeforePlacesExistedHaveNoPlace() {
+        // A row written the way V7 knew it: the new column is not mentioned at all
+        jdbcTemplate.update("""
+                INSERT INTO activities (trip_day_id, title, order_index, created_by, created_at, updated_at)
+                VALUES (?, 'Hoạt động cũ', 1000, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))""", day.getId(), owner.getId());
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM activities WHERE title = 'Hoạt động cũ'", Long.class);
+
+        assertThat(entityManager.find(Activity.class, id).getPlace()).isNull();
+    }
+
+    @Test
+    void deletingAnActivityLeavesItsPlace() {
+        Place market = entityManager.persist(market().build());
+        Activity shopping = entityManager.persistAndFlush(minimal("Mua đặc sản").place(market).build());
+
+        entityManager.remove(shopping);
+        entityManager.flush();
+
+        assertThat(countActivities()).isZero();
+        assertThat(countPlaces()).isEqualTo(1);
+    }
+
+    @Test
+    void placeCannotBeDeletedWhileAnActivityUsesIt() {
+        Place market = entityManager.persist(market().build());
+        entityManager.persistAndFlush(minimal("Mua đặc sản").place(market).build());
+
+        assertThatThrownBy(() -> jdbcTemplate.update("DELETE FROM places WHERE id = ?", market.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasStackTraceContaining("fk_activities_place");
+        assertThat(countPlaces()).isEqualTo(1);
+    }
+
+    @Test
+    void placeThatDoesNotExistIsRejectedByTheForeignKey() {
+        Activity saved = entityManager.persistAndFlush(minimal("Mua đặc sản").build());
+
+        assertThatThrownBy(() -> jdbcTemplate.update("UPDATE activities SET place_id = 999999 WHERE id = ?", saved.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasStackTraceContaining("fk_activities_place");
+    }
+
+    private static Place.PlaceBuilder market() {
+        return Place.builder()
+                .provider(PlaceProvider.MOCK)
+                .externalId("da-lat-cho-da-lat")
+                .name("Chợ Đà Lạt")
+                .lat(new BigDecimal("11.9434358"))
+                .lng(new BigDecimal("108.4371779"));
+    }
+
+    private Integer countPlaces() {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM places", Integer.class);
     }
 
     /** Only the NOT NULL columns; each test adds what it is about. */

@@ -26,7 +26,7 @@ import org.hibernate.type.descriptor.jdbc.LocalTimeJdbcType;
 
 /**
  * One thing to do inside a trip day (design.md 5.2 "activities"). Column types must match
- * V7__create_activities.sql exactly (ddl-auto=validate).
+ * V7__create_activities.sql and V10__add_place_to_activities.sql exactly (ddl-auto=validate).
  * <p>
  * Hard delete, no soft delete: an activity is a child of its day and goes with it (ON DELETE CASCADE).
  * <p>
@@ -101,6 +101,14 @@ public class Activity extends BaseEntity {
     @Setter
     @Column(name = "booking_url", length = 512)
     private String bookingUrl;
+
+    /**
+     * Where the activity happens: the app's own copy of a place (design.md rule 14.18), shared with every other
+     * activity that uses it. Null = no place. Deleting the activity never deletes the place.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "place_id")
+    private Place place;
 
     /** Who added the activity; shown to collaborators (design.md 11). Never taken from the request body. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
