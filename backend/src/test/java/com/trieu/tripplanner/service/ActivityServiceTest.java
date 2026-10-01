@@ -1047,6 +1047,232 @@ class ActivityServiceTest {
 
     }
 
+    /**
+     * design.md rule 14.5 (Task 2.6): a start time places the activity right before the first activity of the day,
+     * in the current order, that starts later; activities without a start time and the dragged order stay put.
+     */
+    @Nested
+    class PlacementByStartTime {
+
+        private static final long EDITED_ID = 31L;
+
+        @BeforeEach
+        void liveTripAndDay() {
+            lenient().when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+            lenient().when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.of(day));
+            lenient().when(userRepository.getReferenceById(USER_ID)).thenReturn(creator);
+            lenient().when(activityRepository.save(any(Activity.class))).thenAnswer(invocation -> {
+                Activity activity = invocation.getArgument(0);
+                ReflectionTestUtils.setField(activity, "id", NEW_ACTIVITY_ID);
+                return activity;
+            });
+            lenient().when(activityRepository.saveAndFlush(any(Activity.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+        }
+
+        // ---- create ----------------------------------------------------------------------------------------------
+
+        @Test
+        void newActivityGoesBeforeTheFirstOneThatStartsLater() {
+            dayHolds(at(1, "08:00", 1000), at(2, "12:00", 2000));
+
+            create(startingAt("10:00"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(1500);
+        }
+
+        @Test
+        void earliestActivityGoesToTheTopOfTheDay() {
+            dayHolds(at(1, "08:00", 1000), at(2, "12:00", 2000));
+
+            create(startingAt("06:00"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(500);
+        }
+
+        @Test
+        void latestActivityGoesToTheEndOfTheDayAfterUntimedOnes() {
+            dayHolds(at(1, "08:00", 1000), untimed(2, 2000));
+
+            create(startingAt("20:00"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(3000);
+        }
+
+        @Test
+        void untimedActivitiesBetweenTwoTimedOnesAreSkippedOver() {
+            dayHolds(at(1, "08:00", 1000), untimed(2, 2000), at(3, "12:00", 3000));
+
+            create(startingAt("10:00"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(2500);
+        }
+
+        @Test
+        void sameStartTimeGoesAfterTheActivityAlreadyThere() {
+            dayHolds(at(1, "09:00", 1000), at(2, "12:00", 2000));
+
+            create(startingAt("09:00"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(1500);
+        }
+
+        @Test
+        void dayWithoutAnyTimedActivityTakesItAtTheEnd() {
+            dayHolds(untimed(1, 1000), untimed(2, 2000));
+
+            create(startingAt("09:00"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(3000);
+        }
+
+        @Test
+        void noFreeIndexLeftRenumbersTheDayWithTheNewActivityInPlace() {
+            Activity early = at(1, "08:00", 1000);
+            Activity late = at(2, "12:00", 1001);
+            dayHolds(early, late);
+
+            create(startingAt("10:00"));
+
+            assertThat(early.getOrderIndex()).isEqualTo(1000);
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(2000);
+            assertThat(late.getOrderIndex()).isEqualTo(3000);
+        }
+
+        @Test
+        void activityWithoutStartTimeGoesToTheEndWithoutReadingTheDay() {
+            when(activityRepository.findMaxOrderIndexByTripDayId(DAY_ID)).thenReturn(2000);
+
+            create(titled("Dạo phố"));
+
+            assertThat(savedActivity().getOrderIndex()).isEqualTo(3000);
+            verify(activityRepository, never()).findByTripDayIdOrderByOrderIndexAscIdAsc(any());
+        }
+
+        // ---- update ----------------------------------------------------------------------------------------------
+
+        @Test
+        void laterStartTimeMovesTheActivityPastTheOnesItNowFollows() {
+            Activity edited = edited("09:00", 1000);
+            dayHolds(edited, at(2, "10:00", 2000), at(3, "12:00", 3000));
+
+            update(newStart("11:00"));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(2500);
+            assertThat(edited.getTripDay()).isSameAs(day);
+        }
+
+        @Test
+        void latestStartTimeMovesTheActivityToTheEndOfTheDay() {
+            Activity edited = edited("09:00", 1000);
+            dayHolds(edited, untimed(2, 2000), at(3, "12:00", 3000), untimed(4, 4000));
+
+            update(newStart("20:00"));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(5000);
+        }
+
+        @Test
+        void earlierStartTimeMovesTheActivityUp() {
+            Activity edited = edited("15:00", 3000);
+            dayHolds(at(1, "08:00", 1000), at(2, "12:00", 2000), edited);
+
+            update(newStart("10:00"));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(1500);
+        }
+
+        @Test
+        void startTimeThatStillFitsItsPlaceDoesNotMoveIt() {
+            Activity edited = edited("09:00", 1000);
+            dayHolds(edited, at(2, "12:00", 2000));
+
+            update(newStart("10:00"));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(1000);
+        }
+
+        @Test
+        void unscheduledActivityGivenAStartTimeIsPlaced() {
+            Activity edited = edited(null, 3000);
+            dayHolds(at(1, "08:00", 1000), at(2, "12:00", 2000), edited);
+
+            update(newStart("10:00"));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(1500);
+        }
+
+        @Test
+        void onlyTheEditedActivityMovesAndTheDraggedOrderOfTheOthersIsKept() {
+            // The user dragged "12:00" above "08:00": the edited activity goes before the first later one it meets
+            Activity noon = at(1, "12:00", 1000);
+            Activity morning = at(2, "08:00", 2000);
+            Activity edited = edited("07:00", 3000);
+            dayHolds(noon, morning, edited);
+
+            update(newStart("10:00"));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(500);
+            assertThat(noon.getOrderIndex()).isEqualTo(1000);
+            assertThat(morning.getOrderIndex()).isEqualTo(2000);
+        }
+
+        @Test
+        void otherFieldsOrTheEndTimeNeverMoveTheActivityNorReadTheDay() {
+            // Out of time order on purpose: an edit that keeps the start time must not "fix" the position
+            Activity edited = edited("09:00", 3000);
+
+            update(new UpdateActivityRequest("Ăn sáng muộn", null, LocalTime.of(9, 0), LocalTime.of(11, 0),
+                    "Ghi chú", new BigDecimal("10.00"), null, null));
+
+            assertThat(edited.getOrderIndex()).isEqualTo(3000);
+            verify(activityRepository, never()).findByTripDayIdOrderByOrderIndexAscIdAsc(any());
+        }
+
+        private void dayHolds(Activity... activities) {
+            when(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(DAY_ID)).thenReturn(List.of(activities));
+        }
+
+        private Activity at(long id, String start, int orderIndex) {
+            Activity activity = untimed(id, orderIndex);
+            activity.setStartTime(LocalTime.parse(start));
+            return activity;
+        }
+
+        private Activity untimed(long id, int orderIndex) {
+            Activity activity = Activity.builder().tripDay(day).title("Hoạt động " + id).orderIndex(orderIndex)
+                    .createdBy(creator).build();
+            ReflectionTestUtils.setField(activity, "id", id);
+            return activity;
+        }
+
+        /** The activity being edited, found through its trip like the real endpoint does. */
+        private Activity edited(String start, int orderIndex) {
+            Activity activity = start == null ? untimed(EDITED_ID, orderIndex) : at(EDITED_ID, start, orderIndex);
+            when(activityRepository.findByIdAndTripId(EDITED_ID, TRIP_ID)).thenReturn(Optional.of(activity));
+            return activity;
+        }
+
+        private Activity savedActivity() {
+            ArgumentCaptor<Activity> saved = ArgumentCaptor.forClass(Activity.class);
+            verify(activityRepository).save(saved.capture());
+            return saved.getValue();
+        }
+
+        private void update(UpdateActivityRequest request) {
+            activityService.update(TRIP_ID, EDITED_ID, request, false);
+        }
+
+        private static CreateActivityRequest startingAt(String start) {
+            return new CreateActivityRequest("Tham quan", null, LocalTime.parse(start), null, null, null, null, null);
+        }
+
+        private static UpdateActivityRequest newStart(String start) {
+            return new UpdateActivityRequest(null, null, LocalTime.parse(start), null, null, null, null, null);
+        }
+
+    }
+
     @Nested
     class Delete {
 

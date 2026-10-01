@@ -35,8 +35,8 @@ import org.hibernate.type.descriptor.jdbc.LocalTimeJdbcType;
  * (03:00 in a +07:00 JVM is stored as 20:00) and breaks every comparison done in SQL.
  * <p>
  * Only the fields a user edits have setters. {@code tripDay} and {@code orderIndex} change together through
- * {@link #moveTo}, used by the reorder endpoint only; {@code createdBy} is fixed at creation and {@code version}
- * belongs to Hibernate.
+ * {@link #moveTo}, used by the reorder endpoint and by the placement by start time; {@code createdBy} is fixed at
+ * creation and {@code version} belongs to Hibernate.
  * <p>
  * The version protects the content of the activity, not its position (design.md 11.3): {@code tripDay} and
  * {@code orderIndex} are excluded from the optimistic lock, so a drag and drop by one user never makes another
