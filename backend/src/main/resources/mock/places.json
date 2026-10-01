@@ -1,0 +1,453 @@
+{
+  "source": "Names, addresses and coordinates looked up on OpenStreetMap (Nominatim) on 2026-10-01. Data © OpenStreetMap contributors, ODbL 1.0 - https://www.openstreetmap.org/copyright",
+  "places": [
+    {
+      "externalId": "da-nang-chua-linh-ung",
+      "name": "Chùa Linh Ứng",
+      "address": "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng",
+      "lat": 16.1001567,
+      "lng": 108.2784112,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-cau-rong",
+      "name": "Cầu Rồng",
+      "address": "Đường Nguyễn Văn Linh, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0611682,
+      "lng": 108.2278968,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-ngu-hanh-son",
+      "name": "Ngũ Hành Sơn",
+      "address": "Phường Ngũ Hành Sơn, Đà Nẵng",
+      "lat": 16.00402,
+      "lng": 108.2627745,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-sun-world-ba-na-hills",
+      "name": "Sun World Bà Nà Hills",
+      "address": "Xã Bà Nà, Đà Nẵng",
+      "lat": 15.9958569,
+      "lng": 107.9890712,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-bao-tang-dieu-khac-cham",
+      "name": "Bảo tàng Nghệ thuật Điêu khắc Chăm Đà Nẵng",
+      "address": "Đường Bạch Đằng, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0601209,
+      "lng": 108.223084,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-bai-bien-my-khe",
+      "name": "Bãi biển Mỹ Khê",
+      "address": "Phường An Hải, Đà Nẵng",
+      "lat": 16.0756254,
+      "lng": 108.2468784,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-nang-cho-han",
+      "name": "Chợ Hàn",
+      "address": "119 Trần Phú, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0683525,
+      "lng": 108.224283,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "da-nang-cho-con",
+      "name": "Chợ Cồn",
+      "address": "290 Hùng Vương, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0681275,
+      "lng": 108.2145213,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "da-nang-mi-quang-ba-mua",
+      "name": "Mì Quảng Bà Mua",
+      "address": "Đường Hồ Nghinh, Phường An Hải, Đà Nẵng",
+      "lat": 16.0662211,
+      "lng": 108.2433013,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "da-nang-bun-cha-ca-109",
+      "name": "Bún chả cá 109",
+      "address": "Đường Nguyễn Chí Thanh, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0743887,
+      "lng": 108.2207958,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "da-nang-khach-san-novotel",
+      "name": "Khách sạn Novotel Đà Nẵng",
+      "address": "Đường Trần Phú, Phường Hải Châu, Đà Nẵng",
+      "lat": 16.0774605,
+      "lng": 108.2235631,
+      "category": "ACCOMMODATION"
+    },
+    {
+      "externalId": "da-nang-san-bay-quoc-te",
+      "name": "Sân bay quốc tế Đà Nẵng",
+      "address": "Đường Trần Can, Phường Thanh Khê, Đà Nẵng",
+      "lat": 16.0425792,
+      "lng": 108.1971613,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "da-nang-ga-da-nang",
+      "name": "Ga Đà Nẵng",
+      "address": "Đường Hải Phòng, Phường Thanh Khê, Đà Nẵng",
+      "lat": 16.0715831,
+      "lng": 108.2092693,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "ha-noi-ho-hoan-kiem",
+      "name": "Hồ Hoàn Kiếm",
+      "address": "Phường Hoàn Kiếm, Hà Nội",
+      "lat": 21.0288313,
+      "lng": 105.8525357,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ha-noi-van-mieu-quoc-tu-giam",
+      "name": "Văn Miếu - Quốc Tử Giám",
+      "address": "Phường Văn Miếu - Quốc Tử Giám, Hà Nội",
+      "lat": 21.0287903,
+      "lng": 105.8359533,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ha-noi-lang-chu-tich-ho-chi-minh",
+      "name": "Lăng Chủ tịch Hồ Chí Minh",
+      "address": "1 Hùng Vương, Phường Ba Đình, Hà Nội",
+      "lat": 21.0367831,
+      "lng": 105.8346888,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ha-noi-chua-tran-quoc",
+      "name": "Chùa Trấn Quốc",
+      "address": "Đường Thanh Niên, Phường Tây Hồ, Hà Nội",
+      "lat": 21.0478837,
+      "lng": 105.8368375,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ha-noi-nha-hat-lon",
+      "name": "Nhà hát Lớn Hà Nội",
+      "address": "1A Tràng Tiền, Phường Cửa Nam, Hà Nội",
+      "lat": 21.0242022,
+      "lng": 105.8578344,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ha-noi-bao-tang-dan-toc-hoc",
+      "name": "Bảo tàng Dân tộc học Việt Nam",
+      "address": "Đường Nguyễn Văn Huyên, Phường Nghĩa Đô, Hà Nội",
+      "lat": 21.0400774,
+      "lng": 105.7988403,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ha-noi-cho-dong-xuan",
+      "name": "Chợ Đồng Xuân",
+      "address": "Phố Hàng Khoai, Phường Hoàn Kiếm, Hà Nội",
+      "lat": 21.0382556,
+      "lng": 105.849671,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "ha-noi-bun-cha-huong-lien",
+      "name": "Bún chả Hương Liên",
+      "address": "24 Lê Văn Hưu, Phường Cửa Nam, Hà Nội",
+      "lat": 21.0180504,
+      "lng": 105.8538843,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "ha-noi-cha-ca-la-vong",
+      "name": "Chả cá Lã Vọng",
+      "address": "14 Phố Chả Cá, Phường Hoàn Kiếm, Hà Nội",
+      "lat": 21.0356844,
+      "lng": 105.8491519,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "ha-noi-sofitel-legend-metropole",
+      "name": "Sofitel Legend Metropole Hà Nội",
+      "address": "Phường Hoàn Kiếm, Hà Nội",
+      "lat": 21.0254884,
+      "lng": 105.8559784,
+      "category": "ACCOMMODATION"
+    },
+    {
+      "externalId": "ha-noi-ga-ha-noi",
+      "name": "Ga Hà Nội",
+      "address": "120 Lê Duẩn, Phường Văn Miếu - Quốc Tử Giám, Hà Nội",
+      "lat": 21.0242144,
+      "lng": 105.8410943,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "ha-noi-san-bay-noi-bai",
+      "name": "Sân bay quốc tế Nội Bài",
+      "address": "Đường Võ Nguyên Giáp, Hà Nội",
+      "lat": 21.2188925,
+      "lng": 105.8044596,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "hoi-an-chua-cau",
+      "name": "Chùa Cầu",
+      "address": "Trần Phú, Phường Hội An, Đà Nẵng",
+      "lat": 15.8771541,
+      "lng": 108.3260034,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "hoi-an-hoi-quan-phuc-kien",
+      "name": "Hội quán Phúc Kiến",
+      "address": "46 Trần Phú, Phường Hội An, Đà Nẵng",
+      "lat": 15.8781389,
+      "lng": 108.3309922,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "hoi-an-nha-co-tan-ky",
+      "name": "Nhà cổ Tấn Ký",
+      "address": "Nguyễn Thái Học, Phường Hội An, Đà Nẵng",
+      "lat": 15.8764553,
+      "lng": 108.3278311,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "hoi-an-nha-co-phung-hung",
+      "name": "Nhà cổ Phùng Hưng",
+      "address": "4 Nguyễn Thị Minh Khai, Phường Hội An, Đà Nẵng",
+      "lat": 15.8772193,
+      "lng": 108.3257902,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "hoi-an-bai-bien-cua-dai",
+      "name": "Bãi biển Cửa Đại",
+      "address": "Phường Hội An Đông, Đà Nẵng",
+      "lat": 15.8980583,
+      "lng": 108.3662256,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "hoi-an-cho-hoi-an",
+      "name": "Chợ Hội An",
+      "address": "Trần Quý Cáp, Phường Hội An, Đà Nẵng",
+      "lat": 15.8768181,
+      "lng": 108.3313443,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "hoi-an-banh-mi-phuong",
+      "name": "Bánh mì Phượng",
+      "address": "2B Phan Châu Trinh, Phường Hội An, Đà Nẵng",
+      "lat": 15.8784841,
+      "lng": 108.3320081,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "hoi-an-morning-glory",
+      "name": "Nhà hàng Morning Glory",
+      "address": "106 Nguyễn Thái Học, Phường Hội An, Đà Nẵng",
+      "lat": 15.8766204,
+      "lng": 108.3277853,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "hoi-an-historic-hotel",
+      "name": "Hoi An Historic Hotel",
+      "address": "10 Trần Hưng Đạo, Phường Hội An, Đà Nẵng",
+      "lat": 15.880315,
+      "lng": 108.3304896,
+      "category": "ACCOMMODATION"
+    },
+    {
+      "externalId": "hoi-an-cang-du-lich-cua-dai",
+      "name": "Cảng du lịch Cửa Đại",
+      "address": "Âu Cơ, Phường Hội An Đông, Đà Nẵng",
+      "lat": 15.8782122,
+      "lng": 108.3882042,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "da-lat-ho-xuan-huong",
+      "name": "Hồ Xuân Hương",
+      "address": "Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9450803,
+      "lng": 108.4487222,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-lat-ga-da-lat",
+      "name": "Ga Đà Lạt",
+      "address": "Quang Trung, Đà Lạt, Lâm Đồng",
+      "lat": 11.9415998,
+      "lng": 108.4544331,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-lat-thung-lung-tinh-yeu",
+      "name": "Thung lũng Tình Yêu",
+      "address": "Mai Anh Đào, Phường Lâm Viên - Đà Lạt, Lâm Đồng",
+      "lat": 11.9781853,
+      "lng": 108.4499229,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-lat-thien-vien-truc-lam",
+      "name": "Thiền viện Trúc Lâm",
+      "address": "Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9041575,
+      "lng": 108.4347865,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-lat-dinh-bao-dai",
+      "name": "Dinh III Bảo Đại",
+      "address": "1 Triệu Việt Vương, Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9300468,
+      "lng": 108.4296735,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-lat-crazy-house",
+      "name": "Crazy House - Ngôi nhà quái dị",
+      "address": "3 Huỳnh Thúc Kháng, Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9345622,
+      "lng": 108.4305116,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "da-lat-cho-da-lat",
+      "name": "Chợ Đà Lạt",
+      "address": "Nguyễn Thị Minh Khai, Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9434358,
+      "lng": 108.4371779,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "da-lat-kem-bo-thanh-thao",
+      "name": "Kem bơ Thanh Thảo",
+      "address": "Nguyễn Văn Trỗi, Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9474146,
+      "lng": 108.4369851,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "da-lat-dalat-palace-hotel",
+      "name": "Dalat Palace Hotel",
+      "address": "Hồ Tùng Mậu, Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9375798,
+      "lng": 108.4403914,
+      "category": "ACCOMMODATION"
+    },
+    {
+      "externalId": "da-lat-ben-xe-lien-tinh",
+      "name": "Bến xe liên tỉnh Đà Lạt",
+      "address": "1 Tô Hiến Thành, Phường Xuân Hương - Đà Lạt, Lâm Đồng",
+      "lat": 11.9268818,
+      "lng": 108.4455138,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "da-lat-san-bay-lien-khuong",
+      "name": "Sân bay quốc tế Liên Khương",
+      "address": "Xã Hiệp Thạnh, Lâm Đồng",
+      "lat": 11.7504279,
+      "lng": 108.3611709,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "ho-chi-minh-dinh-doc-lap",
+      "name": "Dinh Độc Lập",
+      "address": "135 Nam Kỳ Khởi Nghĩa, Phường Bến Thành, TP. Hồ Chí Minh",
+      "lat": 10.7770348,
+      "lng": 106.695488,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ho-chi-minh-buu-dien-trung-tam",
+      "name": "Bưu điện Trung tâm Sài Gòn",
+      "address": "2 Công trường Công xã Paris, Phường Sài Gòn, TP. Hồ Chí Minh",
+      "lat": 10.7799557,
+      "lng": 106.6999921,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ho-chi-minh-bao-tang-chung-tich-chien-tranh",
+      "name": "Bảo tàng Chứng tích Chiến tranh",
+      "address": "28 Võ Văn Tần, Phường Xuân Hòa, TP. Hồ Chí Minh",
+      "lat": 10.7793647,
+      "lng": 106.6922806,
+      "category": "SIGHTSEEING"
+    },
+    {
+      "externalId": "ho-chi-minh-cho-ben-thanh",
+      "name": "Chợ Bến Thành",
+      "address": "Công trường Quách Thị Trang, Phường Bến Thành, TP. Hồ Chí Minh",
+      "lat": 10.7725301,
+      "lng": 106.6980365,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "ho-chi-minh-cho-binh-tay",
+      "name": "Chợ Bình Tây",
+      "address": "57A Tháp Mười, Phường Bình Tây, TP. Hồ Chí Minh",
+      "lat": 10.7492965,
+      "lng": 106.650728,
+      "category": "SHOPPING"
+    },
+    {
+      "externalId": "ho-chi-minh-pho-hoa-pasteur",
+      "name": "Phở Hòa Pasteur",
+      "address": "260C Pasteur, Phường Xuân Hòa, TP. Hồ Chí Minh",
+      "lat": 10.7868014,
+      "lng": 106.689046,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "ho-chi-minh-banh-mi-huynh-hoa",
+      "name": "Bánh mì Huỳnh Hoa",
+      "address": "26 Lê Thị Riêng, Phường Bến Thành, TP. Hồ Chí Minh",
+      "lat": 10.7713922,
+      "lng": 106.6927189,
+      "category": "FOOD"
+    },
+    {
+      "externalId": "ho-chi-minh-khach-san-rex",
+      "name": "Khách sạn Rex Sài Gòn",
+      "address": "141 Nguyễn Huệ, Phường Sài Gòn, TP. Hồ Chí Minh",
+      "lat": 10.7755811,
+      "lng": 106.7010667,
+      "category": "ACCOMMODATION"
+    },
+    {
+      "externalId": "ho-chi-minh-san-bay-tan-son-nhat",
+      "name": "Sân bay quốc tế Tân Sơn Nhất",
+      "address": "Phường Tân Sơn, TP. Hồ Chí Minh",
+      "lat": 10.8179793,
+      "lng": 106.6562645,
+      "category": "TRANSPORT"
+    },
+    {
+      "externalId": "ho-chi-minh-ga-sai-gon",
+      "name": "Ga Sài Gòn",
+      "address": "Phường Nhiêu Lộc, TP. Hồ Chí Minh",
+      "lat": 10.7824171,
+      "lng": 106.6771769,
+      "category": "TRANSPORT"
+    }
+  ]
+}
