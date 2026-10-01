@@ -1,7 +1,6 @@
 package com.trieu.tripplanner.common.util;
 
 import java.security.SecureRandom;
-import java.text.Normalizer;
 import java.util.Locale;
 import java.util.random.RandomGenerator;
 import org.springframework.stereotype.Component;
@@ -39,10 +38,7 @@ public class SlugGenerator {
         if (title == null) {
             return FALLBACK_BASE;
         }
-        // Đ/đ is a separate letter, not d + combining mark, so NFD would not strip it
-        String ascii = Normalizer.normalize(title.replace('Đ', 'D').replace('đ', 'd'), Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "");
-        String slug = ascii.toLowerCase(Locale.ROOT)
+        String slug = VietnameseText.stripAccents(title).toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("(^-+)|(-+$)", "");
         if (slug.length() > MAX_BASE_LENGTH) {
