@@ -4,6 +4,7 @@ import { CalendarDays, ChevronLeft, Clock, MapPin, Wallet } from 'lucide-react'
 import { getTrip } from '../api/trips'
 import { getApiError, getErrorMessage } from '../api/errors'
 import { Alert } from '../components/Alert'
+import { Button } from '../components/Button'
 import { ExpandableText } from '../components/ExpandableText'
 import { Skeleton } from '../components/Skeleton'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
@@ -20,7 +21,7 @@ export function TripDetailPage() {
   const tripId = Number(id)
   const isValidId = Number.isInteger(tripId) && tripId > 0
 
-  const { data: trip, error, isPending } = useQuery({
+  const { data: trip, error, isPending, isFetching, refetch } = useQuery({
     queryKey: ['trip', tripId],
     queryFn: () => getTrip(tripId),
     enabled: isValidId,
@@ -28,20 +29,17 @@ export function TripDetailPage() {
 
   if (!isValidId) return <TripUnavailable message="Không tìm thấy chuyến đi." />
   if (isPending) return <TripDetailSkeleton />
-  if (error) {
-    const code = getApiError(error)?.errorCode
-    return (
-      <TripUnavailable
-        message={
-          code === 'RESOURCE_NOT_FOUND'
-            ? 'Không tìm thấy chuyến đi. Có thể chuyến đi đã bị xoá.'
-            : code === 'FORBIDDEN'
-              ? 'Bạn không có quyền xem chuyến đi này.'
-              : getErrorMessage(error)
-        }
-      />
-    )
+
+  // The trip is gone or no longer ours: a copy loaded earlier must not stay on screen either
+  const code = getApiError(error)?.errorCode
+  if (code === 'RESOURCE_NOT_FOUND') {
+    return <TripUnavailable message="Không tìm thấy chuyến đi. Có thể chuyến đi đã bị xoá." />
   }
+  if (code === 'FORBIDDEN') return <TripUnavailable message="Bạn không có quyền xem chuyến đi này." />
+
+  const retry = { isRetrying: isFetching, onRetry: () => refetch() }
+  // Nothing loaded yet and the first request failed (server down, network): only the error can be shown
+  if (!trip) return <TripUnavailable message={getErrorMessage(error)} {...retry} />
 
   const currentDayIndex = Number(dayIndex)
   if (!trip.days.some((d) => d.dayIndex === currentDayIndex)) {
@@ -51,6 +49,12 @@ export function TripDetailPage() {
   return (
     <div className="space-y-6">
       <BackLink />
+
+      {/* A background reload failed (refetch on window focus while the server restarts...): keep the page and
+          whatever the user is doing on it, with the trip as loaded earlier */}
+      {error && (
+        <RetryableError message={`${getErrorMessage(error)}. Đang hiển thị dữ liệu đã tải trước đó.`} {...retry} />
+      )}
 
       <header className="space-y-3">
         {/* Title takes the free width and stops at two lines; status and actions keep one fixed spot on the
@@ -109,10 +113,32 @@ function BackLink() {
   )
 }
 
-function TripUnavailable({ message }: { message: string }) {
+interface RetryProps {
+  isRetrying: boolean
+  onRetry: () => void
+}
+
+/** Same pairing as the trip list: the error, then a "Thử lại" button under it. */
+function RetryableError({ message, isRetrying, onRetry }: { message: string } & RetryProps) {
+  return (
+    <div className="space-y-3">
+      <Alert variant="error">{message}</Alert>
+      <Button variant="secondary" fullWidth={false} isLoading={isRetrying} onClick={onRetry}>
+        Thử lại
+      </Button>
+    </div>
+  )
+}
+
+/** The page cannot be shown at all. Retry is offered only when trying again can help (not for 404 / 403). */
+function TripUnavailable({ message, isRetrying = false, onRetry }: { message: string } & Partial<RetryProps>) {
   return (
     <div className="space-y-4">
-      <Alert variant="error">{message}</Alert>
+      {onRetry ? (
+        <RetryableError message={message} isRetrying={isRetrying} onRetry={onRetry} />
+      ) : (
+        <Alert variant="error">{message}</Alert>
+      )}
       <BackLink />
     </div>
   )
