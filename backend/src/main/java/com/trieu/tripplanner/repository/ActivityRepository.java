@@ -7,12 +7,16 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /**
  * Activities of a trip day (design.md 5.2 "activities"). Hard delete: there is no soft-delete filter here.
+ * <p>
+ * Every query whose result is turned into an ActivityResponse fetches the place in the same SELECT (LEFT JOIN:
+ * most activities have none). Without it each activity with a place would cost one more query (N+1).
  */
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
@@ -52,13 +56,17 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
      * Activities of the day in display order. Served by idx_activities_day_order (trip_day_id, order_index).
      * The id breaks the tie when two activities share an index (two simultaneous inserts): the older one first.
      */
+    @EntityGraph(attributePaths = "place")
     List<Activity> findByTripDayIdOrderByOrderIndexAscIdAsc(Long dayId);
 
     /**
      * Every activity of the trip in one query, in display order inside each day: the trip detail groups them by
      * day in memory instead of asking once per day (no N+1). trips is not joined, trip_days only for the filter.
      */
-    @Query("select a from Activity a where a.tripDay.trip.id = :tripId order by a.orderIndex, a.id")
+    @Query("""
+            select a from Activity a left join fetch a.place
+            where a.tripDay.trip.id = :tripId
+            order by a.orderIndex, a.id""")
     List<Activity> findByTripIdInDisplayOrder(@Param("tripId") Long tripId);
 
     /**
@@ -69,14 +77,17 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findAllByIdInAndTripId(@Param("ids") Collection<Long> ids, @Param("tripId") Long tripId);
 
     /** Activities of several days in one query, in display order inside each day; grouped by day afterwards. */
-    @Query("select a from Activity a where a.tripDay.id in :dayIds order by a.orderIndex, a.id")
+    @Query("""
+            select a from Activity a left join fetch a.place
+            where a.tripDay.id in :dayIds
+            order by a.orderIndex, a.id""")
     List<Activity> findByTripDayIdInDisplayOrder(@Param("dayIds") Collection<Long> dayIds);
 
     /**
      * Empty when the activity belongs to another trip, so /trips/1/activities/{activity of trip 2} answers 404.
      * The trip id is read from trip_days; the trips table is not joined.
      */
-    @Query("select a from Activity a where a.id = :id and a.tripDay.trip.id = :tripId")
+    @Query("select a from Activity a left join fetch a.place where a.id = :id and a.tripDay.trip.id = :tripId")
     Optional<Activity> findByIdAndTripId(@Param("id") Long id, @Param("tripId") Long tripId);
 
     /**

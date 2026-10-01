@@ -19,17 +19,21 @@ import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
-import com.trieu.tripplanner.mapper.ActivityMapper;
+import com.trieu.tripplanner.mapper.ActivityMapperImpl;
+import com.trieu.tripplanner.mapper.PlaceMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
+import com.trieu.tripplanner.model.Place;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.ActivityType;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
@@ -94,7 +98,8 @@ class ActivityServiceTest {
     @BeforeEach
     void setUp() {
         activityService = new ActivityServiceImpl(activityRepository, tripRepository, tripDayRepository,
-                userRepository, Mappers.getMapper(ActivityMapper.class), Mappers.getMapper(TripDayMapper.class));
+                userRepository, new ActivityMapperImpl(Mappers.getMapper(PlaceMapper.class)),
+                Mappers.getMapper(TripDayMapper.class));
 
         creator = TestUsers.verified(USER_ID, "an@example.com");
         trip = Trip.builder()
@@ -112,6 +117,27 @@ class ActivityServiceTest {
 
     @Nested
     class ListOfDay {
+
+        @Test
+        void activityWithAPlaceCarriesEveryFieldOfThePlaceAndTheOthersCarryNone() {
+            Place market = Place.builder().provider(PlaceProvider.MOCK).externalId("da-lat-cho-da-lat")
+                    .name("Chợ Đà Lạt").address("Nguyễn Thị Minh Khai, Đà Lạt").lat(new BigDecimal("11.9434358"))
+                    .lng(new BigDecimal("108.4371779")).category("SHOPPING").build();
+            ReflectionTestUtils.setField(market, "id", 71L);
+            Activity shopping = Activity.builder().tripDay(day).title("Mua đặc sản").orderIndex(1000)
+                    .createdBy(creator).place(market).build();
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.of(day));
+            when(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(DAY_ID)).thenReturn(List.of(
+                    shopping, existing(32L, "Cà phê", "10:00", "11:00")));
+
+            List<ActivityResponse> responses = activityService.list(TRIP_ID, DAY_ID);
+
+            assertThat(responses.get(0).place()).isEqualTo(new PlaceResponse(71L, PlaceProvider.MOCK, "Chợ Đà Lạt",
+                    "Nguyễn Thị Minh Khai, Đà Lạt", new BigDecimal("11.9434358"), new BigDecimal("108.4371779"),
+                    "SHOPPING"));
+            assertThat(responses.get(1).place()).isNull();
+        }
 
         @Test
         void returnsTheActivitiesOfTheDayInRepositoryOrder() {

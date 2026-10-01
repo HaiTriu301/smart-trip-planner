@@ -7,12 +7,16 @@ import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.dto.internal.DroppedActivities;
 import com.trieu.tripplanner.dto.internal.TripActivityCount;
 import com.trieu.tripplanner.model.Activity;
+import com.trieu.tripplanner.model.Place;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -284,6 +288,56 @@ class ActivityRepositoryTest {
     @Test
     void listIsEmptyForADayWithoutActivities() {
         assertThat(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayOne.getId())).isEmpty();
+    }
+
+    // ---- the place comes with the activity (Task 3.2) ---------------------------------------------------------
+
+    @Test
+    void everyListThatBecomesAResponseLoadsThePlaceInTheSameSelect() {
+        persistShoppingAtTheMarketAndCoffeeNowhere();
+        Long tripId = dayOne.getTrip().getId();
+
+        entityManager.clear();
+        assertPlaceCameWithTheActivity(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayOne.getId()));
+        entityManager.clear();
+        assertPlaceCameWithTheActivity(activityRepository.findByTripIdInDisplayOrder(tripId));
+        entityManager.clear();
+        assertPlaceCameWithTheActivity(activityRepository.findByTripDayIdInDisplayOrder(List.of(dayOne.getId())));
+    }
+
+    @Test
+    void findByIdAndTripIdLoadsThePlaceInTheSameSelect() {
+        List<Activity> saved = persistShoppingAtTheMarketAndCoffeeNowhere();
+        Long tripId = dayOne.getTrip().getId();
+        entityManager.clear();
+
+        assertPlaceCameWithTheActivity(List.of(
+                activityRepository.findByIdAndTripId(saved.get(0).getId(), tripId).orElseThrow(),
+                activityRepository.findByIdAndTripId(saved.get(1).getId(), tripId).orElseThrow()));
+    }
+
+    private List<Activity> persistShoppingAtTheMarketAndCoffeeNowhere() {
+        Place market = entityManager.persist(Place.builder()
+                .provider(PlaceProvider.MOCK)
+                .externalId("da-lat-cho-da-lat")
+                .name("Chợ Đà Lạt")
+                .lat(new BigDecimal("11.9434358"))
+                .lng(new BigDecimal("108.4371779"))
+                .build());
+        Activity shopping = entityManager.persist(Activity.builder().tripDay(dayOne).title("Mua đặc sản")
+                .orderIndex(1000).createdBy(owner).place(market).build());
+        Activity coffee = entityManager.persist(activity(dayOne, "Cà phê", 2000));
+        entityManager.flush();
+        return List.of(shopping, coffee);
+    }
+
+    private static void assertPlaceCameWithTheActivity(List<Activity> activities) {
+        // LEFT JOIN: the activity without a place is not dropped
+        assertThat(activities).extracting(Activity::getTitle).containsExactly("Mua đặc sản", "Cà phê");
+        // Already loaded by the query, not a proxy that costs one more SELECT when the mapper reads it
+        assertThat(Hibernate.isInitialized(activities.get(0).getPlace())).isTrue();
+        assertThat(activities.get(0).getPlace().getName()).isEqualTo("Chợ Đà Lạt");
+        assertThat(activities.get(1).getPlace()).isNull();
     }
 
     // ---- findTimedByTripDayId (candidates for the overlap check, rule 14.4) -----------------------------------

@@ -12,6 +12,8 @@ import java.time.LocalTime;
  * @param dayId       the trip day the activity belongs to
  * @param startTime   written as "HH:mm" (design.md 10.1); null = not scheduled
  * @param orderIndex  position inside the day, spaced by 1000 (rule 14.5)
+ * @param place       where it happens, with everything the client needs to show it and put it on a map; null =
+ *                    no place
  * @param createdById id of the user who added it; the client resolves the name from the member list
  * @param version     optimistic lock counter; the client sends it back from Task 5.3 on
  */
@@ -27,6 +29,7 @@ public record ActivityResponse(
         BigDecimal costAmount,
         String currency,
         String bookingUrl,
+        PlaceResponse place,
         Long createdById,
         Long version,
         Instant createdAt,

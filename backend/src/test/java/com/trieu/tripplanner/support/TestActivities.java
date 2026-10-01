@@ -3,6 +3,7 @@ package com.trieu.tripplanner.support;
 import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.model.enums.ActivityType;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,13 +33,21 @@ public final class TestActivities {
         return new UpdateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl);
     }
 
-    /** An activity as the API returns it. */
+    /** An activity as the API returns it, without a place. */
     public static ActivityResponse response(Long id, Long dayId, String title, ActivityType type, LocalTime startTime,
                                             LocalTime endTime, int orderIndex, String note, BigDecimal costAmount,
                                             String currency, String bookingUrl, Long createdById, Long version,
                                             Instant createdAt, Instant updatedAt) {
         return new ActivityResponse(id, dayId, title, type, startTime, endTime, orderIndex, note, costAmount,
-                currency, bookingUrl, createdById, version, createdAt, updatedAt);
+                currency, bookingUrl, null, createdById, version, createdAt, updatedAt);
+    }
+
+    /** The same activity, happening at {@code place}. */
+    public static ActivityResponse withPlace(ActivityResponse activity, PlaceResponse place) {
+        return new ActivityResponse(activity.id(), activity.dayId(), activity.title(), activity.type(),
+                activity.startTime(), activity.endTime(), activity.orderIndex(), activity.note(),
+                activity.costAmount(), activity.currency(), activity.bookingUrl(), place, activity.createdById(),
+                activity.version(), activity.createdAt(), activity.updatedAt());
     }
 
 }

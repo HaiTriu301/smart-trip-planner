@@ -9,6 +9,7 @@ import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.mapper.ActivityMapperImpl;
+import com.trieu.tripplanner.mapper.PlaceMapperImpl;
 import com.trieu.tripplanner.mapper.TripDayMapperImpl;
 import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Trip;
@@ -35,7 +36,7 @@ import org.springframework.test.context.ActiveProfiles;
 @DataJpaTest
 @ActiveProfiles("test")
 @Import({TestcontainersConfiguration.class, TripDayService.class, TripDayMapperImpl.class,
-        ActivityMapperImpl.class})
+        ActivityMapperImpl.class, PlaceMapperImpl.class})
 class TripDayReconcileTest {
 
     private static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);

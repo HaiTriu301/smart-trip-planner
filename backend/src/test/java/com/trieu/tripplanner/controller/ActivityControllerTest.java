@@ -14,11 +14,13 @@ import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.ActivityType;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
 import com.trieu.tripplanner.service.ActivityService;
@@ -99,6 +101,28 @@ class ActivityControllerTest {
                                       "orderIndex": 1000 },
                                     { "id": 22, "title": "Dạo hồ", "type": "OTHER", "startTime": null,
                                       "endTime": null, "orderIndex": 2000 } ] }
+                        """);
+    }
+
+    @Test
+    void activityWithAPlaceShowsItInFullAndActivityWithoutOneShowsNull() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        Instant now = Instant.parse("2026-09-29T10:00:00Z");
+        when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of(
+                TestActivities.withPlace(sampleActivity(), new PlaceResponse(71L, PlaceProvider.MOCK, "Chợ Đà Lạt",
+                        "Nguyễn Thị Minh Khai, Đà Lạt", new BigDecimal("11.9434358"), new BigDecimal("108.4371779"),
+                        "SHOPPING")),
+                TestActivities.response(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
+                        null, USER_ID, 0L, now, now)));
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": [ { "id": 21,
+                                      "place": { "id": 71, "provider": "MOCK", "name": "Chợ Đà Lạt",
+                                                 "address": "Nguyễn Thị Minh Khai, Đà Lạt", "lat": 11.9434358,
+                                                 "lng": 108.4371779, "category": "SHOPPING" } },
+                                    { "id": 22, "place": null } ] }
                         """);
     }
 
