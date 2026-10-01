@@ -12,6 +12,7 @@ import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.ActivityMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
+import com.trieu.tripplanner.model.Place;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.enums.ActivityType;
@@ -57,6 +58,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final TripRepository tripRepository;
     private final TripDayRepository tripDayRepository;
     private final UserRepository userRepository;
+    private final PlaceService placeService;
     private final ActivityMapper activityMapper;
     private final TripDayMapper tripDayMapper;
 
@@ -78,6 +80,9 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime startTime = toMinutes(request.startTime());
         LocalTime endTime = toMinutes(request.endTime());
         validateTimeRange(startTime, endTime);
+        // Before the overlap check: a 409 invites a retry with allowOverlap=true, which must not then fail on a
+        // field that was wrong from the start
+        Place place = request.placeId() == null ? null : placeService.findAttachable(request.placeId(), userId);
         if (!allowOverlap) {
             validateNoTimeConflict(dayId, startTime, endTime, null);
         }
@@ -96,6 +101,7 @@ public class ActivityServiceImpl implements ActivityService {
                 .costAmount(request.costAmount())
                 .currency(resolveCurrency(request.currency(), request.costAmount(), trip))
                 .bookingUrl(request.bookingUrl())
+                .place(place)
                 // A reference is enough for the FK: no SELECT on users
                 .createdBy(userRepository.getReferenceById(userId))
                 .build();

@@ -89,6 +89,9 @@ class ActivityServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PlaceService placeService;
+
     private ActivityServiceImpl activityService;
 
     private User creator;
@@ -98,7 +101,7 @@ class ActivityServiceTest {
     @BeforeEach
     void setUp() {
         activityService = new ActivityServiceImpl(activityRepository, tripRepository, tripDayRepository,
-                userRepository, new ActivityMapperImpl(Mappers.getMapper(PlaceMapper.class)),
+                userRepository, placeService, new ActivityMapperImpl(Mappers.getMapper(PlaceMapper.class)),
                 Mappers.getMapper(TripDayMapper.class));
 
         creator = TestUsers.verified(USER_ID, "an@example.com");
@@ -120,10 +123,7 @@ class ActivityServiceTest {
 
         @Test
         void activityWithAPlaceCarriesEveryFieldOfThePlaceAndTheOthersCarryNone() {
-            Place market = Place.builder().provider(PlaceProvider.MOCK).externalId("da-lat-cho-da-lat")
-                    .name("Chợ Đà Lạt").address("Nguyễn Thị Minh Khai, Đà Lạt").lat(new BigDecimal("11.9434358"))
-                    .lng(new BigDecimal("108.4371779")).category("SHOPPING").build();
-            ReflectionTestUtils.setField(market, "id", 71L);
+            Place market = market();
             Activity shopping = Activity.builder().tripDay(day).title("Mua đặc sản").orderIndex(1000)
                     .createdBy(creator).place(market).build();
             when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
@@ -419,6 +419,50 @@ class ActivityServiceTest {
             create(timed(NINE, null));
 
             verify(activityRepository, never()).findTimedByTripDayId(anyLong());
+        }
+
+        @Test
+        void placeIdAttachesThePlaceTheSignedInUserMayUse() {
+            Place market = market();
+            when(placeService.findAttachable(71L, USER_ID)).thenReturn(market);
+
+            ActivityResponse response = create(TestActivities.withPlace(titled("Mua đặc sản"), 71L));
+
+            assertThat(savedActivity().getPlace()).isSameAs(market);
+            assertThat(response.place()).isEqualTo(new PlaceResponse(71L, PlaceProvider.MOCK, "Chợ Đà Lạt",
+                    "Nguyễn Thị Minh Khai, Đà Lạt", new BigDecimal("11.9434358"), new BigDecimal("108.4371779"),
+                    "SHOPPING"));
+        }
+
+        @Test
+        void withoutPlaceIdTheActivityHasNoPlaceAndNoPlaceIsLookedUp() {
+            ActivityResponse response = create(titled("Dạo phố"));
+
+            assertThat(savedActivity().getPlace()).isNull();
+            assertThat(response.place()).isNull();
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
+        void placeThatCannotBeUsedStopsTheCreationBeforeAnythingIsSaved() {
+            BusinessRuleException refused = BusinessRuleException.invalidField("placeId",
+                    "error.activity.place-not-found", "Place 999 cannot be attached by user 7");
+            when(placeService.findAttachable(999L, USER_ID)).thenThrow(refused);
+
+            assertThatThrownBy(() -> create(TestActivities.withPlace(titled("Mua đặc sản"), 999L)))
+                    .isSameAs(refused);
+            verify(activityRepository, never()).save(any());
+        }
+
+        @Test
+        void placeIsCheckedBeforeTheOverlapSoARetryWithAllowOverlapCannotFailOnIt() {
+            when(placeService.findAttachable(999L, USER_ID)).thenThrow(BusinessRuleException.invalidField("placeId",
+                    "error.activity.place-not-found", "Place 999 cannot be attached by user 7"));
+
+            assertThatThrownBy(() -> create(TestActivities.withPlace(timed(NINE, TEN), 999L)))
+                    .satisfies(ex -> assertSingleViolation(ex, "placeId", "error.activity.place-not-found"));
+            // The day was never read for overlapping activities
+            verify(activityRepository, never()).findTimedByTripDayId(any());
         }
 
         private Activity savedActivity() {
@@ -1341,6 +1385,15 @@ class ActivityServiceTest {
     }
 
     /** Every call in this class is the default case of the endpoint: allowOverlap = false. */
+    /** A stored place of the bundled data, id 71. */
+    private static Place market() {
+        Place market = Place.builder().provider(PlaceProvider.MOCK).externalId("da-lat-cho-da-lat")
+                .name("Chợ Đà Lạt").address("Nguyễn Thị Minh Khai, Đà Lạt").lat(new BigDecimal("11.9434358"))
+                .lng(new BigDecimal("108.4371779")).category("SHOPPING").build();
+        ReflectionTestUtils.setField(market, "id", 71L);
+        return market;
+    }
+
     private ActivityResponse create(CreateActivityRequest request) {
         return activityService.create(TRIP_ID, DAY_ID, USER_ID, request, false);
     }

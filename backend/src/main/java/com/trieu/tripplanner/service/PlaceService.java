@@ -99,6 +99,31 @@ public class PlaceService {
         return placeMapper.toResponse(saved);
     }
 
+    /**
+     * The place behind a {@code placeId} sent with an activity. A place copied from a source may be used by
+     * anyone; a MANUAL place only by the user who added it (design.md rule 14.19).
+     *
+     * @param userId the signed-in user, from the security context
+     * @throws BusinessRuleException 400 VALIDATION_ERROR on {@code placeId}, with the same message whether the
+     *                               place does not exist or belongs to someone else: the answer must not reveal
+     *                               that a private place exists
+     */
+    public Place findAttachable(Long placeId, Long userId) {
+        return placeRepository.findById(placeId)
+                .filter(place -> isUsableBy(place, userId))
+                .orElseThrow(() -> BusinessRuleException.invalidField("placeId", "error.activity.place-not-found",
+                        "Place " + placeId + " cannot be attached by user " + userId
+                                + ": unknown, or a manual place of another user"));
+    }
+
+    private static boolean isUsableBy(Place place, Long userId) {
+        if (place.getProvider() != PlaceProvider.MANUAL) {
+            return true;
+        }
+        // The id is read from the foreign key held by the lazy proxy; users is not loaded
+        return place.getCreatedBy() != null && place.getCreatedBy().getId().equals(userId);
+    }
+
     /** Reads the place from the source itself, never from the request: the copy is shared by every user. */
     private Place copyFromSource(PlaceProvider provider, String externalId) {
         PlaceResult found = mapProvider.lookup(externalId)

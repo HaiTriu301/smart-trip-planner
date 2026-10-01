@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -264,6 +265,49 @@ class PlaceServiceTest {
         // A blank address is "no address", not a string of spaces
         assertThat(stored.getValue().getAddress()).isNull();
         assertThat(stored.getValue().getCategory()).isNull();
+    }
+
+    // ---------- findAttachable ----------
+
+    @Test
+    void placeCopiedFromASourceCanBeAttachedByAnyone() {
+        Place linhUng = storedLinhUng(31L);
+        when(placeRepository.findById(31L)).thenReturn(Optional.of(linhUng));
+
+        assertThat(placeService.findAttachable(31L, 7L)).isSameAs(linhUng);
+        assertThat(placeService.findAttachable(31L, 8L)).isSameAs(linhUng);
+    }
+
+    @Test
+    void manualPlaceCanBeAttachedByItsCreator() {
+        Place home = manualPlaceOf(7L);
+        when(placeRepository.findById(40L)).thenReturn(Optional.of(home));
+
+        assertThat(placeService.findAttachable(40L, 7L)).isSameAs(home);
+    }
+
+    @Test
+    void manualPlaceOfSomeoneElseLooksExactlyLikeAPlaceThatDoesNotExist() {
+        Place home = manualPlaceOf(7L);
+        when(placeRepository.findById(40L)).thenReturn(Optional.of(home));
+        when(placeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        Throwable someoneElses = catchThrowable(() -> placeService.findAttachable(40L, 8L));
+        Throwable unknown = catchThrowable(() -> placeService.findAttachable(999L, 8L));
+
+        for (Throwable thrown : List.of(someoneElses, unknown)) {
+            assertThat(thrown).isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                assertThat(ex.getDetails())
+                        .containsExactly(FieldViolation.of("placeId", "error.activity.place-not-found"));
+            });
+        }
+    }
+
+    private static Place manualPlaceOf(Long creatorId) {
+        return withId(Place.builder().provider(PlaceProvider.MANUAL).name("Nhà bà ngoại")
+                .lat(new BigDecimal("16.0471234")).lng(new BigDecimal("108.2068765"))
+                .createdBy(TestUsers.verified(creatorId, "creator" + creatorId + "@example.com")).build(), 40L);
     }
 
     private static Place storedLinhUng(Long id) {

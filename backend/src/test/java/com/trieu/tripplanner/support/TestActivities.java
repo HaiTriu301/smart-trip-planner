@@ -19,11 +19,18 @@ public final class TestActivities {
     private TestActivities() {
     }
 
-    /** Body of POST .../activities; null means the field was not sent. */
+    /** Body of POST .../activities without a place; null means the field was not sent. */
     public static CreateActivityRequest createRequest(String title, ActivityType type, LocalTime startTime,
                                                       LocalTime endTime, String note, BigDecimal costAmount,
                                                       String currency, String bookingUrl) {
-        return new CreateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl);
+        return new CreateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl,
+                null);
+    }
+
+    /** The same body, asking for the activity to happen at the place {@code placeId}. */
+    public static CreateActivityRequest withPlace(CreateActivityRequest request, Long placeId) {
+        return new CreateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
+                request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId);
     }
 
     /** Body of PATCH .../activities/{id}; null means "keep the current value". */

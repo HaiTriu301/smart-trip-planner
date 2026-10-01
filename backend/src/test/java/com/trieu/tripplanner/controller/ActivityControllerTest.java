@@ -205,6 +205,43 @@ class ActivityControllerTest {
     }
 
     @Test
+    void createPassesThePlaceIdOnAndShowsThePlaceOfTheNewActivity() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
+                .thenReturn(TestActivities.withPlace(sampleActivity(), new PlaceResponse(71L, PlaceProvider.MOCK,
+                        "Chợ Đà Lạt", null, new BigDecimal("11.9434358"), new BigDecimal("108.4371779"), "SHOPPING")));
+
+        assertThat(post("""
+                { "title": "An trua", "placeId": 71 }
+                """))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "id": 21, "place": { "id": 71, "name": "Chợ Đà Lạt" } } }
+                        """);
+
+        ArgumentCaptor<CreateActivityRequest> request = ArgumentCaptor.forClass(CreateActivityRequest.class);
+        verify(activityService).create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), request.capture(), eq(false));
+        assertThat(request.getValue().placeId()).isEqualTo(71L);
+    }
+
+    @Test
+    void createWithAPlaceThatCannotBeUsedIsAValidationErrorOnPlaceId() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
+                .thenThrow(BusinessRuleException.invalidField("placeId", "error.activity.place-not-found",
+                        "Place 999 cannot be attached by user 7"));
+
+        assertThat(post("""
+                { "title": "An trua", "placeId": 999 }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "placeId", "message": "Địa điểm không tồn tại" } ] }
+                        """);
+    }
+
+    @Test
     void createAcceptsTimesWithSeconds() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
         when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
