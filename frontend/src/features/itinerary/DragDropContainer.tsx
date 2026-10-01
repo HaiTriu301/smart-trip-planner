@@ -205,6 +205,9 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     const overTarget = parseKey(over.id)
     // Dropped on a day in the day list: to the end of that day
     if (overTarget.kind === 'nav') {
+      // On the entry of the day it came from: the user changed their mind, nothing moves (the menu
+      // "Chuyển sang ngày…" does not offer the current day either)
+      if (findDay(days, active.id)?.id === overTarget.id) return
       const target = working.find((d) => d.id === overTarget.id)
       if (target) commitMove(moveToDay(working, movedId, target.id, target.activities.length), movedId)
       return

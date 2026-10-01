@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createActivity, updateActivity } from '../../api/activities'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -48,9 +48,20 @@ interface ActivityFormDialogProps {
   onClose: () => void
 }
 
+/** Names the save mutation so the dialog shell can tell that the form inside it is saving. */
+const saveActivityKey = (tripId: number) => ['save-activity', tripId]
+
 export function ActivityFormDialog({ open, activity, onClose, ...props }: ActivityFormDialogProps) {
+  // Esc and "×" are ignored while a save is in flight: closing would unmount the form, and the answer
+  // (time conflict to confirm, field errors) would have nowhere to show
+  const isSaving = useIsMutating({ mutationKey: saveActivityKey(props.tripId) }) > 0
   return (
-    <Modal open={open} size="lg" title={activity ? 'Sửa hoạt động' : 'Thêm hoạt động'} onClose={onClose}>
+    <Modal
+      open={open}
+      size="lg"
+      title={activity ? 'Sửa hoạt động' : 'Thêm hoạt động'}
+      onClose={() => !isSaving && onClose()}
+    >
       <ActivityForm activity={activity} onClose={onClose} {...props} />
     </Modal>
   )
@@ -86,6 +97,7 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
   })
 
   const mutation = useMutation({
+    mutationKey: saveActivityKey(tripId),
     mutationFn: ({ request, allowOverlap }: { request: SaveRequest; allowOverlap: boolean }) =>
       request.kind === 'create'
         ? createActivity(tripId, dayId, request.body, allowOverlap)
@@ -134,7 +146,7 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       {mutation.isError && !overlap && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <FormField label="Tên hoạt động" required autoFocus error={errors.title?.message} {...register('title')} />
+      <FormField label="Tên hoạt động" required error={errors.title?.message} {...register('title')} />
       <SelectField label="Loại" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Giờ bắt đầu" type="time" error={errors.startTime?.message} {...register('startTime')} />

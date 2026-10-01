@@ -10,6 +10,7 @@ import com.trieu.tripplanner.config.properties.JwtProperties;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.RevokedReason;
 import com.trieu.tripplanner.repository.RefreshTokenRepository;
 import com.trieu.tripplanner.support.TestUsers;
 import java.time.Duration;
@@ -99,21 +100,46 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    void revokeAllDelegatesToRepositoryWithCurrentTime() {
+    void revokeAllDelegatesToRepositoryWithCurrentTimeAndReason() {
         RefreshTokenService service = new RefreshTokenService(refreshTokenRepository, properties);
-        when(refreshTokenRepository.revokeAllActiveByUserId(eq(5L), any(Instant.class))).thenReturn(3);
+        when(refreshTokenRepository.revokeAllActiveByUserId(eq(5L), any(Instant.class), eq(RevokedReason.PASSWORD_RESET)))
+                .thenReturn(3);
 
-        assertThat(service.revokeAll(5L)).isEqualTo(3);
+        assertThat(service.revokeAll(5L, RevokedReason.PASSWORD_RESET)).isEqualTo(3);
     }
 
     @Test
-    void revokeStampsTheEntity() {
+    void revokeStampsTheEntityWithTheReason() {
         RefreshTokenService service = new RefreshTokenService(refreshTokenRepository, properties);
         RefreshToken token = RefreshToken.builder().user(user).tokenHash("h").expiresAt(Instant.now().plusSeconds(60)).build();
 
-        service.revoke(token);
+        service.revoke(token, RevokedReason.LOGOUT);
 
         assertThat(token.isRevoked()).isTrue();
+        assertThat(token.getRevokedReason()).isEqualTo(RevokedReason.LOGOUT);
+    }
+
+    @Test
+    void onlyATokenRevokedByRotationCountsAsRotated() {
+        // design.md 6.1: presenting a rotated token again is the theft signal; any other revoked token is a stale cookie
+        assertThat(revokedBecause(RevokedReason.ROTATED).wasRotated()).isTrue();
+        // Rows revoked before the reason column existed (V8) were revoked under the old "always theft" rule
+        assertThat(revokedBecause(null).wasRotated()).isTrue();
+
+        assertThat(revokedBecause(RevokedReason.LOGOUT).wasRotated()).isFalse();
+        assertThat(revokedBecause(RevokedReason.PASSWORD_RESET).wasRotated()).isFalse();
+        assertThat(revokedBecause(RevokedReason.BLOCKED).wasRotated()).isFalse();
+        assertThat(revokedBecause(RevokedReason.EXPIRED).wasRotated()).isFalse();
+        assertThat(revokedBecause(RevokedReason.REUSE_DETECTED).wasRotated()).isFalse();
+
+        RefreshToken alive = RefreshToken.builder().user(user).tokenHash("h").expiresAt(Instant.now().plusSeconds(60)).build();
+        assertThat(alive.wasRotated()).isFalse();
+    }
+
+    private RefreshToken revokedBecause(RevokedReason reason) {
+        RefreshToken token = RefreshToken.builder().user(user).tokenHash("h").expiresAt(Instant.now().plusSeconds(60)).build();
+        token.revoke(Instant.now(), reason);
+        return token;
     }
 
 }

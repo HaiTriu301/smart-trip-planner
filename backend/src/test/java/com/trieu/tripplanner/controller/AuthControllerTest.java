@@ -239,6 +239,31 @@ class AuthControllerTest {
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
     }
 
+    @Test
+    void rejectedRefreshTellsTheBrowserToDropTheDeadCookie() {
+        when(authService.refresh(eq("dead"), any(ClientInfo.class)))
+                .thenThrow(new InvalidRefreshTokenException("token revoked: LOGOUT"));
+
+        MvcTestResult result = mvc.post().uri(REFRESH_URL).cookie(new Cookie("refresh_token", "dead")).exchange();
+
+        assertThat(result)
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": false,
+                          "errorCode": "UNAUTHORIZED",
+                          "message": "Bạn cần đăng nhập để tiếp tục",
+                          "path": "/api/v1/auth/refresh"
+                        }
+                        """);
+        // Same attributes as the cookie it replaces, or the browser would keep the old one
+        assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE))
+                .startsWith("refresh_token=;")
+                .contains("Max-Age=0", "Path=/api/v1/auth", "HttpOnly", "SameSite=Lax");
+        // The reason stays in the server log, the client only learns that it must log in again
+        assertThat(result).body().asString().doesNotContain("LOGOUT");
+    }
+
     // ---------- logout ----------
 
     @Test

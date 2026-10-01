@@ -341,6 +341,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Bo 14px, viền `tide`, `shadow-lg`, lớp phủ `ink` 45%. Góc trên bên phải có nút "×".
 - Trên điện thoại: nằm sát mép dưới, rộng hết màn hình, cao tối đa 90%, chỉ bo hai góc trên.
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
+- Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×". `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
 
@@ -423,6 +424,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 
 **Đã làm:**
 - **Đầu trang:** link quay lại, tên 32px (tối đa 2 dòng, rê chuột xem đủ), cụm ô trạng thái + "Sửa" + "Xoá" **cố định ở góc phải** (không bị tên dài đẩy xuống; trên điện thoại nằm hàng riêng dưới tên), hàng thông tin có icon, mô tả thu gọn.
+- **Máy chủ không trả lời:** nếu chuyến đi đã tải được, trang **giữ nguyên** (kể cả hộp thoại đang mở) và hiện khung lỗi "… Đang hiển thị dữ liệu đã tải trước đó." kèm nút phụ "Thử lại" ngay trên tên chuyến đi, cùng cách trang danh sách đang làm. Chưa tải được gì thì chỉ có khung lỗi, "Thử lại" và link về danh sách. Chuyến đi không còn (404) hoặc không có quyền (403): chỉ thông báo, không có "Thử lại" (Task 2.7, BUG-UI-005).
 - **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` và số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
 - **Cột trái (200px):** các ngày kèm số hoạt động, mỗi mục là một link. Ngày đang xem có nền `jade-light` + vạch `jade` 3px ở mép trái (`aria-current="page"`).
 - **Cột giữa:** chỉ ngày đang xem: tiêu đề ngày với nút "Sửa" và nút chính "+ Thêm hoạt động", rồi đến ray. Dưới ray là nút "‹ Ngày trước" / "Ngày sau ›"; bấm "Ngày sau" ở cuối một ngày dài thì trang cuộn lên tiêu đề của ngày mới.

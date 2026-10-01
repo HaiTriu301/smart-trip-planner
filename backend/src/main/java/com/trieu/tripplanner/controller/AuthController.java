@@ -61,7 +61,9 @@ public class AuthController {
     }
 
     @Operation(summary = "Xoay token",
-               description = "Đọc cookie refresh_token, thu hồi nó và phát cặp token mới. Dùng lại token cũ → 401 và mọi phiên bị thu hồi.")
+               description = "Đọc cookie refresh_token, thu hồi nó và phát cặp token mới. Dùng lại token đã xoay → 401 và mọi "
+                       + "phiên bị thu hồi. Token hết hạn, hoặc đã bị thu hồi do đăng xuất / đặt lại mật khẩu → chỉ 401. "
+                       + "Mọi lỗi 401 ở đây kèm lệnh xoá cookie.")
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken,

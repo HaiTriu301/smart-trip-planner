@@ -46,7 +46,6 @@ function MoveToDayForm({ activity, days, onMove, onClose }: MoveToDayDialogProps
       </p>
       <SelectField
         label="Ngày"
-        autoFocus
         value={dayId}
         onChange={(e) => setDayId(e.target.value)}
         options={choices.map((d) => ({

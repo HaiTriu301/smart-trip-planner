@@ -12,8 +12,12 @@ interface ModalProps {
 
 const WIDTHS = { md: 'sm:max-w-[480px]', lg: 'sm:max-w-[640px]' }
 
+const FOCUSABLE =
+  'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]'
+
 /**
  * Native <dialog> opened with showModal(): the browser provides the backdrop, focus trap and Esc key.
+ * The focus starts on the first control of the content, not on the "×" button (UI_GUIDE 7.6).
  * Children mount only while open, so a form inside starts fresh every time.
  * On phones the dialog sits at the bottom edge like a sheet, at most 90% of the screen height.
  */
@@ -24,7 +28,16 @@ export function Modal({ open, title, onClose, size = 'md', children }: ModalProp
   useEffect(() => {
     const dialog = ref.current
     if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
+    if (open && !dialog.open) {
+      dialog.showModal()
+      // showModal() focuses the first focusable element, which is the "×" button: typing would go nowhere and
+      // Enter would close the dialog. Start on the first control of the content instead: the first field of a
+      // form, "Huỷ" in a confirmation. The autoFocus prop cannot do this inside a dialog: React focuses at
+      // mount, while the dialog is still closed, and focusing a hidden element has no effect.
+      Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE))
+        .find((element) => !element.hasAttribute('data-modal-close'))
+        ?.focus()
+    }
     if (!open && dialog.open) dialog.close()
   }, [open])
 
@@ -48,6 +61,7 @@ export function Modal({ open, title, onClose, size = 'md', children }: ModalProp
             <button
               type="button"
               aria-label="Đóng"
+              data-modal-close
               onClick={onClose}
               className="-mr-2 -mt-1 rounded-control p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
             >

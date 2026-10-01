@@ -20,10 +20,13 @@ export function TripSearchBox({ className }: { className?: string }) {
   const [input, setInput] = useState(urlValue)
   const [prevUrlValue, setPrevUrlValue] = useState(urlValue)
 
-  // The URL changed from outside (Back button, "Xoá bộ lọc", leaving the list): show the new text
+  // The URL changed from outside (Back button, "Xoá bộ lọc", leaving the list): show the new text.
+  // Our own delayed write stores the trimmed keyword; when the URL already says what the box says, the text
+  // being typed is kept as it is. Copying the trimmed value back would eat the space typed before the next
+  // word ("đà " + pause + "nẵng" became "đànẵng")
   if (urlValue !== prevUrlValue) {
     setPrevUrlValue(urlValue)
-    setInput(urlValue)
+    if (urlValue !== input.trim()) setInput(urlValue)
   }
 
   /** Writes the keyword into the list URL; an empty keyword is removed rather than left as "q=". */

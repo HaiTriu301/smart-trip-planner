@@ -18,6 +18,8 @@ public enum ErrorCode {
     ACCOUNT_BLOCKED(HttpStatus.FORBIDDEN, "error.account-blocked"),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.resource-not-found"),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "error.method-not-allowed"),
+    NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "error.not-acceptable"),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "error.unsupported-media-type"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.email-already-exists"),
     ACTIVITY_TIME_CONFLICT(HttpStatus.CONFLICT, "error.activity-time-conflict"),
     TRIP_DAY_HAS_ACTIVITIES(HttpStatus.CONFLICT, "error.trip-day-has-activities"),

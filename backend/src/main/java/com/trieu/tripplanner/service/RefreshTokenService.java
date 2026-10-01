@@ -5,6 +5,7 @@ import com.trieu.tripplanner.config.properties.JwtProperties;
 import com.trieu.tripplanner.dto.internal.ClientInfo;
 import com.trieu.tripplanner.model.RefreshToken;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.RevokedReason;
 import com.trieu.tripplanner.repository.RefreshTokenRepository;
 import java.time.Instant;
 import java.util.Optional;
@@ -50,15 +51,18 @@ public class RefreshTokenService {
         return refreshTokenRepository.findByTokenHash(hash(rawToken));
     }
 
-    /** Marks one session dead. The entity is managed, so the UPDATE runs when the caller's transaction commits. */
-    public void revoke(RefreshToken token) {
-        token.revoke(Instant.now());
+    /**
+     * Marks one session dead and records why. The entity is managed, so the UPDATE runs when the caller's
+     * transaction commits. A session that is already revoked keeps its first time and reason.
+     */
+    public void revoke(RefreshToken token, RevokedReason reason) {
+        token.revoke(Instant.now(), reason);
     }
 
-    /** Theft response: every live session of the user is revoked at once. */
+    /** Every live session of the user is revoked at once, all with the same reason. */
     @Transactional
-    public int revokeAll(Long userId) {
-        return refreshTokenRepository.revokeAllActiveByUserId(userId, Instant.now());
+    public int revokeAll(Long userId, RevokedReason reason) {
+        return refreshTokenRepository.revokeAllActiveByUserId(userId, Instant.now(), reason);
     }
 
     /** SHA-256 hex of the raw token; kept here so existing callers and tests keep working. */

@@ -11,6 +11,16 @@ export function getApiError(error: unknown): ErrorResponse | undefined {
   return body && body.success === false ? body : undefined
 }
 
+/**
+ * True when the server answered and refused the request (4xx): repeating the same request gives the same
+ * answer. False for network errors, timeouts and 5xx, which may pass on a later attempt.
+ */
+export function isRejectedByServer(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false
+  const status = error.response?.status
+  return status !== undefined && status >= 400 && status < 500
+}
+
 /** Vietnamese message from the backend (messages.properties), or a generic fallback. */
 export function getErrorMessage(error: unknown): string {
   return getApiError(error)?.message ?? NETWORK_ERROR_MESSAGE
