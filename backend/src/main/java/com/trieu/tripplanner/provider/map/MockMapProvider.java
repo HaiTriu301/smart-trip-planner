@@ -12,6 +12,10 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -42,6 +46,7 @@ public class MockMapProvider implements MapProvider {
     static final double NEAR_RADIUS_METERS = 50_000;
 
     private final List<IndexedPlace> places;
+    private final Map<String, PlaceResult> byExternalId;
 
     // Two constructors: Spring must be told which one builds the bean
     @Autowired
@@ -53,6 +58,9 @@ public class MockMapProvider implements MapProvider {
     /** Tests pass their own places to check the ordering rules without depending on the bundled file. */
     MockMapProvider(List<MockPlace> places) {
         this.places = places.stream().map(IndexedPlace::of).toList();
+        this.byExternalId = this.places.stream()
+                .map(IndexedPlace::result)
+                .collect(Collectors.toUnmodifiableMap(PlaceResult::externalId, Function.identity()));
     }
 
     @Override
@@ -66,6 +74,11 @@ public class MockMapProvider implements MapProvider {
                 .limit(limit)
                 .map(IndexedPlace::result)
                 .toList();
+    }
+
+    @Override
+    public Optional<PlaceResult> lookup(String externalId) {
+        return Optional.ofNullable(byExternalId.get(externalId));
     }
 
     private static Comparator<IndexedPlace> order(String keyword, Coordinate near) {
