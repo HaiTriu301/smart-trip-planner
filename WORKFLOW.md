@@ -1081,7 +1081,7 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 > - Tài liệu lệch, **đã sửa** trong commit docs Mốc 0: `docs/testing/README.md` ghi 491 lượt (thật là 507); design 10.2 ghi danh sách "luôn 2 câu SQL" (trang đầy là 3: có thêm câu đếm); design 10.3 ghi `UNAUTHORIZED` là "thiếu/hết hạn" (hết hạn là `TOKEN_EXPIRED`); design 17.3 ghi local "tất cả mock" (mail là `smtp`).
 > - Tài liệu lệch, **chưa sửa**: Swagger của `POST` / `PATCH` activity còn ghi "nằm cuối ngày" / "không đổi thứ tự" (trước "Xếp theo giờ" của Task 2.6) → sửa trong code ở Task 3.2 khi đụng `ActivityController`. UI_GUIDE 7.0 "một nút chính mỗi màn" mâu thuẫn với màn rỗng của danh sách (15.2 D: nút ở đầu trang và nút trong khung rỗng đều là nút chính) → chờ chủ dự án chọn, rồi sửa UI_GUIDE và code ở Task 3.6.
 
-> **Thực tế khi làm 2.7 (2026-10-01):** 9 commit đúng bảng đã duyệt, mỗi lỗi một commit, thêm commit docs Mốc 0 trên `main` (`1400774`).
+> **Thực tế khi làm 2.7 (2026-10-01):** PR #16, merge commit `3842ec3` (Merge commit, giữ lịch sử), docs đóng task `2979e93`. 9 commit đúng bảng đã duyệt, mỗi lỗi một commit, thêm commit docs Mốc 0 trên `main` (`1400774`).
 >
 > | Commit | Lỗi | Nội dung |
 > |---|---|---|
@@ -1117,7 +1117,7 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 ## PHASE 3 — Place, Map, Weather (provider mock)
 
 > **Đã rà theo quy ước A.2 "Chia commit" (2026-10-01):** 4 task kiểu cũ → 7 task, mỗi mốc là một lát cắt dọc. Bảng file chi tiết Claude đưa ra đầu từng task để duyệt.
-> **Chưa xong phần tài liệu:** `design.md` (5.2 `places`, 7.2, 8.1, 10.2 Place / Weather / route, 15) và `UI_GUIDE.md` (14, 15.3 còn ghi "Task 3.4") cập nhật trong commit docs đầu Task 3.1 (Mốc 0), cùng lúc chốt các điểm ❓ còn lại bên dưới.
+> **Tài liệu đã khớp (2026-10-01, commit docs đầu Task 3.1):** `design.md` 3.2, 5.2 `places`, 7.2, 8.1, 10.2 (Place, Weather, route, địa điểm của activity), rule 14.18–14.21, 15; `UI_GUIDE.md` 14 và 15.3 đổi "Task 3.4" thành 3.6 / 3.7.
 
 Đọc trước: **design.md mục 7 (Provider Abstraction), 8 (Cache), 10.2 (Place, Weather, `route`), 5.2 (`places`, `activities.place_id`)**; task giao diện đọc thêm **UI_GUIDE.md 8.1, 9, 11, 15.3**.
 
@@ -1135,15 +1135,15 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 > | Quãng đường giữa hai điểm | `MapProvider` mock: đường chim bay × hệ số | Có |
 > | Dự báo thời tiết | `WeatherProvider` mock: số sinh từ seed, ổn định | Có |
 >
-> **Quyết định dùng để chia mốc (2026-10-01; ✔ = chủ dự án đã chốt, ❓ = đề xuất, chốt ở bảng commit Task 3.1):**
-> 1. Chọn một kết quả tìm kiếm → `POST /places` `{provider, externalId}`; server **tự tra lại provider** rồi lưu snapshot, trả `id`. Không tin tên / toạ độ client gửi, vì snapshot dùng chung giữa các người dùng (`UNIQUE (provider, external_id)`). Activity chỉ nhận `placeId`. ❓
-> 2. Bỏ địa điểm khỏi activity: `clearPlace: true` trong `PATCH` (`placeId` là số, không có `""` như field văn bản). ❓
-> 3. Địa điểm tự thêm (`MANUAL`) có `created_by`, chỉ người tạo gắn được vào activity; người khác thấy nó qua chuyến đi họ được xem. Hoãn `GET /places/{id}` và `GET /weather/forecast` (chưa màn nào dùng). ❓
+> **Quyết định dùng để chia mốc (chủ dự án chốt cả 9 điểm ngày 2026-10-01):**
+> 1. Chọn một kết quả tìm kiếm → `POST /places` `{provider, externalId}`; server **tự tra lại provider** rồi lưu snapshot, trả `id`. Không tin tên / toạ độ client gửi, vì snapshot dùng chung giữa các người dùng (`UNIQUE (provider, external_id)`). Activity chỉ nhận `placeId`. ✔
+> 2. Bỏ địa điểm khỏi activity: `clearPlace: true` trong `PATCH` (`placeId` là số, không có `""` như field văn bản). ✔
+> 3. Địa điểm tự thêm (`MANUAL`) là **riêng tư**: có `created_by`, chỉ người tạo gắn được vào activity; người khác thấy nó qua chuyến đi họ được xem. Hoãn `GET /places/{id}` và `GET /weather/forecast` (chưa màn nào dùng). ✔
 > 4. Thời tiết lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau); chưa có toạ độ → 200 kèm trạng thái "chưa có điểm đến", không phải lỗi. Dự báo chỉ có cho **16 ngày tới** (giới hạn của dịch vụ dự báo thật): quy tắc nằm ở service nên mock cũng tuân theo; ngày đã qua hoặc xa hơn trả "chưa có dự báo". ✔
-> 5. Cảnh báo ngoài trời: ngày có xác suất mưa ≥ 60% **và** có activity loại `SIGHTSEEING` → cảnh báo cấp ngày kèm danh sách activity. ❓
-> 6. Bỏ cache `trip:detail` (design 8.1): `GET /trips/{id}` đã chỉ 4 câu SQL, trong khi phải xoá cache ở 8 chỗ ghi và dễ ra dữ liệu cũ khi làm realtime (Phase 5). ❓
-> 7. Dữ liệu mock: ~120 địa điểm tự soạn ở ~10 điểm đến (design ghi ~200). ❓
-> 8. Test có Redis: thêm container Redis vào `TestcontainersConfiguration`; `@DataJpaTest` / `@WebMvcTest` không nạp cache nên không đổi. ❓
+> 5. Cảnh báo ngoài trời: ngày có xác suất mưa ≥ 60% **và** có activity loại `SIGHTSEEING` → cảnh báo cấp ngày kèm danh sách activity. Nguồn dự báo: mock ở Task 3.3, Open-Meteo thật ở Task 3.8. ✔
+> 6. Bỏ cache `trip:detail` (design 8.1): `GET /trips/{id}` đã chỉ 4 câu SQL, trong khi phải xoá cache ở 8 chỗ ghi và dễ ra dữ liệu cũ khi làm realtime (Phase 5). ✔
+> 7. Dữ liệu mock: **khoảng 50 địa điểm ở 5 điểm đến** (Hà Nội, Đà Nẵng, Hội An, Đà Lạt, TP. Hồ Chí Minh), toạ độ tra từ OpenStreetMap lúc soạn file, có ghi nguồn. Giảm so với ~120 đề xuất ban đầu vì provider thật có ngay ở Task 3.8; mock chỉ còn phục vụ test và chạy khi không có mạng. ✔
+> 8. Test có Redis: thêm container Redis vào `TestcontainersConfiguration`; `@DataJpaTest` / `@WebMvcTest` không nạp cache nên không đổi. ✔
 > 9. Provider thật (Photon / Nominatim, OSRM, Open-Meteo) + Resilience4j: **Task 3.8**, ngay sau 3.7 (không đợi Phase 8). Mặc định mọi profile vẫn `mock`; bản thật bật bằng cấu hình. Port ở 3.1 / 3.3 / 3.5 thiết kế theo hình dạng dữ liệu của API thật để tới 3.8 không phải sửa service. ✔
 >
 > **Phụ thuộc:** Task 2.7 Mốc 1 xong trước 3.1 (`/places/search?q=` là endpoint đầu tiên có query param bắt buộc; thiếu `q` phải ra 400, không phải 500). Số migration bên dưới tính theo V8 của Task 2.7; kiểm số lớn nhất trước khi tạo file (CLAUDE.md rule 7).
@@ -1153,32 +1153,37 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 Nhánh: `feat/T3.1-place-search` · Test ghi vào `docs/testing/07-place.md` (file mới).
 
 ```
-Mốc 0 — docs (main): cập nhật design.md + UI_GUIDE.md theo các quyết định đã chốt của Phase 3
+Mốc 0 — docs (main): design.md + UI_GUIDE.md theo 9 quyết định đã chốt của Phase 3 (đã soạn 2026-10-01)
 
-Mốc 1 — feat(place): add place search endpoint with mock map provider
+Mốc 1 — refactor(common): extract accent stripping from the slug generator
+        common/util/VietnameseText.stripAccents (bỏ dấu tiếng Việt, kể cả Đ / đ), SlugGenerator gọi hàm này;
+        không đổi hành vi: SlugGeneratorTest giữ nguyên và vẫn xanh, thêm test riêng cho hàm mới
+
+Mốc 2 — feat(place): add place search endpoint with mock map provider
         provider/map/MapProvider (chỉ search(query, limit)), provider/map/dto/PlaceResult
-        (provider, externalId, name, address, lat, lng, category),
+        (provider, externalId, name, address, lat, lng, category), model/enums/PlaceProvider (MOCK),
         provider/map/MockMapProvider (@ConditionalOnProperty app.providers.map=mock, nạp resources/mock/places.json
         lúc khởi động; so khớp không dấu, không phân biệt hoa thường, trên tên và địa chỉ),
-        places.json bản đầu (~25 địa điểm ở Đà Nẵng và Hà Nội),
-        dto/response/PlaceResultResponse, service/PlaceService.search, controller/PlaceController
-        GET /places/search?q=&limit= (Auth; q 2–100 ký tự sau khi trim, limit 1–20, mặc định 8);
+        places.json bản đầu (~12 địa điểm ở Đà Nẵng, toạ độ tra từ OpenStreetMap, có ghi nguồn),
+        dto/response/PlaceResultResponse, mapper/PlaceMapper, service/PlaceService.search, controller/PlaceController
+        GET /places/search?q=&limit= (Auth; q 2–100 ký tự sau khi trim, limit 1–20, mặc định 8), messages.properties;
         test: "linh ung" ra "Chùa Linh Ứng"; cùng input → cùng kết quả cùng thứ tự; 401; q thiếu / quá ngắn → 400
 
-Mốc 2 — feat(place): rank search results near a coordinate
-        lat / lng tuỳ chọn (có đủ cả hai hoặc bỏ cả hai → nếu không, 400); kết quả khớp xếp gần trước
-        (giao diện gửi toạ độ điểm đến của chuyến đi: tìm "chợ" trong chuyến Đà Nẵng ra chợ ở Đà Nẵng trước);
-        test: cùng từ khoá, khác toạ độ → khác thứ tự
+Mốc 3 — feat(place): rank search results near a coordinate
+        provider/map/dto/Coordinate, search(query, limit, near); lat / lng tuỳ chọn (có đủ cả hai hoặc bỏ cả hai →
+        nếu không, 400); kết quả khớp xếp gần trước (giao diện gửi toạ độ điểm đến của chuyến đi: tìm "chợ" trong
+        chuyến Đà Nẵng ra chợ ở Đà Nẵng trước); test: cùng từ khoá, khác toạ độ → khác thứ tự
 
-Mốc 3 — feat(place): extend mock places to ten destinations
-        places.json ~120 địa điểm; test dữ liệu: externalId không trùng, toạ độ nằm trong Việt Nam,
-        category hợp lệ, không thiếu tên. Chủ dự án xem lướt toạ độ vài địa điểm trên bản đồ thật.
+Mốc 4 — feat(place): extend mock places to five destinations
+        places.json ~50 địa điểm (Hà Nội, Đà Nẵng, Hội An, Đà Lạt, TP. Hồ Chí Minh); test dữ liệu: externalId không
+        trùng, toạ độ nằm trong Việt Nam, category hợp lệ, không thiếu tên.
+        Chủ dự án xem lướt toạ độ vài địa điểm trên bản đồ thật.
 
-Mốc 4 — test(place): add place search flow integration test
+Mốc 5 — test(place): add place search flow integration test
         đăng nhập → tìm → kết quả; MockMapProvider là bean duy nhất của MapProvider ở profile test và local
 ```
 
-**Nhớ:** `category` của mock dùng đúng 6 tên của `ActivityType` để form gợi ý sẵn loại hoạt động. Bỏ dấu tiếng Việt: dùng lại cách của `SlugGenerator` (tách thành hàm dùng chung bằng commit `refactor` đứng trước Mốc 1 nếu cần).
+**Nhớ:** `category` của mock dùng đúng 6 tên của `ActivityType` để form gợi ý sẵn loại hoạt động. `PlaceProvider` (Java) lớn dần theo task: `MOCK` ở 3.1, `MANUAL` ở 3.2, `OSM` ở 3.8; cột ENUM của V9 khai báo sẵn cả ba.
 
 ---
 

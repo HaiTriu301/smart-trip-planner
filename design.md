@@ -128,7 +128,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Client state | Zustand |
 | Routing | React Router v7 (package `react-router-dom`) |
 | Form | react-hook-form + zod |
-| Map | Leaflet + react-leaflet + OpenStreetMap tiles (free, không cần API key) |
+| Map | Leaflet + react-leaflet (Task 3.6). Hình nền là tile **CartoDB Positron**, dựng trên dữ liệu OpenStreetMap: miễn phí cho dự án phi thương mại, không cần API key, phải ghi nguồn ở góc bản đồ. Kiểu nền theo `UI_GUIDE.md` mục 9 (chốt 2026-10-01). Trình duyệt tự tải tile, không đi qua backend |
 | Realtime | @stomp/stompjs + sockjs-client |
 | HTTP | axios + interceptor tự refresh token |
 | Drag & drop | dnd-kit (core 6.3, sortable 10.0, utilities 3.2) |
@@ -407,7 +407,7 @@ Quy tắc (chốt 2026-09-27):
 |---|---|---|
 | id | BIGINT PK AI | |
 | trip_day_id | BIGINT FK → trip_days.id | NOT NULL, `ON DELETE CASCADE`: ngày bị xoá (cắt khoảng ngày với `force=true`, hoặc trip bị xoá cứng) thì activity đi theo |
-| place_id | BIGINT FK places | nullable. **Chưa có ở V7**: bảng `places` tới Task 3.2 mới tạo, cột này được thêm bằng migration riêng ở Task 3.2 (chốt 2026-09-29) |
+| place_id | BIGINT FK places | nullable. **Chưa có ở V7**: thêm bằng V10 ở Task 3.2, sau khi V9 tạo bảng `places`. FK **không** `ON DELETE CASCADE`: địa điểm là bản lưu dùng chung, không bị xoá theo activity. Mỗi activity có nhiều nhất **một** địa điểm; ngày của chuyến đi không có địa điểm riêng |
 | title | VARCHAR(200) | NOT NULL, được trim khi lưu |
 | type | ENUM | `SIGHTSEEING`, `FOOD`, `TRANSPORT`, `ACCOMMODATION`, `SHOPPING`, `OTHER`; NOT NULL, mặc định `OTHER` |
 | start_time / end_time | TIME | nullable, end > start; có `end_time` thì phải có `start_time` |
@@ -428,8 +428,24 @@ Quy tắc (chốt 2026-09-29, Task 2.3):
 - Không hỗ trợ activity kéo qua nửa đêm (ví dụ 23:00 → 01:00): tách thành hai activity ở hai ngày.
 
 #### `places`
-`id, provider ENUM(MOCK, OSM, GOOGLE, MANUAL), external_id VARCHAR(128), name, address, lat, lng, category, photo_url, rating DECIMAL(2,1), raw_json JSON, created_at`
-UNIQUE `(provider, external_id)` — **snapshot** để hiển thị lại không cần gọi API.
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | BIGINT PK AI | |
+| provider | ENUM | `MOCK`, `OSM`, `MANUAL`: nguồn của địa điểm. (`GOOGLE` của bản cũ bỏ: chưa có kế hoạch dùng) |
+| external_id | VARCHAR(128) | mã của địa điểm ở nguồn; `NULL` với `MANUAL` |
+| name | VARCHAR(200) | NOT NULL |
+| address | VARCHAR(500) | nullable |
+| lat / lng | DECIMAL(10,7) | NOT NULL |
+| category | VARCHAR(40) | nullable. Dữ liệu mock dùng đúng 6 tên của `ActivityType` để form gợi ý sẵn loại hoạt động; nguồn thật có thể trả giá trị khác nên không dùng ENUM |
+| created_by | BIGINT FK → users.id | nullable; chỉ có với `MANUAL` (người tạo), không `ON DELETE CASCADE` |
+| created_at / updated_at | DATETIME(6) | từ BaseEntity |
+
+UNIQUE `(provider, external_id)` (MySQL cho phép nhiều dòng `external_id` `NULL`, nên địa điểm `MANUAL` không vướng).
+
+Quy tắc (chốt 2026-10-01, rà soát Phase 3; danh sách cột chốt lại ở bảng commit Task 3.2):
+- Đây là **bản lưu (snapshot)** của địa điểm: trang chuyến đi hiển thị từ bảng này, không gọi lại dịch vụ ngoài. Một địa điểm của nguồn chỉ có một dòng, mọi người chọn nó dùng chung dòng đó (rule 14.18).
+- Địa điểm `MANUAL` là **riêng tư** của người tạo (rule 14.19).
+- Bỏ `photo_url`, `rating`, `raw_json` của bản cũ: chưa màn nào dùng (`UI_GUIDE.md` 15.3 không hiện đánh giá sao).
 
 #### `trip_members`
 | Cột | Ghi chú |
@@ -577,15 +593,17 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 
 | Interface | Method chính | Mock trả về | Real impl |
 |---|---|---|---|
-| `MapProvider` | `search(String q, int limit)`, `reverse(lat,lng)`, `distanceMatrix(List<Coord>)` | Dataset JSON ~200 địa điểm VN trong `resources/mock/places.json` | Nominatim/OSRM (OSM, free) hoặc Google Places |
-| `WeatherProvider` | `forecast(lat, lng, LocalDate from, LocalDate to)` | Sinh giả lập theo seed = hash(lat,lng,date) → **kết quả ổn định**, test được | Open-Meteo (free, không cần key) |
+| `MapProvider` | `search(query, limit, near)`, `lookup(externalId)`, `route(List<Coordinate>)` | `resources/mock/places.json`: khoảng 50 địa điểm ở 5 điểm đến (Hà Nội, Đà Nẵng, Hội An, Đà Lạt, TP. Hồ Chí Minh), toạ độ tra từ OpenStreetMap lúc soạn file (ghi nguồn "© OpenStreetMap contributors"). Quãng đường = đường chim bay × 1,3, tốc độ 30 km/h | Task 3.8: Photon (tìm khi đang gõ), Nominatim (tra theo mã), OSRM (quãng đường). Đều trên dữ liệu OpenStreetMap, miễn phí, không cần key |
+| `WeatherProvider` | `forecast(lat, lng, LocalDate from, LocalDate to)` → mỗi ngày: tình trạng, nhiệt độ thấp / cao, xác suất mưa. Được phép **thiếu** những ngày nguồn không có | Sinh giả lập theo seed = hash(lat,lng,date) → **kết quả ổn định**, test được | Task 3.8: Open-Meteo (free, không cần key, dự báo khoảng 16 ngày tới) |
 | `PaymentProvider` | `createCheckoutSession`, `createPortalSession`, `parseWebhook` | Trả về URL giả `/mock-checkout?session=xxx` kích hoạt Premium ngay | Stripe |
 | `AiProvider` | `suggestItinerary(AiItineraryRequest)` | Trả về lịch trình mẫu theo template | Claude API |
 | `StorageProvider` | `upload(file)`, `delete(key)` | Ghi vào thư mục `uploads/` local | Cloudinary |
 
+> **Chốt 2026-10-01 (rà soát Phase 3):** `MapProvider` chỉ có ba method có nơi dùng: `search` (Task 3.1), `lookup` (Task 3.2, để server tự tra lại địa điểm khi lưu snapshot) và `route` (Task 3.5, các chặng giữa hai điểm liên tiếp). `reverse` và `distanceMatrix` của bản cũ bỏ. Dữ liệu mock giảm từ ~200 xuống ~50 vì provider thật được làm ngay ở Task 3.8; mock chỉ còn phục vụ test (không gọi mạng, CLAUDE.md rule 24) và chạy khi không có mạng (rule 20). Port thiết kế theo hình dạng dữ liệu của API thật để tới Task 3.8 không phải sửa service.
+
 ### 7.3. Resilience
 
-Mọi real provider bọc trong Resilience4j:
+Áp dụng từ Task 3.8. Mọi real provider bọc trong Resilience4j:
 - `@CircuitBreaker` — mở khi tỉ lệ lỗi > 50% trong 20 lần gọi
 - `@Retry` — 2 lần, backoff 500ms, chỉ retry với lỗi 5xx/timeout
 - `@TimeLimiter` — 3 giây
@@ -599,14 +617,18 @@ Mọi real provider bọc trong Resilience4j:
 
 | Cache name | Key | TTL | Evict khi |
 |---|---|---|---|
-| `place:search` | `place:search:{sha1(query)}:{limit}` | 24h | — |
-| `weather:forecast` | `weather:{lat4},{lng4}:{date}` | 3h | — |
-| `trip:detail` | `trip:detail:{tripId}` | 10 phút | mọi ghi lên trip/day/activity |
+| `place:search` | từ khoá đã chuẩn hoá (bỏ dấu, chữ thường, trim) + `limit` + toạ độ làm tròn | 24h | — |
+| `weather:forecast` | `{lat4},{lng4}:{from}:{to}` | 3h | — |
 | `trip:permission` | `perm:{userId}:{tripId}` | 5 phút | thay đổi member/share |
 | `ai:suggestion` | `ai:sugg:{promptHash}` | 7 ngày | — |
 | `user:quota` | `quota:{userId}:{yyyyMMdd}` | hết ngày | — |
 
 Làm tròn lat/lng về 4 chữ số thập phân (~11m) để tăng cache hit cho weather.
+
+Chốt 2026-10-01 (rà soát Phase 3, làm ở Task 3.4):
+- Cache `trip:detail` của bản cũ **bỏ**: `GET /trips/{id}` đã chỉ 4 câu SQL, trong khi phải xoá cache ở 8 chỗ ghi (trip, ngày, activity, reorder) và sai một chỗ là hiện dữ liệu cũ, nhất là khi đồng chỉnh sửa ở Phase 5. Redis chỉ cache những gì thật sự gọi ra ngoài.
+- Redis không phải nguồn dữ liệu: Redis lỗi hoặc tắt → bỏ qua cache, gọi thẳng provider, API không trả 500.
+- Test chạy với Redis thật (Testcontainers), cùng cách với MySQL.
 
 ### 8.2. Rate limit (Bucket4j + Redis)
 
@@ -749,12 +771,13 @@ Lỗi (`ErrorResponse`):
 | PATCH | `/activities/{activityId}` | Sửa | canEdit |
 | DELETE | `/activities/{activityId}` | Xoá | canEdit |
 | PUT | `/activities/reorder` | `{items: [{activityId, dayId, orderIndex}]}` — batch, 1 transaction | canEdit |
-| GET | `/days/{dayId}/route` | Khoảng cách + thời gian giữa các activity theo thứ tự | canView |
+| GET | `/days/{dayId}/route` | Khoảng cách + thời gian giữa các activity có địa điểm, theo thứ tự (Task 3.5) | canView |
 
 > **Quy ước sửa ngày** (chốt 2026-09-27, Task 2.2): `PATCH /days/{dayId}` body `{title, note}` — `title` ≤ 160 ký tự, `note` ≤ 255 ký tự (5000 trước Task 2.5), cả hai được để trống. Field **không gửi hoặc `null` → giữ nguyên**; **`""` (chuỗi rỗng / chỉ khoảng trắng) → xoá**, lưu `NULL`. Khác PATCH của trip (không xoá được field) vì đặt / bỏ tiêu đề ngày là thao tác thường xuyên. `dayId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`.
 
 > **Quy ước Activity API** (chốt 2026-09-29, Task 2.3):
-> - **Phạm vi theo phase:** Task 2.3 làm `GET` / `POST /days/{dayId}/activities`, `PATCH` / `DELETE /activities/{activityId}`; `reorder` ở Task 2.4; `route` ở Phase 3. **Quota** của `POST` (10 activity / ngày với FREE, mục 9) thêm ở Task 6.1. `placeId` thêm ở Task 3.2.
+> - **Phạm vi theo phase:** Task 2.3 làm `GET` / `POST /days/{dayId}/activities`, `PATCH` / `DELETE /activities/{activityId}`; `reorder` ở Task 2.4; `route` ở Task 3.5. **Quota** của `POST` (10 activity / ngày với FREE, mục 9) thêm ở Task 6.1. `placeId` thêm ở Task 3.2.
+> - **Địa điểm của activity** (chốt 2026-10-01, làm ở Task 3.2): `POST` / `PATCH` nhận `placeId` (id trong bảng `places`, lấy từ `POST /places` hoặc `POST /places/manual`). `PATCH`: `placeId` `null` hoặc không gửi → giữ nguyên; `clearPlace: true` → bỏ địa điểm (một số không có `""` như field văn bản); gửi cả hai → 400. `placeId` không tồn tại, hoặc là địa điểm `MANUAL` của người khác → cùng một lỗi, để không lộ địa điểm riêng (rule 14.19). `ActivityResponse` có thêm `place` = `{ id, provider, name, address, lat, lng, category }`, `null` khi chưa gắn; mọi endpoint trả activity (kể cả `GET /trips/{id}` và `reorder`) đều có `place` mà không tăng số câu SQL.
 > - `dayId` hoặc `activityId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`. Trip không tồn tại / đã xoá mềm → 404.
 > - `createdBy` lấy từ `SecurityContext`, không nhận từ body (CLAUDE.md rule 16).
 > - `POST` body: `title` bắt buộc, ≤ 200 ký tự, được trim; `type` không gửi → `OTHER`; `startTime` / `endTime` dạng `HH:mm` hoặc `HH:mm:ss`; `note` ≤ 255 ký tự (5000 trước Task 2.5); `costAmount >= 0`, vừa `DECIMAL(15,2)`; `currency` 3 chữ in hoa; `bookingUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`.
@@ -778,13 +801,28 @@ Lỗi (`ErrorResponse`):
 > - Hai người kéo thả cùng lúc: người ghi sau thắng; xử lý xung đột ở Task 5.3.
 
 **Place** `/api/v1/places`
-| GET | `/search?q=&lat=&lng=&limit=` | Autocomplete, có cache | Auth |
-| GET | `/{id}` | Chi tiết snapshot | Auth |
-| POST | `/manual` | Tạo địa điểm thủ công | Auth |
+| GET | `/search?q=&lat=&lng=&limit=` | Tìm địa điểm theo tên / địa chỉ (Task 3.1; cache ở Task 3.4) | Auth |
+| POST | `` | `{provider, externalId}`: lưu kết quả đã chọn thành địa điểm có `id` (Task 3.2) | Auth |
+| POST | `/manual` | Tự thêm địa điểm không có trong kết quả tìm kiếm (Task 3.2) | Auth |
+
+> **Quy ước Place API** (chốt 2026-10-01, rà soát Phase 3):
+> - `GET /search`: `q` bắt buộc, 2–100 ký tự sau khi trim (thiếu hoặc quá ngắn → 400 `VALIDATION_ERROR` ở field `q`); `limit` từ 1 đến 20, mặc định 8; `lat` / `lng` tuỳ chọn, **có đủ cả hai hoặc bỏ cả hai**: khi có, kết quả khớp được xếp gần toạ độ đó trước (giao diện gửi toạ độ điểm đến của chuyến đi). So khớp **không phân biệt hoa thường và dấu tiếng Việt** ("linh ung" ra "Chùa Linh Ứng"), trên tên và địa chỉ. Không có kết quả → 200 với mảng rỗng.
+> - Một kết quả tìm kiếm = `{ provider, externalId, name, address, lat, lng, category }`, **không có `id`**: nó chưa nằm trong database của ứng dụng.
+> - `POST /places` `{provider, externalId}` = "tôi chọn kết quả này". Server **tự tra lại nguồn** theo `externalId` rồi lưu, không nhận tên hay toạ độ từ client (rule 14.18). Đã có bản lưu → trả lại đúng dòng đó, không tạo dòng thứ hai; hai request cùng lúc được `UNIQUE (provider, external_id)` bắt rồi đọc lại. Luôn trả 200 với `PlaceResponse` = `{ id, provider, name, address, lat, lng, category }`. `externalId` nguồn không biết → 404 `RESOURCE_NOT_FOUND`; `provider` không phải nguồn đang bật → 400.
+> - `POST /places/manual` `{name, address, lat, lng, category}`: `name` bắt buộc ≤ 200 ký tự; `lat` ∈ [−90, 90], `lng` ∈ [−180, 180], bắt buộc cả hai; `address` ≤ 500 ký tự, được để trống; `category` được để trống. → 201, `provider` `MANUAL`, người tạo lấy từ `SecurityContext` (CLAUDE.md rule 16).
+> - `GET /places/{id}` của bản cũ **hoãn**: chưa màn nào cần (activity đã trả kèm `place`), và mở ra thì phải kiểm quyền riêng cho địa điểm `MANUAL`.
 
 **Weather** `/api/v1/weather`
-| GET | `/forecast?lat=&lng=&from=&to=` | | Auth |
-| GET | `/trips/{tripId}` | Forecast cho toàn bộ ngày của trip + cảnh báo | canView |
+| GET | `/trips/{tripId}` | Dự báo cho từng ngày của trip + cảnh báo ngoài trời (Task 3.3) | canView |
+
+> **Quy ước Weather API** (chốt 2026-10-01, rà soát Phase 3; làm ở Task 3.3):
+> - `GET /weather/trips/{tripId}` trả `{ status, days }`. `status` = `OK`, hoặc `NO_DESTINATION` khi chuyến đi chưa có toạ độ điểm đến: vẫn 200, `days` không có dự báo, giao diện mời chọn điểm đến.
+> - `days` có **đúng một phần tử cho mỗi ngày** của chuyến đi: `{ dayId, date, forecast, warning }`. `forecast` = `{ condition, tempMin, tempMax, precipitationProbability }` hoặc `null` ("chưa có dự báo"). `warning` = `{ type, activityIds }` hoặc `null`.
+> - Toạ độ, giới hạn 16 ngày và quy tắc cảnh báo: rule 14.20 và 14.21. Danh sách giá trị của `condition` chốt ở bảng commit Task 3.3, phải ánh xạ được từ mã thời tiết của Open-Meteo.
+> - Provider lỗi (từ Task 3.8) → vẫn 200, các ngày không có dự báo; trang chuyến đi không hỏng vì thời tiết.
+> - `GET /weather/forecast` của bản cũ **hoãn**: chưa màn nào dùng.
+>
+> **Quy ước Route** (chốt 2026-10-01; làm ở Task 3.5) — `GET /trips/{tripId}/days/{dayId}/route`: trả `{ legs, totalDistanceMeters, totalDurationSeconds }`, mỗi chặng = `{ fromActivityId, toActivityId, distanceMeters, durationSeconds }`. Chỉ tính giữa các activity **có địa điểm**, theo đúng thứ tự `orderIndex`; ngày có 0 hoặc 1 địa điểm → `legs` rỗng. `dayId` không thuộc `tripId` → 404.
 
 **Sharing** `/api/v1/trips/{tripId}`
 | GET | `/members` | | canView |
@@ -974,6 +1012,10 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 15. **Chống dò email**: các endpoint nhận `{email}` mà không cần đăng nhập (`resend-verification`, `forgot-password`) luôn trả 200 với cùng message dù email có tồn tại hay không, có verify hay chưa, có bị BLOCKED hay không. Lý do thật chỉ ghi log. Rate limit theo IP ở Phase 8.
 16. **Token một lần**: token verify/reset được hash SHA-256 khi lưu, có TTL (24h / 1h), dùng xong đánh dấu `used_at`; phát token mới vô hiệu token cũ cùng loại. Đổi mật khẩu thành công (reset hoặc đổi trong settings) → `revokeAll` refresh token của user (lý do `PASSWORD_RESET`, mục 6.1) để mọi thiết bị khác phải đăng nhập lại.
 17. **Gửi mail không chặn request**: mọi mail đi qua `MailService` (`@Async`), lỗi SMTP được log qua `AsyncUncaughtExceptionHandler`, không làm request thất bại. Đăng ký vẫn 201 dù mail lỗi; người dùng dùng `resend-verification` để nhận lại.
+18. **Địa điểm là bản lưu dùng chung** (chốt 2026-10-01): khi người dùng chọn một kết quả tìm kiếm, ứng dụng chép địa điểm vào bảng `places` và từ đó hiển thị từ bản chép, không hỏi lại dịch vụ ngoài. Thông tin để chép do **server tự tra từ nguồn** theo mã của kết quả; không tin tên hay toạ độ do client gửi, vì một bản chép sai sẽ sai cho mọi người chọn địa điểm đó về sau.
+19. **Địa điểm tự thêm là riêng tư** (chốt 2026-10-01): địa điểm `MANUAL` chỉ người tạo gắn được vào activity. Người khác chỉ thấy nó qua chuyến đi họ được xem. Không có endpoint nào liệt kê hay đọc địa điểm `MANUAL` theo id.
+20. **Dự báo thời tiết** (chốt 2026-10-01): lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau). Chỉ có dự báo cho **16 ngày tới** tính từ hôm nay: ngày đã qua hoặc xa hơn trả "chưa có dự báo". Quy tắc nằm ở `WeatherService`, nên provider mock cũng tuân theo. "Hôm nay" lấy theo múi giờ nào chốt ở bảng commit Task 3.3.
+21. **Cảnh báo hoạt động ngoài trời** (chốt 2026-10-01): một ngày có xác suất mưa **≥ 60%** và có ít nhất một activity loại `SIGHTSEEING` → cảnh báo cho ngày đó, kèm danh sách activity bị ảnh hưởng. Hạn chế đã biết của bản đầu: tham quan trong nhà (bảo tàng) cũng bị cảnh báo; hoạt động ngoài trời được xếp loại khác thì không.
 
 ---
 
@@ -985,8 +1027,8 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | |
 | `/verify-email` | Xác thực email | |
 | `/trips` | Danh sách chuyến đi | Grid card, filter status, search |
-| `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến (map picker) → ngày. Task 2.5: bước điểm đến chỉ nhập tên, map picker thêm ở Task 3.4 |
-| `/trips/:id/days/:dayIndex` | **Màn hình chính** | Layout 3 cột: danh sách ngày ⟷ activity của **một ngày** (drag-drop) ⟷ bản đồ + weather của ngày đó. `dayIndex` là số thứ tự ngày 1..n; `/trips/:id` và `dayIndex` không tồn tại chuyển về ngày 1. Task 2.5 làm 2 cột với mọi ngày xếp dọc; Task 2.6 đổi sang một ngày một trang, chuyển ngày bằng thả lên tên ngày ở cột trái hoặc menu "⋮" (chi tiết bố cục: `UI_GUIDE.md` 8.1). Cột bản đồ + weather thêm ở Phase 3 |
+| `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến (map picker) → ngày. Task 2.5: bước điểm đến chỉ nhập tên, map picker thêm ở Task 3.6 |
+| `/trips/:id/days/:dayIndex` | **Màn hình chính** | Layout 3 cột: danh sách ngày ⟷ activity của **một ngày** (drag-drop) ⟷ bản đồ + weather của ngày đó. `dayIndex` là số thứ tự ngày 1..n; `/trips/:id` và `dayIndex` không tồn tại chuyển về ngày 1. Task 2.5 làm 2 cột với mọi ngày xếp dọc; Task 2.6 đổi sang một ngày một trang, chuyển ngày bằng thả lên tên ngày ở cột trái hoặc menu "⋮" (chi tiết bố cục: `UI_GUIDE.md` 8.1). Cột bản đồ thêm ở Task 3.6; thời tiết và quãng đường ở Task 3.7 |
 | `/trips/:id/expenses` | Chi phí | Chart + settlement |
 | `/trips/:id/members` | Chia sẻ | Mời, phân quyền, share link |
 | `/share/:token` | Trip công khai | Read-only, không cần đăng nhập |

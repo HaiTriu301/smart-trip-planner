@@ -474,7 +474,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 
 - Tiêu đề 32px + dòng phụ "Ba bước: thông tin chung, điểm đến và ngày đi."
 - Thanh bước là một tuyến ngắn: 3 "ga" đánh số nối bằng ray. Ga đã qua: nền `jade` có dấu ✓; ga hiện tại: viền `jade`, chữ đậm; ray đã đi qua chuyển `jade`.
-- Bước "Điểm đến": hiện chỉ nhập tên; chọn trên bản đồ ở **Phase 3** (Task 3.4).
+- Bước "Điểm đến": hiện chỉ nhập tên; chọn trên bản đồ ở **Phase 3** (Task 3.6).
 
 ### 8.5. Trang chuyến đi công khai (share link) — **Phase 4**
 
@@ -602,7 +602,8 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 1.5 | Đăng nhập, đăng ký, quên / đặt lại mật khẩu, xác thực email | Đã làm, làm lại theo guide ở Task 2.6 |
 | 2.5 | Danh sách chuyến đi, wizard tạo chuyến, chi tiết chuyến đi (ray thời gian, chưa có bản đồ) | Đã làm, làm lại theo guide ở Task 2.6 |
 | 2.6 | Token, font, thành phần dùng chung, số đếm chip, số hoạt động trên thẻ, ô tìm trên thanh điều hướng, giao diện điện thoại | Đã làm (`feat/T2.6-ui-guide`) |
-| 3.4 | Cột bản đồ + dải thời tiết, chọn điểm đến trên bản đồ trong wizard, đoạn di chuyển giữa hai ga | Phase 3 |
+| 3.6 | Ô tìm địa điểm trong hộp thoại hoạt động, cột bản đồ, tab bản đồ trên điện thoại, tự thêm địa điểm, chọn điểm đến trong wizard | Phase 3 |
+| 3.7 | Dải thời tiết, cảnh báo ngoài trời, đoạn di chuyển giữa hai ga | Phase 3 |
 | 4.4 | Panel chia sẻ, danh sách thành viên, trang công khai, bình luận, huy hiệu vai trò | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
@@ -861,7 +862,7 @@ A dialog opened from the bottom edge like a sheet, full width, top corners round
 
 ### 15.3. Màn hình sắp làm
 
-#### Phase 3 — Task 3.4: chi tiết chuyến đi ba cột (bản đồ + thời tiết)
+#### Phase 3 — Task 3.6 (bản đồ) và 3.7 (thời tiết, quãng đường): chi tiết chuyến đi ba cột
 
 **Dữ liệu có thật (dự kiến, kiểm lại API đầu task):** như màn F + toạ độ và tên địa điểm của hoạt động (`place`), khoảng cách và thời gian giữa hai hoạt động liền nhau (`/days/{dayId}/route`), dự báo từng ngày (`/weather/trips/{tripId}`): nhiệt độ cao / thấp, xác suất mưa, cảnh báo cho hoạt động ngoài trời.
 **Không được thêm:** lớp giao thông, điểm ưa thích quanh đó, đánh giá sao, ảnh người đang xem (Phase 5).
@@ -887,7 +888,7 @@ The hovered activity card in the middle is linked to the enlarged marker on the 
 
 Màn hình hẹp (dựng riêng): dưới 1024px, dưới dải chip ngày có hai tab "Lịch trình" / "Bản đồ"; tab Bản đồ chiếm hết chiều ngang, dải thời tiết nằm dưới bản đồ.
 
-#### Phase 3 — Task 3.2 / 3.4: hộp thoại hoạt động có tìm địa điểm
+#### Phase 3 — Task 3.6: hộp thoại hoạt động có tìm địa điểm
 
 **Dữ liệu có thật (dự kiến):** như màn G + ô tìm địa điểm (`/places/search`): mỗi gợi ý có tên, địa chỉ, nhóm địa điểm; nút bỏ địa điểm đã chọn.
 
@@ -902,7 +903,7 @@ and a light blue background.
 When a place is chosen, the field becomes a chip with the place name and a "×" to remove it.
 ```
 
-#### Phase 3 — Task 3.4: bước "Điểm đến" của wizard có bản đồ
+#### Phase 3 — Task 3.6: bước "Điểm đến" của wizard có bản đồ
 
 ```
 Wizard step 2 as today, with under the "Điểm đến" field a 320px tall light grey map
