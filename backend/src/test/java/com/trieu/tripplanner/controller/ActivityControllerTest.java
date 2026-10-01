@@ -479,6 +479,44 @@ class ActivityControllerTest {
     }
 
     @Test
+    void updatePassesClearPlaceOnAndShowsTheActivityWithoutPlace() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenReturn(sampleActivity());
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "clearPlace": true }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "id": 21, "place": null } }
+                        """);
+
+        ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), request.capture(), eq(false));
+        assertThat(request.getValue().clearPlace()).isTrue();
+        assertThat(request.getValue().placeId()).isNull();
+    }
+
+    @Test
+    void changingAndClearingThePlaceAtOnceIsAValidationErrorOnClearPlace() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenThrow(BusinessRuleException.invalidField("clearPlace", "error.activity.place-change-and-clear",
+                        "Activity 21 update asks to change and to clear the place at once"));
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "placeId": 72, "clearPlace": true }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "clearPlace",
+                                         "message": "Không thể vừa đổi vừa bỏ địa điểm trong cùng một lần sửa" } ] }
+                        """);
+    }
+
+    @Test
     void updateReturnsTheActivityWhenEditAllowed() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
         when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());

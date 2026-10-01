@@ -38,13 +38,21 @@ public final class TestActivities {
                                                       LocalTime endTime, String note, BigDecimal costAmount,
                                                       String currency, String bookingUrl) {
         return new UpdateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl,
-                null);
+                null, null);
     }
 
     /** The same body, also moving the activity to the place {@code placeId}. */
     public static UpdateActivityRequest withPlace(UpdateActivityRequest request, Long placeId) {
         return new UpdateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
-                request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId);
+                request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId,
+                request.clearPlace());
+    }
+
+    /** The same body with {@code clearPlace} as sent: true asks to remove the place of the activity. */
+    public static UpdateActivityRequest withClearPlace(UpdateActivityRequest request, Boolean clearPlace) {
+        return new UpdateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
+                request.note(), request.costAmount(), request.currency(), request.bookingUrl(), request.placeId(),
+                clearPlace);
     }
 
     /** An activity as the API returns it, without a place. */

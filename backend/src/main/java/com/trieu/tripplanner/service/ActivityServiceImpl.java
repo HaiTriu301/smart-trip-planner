@@ -126,9 +126,7 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime endTime = request.endTime() != null ? toMinutes(request.endTime()) : activity.getEndTime();
         validateTimeRange(startTime, endTime);
         // As in create: the place is checked before the overlap, so a retry with allowOverlap cannot fail on it
-        Place place = request.placeId() != null
-                ? placeService.findAttachable(request.placeId(), userId)
-                : activity.getPlace();
+        Place place = resolvePlace(activity, request, userId);
 
         LocalTime originalStart = activity.getStartTime();
         boolean rangeChanged = !Objects.equals(startTime, activity.getStartTime())
@@ -476,6 +474,24 @@ public class ActivityServiceImpl implements ActivityService {
     /** Times are shown as HH:mm (design.md 10.1), so seconds sent by a client are dropped, not stored. */
     private static LocalTime toMinutes(LocalTime time) {
         return time == null ? null : time.truncatedTo(ChronoUnit.MINUTES);
+    }
+
+    /**
+     * The place the activity has after the update: none (clearPlace), another one (placeId), or the current one.
+     * Asking for both is refused before any place is looked up.
+     */
+    private Place resolvePlace(Activity activity, UpdateActivityRequest request, Long userId) {
+        boolean clear = Boolean.TRUE.equals(request.clearPlace());
+        if (clear && request.placeId() != null) {
+            throw BusinessRuleException.invalidField("clearPlace", "error.activity.place-change-and-clear",
+                    "Activity " + activity.getId() + " update asks to change and to clear the place at once");
+        }
+        if (clear) {
+            return null;
+        }
+        return request.placeId() != null
+                ? placeService.findAttachable(request.placeId(), userId)
+                : activity.getPlace();
     }
 
     /** A cost without a currency is counted in the currency of the trip; without a cost the value sent is kept. */

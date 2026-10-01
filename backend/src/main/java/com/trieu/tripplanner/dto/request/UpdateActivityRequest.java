@@ -17,6 +17,8 @@ import java.time.LocalTime;
  * <p>
  * {@code placeId} replaces the place of the activity with another one (an id returned by POST /places or
  * POST /places/manual); whether that place may be used by this user is checked in the service.
+ * {@code clearPlace: true} removes the place: a number has no "" to mean "clear", unlike the two texts. Sending
+ * both is refused by the service, since the request then says two opposite things.
  * <p>
  * Not in the body on purpose: the day and orderIndex change only through the reorder endpoint (Task 2.4).
  * Constraints mirror {@link CreateActivityRequest}; every annotation used here ignores null, so omitted fields
@@ -49,5 +51,7 @@ public record UpdateActivityRequest(
         @Pattern(regexp = "^\\s*$|^https?://\\S+$", message = "{validation.activity.booking-url.invalid}")
         String bookingUrl,
 
-        Long placeId) {
+        Long placeId,
+
+        Boolean clearPlace) {
 }

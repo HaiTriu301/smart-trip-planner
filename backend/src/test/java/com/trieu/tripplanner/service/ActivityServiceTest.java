@@ -750,6 +750,52 @@ class ActivityServiceTest {
             verify(activityRepository, never()).saveAndFlush(any());
         }
 
+        @Test
+        void clearPlaceRemovesThePlaceAndTouchesNothingElse() {
+            stored.setPlace(market());
+
+            ActivityResponse response = update(TestActivities.withClearPlace(titled(null), true));
+
+            assertThat(stored.getPlace()).isNull();
+            assertThat(response.place()).isNull();
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getOrderIndex()).isEqualTo(2000);
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
+        void clearPlaceOnAnActivityWithoutPlaceIsNotAnError() {
+            ActivityResponse response = update(TestActivities.withClearPlace(titled("Ăn sáng muộn"), true));
+
+            assertThat(response.place()).isNull();
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng muộn");
+        }
+
+        @Test
+        void clearPlaceFalseIsTheSameAsNotSendingIt() {
+            Place market = market();
+            stored.setPlace(market);
+
+            update(TestActivities.withClearPlace(titled("Ăn sáng muộn"), false));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+        }
+
+        @Test
+        void changingAndClearingThePlaceAtOnceIsRefusedBeforeAnyPlaceIsLookedUp() {
+            Place market = market();
+            stored.setPlace(market);
+
+            assertThatThrownBy(() -> update(TestActivities.withClearPlace(
+                    TestActivities.withPlace(titled("Tên mới"), 72L), true)))
+                    .satisfies(ex -> assertSingleViolation(ex, "clearPlace", "error.activity.place-change-and-clear"));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            verifyNoInteractions(placeService);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
         /** The default case of the endpoint: allowOverlap = false. */
         private ActivityResponse update(UpdateActivityRequest request) {
             return activityService.update(TRIP_ID, ACTIVITY_ID, USER_ID, request, false);

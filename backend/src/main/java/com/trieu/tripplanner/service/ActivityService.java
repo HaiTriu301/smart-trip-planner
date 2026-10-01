@@ -49,8 +49,9 @@ public interface ActivityService {
      * @param allowOverlap true: the client confirmed that the new time range may overlap another activity
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or the activity
      *                                                                   belongs to another trip (404)
-     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged times, or a placeId this
-     *                                                                   user cannot use (400); the new range
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged times, a placeId this
+     *                                                                   user cannot use, or placeId together
+     *                                                                   with clearPlace (400); the new range
      *                                                                   overlaps another activity (409)
      */
     ActivityResponse update(Long tripId, Long activityId, Long userId, UpdateActivityRequest request,
