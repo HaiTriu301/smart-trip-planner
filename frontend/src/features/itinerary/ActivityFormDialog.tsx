@@ -134,7 +134,7 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       {mutation.isError && !overlap && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <FormField label="Tên hoạt động" required autoFocus error={errors.title?.message} {...register('title')} />
+      <FormField label="Tên hoạt động" required error={errors.title?.message} {...register('title')} />
       <SelectField label="Loại" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Giờ bắt đầu" type="time" error={errors.startTime?.message} {...register('startTime')} />

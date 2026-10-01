@@ -341,6 +341,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Bo 14px, viền `tide`, `shadow-lg`, lớp phủ `ink` 45%. Góc trên bên phải có nút "×".
 - Trên điện thoại: nằm sát mép dưới, rộng hết màn hình, cao tối đa 90%, chỉ bo hai góc trên.
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
+- Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×". `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
 

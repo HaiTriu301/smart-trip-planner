@@ -118,7 +118,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
       {mutation.isError && !pending && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <TripInfoFields form={form} autoFocus />
+      <TripInfoFields form={form} />
       <TripDestinationFields form={form} />
       <TripDateFields
         form={form}
