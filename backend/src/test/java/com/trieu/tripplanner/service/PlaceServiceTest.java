@@ -3,6 +3,7 @@ package com.trieu.tripplanner.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,6 +65,8 @@ class PlaceServiceTest {
     @BeforeEach
     void setUp() {
         placeService = new PlaceService(mapProvider, placeRepository, userRepository, Mappers.getMapper(PlaceMapper.class));
+        // The source in use; lenient because search and createManual never ask for it
+        lenient().when(mapProvider.provider()).thenReturn(PlaceProvider.MOCK);
     }
 
     @Test
@@ -155,7 +158,7 @@ class PlaceServiceTest {
 
         assertThat(response.id()).isEqualTo(31L);
         verify(placeRepository, never()).saveAndFlush(any());
-        verifyNoInteractions(mapProvider);
+        verify(mapProvider, never()).lookup(any());
     }
 
     @Test
@@ -205,6 +208,20 @@ class PlaceServiceTest {
         // Nothing to read back: the original error must reach the caller, not a made-up "not found"
         assertThatThrownBy(() -> placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
                 .isSameAs(failure);
+    }
+
+    @Test
+    void pickFromASourceThatIsNotInUseIsRejectedBeforeAnythingIsReadOrStored() {
+        // MANUAL is a provider of the enum but never a map source: a place typed by hand has its own endpoint
+        assertThatThrownBy(() -> placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MANUAL, "da-nang-chua-linh-ung")))
+                .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                    assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                    assertThat(ex.getDetails()).extracting(FieldViolation::field).containsExactly("provider");
+                    assertThat(ex.getDetails()).extracting(FieldViolation::messageKey)
+                            .containsExactly("error.place.provider-not-active");
+                });
+        verifyNoInteractions(placeRepository);
+        verify(mapProvider, never()).lookup(any());
     }
 
     // ---------- createManual ----------

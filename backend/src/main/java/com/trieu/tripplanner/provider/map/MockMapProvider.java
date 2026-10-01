@@ -64,6 +64,11 @@ public class MockMapProvider implements MapProvider {
     }
 
     @Override
+    public PlaceProvider provider() {
+        return PlaceProvider.MOCK;
+    }
+
+    @Override
     public List<PlaceResult> search(String query, int limit, Coordinate near) {
         String keyword = normalize(query);
         List<String> words = Arrays.asList(keyword.split(" "));

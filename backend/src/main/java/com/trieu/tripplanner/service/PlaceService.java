@@ -61,10 +61,16 @@ public class PlaceService {
      * row of the winner can still be read. Inside one surrounding transaction the failed INSERT would mark the
      * whole transaction rollback-only.
      *
+     * @throws BusinessRuleException     400 VALIDATION_ERROR on {@code provider} when it is not the source in use,
+     *                                   MANUAL included: a place typed by hand is made by {@link #createManual}
      * @throws ResourceNotFoundException the source knows no place with this externalId (404)
      */
     public PlaceResponse getOrCreate(SavePlaceRequest request) {
         PlaceProvider provider = request.provider();
+        if (provider != mapProvider.provider()) {
+            throw BusinessRuleException.invalidField("provider", "error.place.provider-not-active",
+                    "Place picked from " + provider + " while the active map source is " + mapProvider.provider());
+        }
         String externalId = request.externalId().trim();
         Place place = placeRepository.findByProviderAndExternalId(provider, externalId)
                 .orElseGet(() -> copyFromSource(provider, externalId));

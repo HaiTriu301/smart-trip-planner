@@ -88,6 +88,15 @@ class MockMapProviderTest {
         assertThat(provider.search("khong co noi nay", 8, null)).isEmpty();
     }
 
+    @Test
+    void everyResultCarriesTheSourceTheProviderAnnounces() {
+        assertThat(provider.provider()).isEqualTo(PlaceProvider.MOCK);
+        // A pick is accepted only for provider(): a result stamped with anything else could never be picked
+        assertThat(provider.search("da nang", 100, null))
+                .isNotEmpty()
+                .allSatisfy(result -> assertThat(result.provider()).isEqualTo(provider.provider()));
+    }
+
     // ---------- lookup by the id of the source ----------
 
     @Test

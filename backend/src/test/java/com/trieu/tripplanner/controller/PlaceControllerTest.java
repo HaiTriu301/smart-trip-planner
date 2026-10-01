@@ -322,6 +322,24 @@ class PlaceControllerTest {
     }
 
     @Test
+    void pickingFromASourceThatIsNotInUseIsReportedOnProvider() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MANUAL, "da-nang-cho-han")))
+                .thenThrow(BusinessRuleException.invalidField("provider", "error.place.provider-not-active",
+                        "Place picked from MANUAL while the active map source is MOCK"));
+
+        assertThat(save("""
+                {"provider": "MANUAL", "externalId": "da-nang-cho-han"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "provider", "message": "Nguồn địa điểm này hiện không dùng được" } ]
+                        }
+                        """);
+    }
+
+    @Test
     void missingProviderAndBlankExternalIdAreBothReported() {
         assertThat(save("""
                 {"externalId": "   "}

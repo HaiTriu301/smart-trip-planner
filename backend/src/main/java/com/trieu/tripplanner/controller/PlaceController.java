@@ -74,7 +74,8 @@ public class PlaceController {
     @Operation(summary = "Chọn một kết quả tìm kiếm",
                description = "Gửi provider và externalId của kết quả đã chọn. Máy chủ tự đọc tên, địa chỉ, toạ độ từ nguồn "
                        + "rồi lưu, và trả địa điểm có id để gắn vào hoạt động. Gọi lại với cùng địa điểm luôn nhận cùng id. "
-                       + "404 nếu nguồn không có địa điểm đó.")
+                       + "404 nếu nguồn không có địa điểm đó. 400 nếu provider không phải nguồn đang dùng "
+                       + "(kể cả MANUAL: địa điểm tự thêm tạo qua POST /places/manual).")
     @PostMapping
     public ApiResponse<PlaceResponse> save(@Valid @RequestBody SavePlaceRequest request) {
         return ApiResponse.ok(placeService.getOrCreate(request));
