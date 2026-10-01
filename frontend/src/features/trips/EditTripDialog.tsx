@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateTrip } from '../../api/trips'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -39,9 +39,15 @@ interface EditTripDialogProps {
   onClose: () => void
 }
 
+/** Names the save mutation so the dialog shell can tell that the form inside it is saving. */
+const updateTripKey = (tripId: number) => ['update-trip', tripId]
+
 export function EditTripDialog({ trip, open, onClose }: EditTripDialogProps) {
+  // Esc and "×" are ignored while a save is in flight: closing would unmount the form, and the answer
+  // (days with activities to confirm, field errors) would have nowhere to show
+  const isSaving = useIsMutating({ mutationKey: updateTripKey(trip.id) }) > 0
   return (
-    <Modal open={open} title="Sửa chuyến đi" onClose={onClose}>
+    <Modal open={open} title="Sửa chuyến đi" onClose={() => !isSaving && onClose()}>
       <EditTripForm trip={trip} onClose={onClose} />
     </Modal>
   )
@@ -67,6 +73,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
   const { handleSubmit, setError, control } = form
 
   const mutation = useMutation({
+    mutationKey: updateTripKey(trip.id),
     mutationFn: ({ body, force }: { body: UpdateTripRequest; force: boolean }) => updateTrip(trip.id, body, force),
     onSuccess: async () => {
       await Promise.all([
