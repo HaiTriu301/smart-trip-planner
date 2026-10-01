@@ -5,6 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import lombok.AccessLevel;
@@ -17,9 +20,9 @@ import lombok.NoArgsConstructor;
  * The app's own copy of a place (design.md 5.2 "places", rule 14.18). Column types must match
  * V9__create_places.sql exactly (ddl-auto=validate).
  * <p>
- * A row is written once, when a user picks a search result, and never edited afterwards: there are no setters.
- * The pair {@code provider} + {@code externalId} is unique, so everybody who picks the same place of a source
- * shares one row.
+ * A row is written once, when a user picks a search result or adds a place by hand, and never edited
+ * afterwards: there are no setters. For a place of a source the pair {@code provider} + {@code externalId} is
+ * unique, so everybody who picks it shares one row. A MANUAL place has no external id and belongs to its creator.
  */
 @Entity
 @Table(name = "places")
@@ -53,5 +56,10 @@ public class Place extends BaseEntity {
     /** One of the ActivityType names for the mock data; a real source may send anything, or nothing. */
     @Column(name = "category", length = 40)
     private String category;
+
+    /** Who added a MANUAL place: only this user may attach it to an activity (rule 14.19). Null for the others. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", updatable = false)
+    private User createdBy;
 
 }

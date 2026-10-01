@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
+import com.trieu.tripplanner.dto.request.CreateManualPlaceRequest;
 import com.trieu.tripplanner.dto.request.SavePlaceRequest;
 import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
@@ -17,11 +18,15 @@ import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.PlaceMapper;
 import com.trieu.tripplanner.model.Place;
+import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import com.trieu.tripplanner.repository.PlaceRepository;
+import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -51,11 +56,14 @@ class PlaceServiceTest {
     @Mock
     private PlaceRepository placeRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     private PlaceService placeService;
 
     @BeforeEach
     void setUp() {
-        placeService = new PlaceService(mapProvider, placeRepository, Mappers.getMapper(PlaceMapper.class));
+        placeService = new PlaceService(mapProvider, placeRepository, userRepository, Mappers.getMapper(PlaceMapper.class));
     }
 
     @Test
@@ -197,6 +205,48 @@ class PlaceServiceTest {
         // Nothing to read back: the original error must reach the caller, not a made-up "not found"
         assertThatThrownBy(() -> placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
                 .isSameAs(failure);
+    }
+
+    // ---------- createManual ----------
+
+    @Test
+    void manualPlaceIsStoredAsTypedAndBelongsToTheSignedInUser() {
+        User creator = TestUsers.verified(7L, "an@example.com");
+        when(userRepository.getReferenceById(7L)).thenReturn(creator);
+        when(placeRepository.save(any(Place.class))).thenAnswer(invocation -> withId(invocation.getArgument(0), 40L));
+
+        PlaceResponse response = placeService.createManual(7L, new CreateManualPlaceRequest("  Nhà bà ngoại ",
+                " 12 Lê Lợi, Đà Nẵng ", new BigDecimal("16.0471234"), new BigDecimal("108.2068765"),
+                ActivityType.ACCOMMODATION));
+
+        ArgumentCaptor<Place> stored = ArgumentCaptor.forClass(Place.class);
+        verify(placeRepository).save(stored.capture());
+        assertThat(stored.getValue().getProvider()).isEqualTo(PlaceProvider.MANUAL);
+        assertThat(stored.getValue().getExternalId()).isNull();
+        assertThat(stored.getValue().getName()).isEqualTo("Nhà bà ngoại");
+        assertThat(stored.getValue().getAddress()).isEqualTo("12 Lê Lợi, Đà Nẵng");
+        assertThat(stored.getValue().getCategory()).isEqualTo("ACCOMMODATION");
+        assertThat(stored.getValue().getCreatedBy()).isSameAs(creator);
+        assertThat(response).isEqualTo(new PlaceResponse(40L, PlaceProvider.MANUAL, "Nhà bà ngoại", "12 Lê Lợi, Đà Nẵng",
+                new BigDecimal("16.0471234"), new BigDecimal("108.2068765"), "ACCOMMODATION"));
+        // Nothing is asked of the map source, and nothing is merged with an existing place
+        verifyNoInteractions(mapProvider);
+        verify(placeRepository, never()).findByProviderAndExternalId(any(), any());
+    }
+
+    @Test
+    void manualPlaceWithoutAddressOrCategoryLeavesThemEmpty() {
+        when(userRepository.getReferenceById(7L)).thenReturn(TestUsers.verified(7L, "an@example.com"));
+        when(placeRepository.save(any(Place.class))).thenAnswer(invocation -> withId(invocation.getArgument(0), 41L));
+
+        placeService.createManual(7L, new CreateManualPlaceRequest("Điểm hẹn", "   ", new BigDecimal("16"),
+                new BigDecimal("108"), null));
+
+        ArgumentCaptor<Place> stored = ArgumentCaptor.forClass(Place.class);
+        verify(placeRepository).save(stored.capture());
+        // A blank address is "no address", not a string of spaces
+        assertThat(stored.getValue().getAddress()).isNull();
+        assertThat(stored.getValue().getCategory()).isNull();
     }
 
     private static Place storedLinhUng(Long id) {

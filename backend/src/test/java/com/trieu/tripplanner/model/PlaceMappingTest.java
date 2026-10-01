@@ -106,9 +106,38 @@ class PlaceMappingTest {
     }
 
     @Test
+    void manualPlaceKeepsItsCreatorAndNeedsNoExternalId() {
+        User creator = entityManager.persist(User.builder()
+                .email("creator@example.com").passwordHash("$2a$12$hash").fullName("Người tạo").build());
+        Place saved = entityManager.persistAndFlush(Place.builder()
+                .provider(PlaceProvider.MANUAL)
+                .name("Nhà bà ngoại")
+                .lat(new BigDecimal("16.0471234"))
+                .lng(new BigDecimal("108.2068765"))
+                .createdBy(creator)
+                .build());
+        entityManager.clear();
+
+        Place found = entityManager.find(Place.class, saved.getId());
+
+        assertThat(found.getProvider()).isEqualTo(PlaceProvider.MANUAL);
+        assertThat(found.getExternalId()).isNull();
+        assertThat(found.getCreatedBy().getId()).isEqualTo(creator.getId());
+    }
+
+    @Test
+    void placeCopiedFromASourceHasNoCreator() {
+        Place saved = entityManager.persistAndFlush(linhUng().build());
+        entityManager.clear();
+
+        // Shared by everyone who picks it, owned by nobody
+        assertThat(entityManager.find(Place.class, saved.getId()).getCreatedBy()).isNull();
+    }
+
+    @Test
     void enumColumnAlreadyAcceptsTheSourcesOfLaterTasks() {
-        // V9 declares OSM and MANUAL although the Java enum has only MOCK so far: adding the constants later
-        // (Task 3.2 mốc 2, Task 3.8) needs no new migration
+        // V9 declares OSM although the Java enum does not have it yet: adding the constant in Task 3.8 needs no
+        // new migration
         jdbcTemplate.update("""
                 INSERT INTO places (provider, external_id, name, lat, lng, created_at, updated_at)
                 VALUES ('OSM', 'W1', 'Từ OpenStreetMap', 16, 108, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)),

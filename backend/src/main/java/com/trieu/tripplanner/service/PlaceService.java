@@ -1,5 +1,6 @@
 package com.trieu.tripplanner.service;
 
+import com.trieu.tripplanner.dto.request.CreateManualPlaceRequest;
 import com.trieu.tripplanner.dto.request.SavePlaceRequest;
 import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
@@ -12,12 +13,14 @@ import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import com.trieu.tripplanner.repository.PlaceRepository;
+import com.trieu.tripplanner.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Places (design.md 10.2 "Place"). Talks to the map source only through {@link MapProvider}: switching from the
@@ -33,6 +36,7 @@ public class PlaceService {
 
     private final MapProvider mapProvider;
     private final PlaceRepository placeRepository;
+    private final UserRepository userRepository;
     private final PlaceMapper placeMapper;
 
     /**
@@ -67,6 +71,28 @@ public class PlaceService {
         return placeMapper.toResponse(place);
     }
 
+    /**
+     * A place the user describes because no search result fits. Always a new row: two users adding "Nhà bà ngoại"
+     * mean two different houses, so nothing is merged by name. The place is private to {@code userId}.
+     *
+     * @param userId the signed-in user, from the security context
+     */
+    @Transactional
+    public PlaceResponse createManual(Long userId, CreateManualPlaceRequest request) {
+        Place saved = placeRepository.save(Place.builder()
+                .provider(PlaceProvider.MANUAL)
+                .name(request.name().trim())
+                .address(blankToNull(request.address()))
+                .lat(request.lat())
+                .lng(request.lng())
+                .category(request.category() == null ? null : request.category().name())
+                // A reference is enough for the FK: no SELECT on users
+                .createdBy(userRepository.getReferenceById(userId))
+                .build());
+        log.info("Manual place {} added by user {}", saved.getId(), userId);
+        return placeMapper.toResponse(saved);
+    }
+
     /** Reads the place from the source itself, never from the request: the copy is shared by every user. */
     private Place copyFromSource(PlaceProvider provider, String externalId) {
         PlaceResult found = mapProvider.lookup(externalId)
@@ -89,6 +115,10 @@ public class PlaceService {
             log.info("Place {}/{} was stored by a concurrent request, reading it back", provider, externalId);
             return placeRepository.findByProviderAndExternalId(provider, externalId).orElseThrow(() -> ex);
         }
+    }
+
+    private static String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     /** A point needs both numbers; half a coordinate is a client mistake, not "no preference". */

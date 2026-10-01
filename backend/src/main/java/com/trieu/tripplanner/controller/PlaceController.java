@@ -1,9 +1,11 @@
 package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
+import com.trieu.tripplanner.dto.request.CreateManualPlaceRequest;
 import com.trieu.tripplanner.dto.request.SavePlaceRequest;
 import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
+import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.service.PlaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,16 +19,19 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Places (design.md 10.2 "Place"). Any signed-in user may search and pick a result; nothing here belongs to a
- * trip, so there is no {@code tripPermission} check.
+ * Places (design.md 10.2 "Place"). Any signed-in user may search, pick a result or add a place of their own;
+ * nothing here belongs to a trip, so there is no {@code tripPermission} check.
  */
 @Tag(name = "Place", description = "Tìm và chọn địa điểm để gắn vào hoạt động")
 @RestController
@@ -73,6 +78,17 @@ public class PlaceController {
     @PostMapping
     public ApiResponse<PlaceResponse> save(@Valid @RequestBody SavePlaceRequest request) {
         return ApiResponse.ok(placeService.getOrCreate(request));
+    }
+
+    @Operation(summary = "Tự thêm một địa điểm",
+               description = "Dùng khi không kết quả tìm kiếm nào phù hợp. name và toạ độ bắt buộc; address và category "
+                       + "được để trống, category nếu có là một trong 6 loại hoạt động. Địa điểm tự thêm là riêng của "
+                       + "người tạo: chỉ người đó gắn được nó vào hoạt động. Mỗi lần gọi tạo một địa điểm mới.")
+    @PostMapping("/manual")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<PlaceResponse> createManual(@AuthenticationPrincipal CustomUserDetails principal,
+                                                   @Valid @RequestBody CreateManualPlaceRequest request) {
+        return ApiResponse.ok(placeService.createManual(principal.getId(), request));
     }
 
 }
