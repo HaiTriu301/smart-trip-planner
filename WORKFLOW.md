@@ -1185,7 +1185,7 @@ Mốc 5 — test(place): add place search flow integration test
 
 **Nhớ:** `category` của mock dùng đúng 6 tên của `ActivityType` để form gợi ý sẵn loại hoạt động. `PlaceProvider` (Java) lớn dần theo task: `MOCK` ở 3.1, `MANUAL` ở 3.2, `OSM` ở 3.8; cột ENUM của V9 khai báo sẵn cả ba.
 
-> **Thực tế khi làm 3.1 (2026-10-01):** 5 commit đúng bảng đã duyệt, thêm commit docs Mốc 0 trên `main` (`1e4736f`). Số PR điền ở commit docs đầu Task 3.2.
+> **Thực tế khi làm 3.1 (2026-10-01):** 5 commit đúng bảng đã duyệt, thêm commit docs Mốc 0 trên `main` (`1e4736f`). PR #17, merge commit `2efb64d` (Merge commit, giữ lịch sử), docs đóng task `2c35e6a`.
 >
 > | Commit | Nội dung |
 > |---|---|
@@ -1220,37 +1220,55 @@ Mốc 5 — test(place): add place search flow integration test
 
 ### Task 3.2 — Gắn địa điểm vào hoạt động
 
-Nhánh: `feat/T3.2-activity-place` · Test: `07-place.md`, `05-activity.md`.
+Nhánh: `feat/T3.2-activity-place` · Test: `07-place.md`, `05-activity.md`. Mỗi mốc là một commit, code + test cùng commit.
+
+Kết quả của task (chưa có giao diện, xem trên Swagger): chọn một kết quả tìm kiếm → địa điểm có `id`; tạo hoạt động kèm `placeId` → mọi nơi trả về hoạt động đều có `place` (tên, địa chỉ, toạ độ).
 
 ```
+Mốc 0 — docs (main): design.md 10.2 (lỗi placeId, địa điểm tự thêm), rule 14.22 (chuyến đi đã qua), UI_GUIDE 8.1,
+        PR #17 của Task 3.1 (đã soạn 2026-10-01)
+
 Mốc 1 — feat(place): save a chosen search result as a place
-        V9__create_places.sql + model/Place + model/enums/PlaceProvider (migration và entity cùng commit),
-        PlaceRepository (UNIQUE (provider, external_id)), MapProvider.lookup(externalId),
-        PlaceService.getOrCreate (đã có → trả lại, không tạo dòng thứ hai; hai request cùng lúc → UNIQUE bắt,
-        đọc lại), dto/request/SavePlaceRequest, dto/response/PlaceResponse, PlaceMapper,
-        POST /places {provider, externalId} (Auth); externalId lạ → 404;
-        test: gọi hai lần → một dòng, cùng id; mapping entity ↔ migration
+        V9__create_places.sql + model/Place (migration và entity cùng commit; cột ENUM khai báo sẵn MOCK, OSM, MANUAL),
+        PlaceRepository (UNIQUE (provider, external_id)),
+        MapProvider.lookup(externalId) + MapProvider.provider() (nguồn nào đang bật), MockMapProvider.lookup,
+        PlaceService.getOrCreate: đã có → trả lại, không tạo dòng thứ hai; hai request cùng lúc → UNIQUE bắt, đọc lại,
+        dto/request/SavePlaceRequest, dto/response/PlaceResponse, PlaceMapper.toResponse,
+        POST /places {provider, externalId} (Auth) → 200; externalId lạ → 404; provider không phải nguồn đang bật → 400;
+        test: gọi hai lần → một dòng, cùng id; mapping entity ↔ migration; 401; validate
 
 Mốc 2 — feat(place): add manual place endpoint
-        POST /places/manual {name, address, lat, lng, category} → provider MANUAL, created_by = người đang đăng nhập
-        (không nhận từ body, rule 16); test happy + validate toạ độ + 401
+        PlaceProvider.MANUAL, dto/request/CreateManualPlaceRequest, PlaceService.createManual,
+        POST /places/manual {name, address, lat, lng, category} → 201, created_by = người đang đăng nhập
+        (không nhận từ body, rule 16); category để trống được, có gửi thì thuộc 6 loại hoạt động; không gộp theo tên;
+        test happy + validate + 401
 
 Mốc 3 — feat(activity): attach a place when creating an activity
         V10__add_place_to_activities.sql (place_id nullable + FK, không CASCADE), Activity.place (LAZY),
-        CreateActivityRequest.placeId, ActivityResponse.place (id, name, address, lat, lng, category),
+        CreateActivityRequest.placeId, ActivityResponse.place (id, provider, name, address, lat, lng, category),
         ActivityMapper dùng PlaceMapper (injectionStrategy = CONSTRUCTOR — bẫy Task 2.2),
-        cả 3 truy vấn activity nạp kèm place (JOIN FETCH / @EntityGraph);
-        placeId không tồn tại, hoặc là địa điểm MANUAL của người khác → cùng một lỗi (không lộ địa điểm riêng);
+        cả 3 truy vấn hiển thị activity nạp kèm place (JOIN FETCH / @EntityGraph);
+        placeId không tồn tại, hoặc là địa điểm MANUAL của người khác → cùng một lỗi 400 ở field placeId;
         test: số câu SQL của GET /trips/{id} vẫn 4, GET .../activities vẫn 4, reorder vẫn 6
 
 Mốc 4 — feat(activity): change or remove the place of an activity
         UpdateActivityRequest: placeId (đổi), clearPlace: true (bỏ); gửi cả hai → 400; null = giữ nguyên;
-        version tăng (địa điểm là nội dung); test
+        version tăng (địa điểm là nội dung); sửa mô tả Swagger còn ghi "nằm cuối ngày" (ghi nợ Task 2.7); test
 
 Mốc 5 — test(activity): add activity place flow integration test
+        cả ứng dụng thật: tìm → chọn → gắn → xem chi tiết chuyến đi → đổi → bỏ; đếm câu SQL
 ```
 
-**Nhớ:** Mốc 3 là mốc lớn nhất của phase: 5 chỗ chuyển `Activity → ActivityResponse` (list, create, update, reorder, trip detail) và khoảng 20 chỗ `new CreateActivityRequest(...)` / `new ActivityResponse(...)` trong test phải thêm tham số. Khi đụng `ActivityController`, sửa luôn mô tả Swagger còn ghi "nằm cuối ngày" (ghi nợ Task 2.7).
+> **Quyết định khi duyệt bảng commit 3.2 (2026-10-01)** — chi tiết ở design.md 5.2 `places`, 10.2 "Quy ước Place API" và "Địa điểm của activity", rule 14.18, 14.19:
+> - `placeId` sai (không tồn tại, hoặc `MANUAL` của người khác) → **400 `VALIDATION_ERROR` ở field `placeId`**, "Địa điểm không tồn tại", không phải 404: đây là lỗi của một ô trong form.
+> - Địa điểm tự thêm **không gộp theo tên**; `category` không bắt buộc, có gửi thì thuộc 6 loại hoạt động.
+> - Địa điểm không còn activity nào dùng **không bị dọn** ở task này.
+> - Người được chia sẻ quyền sửa (Phase 4) **không** gắn được địa điểm `MANUAL` của chủ chuyến đi sang activity khác; họ vẫn thấy nó và sửa được activity. Xét lại ở Task 4.2.
+> - `POST /places` luôn trả 200 (lưu mới hay đã có đều như nhau với người gọi).
+>
+> **Ý tưởng để sau (chưa gán task):** dọn địa điểm `MANUAL` không còn ai dùng; ô "đã làm" cho từng activity (design rule 14.22); hạn mức gói miễn phí chỉ tính chuyến đi chưa hoàn thành (xét ở Task 6.1 cùng rule 14.9).
+
+**Nhớ:** Mốc 3 là mốc lớn nhất của phase: 5 chỗ chuyển `Activity → ActivityResponse` (list, create, update, reorder, trip detail) và khoảng 20 chỗ `new CreateActivityRequest(...)` / `new ActivityResponse(...)` trong test phải thêm tham số. Thấy quá lớn cho một commit thì báo trước khi tách, không âm thầm gộp hay tách.
 
 ---
 
@@ -1270,6 +1288,7 @@ Mốc 1 — feat(weather): add trip forecast endpoint with mock weather provider
 
 Mốc 2 — feat(weather): limit the forecast to the next sixteen days
         bean Clock (config), WeatherService chỉ hỏi provider các ngày trong [hôm nay, hôm nay + 15];
+        "hôm nay" theo múi giờ của tài khoản đang đăng nhập (users.timezone, mặc định Asia/Ho_Chi_Minh — rule 14.22);
         ngày đã qua hoặc xa hơn → phần tử không có dự báo ("chưa có dự báo");
         test biên với Clock cố định: ngày thứ 16 có, ngày thứ 17 không, chuyến đi nằm trọn ngoài khoảng → không gọi provider
 
@@ -1362,7 +1381,7 @@ Mốc 6 — feat(frontend): pick the trip destination from place search
 
 ---
 
-### Task 3.7 — Giao diện: thời tiết và quãng đường
+### Task 3.7 — Giao diện: thời tiết, quãng đường, ngày đã qua
 
 Nhánh: `feat/T3.7-weather-route-ui` · Điều kiện commit như 3.6.
 
@@ -1377,7 +1396,19 @@ Mốc 2 — feat(frontend): flag outdoor activities on rainy days
 Mốc 3 — feat(frontend): show travel distance between activities
         api/routes.ts, đoạn nối "25 phút · 8,4 km" giữa hai thẻ liền nhau cùng có địa điểm (nằm trong từng hàng,
         ẩn khi đang kéo); tải lại sau khi kéo thả, đổi hoặc bỏ địa điểm
+
+Mốc 4 — feat(frontend): mark past days and today on the trip page
+        (design rule 14.22) lib tính "hôm nay" theo múi giờ của tài khoản; ngày đã qua nhạt hơn + nhãn "Đã qua",
+        ngày hôm nay có nhãn "Hôm nay"; mở chuyến đi đang diễn ra thì vào ngày hôm nay thay vì Ngày 1.
+        Vị trí và kiểu nhãn: hỏi chủ dự án trước khi code
+
+Mốc 5 — feat(frontend): ask to complete a trip after its last day
+        mở chuyến đi đã qua ngày cuối, trạng thái còn DRAFT / PLANNED / ONGOING → hộp xác nhận;
+        "Hoàn thành" → PATCH /trips/{id}/status sang COMPLETED; "Để sau" → không hỏi lại tới lần đăng nhập sau;
+        không khoá gì: lịch trình vẫn sửa được
 ```
+
+> Mốc 4 và 5 thêm ngày 2026-10-01 khi thảo luận "hoạt động đã qua ngày thì xử lý thế nào". Không cần backend mới: dùng `timezone` trong `GET /users/me` và endpoint đổi trạng thái đã có.
 
 ---
 
@@ -1447,6 +1478,7 @@ Nhánh: `feat/T4.2-permission-evaluator`
 2. Cache kết quả vào Redis TTL 5 phút, key perm:{userId}:{tripId}
 3. Evict cache khi thay đổi member
 4. Rà @PreAuthorize ở TOÀN BỘ endpoint (trip/day/activity đã có từ Phase 2), bổ sung cho member/share/comment/expense
+   (từ Task 3.2: xét lại quy tắc "địa điểm MANUAL chỉ người tạo gắn được" khi chuyến đi có EDITOR — design rule 14.19)
 5. test ĐẦY ĐỦ MA TRẬN: với từng vai trò (OWNER/EDITOR/VIEWER/người lạ) × từng hành động
 ```
 
@@ -1830,7 +1862,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.4 Redis cache | ☐ | |
 | 3 | 3.5 Quãng đường trong ngày | ☐ | |
 | 3 | 3.6 UI: địa điểm + bản đồ | ☐ | |
-| 3 | 3.7 UI: thời tiết + quãng đường | ☐ | |
+| 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☐ | |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
 | 4 | 4.1 Trip members | ☐ | |
 | 4 | 4.2 Permission evaluator | ☐ | |

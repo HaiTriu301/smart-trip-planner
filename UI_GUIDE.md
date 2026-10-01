@@ -437,6 +437,11 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 
 **Phase 3:** cột phải 420px: bản đồ dính khi cuộn, dải thời tiết bên dưới.
 
+**Task 3.7 (chốt 2026-10-01, `design.md` rule 14.22) — chưa làm:**
+- Ngày đã qua hiện nhạt hơn và có nhãn "Đã qua"; ngày hôm nay có nhãn "Hôm nay". Mở một chuyến đi đang diễn ra thì vào thẳng ngày hôm nay thay vì Ngày 1. "Hôm nay" tính theo múi giờ của tài khoản (hiện là giờ Việt Nam).
+- Mở một chuyến đi đã qua ngày cuối mà trạng thái còn là Nháp, Đã lên kế hoạch hoặc Đang diễn ra: hộp xác nhận hỏi đã hoàn thành chưa. "Hoàn thành" đổi trạng thái sang Hoàn thành; "Để sau" thì không hỏi lại tới lần đăng nhập sau. Lịch trình vẫn sửa được sau khi hoàn thành.
+- Vị trí và kiểu của nhãn, câu chữ của hộp xác nhận: chốt với chủ dự án ở đầu Task 3.7, trước khi code.
+
 **Màn hình hẹp:**
 
 | Bề rộng | Bố cục |
