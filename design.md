@@ -339,6 +339,7 @@ Index: `UNIQUE uk_users_email(email)` (UNIQUE key đã là index nên kiêm luô
 | token_hash | CHAR(64) | SHA-256 hex, **không lưu token thô** |
 | expires_at | DATETIME | |
 | revoked_at | DATETIME | nullable |
+| revoked_reason | ENUM | nullable. `ROTATED`, `LOGOUT`, `PASSWORD_RESET`, `BLOCKED`, `EXPIRED`, `REUSE_DETECTED`. Thêm ở V8 (Task 2.7): ghi **vì sao** token bị thu hồi, để phân biệt token đã xoay vòng với token bị thu hồi vì lý do khác (mục 6.1). Dòng đã thu hồi trước V8 để `NULL` và được xử lý như `ROTATED` |
 | user_agent | VARCHAR(255) | nullable, cắt ngắn nếu dài hơn |
 | ip_address | VARCHAR(45) | nullable, đủ cho IPv6 |
 | created_at / updated_at | DATETIME | từ BaseEntity |
@@ -479,11 +480,22 @@ UNIQUE `(trip_id, user_id)`, UNIQUE `(trip_id, invited_email)`
 | TTL | 15 phút | 7 ngày |
 | Lưu ở client | memory (Zustand) | httpOnly cookie |
 | Lưu ở server | không | hash SHA-256 trong DB |
-| Revoke | không (TTL ngắn) | có, qua `revoked_at` |
+| Revoke | không (TTL ngắn) | có, qua `revoked_at` + `revoked_reason` |
 
 Claims: `sub` (userId), `email`, `role`, `plan`, `iat`, `exp`, `jti`.
 
-**Rotation:** mỗi lần gọi `/auth/refresh` → revoke token cũ, phát token mới. Nếu nhận refresh token đã bị revoke → coi là token theft, revoke **toàn bộ** token của user đó.
+**Rotation:** mỗi lần gọi `/auth/refresh` thành công → revoke token cũ với lý do `ROTATED`, phát token mới.
+
+**Refresh token không còn dùng được bị gửi lại** (chốt 2026-10-01, Task 2.7), kiểm theo thứ tự:
+1. Không có cookie, hoặc token không có trong DB → 401.
+2. Token đã **hết hạn** → 401; nếu chưa bị thu hồi thì đánh dấu `EXPIRED`. Không đụng tới phiên khác: kiểm hết hạn **trước** để một token cũ không thể dùng làm "nút tắt mọi phiên" lâu hơn 7 ngày.
+3. Token đã bị thu hồi do **xoay vòng** (`ROTATED`, hoặc dòng cũ chưa có lý do) → coi là token theft: revoke **toàn bộ** token đang sống của user với lý do `REUSE_DETECTED`, trả 401. Token đã xoay chỉ còn nằm ở bản sao bị đánh cắp hoặc ở một client chạy sai.
+4. Token bị thu hồi vì lý do khác (`LOGOUT`, `PASSWORD_RESET`, `BLOCKED`, `EXPIRED`, `REUSE_DETECTED`) → **chỉ** 401. Đây là thiết bị cũ còn giữ cookie sau khi người dùng đăng xuất hoặc đặt lại mật khẩu ở nơi khác, không phải dấu hiệu trộm.
+5. Token còn sống nhưng tài khoản `BLOCKED` → revoke toàn bộ (`BLOCKED`), 403 `ACCOUNT_BLOCKED`.
+
+Mọi lần refresh thất bại, response kèm `Set-Cookie` xoá `refresh_token` (`Max-Age=0`) để trình duyệt thôi gửi lại token chết.
+
+> Trước Task 2.7, mọi token đã revoke bị gửi lại đều bị coi là theft. Hệ quả (BUG-AUTH-006): đặt lại mật khẩu ở máy A (rule 14.16 revoke mọi token), máy B còn cookie cũ mở trang → phiên mới của A bị thu hồi, lặp lại mỗi lần B tải trang.
 
 **Cookie refresh token** (chốt Task 1.3): tên `refresh_token`, `HttpOnly`, `SameSite=Lax` (chặn site khác POST kèm cookie, thay cho CSRF token đã tắt), `Path=/api/v1/auth` (chỉ gửi kèm khi gọi refresh/logout), `Max-Age` = TTL refresh, `Secure` khi profile `prod`. Token thô chỉ tồn tại trong cookie; DB giữ SHA-256.
 
@@ -723,7 +735,7 @@ Lỗi (`ErrorResponse`):
 > - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
 > - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
 > - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 1000 ký tự (5000 trước Task 2.5); `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
-> - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`. Từ Task 2.6 có `activityCount` (tổng activity của cả trip, cho thẻ "N ngày · M hoạt động"), đếm bằng **một** câu `GROUP BY` cho cả trang: danh sách luôn tốn 2 câu SQL (trip + số activity), trang rỗng thì không đếm (chốt 2026-10-01).
+> - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`. Từ Task 2.6 có `activityCount` (tổng activity của cả trip, cho thẻ "N ngày · M hoạt động"), đếm bằng **một** câu `GROUP BY` cho cả trang: danh sách tốn 2 câu SQL (trip + số activity) khi trang chưa đầy; trang **đầy** (số dòng = `size`) có thêm câu `COUNT` của phân trang để tính tổng số trang, tức 3 câu; trang rỗng thì không đếm activity (chốt 2026-10-01, sửa câu chữ sau rà soát Task 2.7).
 > - `GET /status-counts?q=` (Task 2.6): `data = { total, counts }`, `counts` có **đủ 5 trạng thái** theo thứ tự khai báo, trạng thái không có trip nào là 0; `total` = mọi trip khớp `q`. Dùng **cùng điều kiện** với danh sách (chủ sở hữu, chưa xoá, `q`), không áp `status` / `from` / `to`, để chip "Tất cả" và từng chip luôn khớp với kết quả khi bấm. `q` > 200 ký tự → 400.
 > - `GET /{id}` trả **`TripDetailResponse`** = các field của `TripResponse` + `days` (thêm ở Task 2.2; `activities` trong từng ngày ở Task 2.3). `POST` / `PATCH /{id}` vẫn trả `TripResponse` gọn để thao tác ghi không phải nạp danh sách ngày (chốt 2026-09-27).
 > - Từ Task 2.3, mỗi phần tử của `days` trong `TripDetailResponse` là **`TripDayDetailResponse`** = các field của `TripDayResponse` + `activities` (sắp theo `orderIndex`). `GET /days` và `PATCH /days/{dayId}` vẫn trả `TripDayResponse` gọn, không kèm activity. `GET /{id}` tốn **4 câu SQL** bất kể số ngày và số activity: quyền + trip + ngày + activity của cả trip (chốt 2026-09-29).
@@ -821,7 +833,7 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 |---|---|---|
 | `VALIDATION_ERROR` | 400 | Input sai |
 | `INVALID_TOKEN` | 400 | Token verify-email / reset-password sai, hết hạn, đã dùng hoặc sai loại. Một mã chung, không nói rõ lý do |
-| `UNAUTHORIZED` | 401 | Thiếu/hết hạn token |
+| `UNAUTHORIZED` | 401 | Thiếu access token hoặc token sai (sai chữ ký, sai định dạng); refresh token không còn dùng được. Access token hết hạn dùng `TOKEN_EXPIRED` |
 | `TOKEN_EXPIRED` | 401 | Access token hết hạn (client tự refresh) |
 | `INVALID_CREDENTIALS` | 401 | Sai email hoặc mật khẩu khi login. Một message chung, không nói rõ cái nào sai |
 | `FORBIDDEN` | 403 | Không đủ quyền trên resource |
@@ -829,6 +841,8 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | `ACCOUNT_BLOCKED` | 403 | Login khi `status = BLOCKED` |
 | `RESOURCE_NOT_FOUND` | 404 | Không có resource, hoặc URL không tồn tại |
 | `METHOD_NOT_ALLOWED` | 405 | Sai HTTP method (ví dụ `POST` vào endpoint chỉ có `GET`) |
+| `NOT_ACCEPTABLE` | 406 | Client đòi kiểu dữ liệu trả về mà API không có (header `Accept` không nhận JSON) — Task 2.7 |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | Body gửi lên sai `Content-Type` (API chỉ nhận `application/json`) — Task 2.7 |
 | `EMAIL_ALREADY_EXISTS` | 409 | |
 | `ACTIVITY_TIME_CONFLICT` | 409 | Trùng giờ trong cùng ngày. Client hỏi lại người dùng rồi gửi lại kèm `allowOverlap=true` |
 | `TRIP_DAY_HAS_ACTIVITIES` | 409 | Đổi ngày của trip làm cắt ngày đang có activity (rule 14.3). Client hỏi lại người dùng rồi gửi lại kèm `force=true` |
@@ -852,8 +866,13 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | `MethodArgumentTypeMismatchException` (`/trips/abc` khi cần số) | `VALIDATION_ERROR` | 400 |
 | `NoResourceFoundException` (URL không tồn tại) | `RESOURCE_NOT_FOUND` | 404 |
 | `HttpRequestMethodNotSupportedException` | `METHOD_NOT_ALLOWED` | 405 |
+| `HttpMediaTypeNotSupportedException` (sai `Content-Type`) | `UNSUPPORTED_MEDIA_TYPE` | 415 |
+| `HttpMediaTypeNotAcceptableException` (`Accept` không nhận JSON) | `NOT_ACCEPTABLE` | 406 |
+| `MissingServletRequestParameterException` (thiếu `@RequestParam` bắt buộc) | `VALIDATION_ERROR` + `details` ở tên tham số | 400 |
 | `AccessDeniedException` (Spring Security — thêm khi bật Security ở Task 1.2) | `FORBIDDEN` | 403 |
 | `Exception` | `INTERNAL_ERROR` | 500 |
+
+Mọi `ErrorResponse` được ghi với `Content-Type: application/json` **đặt sẵn**, không qua thương lượng theo header `Accept` (Task 2.7). Nếu không, một request có `Accept` không nhận JSON làm chính việc ghi lỗi thất bại, container chuyển sang `/error` và client nhận 401 sai nghĩa (BUG-PLAT-003).
 
 ---
 
@@ -953,7 +972,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 13. **Mật khẩu** (chốt Task 1.2): dài 8–72 ký tự, có ít nhất 1 chữ hoa, 1 chữ thường, 1 chữ số; chỉ gồm ký tự ASCII in được (`\x21`–`\x7E`, cho phép ký tự đặc biệt, không khoảng trắng). Giới hạn 72 vì BCrypt chỉ dùng 72 byte đầu; giới hạn ASCII để 72 ký tự luôn ≤ 72 byte. Regex: `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[\x21-\x7E]+$` + `@Size(min=8,max=72)`. Áp dụng cho đăng ký, đổi mật khẩu, đặt lại mật khẩu. Request có mật khẩu mới phải kèm `confirmPassword` bằng đúng `password` (class-level constraint `@PasswordConfirmed`, lỗi báo trên field `confirmPassword`); `confirmPassword` chỉ để kiểm tra, **không** lưu, không hash.
 14. **Email** chuẩn hoá `trim().toLowerCase()` trước khi kiểm tra trùng và lưu (entity `@PrePersist` + service). Trùng email → 409 `EMAIL_ALREADY_EXISTS`; race giữa `existsByEmail` và `INSERT` được UNIQUE index bắt và dịch sang cùng mã lỗi.
 15. **Chống dò email**: các endpoint nhận `{email}` mà không cần đăng nhập (`resend-verification`, `forgot-password`) luôn trả 200 với cùng message dù email có tồn tại hay không, có verify hay chưa, có bị BLOCKED hay không. Lý do thật chỉ ghi log. Rate limit theo IP ở Phase 8.
-16. **Token một lần**: token verify/reset được hash SHA-256 khi lưu, có TTL (24h / 1h), dùng xong đánh dấu `used_at`; phát token mới vô hiệu token cũ cùng loại. Đổi mật khẩu thành công (reset hoặc đổi trong settings) → `revokeAll` refresh token của user để mọi thiết bị khác phải đăng nhập lại.
+16. **Token một lần**: token verify/reset được hash SHA-256 khi lưu, có TTL (24h / 1h), dùng xong đánh dấu `used_at`; phát token mới vô hiệu token cũ cùng loại. Đổi mật khẩu thành công (reset hoặc đổi trong settings) → `revokeAll` refresh token của user (lý do `PASSWORD_RESET`, mục 6.1) để mọi thiết bị khác phải đăng nhập lại.
 17. **Gửi mail không chặn request**: mọi mail đi qua `MailService` (`@Async`), lỗi SMTP được log qua `AsyncUncaughtExceptionHandler`, không làm request thất bại. Đăng ký vẫn 201 dù mail lỗi; người dùng dùng `resend-verification` để nhận lại.
 
 ---
@@ -1041,7 +1060,7 @@ job deploy (chỉ main):
 
 | Profile | DB | Provider | Ghi chú |
 |---|---|---|---|
-| `local` | MySQL docker | tất cả `mock` | Không cần API key nào |
+| `local` | MySQL docker | tất cả `mock`, riêng `mail: smtp` → MailHog (mục 7.1) | Không cần API key nào |
 | `test` | Testcontainers | tất cả `mock` | |
 | `prod` | MySQL managed | osm / open-meteo / stripe / claude | Secret qua env |
 

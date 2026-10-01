@@ -1,6 +1,6 @@
 # Tài liệu kiểm thử — Smart Trip Planner
 
-> Cập nhật: 2026-10-01 · build backend xanh tại commit `8f06d72` (merge Task 2.6)
+> Cập nhật: 2026-10-01 · build backend xanh tại commit `ea4d7a9` (507 lượt test, chạy lại không dùng cache) · 9 lỗi đang mở sau rà soát Phase 1–2, sửa ở Task 2.7
 
 Thư mục này ghi lại **hệ thống phải làm gì, đã kiểm tra thế nào, kết quả ra sao**.
 Mỗi tính năng là một file. Người đọc không cần biết code.
@@ -52,7 +52,9 @@ Mã `TC-` là test tự động, máy chạy mỗi lần build. Mã `MT-` là te
 | Giao diện lịch trình | 0 | 41 | 0 | 0 | 41 | 2 |
 | **Tổng** | **356** | **72** | **386** | **0** | **42** | **17** |
 
-Dự án có 463 method test trong 41 class, chạy thành 491 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
+**Lỗi đang mở: 9.** Tìm ra khi đọc lại code Phase 1–2 ngày 2026-10-01, không phải do test đỏ: `BUG-PLAT-003` ([01](01-platform.md)), `BUG-AUTH-006`, `BUG-AUTH-007` ([02](02-auth.md)), `BUG-UI-003` đến `BUG-UI-008` ([06](06-itinerary-ui.md)). Cột "Lỗi" ở bảng trên đếm test case đang lỗi nên vẫn là 0: phần lớn các lỗi này chưa có test case, test case được thêm cùng lúc với bản sửa ở Task 2.7.
+
+Dự án có 478 method test trong 40 file test, chạy thành 507 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
 
 ## Chưa kiểm thử
 

@@ -1008,85 +1008,345 @@ Nhánh: `feat/T2.6-ui-guide` · **Task thêm ngoài kế hoạch** (2026-09-30):
 > 4. **`space-y-*` của Tailwind v4 cho phần tử con margin qua `:where()`** (độ ưu tiên 0): một phần tử cao 0 vẫn đẩy nội dung 16px. Phần tử `fixed` không bị ảnh hưởng vì nằm ngoài luồng.
 > 5. **Prettier không được cấu hình trong dự án:** chạy `npx prettier --write` định dạng lại cả file theo mặc định, diff phình to. Không chạy Prettier, sửa tay theo kiểu của file.
 
+### Task 2.7 — Sửa lỗi sau rà soát Phase 1–2
+
+Nhánh: `fix/T2.7-review-fixes` · **Task thêm ngoài kế hoạch** (2026-10-01): rà soát Phase 1–2 trước khi vào Phase 3 (507 lượt test xanh, `lint` + `build` xanh, không vi phạm quy tắc CLAUDE.md) vẫn ra 9 lỗi hành vi. Sửa trước Phase 3 vì Phase 3 xây đúng lên các chỗ này (endpoint có query param bắt buộc, hộp thoại hoạt động, trang chi tiết chuyến đi).
+
+Mỗi lỗi một commit, test đi cùng. Commit backend: `./gradlew build` xanh. Commit frontend: `npm run lint` + `npm run build` xanh và một bài `MT-UI` mới trong `docs/testing/06-itinerary-ui.md` (frontend chưa có test tự động).
+
+```
+Mốc 0 — docs (main, trước khi tạo nhánh)
+        design.md 6.1 (token đã thu hồi được gửi lại), 5.2 refresh_tokens (cột revoked_reason),
+        10.3 (mã 415, 406, thiếu tham số); ghi 9 lỗi vào docs/testing (BUG-..., trạng thái "Đang mở");
+        sửa các chỗ tài liệu lệch ở mục "Ghi nợ" bên dưới; chốt 3 quyết định của Phase 3 và thêm Task 3.8
+
+Mốc 1 — fix(api): return 4xx for unsupported media type and missing parameters
+        Hiện tượng (đã chạy thử trên backend local, BUG-PLAT-003): POST sai Content-Type → 500;
+        gọi endpoint công khai kèm Accept: text/xml → 401 UNAUTHORIZED với path "/error" (việc ghi lỗi JSON thất bại,
+        container chuyển sang /error, /error lại đòi đăng nhập); thiếu query param bắt buộc cũng sẽ → 500.
+        GlobalExceptionHandler: HttpMediaTypeNotSupportedException → 415 UNSUPPORTED_MEDIA_TYPE (mã mới),
+        HttpMediaTypeNotAcceptableException → 406 NOT_ACCEPTABLE (mã mới),
+        MissingServletRequestParameterException → 400 VALIDATION_ERROR, details ở tên tham số;
+        mọi ErrorResponse đặt sẵn Content-Type application/json (không thương lượng theo Accept);
+        ErrorCode, messages.properties, test từng trường hợp
+
+Mốc 2 — fix(auth): treat only rotated refresh tokens as theft
+        Hiện tượng: đặt lại mật khẩu ở máy A rồi đăng nhập lại; máy B còn cookie cũ mở app → mọi phiên mới của A
+        bị thu hồi, lặp lại mỗi lần B tải trang (token bị thu hồi vì reset / logout đang bị coi như token bị trộm).
+        V8__add_refresh_token_revoked_reason.sql (revoked_reason ENUM, nullable), model/enums/RevokedReason
+        (ROTATED, LOGOUT, PASSWORD_RESET, BLOCKED, EXPIRED, REUSE_DETECTED), RefreshToken.revoke(now, reason),
+        RefreshTokenService, RefreshTokenRepository, AuthServiceImpl.refresh:
+          hết hạn → 401 (kiểm trước, để token cũ không còn là "nút tắt mọi phiên" vô thời hạn);
+          đã thu hồi do ROTATED (hoặc dòng cũ chưa có lý do) → coi là trộm, thu hồi mọi phiên;
+          đã thu hồi do lý do khác → chỉ 401;
+        mọi lần refresh thất bại: response xoá cookie refresh_token (trình duyệt thôi gửi lại);
+        test tích hợp: reset ở A → B gửi cookie cũ → 401, phiên mới của A còn sống; dùng lại token đã xoay → vẫn
+        thu hồi mọi phiên
+
+Mốc 3 — fix(frontend): focus the first field when a dialog opens
+        Hiện tượng: mở "Thêm hoạt động" rồi gõ ngay → không vào chữ nào, con trỏ nằm ở nút "×" (cần chủ dự án thử
+        để xác nhận trước khi sửa). components/Modal.tsx
+
+Mốc 4 — fix(frontend): keep form dialogs open while saving
+        Hiện tượng: bấm Esc lúc đang lưu → hộp đóng, lỗi trùng giờ / lỗi validate trả về không ai thấy.
+        ActivityFormDialog.tsx, EditTripDialog.tsx (ConfirmDialog đã có chặn sẵn)
+
+Mốc 5 — fix(frontend): keep the trip page when a background refetch fails
+        Hiện tượng: đang mở trang chuyến đi, một lần tải lại ngầm lỗi → cả trang thành ô báo lỗi, form đang gõ mất.
+        pages/TripDetailPage.tsx: còn dữ liệu thì giữ trang + báo lỗi nhẹ, chỉ thay trang khi chưa có dữ liệu
+
+Mốc 6 — fix(frontend): do not retry requests the server rejected
+        Hiện tượng: mở chuyến đi không tồn tại → chờ ~7 giây mới thấy báo lỗi (4xx bị thử lại 3 lần).
+        lib/queryClient.ts (tách khỏi main.tsx): 4xx không thử lại, lỗi mạng / 5xx vẫn thử lại; main.tsx
+
+Mốc 7 — fix(frontend): keep the space typed in the trip search
+        Hiện tượng: gõ "đà " rồi ngừng 0,3 giây → dấu cách biến mất, gõ tiếp thành "đànẵng".
+        features/trips/TripSearchBox.tsx
+
+Mốc 8 — fix(frontend): ignore a drop on the day being viewed
+        Hiện tượng: kéo thẻ rồi thả lên chính ngày đang xem ở cột trái → thẻ nhảy xuống cuối ngày.
+        features/itinerary/DragDropContainer.tsx (đường menu "⋮" đã có kiểm này)
+
+Mốc 9 — fix(frontend): clear cached data when the session is dropped
+        Hiện tượng: phiên bị rớt, người khác đăng nhập cùng tab → thấy dữ liệu của người trước vài giây.
+        api/client.ts, lib/queryClient.ts
+```
+
+> **Ghi nợ từ lần rà soát, không sửa ở task này:**
+> - Hai lần refresh đúng cùng lúc đều thành công (rotation chưa nguyên tử; frontend đã chặn bằng khoá, chỉ kẻ tấn công mới gặp) → Task 8.1.
+> - Hai lần sửa cùng lúc trả 500 thay vì 409 `STALE_VERSION` → Task 5.3, làm cho **cả Trip lẫn Activity** (dòng mốc của 5.3 hiện chỉ ghi Activity).
+> - Danh sách chuyến đi sắp theo cột có giá trị trùng (`startDate`, `title`) phân trang không ổn định: thêm `id` làm khoá phụ; `?page=` vượt quá số trang hiện "Chưa có chuyến đi nào" → Task 8.3.
+> - `PATCH /trips/{id}` gửi `description: ""` lưu chuỗi rỗng thay vì `NULL` (design 10.2 ghi "chưa hỗ trợ xoá trắng") → chốt cùng quy ước xoá field ở Task 3.2 (`clearPlace`).
+> - Vùng chạm dưới 44px trên điện thoại (nút "⋮" 28px, chip ngày 36px) → Task 3.6 khi sửa trang chi tiết.
+> - Tài liệu lệch, **đã sửa** trong commit docs Mốc 0: `docs/testing/README.md` ghi 491 lượt (thật là 507); design 10.2 ghi danh sách "luôn 2 câu SQL" (trang đầy là 3: có thêm câu đếm); design 10.3 ghi `UNAUTHORIZED` là "thiếu/hết hạn" (hết hạn là `TOKEN_EXPIRED`); design 17.3 ghi local "tất cả mock" (mail là `smtp`).
+> - Tài liệu lệch, **chưa sửa**: Swagger của `POST` / `PATCH` activity còn ghi "nằm cuối ngày" / "không đổi thứ tự" (trước "Xếp theo giờ" của Task 2.6) → sửa trong code ở Task 3.2 khi đụng `ActivityController`. UI_GUIDE 7.0 "một nút chính mỗi màn" mâu thuẫn với màn rỗng của danh sách (15.2 D: nút ở đầu trang và nút trong khung rỗng đều là nút chính) → chờ chủ dự án chọn, rồi sửa UI_GUIDE và code ở Task 3.6.
+
 > ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26). Trước khi sang Phase 3: rà lại Phase 3 theo quy ước A.2 "Rà soát theo phase".
 
 ---
 
 ## PHASE 3 — Place, Map, Weather (provider mock)
 
-> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
+> **Đã rà theo quy ước A.2 "Chia commit" (2026-10-01):** 4 task kiểu cũ → 7 task, mỗi mốc là một lát cắt dọc. Bảng file chi tiết Claude đưa ra đầu từng task để duyệt.
+> **Chưa xong phần tài liệu:** `design.md` (5.2 `places`, 7.2, 8.1, 10.2 Place / Weather / route, 15) và `UI_GUIDE.md` (14, 15.3 còn ghi "Task 3.4") cập nhật trong commit docs đầu Task 3.1 (Mốc 0), cùng lúc chốt các điểm ❓ còn lại bên dưới.
 
-Đọc trước: **design.md mục 7 (Provider Abstraction) và mục 8 (Cache)**
+Đọc trước: **design.md mục 7 (Provider Abstraction), 8 (Cache), 10.2 (Place, Weather, `route`), 5.2 (`places`, `activities.place_id`)**; task giao diện đọc thêm **UI_GUIDE.md 8.1, 9, 11, 15.3**.
 
-### Task 3.1 — Tầng provider + mock data
+> **Vì sao đổi thứ tự (so với bản cũ):**
+> - Task 3.1 cũ tạo provider mà chưa endpoint nào dùng (trái A.2 điểm 3). Nay provider đi cùng endpoint đầu tiên dùng nó.
+> - Task 3.3 cũ đặt cache lên `WeatherService`, nhưng service này tới 3.4 cũ mới có. Nay cache đứng sau cả tìm địa điểm lẫn thời tiết.
+> - `GET /days/{dayId}/route` có trong design 10.2 và UI_GUIDE 15.3 nhưng không có task → Task 3.5.
+> - Task 3.4 cũ gộp weather backend với toàn bộ giao diện → tách thành 3.3 (backend), 3.6 và 3.7 (giao diện).
+>
+> **Bốn thứ khác nhau, đừng lẫn:**
+> | Thứ | Lấy từ đâu ở Phase 3 | Qua backend? |
+> |---|---|---|
+> | Hình bản đồ (tile) | Máy chủ tile thật (CartoDB Positron), trình duyệt tự tải bằng Leaflet | Không |
+> | Tìm địa điểm (tên → toạ độ) | `MapProvider` mock: `resources/mock/places.json` | Có |
+> | Quãng đường giữa hai điểm | `MapProvider` mock: đường chim bay × hệ số | Có |
+> | Dự báo thời tiết | `WeatherProvider` mock: số sinh từ seed, ổn định | Có |
+>
+> **Quyết định dùng để chia mốc (2026-10-01; ✔ = chủ dự án đã chốt, ❓ = đề xuất, chốt ở bảng commit Task 3.1):**
+> 1. Chọn một kết quả tìm kiếm → `POST /places` `{provider, externalId}`; server **tự tra lại provider** rồi lưu snapshot, trả `id`. Không tin tên / toạ độ client gửi, vì snapshot dùng chung giữa các người dùng (`UNIQUE (provider, external_id)`). Activity chỉ nhận `placeId`. ❓
+> 2. Bỏ địa điểm khỏi activity: `clearPlace: true` trong `PATCH` (`placeId` là số, không có `""` như field văn bản). ❓
+> 3. Địa điểm tự thêm (`MANUAL`) có `created_by`, chỉ người tạo gắn được vào activity; người khác thấy nó qua chuyến đi họ được xem. Hoãn `GET /places/{id}` và `GET /weather/forecast` (chưa màn nào dùng). ❓
+> 4. Thời tiết lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau); chưa có toạ độ → 200 kèm trạng thái "chưa có điểm đến", không phải lỗi. Dự báo chỉ có cho **16 ngày tới** (giới hạn của dịch vụ dự báo thật): quy tắc nằm ở service nên mock cũng tuân theo; ngày đã qua hoặc xa hơn trả "chưa có dự báo". ✔
+> 5. Cảnh báo ngoài trời: ngày có xác suất mưa ≥ 60% **và** có activity loại `SIGHTSEEING` → cảnh báo cấp ngày kèm danh sách activity. ❓
+> 6. Bỏ cache `trip:detail` (design 8.1): `GET /trips/{id}` đã chỉ 4 câu SQL, trong khi phải xoá cache ở 8 chỗ ghi và dễ ra dữ liệu cũ khi làm realtime (Phase 5). ❓
+> 7. Dữ liệu mock: ~120 địa điểm tự soạn ở ~10 điểm đến (design ghi ~200). ❓
+> 8. Test có Redis: thêm container Redis vào `TestcontainersConfiguration`; `@DataJpaTest` / `@WebMvcTest` không nạp cache nên không đổi. ❓
+> 9. Provider thật (Photon / Nominatim, OSRM, Open-Meteo) + Resilience4j: **Task 3.8**, ngay sau 3.7 (không đợi Phase 8). Mặc định mọi profile vẫn `mock`; bản thật bật bằng cấu hình. Port ở 3.1 / 3.3 / 3.5 thiết kế theo hình dạng dữ liệu của API thật để tới 3.8 không phải sửa service. ✔
+>
+> **Phụ thuộc:** Task 2.7 Mốc 1 xong trước 3.1 (`/places/search?q=` là endpoint đầu tiên có query param bắt buộc; thiếu `q` phải ra 400, không phải 500). Số migration bên dưới tính theo V8 của Task 2.7; kiểm số lớn nhất trước khi tạo file (CLAUDE.md rule 7).
 
-Nhánh: `feat/T3.1-provider-abstraction`
+### Task 3.1 — Tìm địa điểm
+
+Nhánh: `feat/T3.1-place-search` · Test ghi vào `docs/testing/07-place.md` (file mới).
 
 ```
-1. provider/map/MapProvider.java            interface
-2. provider/map/dto/PlaceResult.java, Coordinate.java
-3. resources/mock/places.json               ~200 địa điểm VN tự soạn hoặc lấy từ OSM export
-4. provider/map/MockMapProvider.java        @ConditionalOnProperty
-5. provider/weather/WeatherProvider.java + MockWeatherProvider.java
-6. application-local.yml: app.providers.map=mock, weather=mock
-7. test: MockWeatherProvider trả kết quả ỔN ĐỊNH với cùng input (dùng seed)
+Mốc 0 — docs (main): cập nhật design.md + UI_GUIDE.md theo các quyết định đã chốt của Phase 3
+
+Mốc 1 — feat(place): add place search endpoint with mock map provider
+        provider/map/MapProvider (chỉ search(query, limit)), provider/map/dto/PlaceResult
+        (provider, externalId, name, address, lat, lng, category),
+        provider/map/MockMapProvider (@ConditionalOnProperty app.providers.map=mock, nạp resources/mock/places.json
+        lúc khởi động; so khớp không dấu, không phân biệt hoa thường, trên tên và địa chỉ),
+        places.json bản đầu (~25 địa điểm ở Đà Nẵng và Hà Nội),
+        dto/response/PlaceResultResponse, service/PlaceService.search, controller/PlaceController
+        GET /places/search?q=&limit= (Auth; q 2–100 ký tự sau khi trim, limit 1–20, mặc định 8);
+        test: "linh ung" ra "Chùa Linh Ứng"; cùng input → cùng kết quả cùng thứ tự; 401; q thiếu / quá ngắn → 400
+
+Mốc 2 — feat(place): rank search results near a coordinate
+        lat / lng tuỳ chọn (có đủ cả hai hoặc bỏ cả hai → nếu không, 400); kết quả khớp xếp gần trước
+        (giao diện gửi toạ độ điểm đến của chuyến đi: tìm "chợ" trong chuyến Đà Nẵng ra chợ ở Đà Nẵng trước);
+        test: cùng từ khoá, khác toạ độ → khác thứ tự
+
+Mốc 3 — feat(place): extend mock places to ten destinations
+        places.json ~120 địa điểm; test dữ liệu: externalId không trùng, toạ độ nằm trong Việt Nam,
+        category hợp lệ, không thiếu tên. Chủ dự án xem lướt toạ độ vài địa điểm trên bản đồ thật.
+
+Mốc 4 — test(place): add place search flow integration test
+        đăng nhập → tìm → kết quả; MockMapProvider là bean duy nhất của MapProvider ở profile test và local
 ```
 
-**Vì sao mock phải deterministic:** để test integration không bị đỏ ngẫu nhiên.
-
-**Commit:** `feat(provider): add map and weather provider abstraction with mock impl`
+**Nhớ:** `category` của mock dùng đúng 6 tên của `ActivityType` để form gợi ý sẵn loại hoạt động. Bỏ dấu tiếng Việt: dùng lại cách của `SlugGenerator` (tách thành hàm dùng chung bằng commit `refactor` đứng trước Mốc 1 nếu cần).
 
 ---
 
-### Task 3.2 — Place: search, snapshot, gắn vào activity
+### Task 3.2 — Gắn địa điểm vào hoạt động
 
-Nhánh: `feat/T3.2-place-service`
+Nhánh: `feat/T3.2-activity-place` · Test: `07-place.md`, `05-activity.md`.
 
 ```
-1. model/Place.java + V8__create_places.sql + repository (unique provider+externalId)
-2. service/PlaceService: search (gọi provider), getOrCreateSnapshot()
-3. Activity thêm quan hệ tới Place
-4. controller/PlaceController: GET /places/search, POST /places/manual
+Mốc 1 — feat(place): save a chosen search result as a place
+        V9__create_places.sql + model/Place + model/enums/PlaceProvider (migration và entity cùng commit),
+        PlaceRepository (UNIQUE (provider, external_id)), MapProvider.lookup(externalId),
+        PlaceService.getOrCreate (đã có → trả lại, không tạo dòng thứ hai; hai request cùng lúc → UNIQUE bắt,
+        đọc lại), dto/request/SavePlaceRequest, dto/response/PlaceResponse, PlaceMapper,
+        POST /places {provider, externalId} (Auth); externalId lạ → 404;
+        test: gọi hai lần → một dòng, cùng id; mapping entity ↔ migration
+
+Mốc 2 — feat(place): add manual place endpoint
+        POST /places/manual {name, address, lat, lng, category} → provider MANUAL, created_by = người đang đăng nhập
+        (không nhận từ body, rule 16); test happy + validate toạ độ + 401
+
+Mốc 3 — feat(activity): attach a place when creating an activity
+        V10__add_place_to_activities.sql (place_id nullable + FK, không CASCADE), Activity.place (LAZY),
+        CreateActivityRequest.placeId, ActivityResponse.place (id, name, address, lat, lng, category),
+        ActivityMapper dùng PlaceMapper (injectionStrategy = CONSTRUCTOR — bẫy Task 2.2),
+        cả 3 truy vấn activity nạp kèm place (JOIN FETCH / @EntityGraph);
+        placeId không tồn tại, hoặc là địa điểm MANUAL của người khác → cùng một lỗi (không lộ địa điểm riêng);
+        test: số câu SQL của GET /trips/{id} vẫn 4, GET .../activities vẫn 4, reorder vẫn 6
+
+Mốc 4 — feat(activity): change or remove the place of an activity
+        UpdateActivityRequest: placeId (đổi), clearPlace: true (bỏ); gửi cả hai → 400; null = giữ nguyên;
+        version tăng (địa điểm là nội dung); test
+
+Mốc 5 — test(activity): add activity place flow integration test
 ```
 
-> **Từ Task 2.3 (2026-09-29):** bảng `activities` (V7) **chưa có cột `place_id`**. Bước 3 phải kèm migration `ALTER TABLE activities ADD COLUMN place_id ... + FK → places` (cùng file hoặc ngay sau migration tạo `places`), thêm `placeId` vào request / response của activity.
-
-**Commit:** `feat(place): add place search and snapshot persistence`
+**Nhớ:** Mốc 3 là mốc lớn nhất của phase: 5 chỗ chuyển `Activity → ActivityResponse` (list, create, update, reorder, trip detail) và khoảng 20 chỗ `new CreateActivityRequest(...)` / `new ActivityResponse(...)` trong test phải thêm tham số. Khi đụng `ActivityController`, sửa luôn mô tả Swagger còn ghi "nằm cuối ngày" (ghi nợ Task 2.7).
 
 ---
 
-### Task 3.3 — Redis cache
+### Task 3.3 — Thời tiết của chuyến đi
 
-Nhánh: `feat/T3.3-redis-cache`
+Nhánh: `feat/T3.3-trip-weather` · Test: `docs/testing/08-weather.md` (file mới).
 
 ```
-1. thêm dependency spring-boot-starter-data-redis
-2. config/RedisConfig.java, config/CacheConfig.java   TTL theo từng cache name
-3. common/constant/CacheNames.java
-4. @Cacheable trên PlaceService.search, WeatherService.forecast
-5. @CacheEvict khi cập nhật trip
-6. test: gọi search 2 lần → provider chỉ được gọi 1 lần (verify bằng Mockito)
+Mốc 1 — feat(weather): add trip forecast endpoint with mock weather provider
+        provider/weather/WeatherProvider.forecast(lat, lng, from, to), provider/weather/dto/DailyForecast
+        (date, condition, tempMin, tempMax, precipitationProbability), MockWeatherProvider
+        (seed = hash(lat, lng làm tròn 4 chữ số, date) → cùng input luôn ra cùng kết quả),
+        service/WeatherService.forTrip, dto/response/TripWeatherResponse (mỗi ngày của chuyến đi một phần tử),
+        controller/WeatherController GET /weather/trips/{tripId} (@PreAuthorize canView);
+        chuyến đi chưa có toạ độ điểm đến → 200, trạng thái NO_DESTINATION, không có dự báo;
+        test: happy, 403 người lạ, 404 trip đã xoá, mock ổn định
+
+Mốc 2 — feat(weather): limit the forecast to the next sixteen days
+        bean Clock (config), WeatherService chỉ hỏi provider các ngày trong [hôm nay, hôm nay + 15];
+        ngày đã qua hoặc xa hơn → phần tử không có dự báo ("chưa có dự báo");
+        test biên với Clock cố định: ngày thứ 16 có, ngày thứ 17 không, chuyến đi nằm trọn ngoài khoảng → không gọi provider
+
+Mốc 3 — feat(weather): warn about outdoor activities on rainy days
+        ngày có precipitationProbability ≥ 60 và có activity loại SIGHTSEEING → warning kèm activityIds;
+        test biên 59 / 60; ngày mưa không có activity ngoài trời → không cảnh báo
+
+Mốc 4 — test(weather): add trip weather flow integration test (kèm đếm số câu SQL)
 ```
 
-**Commit:**
+**Vì sao mock phải ổn định:** test tích hợp không được đỏ ngẫu nhiên (CLAUDE.md rule 24), và người dùng tải lại trang phải thấy cùng dự báo.
+
+---
+
+### Task 3.4 — Redis cache
+
+Nhánh: `feat/T3.4-redis-cache` · Test: thêm phần "cache" vào `07-place.md` và `08-weather.md`.
+
 ```
-feat(cache): add redis configuration and cache names
-feat(cache): cache place search and weather forecast
+Mốc 1 — feat(cache): cache place search in redis
+        dependency spring-boot-starter-data-redis + spring-boot-starter-cache (BOM quản version),
+        config/CacheConfig (@EnableCaching, TTL theo từng cache name, JSON bằng Jackson 3),
+        common/constant/CacheNames, application.yml spring.data.redis (REDIS_HOST / REDIS_PORT đã có trong .env),
+        TestcontainersConfiguration thêm container redis:7-alpine,
+        @Cacheable cho tìm địa điểm: khoá = từ khoá đã chuẩn hoá + limit + toạ độ làm tròn, TTL 24h;
+        test: tìm 2 lần → provider chỉ bị gọi 1 lần; từ khoá khác → gọi lại; cache được xoá giữa các test
+
+Mốc 2 — feat(cache): cache weather forecast in redis
+        khoá = toạ độ làm tròn 4 chữ số + khoảng ngày, TTL 3h; test như Mốc 1
+
+Mốc 3 — feat(cache): keep the api working when redis is down
+        CacheErrorHandler: lỗi Redis → log WARN, bỏ qua cache, gọi thẳng provider (không trả 500);
+        /actuator/health không báo DOWN chỉ vì Redis; test
+```
+
+**Nhớ:** DTO được cache là `record`: kiểm serializer đọc lại đúng kiểu (không thành `Map`) ngay ở test của Mốc 1. Tên class serializer Jackson 3 của Spring Data Redis 4: tra tài liệu chính thức trước khi dùng (CLAUDE.md mục 1).
+
+---
+
+### Task 3.5 — Quãng đường trong ngày
+
+Nhánh: `feat/T3.5-day-route` · Test: phần "quãng đường" trong `07-place.md`.
+
+```
+Mốc 1 — feat(route): add day route endpoint
+        MapProvider.route(List<Coordinate>) → các chặng (distanceMeters, durationSeconds) giữa hai điểm liên tiếp;
+        mock: đường chim bay × 1,3, tốc độ 30 km/h; provider/map/dto/Coordinate, RouteLeg,
+        service/RouteService, dto/response/DayRouteResponse (legs: fromActivityId, toActivityId, quãng đường,
+        thời gian; tổng cả ngày), GET /trips/{tripId}/days/{dayId}/route (@PreAuthorize canView);
+        chỉ tính giữa các activity có địa điểm, theo đúng thứ tự orderIndex; ngày có 0–1 địa điểm → legs rỗng;
+        test: happy, 403, 404 (ngày không thuộc trip), mock ổn định
+
+Mốc 2 — test(route): add day route flow integration test (đổi thứ tự bằng reorder → chặng đổi theo; đếm câu SQL)
 ```
 
 ---
 
-### Task 3.4 — Weather cho trip + bản đồ frontend
+### Task 3.6 — Giao diện: địa điểm và bản đồ
 
-Nhánh: `feat/T3.4-weather-and-map`
+Nhánh: `feat/T3.6-place-map-ui` · Trước khi code: chủ dự án dựng mockup Stitch theo UI_GUIDE 15.3 (ba cột, hộp thoại có tìm địa điểm, bước "Điểm đến" của wizard). Điều kiện mỗi commit: `npm run lint` + `npm run build` xanh, bài `MT-UI` mới trong `06-itinerary-ui.md`.
 
 ```
-Backend: service/WeatherService, GET /weather/trips/{tripId}, cảnh báo activity ngoài trời
-Frontend: cài leaflet react-leaflet, components/map/TripMap.tsx, components/weather/WeatherStrip.tsx
-          hover activity → highlight marker
+Mốc 1 — feat(frontend): pick a place in the activity form
+        types/place.ts, api/places.ts, features/places/PlaceSearchField (ô tìm, danh sách gợi ý nằm TRONG hộp thoại,
+        chờ 300ms sau khi ngừng gõ), chọn → POST /places → placeId vào form; chip tên địa điểm + "×" (clearPlace);
+        ActivityCard thêm hàng địa chỉ; loại hoạt động gợi ý theo category của địa điểm
+
+Mốc 2 — feat(frontend): add the day map to the trip detail
+        dependency leaflet + react-leaflet (package.json trong commit này), components/map/TripMap.tsx (tải lười),
+        tile CartoDB Positron + dòng ghi nguồn, marker giọt nước theo màu loại hoạt động + số thứ tự,
+        đường nối theo thứ tự trong ngày, cột thứ ba dính khi cuộn (360px, từ 1280px là 420px), khung bản đồ `isolate`
+        (bẫy BUG-UI-002); ngày chưa có địa điểm nào → bản đồ ở điểm đến của chuyến đi + câu hướng dẫn
+
+Mốc 3 — feat(frontend): link activity cards and map markers
+        store nhỏ (Zustand) giữ activity đang rê chuột; rê thẻ → marker phóng to; bấm marker → cuộn tới thẻ
+        (đích cuộn là phần tử không dính, có scroll-margin — bẫy Task 2.6)
+
+Mốc 4 — feat(frontend): show the map in a tab on small screens
+        dưới 1024px: hai tab "Lịch trình" / "Bản đồ" dưới dải chip ngày; sửa vùng chạm < 44px (ghi nợ Task 2.7)
+
+Mốc 5 — feat(frontend): add a place that is not in the search results
+        "Không tìm thấy? Tự thêm địa điểm": tên + bấm lên bản đồ lấy toạ độ → POST /places/manual
+
+Mốc 6 — feat(frontend): pick the trip destination from place search
+        bước "Điểm đến" của wizard và hộp sửa chuyến đi: tìm → destinationName + destinationLat / Lng, bản đồ nhỏ
+        có một marker; types/trip.ts, schemas (có đủ cả hai toạ độ hoặc bỏ cả hai)
 ```
 
-**Commit:** `feat(weather): add trip forecast endpoint` + `feat(frontend): add map and weather panel`
+**Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]` (mọi lần sửa activity sẽ kéo theo tải lại và kéo thả sẽ huỷ chúng). `ActivityFormDialog` (198 dòng) và `DragDropContainer` (476 dòng) tách bớt trước khi thêm, bằng commit `refactor` riêng nếu cần.
+
+---
+
+### Task 3.7 — Giao diện: thời tiết và quãng đường
+
+Nhánh: `feat/T3.7-weather-route-ui` · Điều kiện commit như 3.6.
+
+```
+Mốc 1 — feat(frontend): add the weather strip under the map
+        types/weather.ts, api/weather.ts, components/weather/WeatherStrip.tsx: mỗi ngày một ô (icon, cao / thấp,
+        xác suất mưa); chuyến đi chưa có điểm đến → câu mời chọn điểm đến; ngày ngoài 16 ngày tới → "Chưa có dự báo"
+
+Mốc 2 — feat(frontend): flag outdoor activities on rainy days
+        ô ngày có cảnh báo viền `warning`; thẻ hoạt động ngoài trời của ngày đó có chip thời tiết
+
+Mốc 3 — feat(frontend): show travel distance between activities
+        api/routes.ts, đoạn nối "25 phút · 8,4 km" giữa hai thẻ liền nhau cùng có địa điểm (nằm trong từng hàng,
+        ẩn khi đang kéo); tải lại sau khi kéo thả, đổi hoặc bỏ địa điểm
+```
+
+---
+
+### Task 3.8 — Provider thật: OpenStreetMap và Open-Meteo
+
+Nhánh: `feat/T3.8-real-providers` · Chốt 2026-10-01: làm ngay sau 3.7 để tìm được mọi địa điểm và có dự báo thật, không đợi Phase 8. Các dịch vụ đều miễn phí, không cần API key, có giới hạn sử dụng hợp lý: **đọc lại điều khoản và tài liệu chính thức của từng dịch vụ ở đầu task** (thông tin dưới đây ghi theo hiểu biết lúc lập kế hoạch). Test không gọi mạng thật (CLAUDE.md rule 24): dùng máy chủ giả trả JSON mẫu. Test: `07-place.md`, `08-weather.md`.
+
+```
+Mốc 1 — feat(weather): add open-meteo weather provider
+        provider/weather/OpenMeteoWeatherProvider (@ConditionalOnProperty app.providers.weather=open-meteo),
+        gọi HTTP qua RestClient, đổi mã thời tiết WMO → condition của DailyForecast;
+        test với máy chủ giả: JSON mẫu → đúng DailyForecast; 5xx / quá thời gian → PROVIDER_UNAVAILABLE
+
+Mốc 2 — feat(place): add openstreetmap place search provider
+        provider/map/OsmMapProvider (app.providers.map=osm): search bằng Photon (cho phép gợi ý khi đang gõ;
+        Nominatim cấm dùng cho việc này), lookup theo externalId bằng Nominatim, header User-Agent định danh
+        ứng dụng; địa điểm lưu với provider OSM; test với máy chủ giả
+
+Mốc 3 — feat(route): add osrm routing to the osm provider
+        OsmMapProvider.route gọi OSRM (các chặng giữa hai điểm liên tiếp); test với máy chủ giả
+
+Mốc 4 — feat(provider): add time limit, retry and circuit breaker to real providers
+        design.md 7.3: giới hạn 3 giây, thử lại 2 lần, ngắt mạch khi lỗi nhiều;
+        thời tiết lỗi → trang chuyến đi vẫn mở, ô thời tiết ghi "tạm thời không có dự báo";
+        tìm địa điểm lỗi → 503 PROVIDER_UNAVAILABLE; kiểm Resilience4j có bản chạy với Spring Boot 4 trước khi thêm
+        dependency (version ở libs.versions.toml)
+
+Mốc 5 — docs: README + .env.example hướng dẫn bật provider thật; bài kiểm tra thủ công: bật osm / open-meteo,
+        tìm một địa điểm không có trong dữ liệu mock, xem dự báo thật của một chuyến đi trong 16 ngày tới
+```
+
+**Nhớ:** hạn mức gọi `/places/search` theo người dùng (design 8.2) tới Task 8.1 mới có; trước đó cache của Task 3.4 và độ trễ 300ms ở ô tìm kiếm là thứ giữ cho app không gọi dịch vụ công cộng quá nhiều. Không bật provider thật trên bản deploy công khai trước khi có rate limit.
+
+> ✅ Hết Phase 3 → tick `[x] Phase 3` trong CLAUDE.md. Trước khi sang Phase 4: rà lại Phase 4 theo quy ước A.2 "Rà soát theo phase".
 
 ---
 
@@ -1209,7 +1469,8 @@ Nhánh: `feat/T5.3-presence-locking`
 
 ```
 1. Presence tracking bằng Redis SET, TTL 30s, heartbeat từ client
-2. @Version trên Activity → xử lý OptimisticLockException → 409 STALE_VERSION
+2. @Version trên Trip và Activity → xử lý OptimisticLockException → 409 STALE_VERSION
+   (rà soát 2026-10-01: hiện hai lần sửa cùng lúc trả 500, cả ở PATCH /trips/{id})
 3. Frontend: stores/tripCollabStore.ts, hooks/useTripSocket.ts, AvatarStack.tsx
 4. test thủ công: mở 2 trình duyệt, sửa ở A → B cập nhật trong < 1s
 ```
@@ -1369,6 +1630,9 @@ Nhánh: `feat/T8.1-rate-limiting`
 2. config/RateLimitConfig + filter/RateLimitFilter
 3. Áp bảng hạn mức ở design mục 8.2, trả 429 + header X-RateLimit-*
 4. test: gọi login 6 lần → lần 6 nhận 429
+5. (ghi nợ Task 2.7) xoay refresh token phải nguyên tử: hai request cùng lúc với cùng một token hiện đều thành
+   công. UPDATE có điều kiện `revoked_at IS NULL` và đòi đúng 1 dòng, hoặc khoá dòng khi đọc; tương tự cho
+   token verify / reset dùng một lần
 ```
 
 **Commit:** `feat(security): add redis based rate limiting`
@@ -1414,6 +1678,8 @@ Nhánh: `chore/T8.3-test-coverage`
    docs/testing/06-itinerary-ui.md (trùng giờ → allowOverlap, force=true, kéo thả trả về chỗ cũ khi lỗi).
    Truy vấn theo chữ / role, không theo class, để test sống qua lần làm lại giao diện
 8. ~~Frontend — màu chủ đạo (từ 2.5): khai báo `@theme`~~ — **đã làm ở Task 2.6** (`src/styles/tokens.css`, xem UI_GUIDE.md)
+9. (ghi nợ Task 2.7) danh sách chuyến đi: thêm `id` làm khoá sắp xếp phụ để phân trang ổn định khi sắp theo cột
+   có giá trị trùng; `?page=` vượt quá số trang → đưa về trang cuối thay vì hiện "Chưa có chuyến đi nào"
 ```
 
 **Commit:** `chore(test): add jacoco coverage gate` + `perf(trip): fix n+1 query on trip detail`
@@ -1492,10 +1758,15 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.4 Reorder | ☑ | 2026-09-30 |
 | 2 | 2.5 Itinerary UI | ☑ | 2026-09-30 |
 | 2 | 2.6 Làm lại giao diện theo UI_GUIDE | ☑ | 2026-10-01 |
-| 3 | 3.1 Provider abstraction | ☐ | |
-| 3 | 3.2 Place service | ☐ | |
-| 3 | 3.3 Redis cache | ☐ | |
-| 3 | 3.4 Weather + map UI | ☐ | |
+| 2 | 2.7 Sửa lỗi sau rà soát Phase 1–2 | ☐ | |
+| 3 | 3.1 Tìm địa điểm | ☐ | |
+| 3 | 3.2 Gắn địa điểm vào hoạt động | ☐ | |
+| 3 | 3.3 Thời tiết của chuyến đi | ☐ | |
+| 3 | 3.4 Redis cache | ☐ | |
+| 3 | 3.5 Quãng đường trong ngày | ☐ | |
+| 3 | 3.6 UI: địa điểm + bản đồ | ☐ | |
+| 3 | 3.7 UI: thời tiết + quãng đường | ☐ | |
+| 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
 | 4 | 4.1 Trip members | ☐ | |
 | 4 | 4.2 Permission evaluator | ☐ | |
 | 4 | 4.3 Share links | ☐ | |

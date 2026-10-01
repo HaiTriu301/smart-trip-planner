@@ -1,6 +1,6 @@
 # 01 · Nền tảng
 
-> Cập nhật: 2026-09-30 · build xanh tại commit `1b30b1f` · [Về trang chính](README.md)
+> Cập nhật: 2026-10-01 · build xanh tại commit `ea4d7a9` · 1 lỗi đang mở (BUG-PLAT-003, sửa ở Task 2.7) · [Về trang chính](README.md)
 
 Nền tảng là phần mọi tính năng khác dựa vào: khung của phản hồi, cách báo lỗi, ai được gọi gì, và cấu hình.
 
@@ -131,4 +131,10 @@ Cần có: đã chạy `npm install` trong `frontend/`.
 
 ## Lỗi đã phát hiện
 
-Chưa ghi nhận lỗi nào ở tính năng này.
+Mã `BUG-PLAT-001` và `BUG-PLAT-002` là ví dụ giả định trong [hướng dẫn](00-failed-test-guide.md), nên lỗi thật đầu tiên của tính năng này mang số 003.
+
+| Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
+|---|---|---|---|---|---|---|
+| BUG-PLAT-003 | Chưa có, thêm ở Task 2.7 Mốc 1 | 2026-10-01 | Phát hiện khi rà soát code Phase 1–2, **đã chạy thử** trên backend local. (1) Gửi đăng nhập với nội dung kiểu form thay vì JSON (`curl.exe -X POST localhost:8080/api/v1/auth/login -d "x=1"`): nhận 500 `INTERNAL_ERROR` "Đã có lỗi xảy ra, vui lòng thử lại sau", trong khi lỗi là của người gọi. (2) Gọi endpoint công khai `GET /api/v1/ping` kèm `Accept: text/xml`: nhận 401 `UNAUTHORIZED` "Bạn cần đăng nhập để tiếp tục" với `path` là `/error`. (3) Chưa chạy thử được vì chưa có endpoint nào như vậy: thiếu một tham số bắt buộc trên đường dẫn cũng sẽ ra 500 | Ba loại lỗi do người gọi gây ra (sai kiểu nội dung gửi lên, đòi kiểu dữ liệu trả về mà hệ thống không có, thiếu tham số) chưa được xử lý riêng nên rơi vào nhóm "lỗi không lường trước". Ở trường hợp (2), chính việc ghi thông báo lỗi cũng thất bại, máy chủ chuyển sang trang lỗi mặc định, và trang đó lại yêu cầu đăng nhập | | Đang mở |
+
+BUG-PLAT-003 không do test nào bắt được: 507 lượt test đều xanh vì mọi test đều gửi JSON đúng kiểu. Nó lộ ra khi đọc lại code theo câu hỏi "người gọi làm sai thì hệ thống trả gì".
