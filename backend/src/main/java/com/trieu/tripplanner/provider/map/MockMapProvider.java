@@ -2,6 +2,7 @@ package com.trieu.tripplanner.provider.map;
 
 import com.trieu.tripplanner.common.util.VietnameseText;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
+import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,6 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,10 @@ import tools.jackson.databind.ObjectMapper;
  * Matching ignores case and Vietnamese accents: "linh ung" finds "Chùa Linh Ứng". Every word of the keyword
  * must appear in the name or the address. Order: names that start with the keyword, then names that contain
  * it, then the rest; inside each group the order of the file is kept, which makes the result deterministic.
+ * <p>
+ * With a reference point, places around it (within {@link #NEAR_RADIUS_METERS}) come first whatever their
+ * rank, so a search made while planning a Đà Nẵng trip shows Đà Nẵng before other cities. Inside "around" and
+ * inside "elsewhere" the order is: rank by name as above, then the closer place first.
  */
 @Slf4j
 @Component
@@ -32,24 +38,44 @@ public class MockMapProvider implements MapProvider {
 
     static final String DATA_FILE = "mock/places.json";
 
+    /** Roughly "the same city and its surroundings": Bà Nà Hills is 25 km from the centre of Đà Nẵng. */
+    static final double NEAR_RADIUS_METERS = 50_000;
+
     private final List<IndexedPlace> places;
 
+    // Two constructors: Spring must be told which one builds the bean
+    @Autowired
     public MockMapProvider(ObjectMapper objectMapper) {
-        this.places = load(objectMapper).stream().map(IndexedPlace::of).toList();
+        this(load(objectMapper));
         log.info("[mock-map] loaded {} places from {}", places.size(), DATA_FILE);
     }
 
+    /** Tests pass their own places to check the ordering rules without depending on the bundled file. */
+    MockMapProvider(List<MockPlace> places) {
+        this.places = places.stream().map(IndexedPlace::of).toList();
+    }
+
     @Override
-    public List<PlaceResult> search(String query, int limit) {
+    public List<PlaceResult> search(String query, int limit, Coordinate near) {
         String keyword = normalize(query);
         List<String> words = Arrays.asList(keyword.split(" "));
         return places.stream()
                 .filter(place -> place.matchesAll(words))
-                // The sort is stable: places of the same rank stay in file order
-                .sorted(Comparator.comparingInt(place -> place.rank(keyword)))
+                // The sort is stable: places equal on every criterion stay in file order
+                .sorted(order(keyword, near))
                 .limit(limit)
                 .map(IndexedPlace::result)
                 .toList();
+    }
+
+    private static Comparator<IndexedPlace> order(String keyword, Coordinate near) {
+        Comparator<IndexedPlace> byName = Comparator.comparingInt(place -> place.rank(keyword));
+        if (near == null) {
+            return byName;
+        }
+        return Comparator.<IndexedPlace>comparingInt(place -> place.distanceTo(near) <= NEAR_RADIUS_METERS ? 0 : 1)
+                .thenComparing(byName)
+                .thenComparingDouble(place -> place.distanceTo(near));
     }
 
     /** Lower case, no accents, single spaces: the form in which keyword and place text are compared. */
@@ -95,6 +121,10 @@ public class MockMapProvider implements MapProvider {
                 return 0;
             }
             return name.contains(keyword) ? 1 : 2;
+        }
+
+        double distanceTo(Coordinate point) {
+            return new Coordinate(result.lat(), result.lng()).distanceMetersTo(point);
         }
 
     }

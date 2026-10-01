@@ -1,5 +1,6 @@
 package com.trieu.tripplanner.provider.map;
 
+import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import java.util.List;
 
@@ -15,9 +16,11 @@ public interface MapProvider {
      *
      * @param query what the user typed, already trimmed; never blank
      * @param limit maximum number of results, at least 1
+     * @param near  where the user is planning (the destination of the trip): matching places around it come
+     *              before matching places elsewhere. Null: no preference
      * @return at most {@code limit} places; empty when nothing matches. The same input gives the same list in
      *         the same order
      */
-    List<PlaceResult> search(String query, int limit);
+    List<PlaceResult> search(String query, int limit, Coordinate near);
 
 }

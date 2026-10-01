@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
+import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.service.PlaceService;
@@ -54,7 +55,7 @@ class PlaceControllerTest {
 
     @Test
     void searchReturnsTheResultsWithoutAnIdOfOurs() {
-        when(placeService.search("linh ung", 8)).thenReturn(List.of(new PlaceResultResponse(
+        when(placeService.search("linh ung", 8, null, null)).thenReturn(List.of(new PlaceResultResponse(
                 PlaceProvider.MOCK, "da-nang-chua-linh-ung", "Chùa Linh Ứng", "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng",
                 new BigDecimal("16.1001567"), new BigDecimal("108.2784112"), "SIGHTSEEING")));
 
@@ -84,19 +85,19 @@ class PlaceControllerTest {
 
     @Test
     void limitDefaultsToEightAndCanBeChosen() {
-        when(placeService.search("cho", 8)).thenReturn(List.of());
-        when(placeService.search("cho", 20)).thenReturn(List.of());
+        when(placeService.search("cho", 8, null, null)).thenReturn(List.of());
+        when(placeService.search("cho", 20, null, null)).thenReturn(List.of());
 
         assertThat(mvc.get().uri(SEARCH_URL + "?q=cho").header(HttpHeaders.AUTHORIZATION, bearer)).hasStatusOk();
         assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&limit=20").header(HttpHeaders.AUTHORIZATION, bearer)).hasStatusOk();
 
-        verify(placeService).search("cho", 8);
-        verify(placeService).search("cho", 20);
+        verify(placeService).search("cho", 8, null, null);
+        verify(placeService).search("cho", 20, null, null);
     }
 
     @Test
     void noMatchIsAnEmptyListNotAnError() {
-        when(placeService.search("khong co noi nay", 8)).thenReturn(List.of());
+        when(placeService.search("khong co noi nay", 8, null, null)).thenReturn(List.of());
 
         assertThat(mvc.get().uri(SEARCH_URL + "?q={q}", "khong co noi nay").header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatusOk()
@@ -144,8 +145,8 @@ class PlaceControllerTest {
     @Test
     void twoCharactersAreEnoughAndOneHundredIsTheMost() {
         String longest = "a".repeat(100);
-        when(placeService.search("ga", 8)).thenReturn(List.of());
-        when(placeService.search(longest, 8)).thenReturn(List.of());
+        when(placeService.search("ga", 8, null, null)).thenReturn(List.of());
+        when(placeService.search(longest, 8, null, null)).thenReturn(List.of());
 
         assertThat(mvc.get().uri(SEARCH_URL + "?q=ga").header(HttpHeaders.AUTHORIZATION, bearer)).hasStatusOk();
         assertThat(mvc.get().uri(SEARCH_URL + "?q={q}", longest).header(HttpHeaders.AUTHORIZATION, bearer)).hasStatusOk();
@@ -171,6 +172,76 @@ class PlaceControllerTest {
                           "details": [ { "field": "limit", "message": "Số kết quả phải nằm trong khoảng 1 đến 20" } ]
                         }
                         """);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void referencePointIsPassedOnWhenSent() {
+        BigDecimal lat = new BigDecimal("16.0544");
+        BigDecimal lng = new BigDecimal("108.2022");
+        when(placeService.search("cho", 8, lat, lng)).thenReturn(List.of());
+
+        assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&lat=16.0544&lng=108.2022").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk();
+
+        verify(placeService).search("cho", 8, lat, lng);
+    }
+
+    @Test
+    void halfACoordinateIsReportedOnTheMissingNumber() {
+        when(placeService.search("cho", 8, new BigDecimal("16.0544"), null)).thenThrow(BusinessRuleException.invalidField(
+                "lng", "error.place.coordinates-incomplete", "Only one of lat/lng was sent to the place search"));
+
+        assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&lat=16.0544").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "lng", "message": "Cần gửi đủ cả vĩ độ và kinh độ, hoặc bỏ cả hai" } ]
+                        }
+                        """);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"lat=90.0000001&lng=108", "lat=-91&lng=108"})
+    void latitudeOutsideMinus90To90IsRejected(String coordinate) {
+        assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&" + coordinate).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "lat", "message": "Vĩ độ phải nằm trong khoảng -90 đến 90" } ]
+                        }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"lat=16&lng=180.0000001", "lat=16&lng=-181"})
+    void longitudeOutsideMinus180To180IsRejected(String coordinate) {
+        assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&" + coordinate).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "lng", "message": "Kinh độ phải nằm trong khoảng -180 đến 180" } ]
+                        }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void edgesOfTheMapAreAccepted() {
+        when(placeService.search("cho", 8, new BigDecimal("90"), new BigDecimal("-180"))).thenReturn(List.of());
+
+        assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&lat=90&lng=-180").header(HttpHeaders.AUTHORIZATION, bearer)).hasStatusOk();
+    }
+
+    @Test
+    void coordinateThatIsNotANumberIsAValidationError() {
+        assertThat(mvc.get().uri(SEARCH_URL + "?q=cho&lat=bac&lng=108").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(placeService);
     }
 
