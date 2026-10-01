@@ -1,10 +1,13 @@
 package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
+import com.trieu.tripplanner.dto.request.SavePlaceRequest;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
 import com.trieu.tripplanner.service.PlaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -15,15 +18,17 @@ import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Places (design.md 10.2 "Place"). Any signed-in user may search; nothing here belongs to a trip, so there is
- * no {@code tripPermission} check.
+ * Places (design.md 10.2 "Place"). Any signed-in user may search and pick a result; nothing here belongs to a
+ * trip, so there is no {@code tripPermission} check.
  */
-@Tag(name = "Place", description = "Tìm địa điểm để gắn vào hoạt động")
+@Tag(name = "Place", description = "Tìm và chọn địa điểm để gắn vào hoạt động")
 @RestController
 @RequestMapping("/api/v1/places")
 @RequiredArgsConstructor
@@ -59,6 +64,15 @@ public class PlaceController {
             @DecimalMax(value = "180", message = "{validation.place.longitude.range}")
             BigDecimal lng) {
         return ApiResponse.ok(placeService.search(q, limit, lat, lng));
+    }
+
+    @Operation(summary = "Chọn một kết quả tìm kiếm",
+               description = "Gửi provider và externalId của kết quả đã chọn. Máy chủ tự đọc tên, địa chỉ, toạ độ từ nguồn "
+                       + "rồi lưu, và trả địa điểm có id để gắn vào hoạt động. Gọi lại với cùng địa điểm luôn nhận cùng id. "
+                       + "404 nếu nguồn không có địa điểm đó.")
+    @PostMapping
+    public ApiResponse<PlaceResponse> save(@Valid @RequestBody SavePlaceRequest request) {
+        return ApiResponse.ok(placeService.getOrCreate(request));
     }
 
 }

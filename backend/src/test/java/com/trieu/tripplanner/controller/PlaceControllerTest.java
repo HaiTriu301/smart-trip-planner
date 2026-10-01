@@ -6,8 +6,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
+import com.trieu.tripplanner.dto.request.SavePlaceRequest;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.service.PlaceService;
@@ -23,9 +26,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
  * Web layer only: PlaceService is a mock.
@@ -35,6 +40,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 @ActiveProfiles("test")
 class PlaceControllerTest {
 
+    private static final String PLACES_URL = "/api/v1/places";
     private static final String SEARCH_URL = "/api/v1/places/search";
 
     @Autowired
@@ -243,6 +249,117 @@ class PlaceControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(placeService);
+    }
+
+    // ---------- POST /places ----------
+
+    @Test
+    void pickingAResultReturnsThePlaceWithItsId() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
+                .thenReturn(new PlaceResponse(31L, PlaceProvider.MOCK, "Chùa Linh Ứng",
+                        "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng", new BigDecimal("16.1001567"),
+                        new BigDecimal("108.2784112"), "SIGHTSEEING"));
+
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "da-nang-chua-linh-ung"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": true,
+                          "data": {
+                            "id": 31,
+                            "provider": "MOCK",
+                            "name": "Chùa Linh Ứng",
+                            "address": "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng",
+                            "lat": 16.1001567,
+                            "lng": 108.2784112,
+                            "category": "SIGHTSEEING"
+                          }
+                        }
+                        """);
+    }
+
+    @Test
+    void nameAndCoordinatesSentByTheClientNeverReachTheService() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
+                .thenReturn(new PlaceResponse(31L, PlaceProvider.MOCK, "Chùa Linh Ứng", null, new BigDecimal("16.1"),
+                        new BigDecimal("108.2"), null));
+
+        // Extra fields are dropped: the request type has no place to keep them
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "da-nang-chua-linh-ung", "name": "Giữa biển", "lat": 10, "lng": 115}
+                """)).hasStatusOk();
+
+        verify(placeService).getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung"));
+    }
+
+    @Test
+    void pickingWithoutLoginIsRejected() {
+        assertThat(mvc.post().uri(PLACES_URL).contentType(MediaType.APPLICATION_JSON).content("""
+                {"provider": "MOCK", "externalId": "da-nang-chua-linh-ung"}
+                """))
+                .hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void pickingAPlaceTheSourceDoesNotKnowIsNotFound() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "bia-ra")))
+                .thenThrow(new ResourceNotFoundException("Place", "MOCK/bia-ra"));
+
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "bia-ra"}
+                """))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "RESOURCE_NOT_FOUND", "message": "Không tìm thấy dữ liệu yêu cầu" }
+                        """);
+    }
+
+    @Test
+    void missingProviderAndBlankExternalIdAreBothReported() {
+        assertThat(save("""
+                {"externalId": "   "}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [
+                            { "field": "externalId", "message": "Thiếu mã của địa điểm" },
+                            { "field": "provider", "message": "Thiếu nguồn của địa điểm" }
+                          ]
+                        }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void externalIdLongerThanTheColumnIsRejected() {
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "%s"}
+                """.formatted("a".repeat(129))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "details": [ { "field": "externalId", "message": "Mã của địa điểm không được vượt quá 128 ký tự" } ] }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void sourceTheAppDoesNotHaveIsAValidationError() {
+        assertThat(save("""
+                {"provider": "GOOGLE", "externalId": "abc"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(placeService);
+    }
+
+    private MvcTestResult save(String body) {
+        return mvc.post().uri(PLACES_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body).exchange();
     }
 
     @Test
