@@ -44,6 +44,7 @@ import com.trieu.tripplanner.model.enums.TripVisibility;
 import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.support.TestActivities;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -345,7 +346,7 @@ class TripServiceTest {
         @Test
         void getReturnsTheTripWithItsDaysAndTheirActivities() {
             Trip trip = withId(minimalTrip(), TRIP_ID);
-            ActivityResponse breakfast = new ActivityResponse(21L, 11L, "Ăn sáng", ActivityType.FOOD, null, null,
+            ActivityResponse breakfast = TestActivities.response(21L, 11L, "Ăn sáng", ActivityType.FOOD, null, null,
                     1000, null, null, null, null, USER_ID, 0L, null, null);
             List<TripDayDetailResponse> days = List.of(
                     new TripDayDetailResponse(11L, 1, OCT_1, "Đến nơi", null, List.of(breakfast)),

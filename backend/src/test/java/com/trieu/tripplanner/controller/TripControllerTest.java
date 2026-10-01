@@ -32,6 +32,7 @@ import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
 import com.trieu.tripplanner.service.TripService;
+import com.trieu.tripplanner.support.TestActivities;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -538,8 +539,8 @@ class TripControllerTest {
     private static ActivityResponse activity(long id, String title, ActivityType type, LocalTime start, LocalTime end,
                                              int orderIndex) {
         Instant now = Instant.parse("2026-09-29T10:00:00Z");
-        return new ActivityResponse(id, 11L, title, type, start, end, orderIndex, null, null, null, null, USER_ID, 0L,
-                now, now);
+        return TestActivities.response(id, 11L, title, type, start, end, orderIndex, null, null, null, null, USER_ID,
+                0L, now, now);
     }
 
     private static TripResponse sampleTrip() {

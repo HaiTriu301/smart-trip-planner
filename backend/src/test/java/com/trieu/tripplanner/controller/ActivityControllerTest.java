@@ -22,6 +22,7 @@ import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
 import com.trieu.tripplanner.service.ActivityService;
+import com.trieu.tripplanner.support.TestActivities;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -87,7 +88,7 @@ class ActivityControllerTest {
         Instant now = Instant.parse("2026-09-29T10:00:00Z");
         when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of(
                 sampleActivity(),
-                new ActivityResponse(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
+                TestActivities.response(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
                         null, USER_ID, 0L, now, now)));
 
         assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
@@ -414,7 +415,7 @@ class ActivityControllerTest {
         ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
         verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), request.capture(), eq(false));
         assertThat(request.getValue()).isEqualTo(
-                new UpdateActivityRequest("An trua", null, null, LocalTime.of(13, 0), "", null, null, ""));
+                TestActivities.updateRequest("An trua", null, null, LocalTime.of(13, 0), "", null, null, ""));
     }
 
     @Test
@@ -824,7 +825,7 @@ class ActivityControllerTest {
 
     private static ActivityResponse sampleActivity() {
         Instant now = Instant.parse("2026-09-29T10:00:00Z");
-        return new ActivityResponse(21L, DAY_ID, "An trua", ActivityType.FOOD, LocalTime.of(11, 30),
+        return TestActivities.response(21L, DAY_ID, "An trua", ActivityType.FOOD, LocalTime.of(11, 30),
                 LocalTime.of(13, 0), 1000, null, new BigDecimal("350000.00"), "VND", "https://example.com/b/1",
                 USER_ID, 0L, now, now);
     }

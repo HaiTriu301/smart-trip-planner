@@ -34,6 +34,7 @@ import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.support.TestActivities;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -182,7 +183,7 @@ class ActivityServiceTest {
 
         @Test
         void storesEveryFieldWithDayAndCreatorAndReturnsTheResponse() {
-            ActivityResponse response = create(new CreateActivityRequest(
+            ActivityResponse response = create(TestActivities.createRequest(
                     "  Ăn trưa lẩu gà lá é  ", ActivityType.FOOD, NINE, TEN, "  Đặt bàn trước  ",
                     new BigDecimal("350000.00"), "VND", "https://example.com/booking/123"));
 
@@ -192,7 +193,7 @@ class ActivityServiceTest {
             assertThat(saved.getTitle()).isEqualTo("Ăn trưa lẩu gà lá é");
             assertThat(saved.getNote()).isEqualTo("Đặt bàn trước");
 
-            assertThat(response).isEqualTo(new ActivityResponse(NEW_ACTIVITY_ID, DAY_ID, "Ăn trưa lẩu gà lá é",
+            assertThat(response).isEqualTo(TestActivities.response(NEW_ACTIVITY_ID, DAY_ID, "Ăn trưa lẩu gà lá é",
                     ActivityType.FOOD, NINE, TEN, 1000, "Đặt bàn trước", new BigDecimal("350000.00"), "VND",
                     "https://example.com/booking/123", USER_ID, 0L, null, null));
         }
@@ -245,7 +246,7 @@ class ActivityServiceTest {
 
         @Test
         void blankNoteIsStoredAsNull() {
-            create(new CreateActivityRequest("Dạo phố", null, null, null, "   ", null, null, null));
+            create(TestActivities.createRequest("Dạo phố", null, null, null, "   ", null, null, null));
 
             assertThat(savedActivity().getNote()).isNull();
         }
@@ -458,7 +459,7 @@ class ActivityServiceTest {
 
         @Test
         void everyEditableFieldCanBeChanged() {
-            update(new UpdateActivityRequest("Ăn trưa", ActivityType.SHOPPING, LocalTime.of(11, 30),
+            update(TestActivities.updateRequest("Ăn trưa", ActivityType.SHOPPING, LocalTime.of(11, 30),
                     LocalTime.of(13, 0), "  Ghi chú mới  ", new BigDecimal("12.50"), "USD",
                     "https://example.com/new"));
 
@@ -474,7 +475,7 @@ class ActivityServiceTest {
 
         @Test
         void blankNoteAndBookingUrlAreCleared() {
-            update(new UpdateActivityRequest(null, null, null, null, "   ", null, null, ""));
+            update(TestActivities.updateRequest(null, null, null, null, "   ", null, null, ""));
 
             assertThat(stored.getNote()).isNull();
             assertThat(stored.getBookingUrl()).isNull();
@@ -585,7 +586,7 @@ class ActivityServiceTest {
             stored.setCostAmount(null);
             stored.setCurrency(null);
 
-            update(new UpdateActivityRequest(null, null, null, null, null, new BigDecimal("12.50"), null, null));
+            update(TestActivities.updateRequest(null, null, null, null, null, new BigDecimal("12.50"), null, null));
 
             assertThat(stored.getCostAmount()).isEqualByComparingTo("12.50");
             assertThat(stored.getCurrency()).isEqualTo("USD");
@@ -593,7 +594,7 @@ class ActivityServiceTest {
 
         @Test
         void newCostKeepsTheStoredCurrency() {
-            update(new UpdateActivityRequest(null, null, null, null, null, new BigDecimal("75000"), null, null));
+            update(TestActivities.updateRequest(null, null, null, null, null, new BigDecimal("75000"), null, null));
 
             assertThat(stored.getCostAmount()).isEqualByComparingTo("75000");
             assertThat(stored.getCurrency()).isEqualTo("VND");
@@ -628,11 +629,11 @@ class ActivityServiceTest {
         }
 
         private static UpdateActivityRequest titled(String title) {
-            return new UpdateActivityRequest(title, null, null, null, null, null, null, null);
+            return TestActivities.updateRequest(title, null, null, null, null, null, null, null);
         }
 
         private static UpdateActivityRequest times(LocalTime start, LocalTime end) {
-            return new UpdateActivityRequest(null, null, start, end, null, null, null, null);
+            return TestActivities.updateRequest(null, null, start, end, null, null, null, null);
         }
 
     }
@@ -1222,7 +1223,7 @@ class ActivityServiceTest {
             // Out of time order on purpose: an edit that keeps the start time must not "fix" the position
             Activity edited = edited("09:00", 3000);
 
-            update(new UpdateActivityRequest("Ăn sáng muộn", null, LocalTime.of(9, 0), LocalTime.of(11, 0),
+            update(TestActivities.updateRequest("Ăn sáng muộn", null, LocalTime.of(9, 0), LocalTime.of(11, 0),
                     "Ghi chú", new BigDecimal("10.00"), null, null));
 
             assertThat(edited.getOrderIndex()).isEqualTo(3000);
@@ -1264,11 +1265,12 @@ class ActivityServiceTest {
         }
 
         private static CreateActivityRequest startingAt(String start) {
-            return new CreateActivityRequest("Tham quan", null, LocalTime.parse(start), null, null, null, null, null);
+            return TestActivities.createRequest("Tham quan", null, LocalTime.parse(start), null, null, null, null,
+                    null);
         }
 
         private static UpdateActivityRequest newStart(String start) {
-            return new UpdateActivityRequest(null, null, LocalTime.parse(start), null, null, null, null, null);
+            return TestActivities.updateRequest(null, null, LocalTime.parse(start), null, null, null, null, null);
         }
 
     }
@@ -1332,15 +1334,15 @@ class ActivityServiceTest {
     }
 
     private static CreateActivityRequest titled(String title) {
-        return new CreateActivityRequest(title, null, null, null, null, null, null, null);
+        return TestActivities.createRequest(title, null, null, null, null, null, null, null);
     }
 
     private static CreateActivityRequest timed(LocalTime start, LocalTime end) {
-        return new CreateActivityRequest("Tham quan", null, start, end, null, null, null, null);
+        return TestActivities.createRequest("Tham quan", null, start, end, null, null, null, null);
     }
 
     private static CreateActivityRequest withCost(BigDecimal cost, String currency) {
-        return new CreateActivityRequest("Vé vào cổng", null, null, null, null, cost, currency, null);
+        return TestActivities.createRequest("Vé vào cổng", null, null, null, null, cost, currency, null);
     }
 
 }
