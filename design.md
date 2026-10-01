@@ -120,7 +120,10 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Thành phần | Lựa chọn |
 |---|---|
 | Framework | React 19 + Vite 8 + TypeScript |
-| Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`). Component dùng chung **tự viết** trong `src/components/` (`Button`, `FormField`, `Modal`, `ConfirmDialog`...), **không dùng shadcn/ui** (chốt 2026-09-30, Task 2.5) |
+| Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`). Component dùng chung **tự viết** trong `src/components/` (`Button`, `FormField`, `Modal`, `ConfirmDialog`...), **không dùng shadcn/ui** (chốt 2026-09-30, Task 2.5). Từ Task 2.6: màu, bo góc, bóng, font khai báo bằng `@theme` trong `src/styles/tokens.css` |
+| Giao diện | **`UI_GUIDE.md` ở thư mục gốc là nguồn sự thật về giao diện** (token, component, bố cục từng màn, prompt Stitch ở mục 15) — chốt 2026-10-01, Task 2.6. Mâu thuẫn giữa UI_GUIDE và mục 15 của file này về bố cục → theo UI_GUIDE; về route, API → theo file này |
+| Icon | lucide-react (Task 2.6) |
+| Menu thả xuống | @radix-ui/react-dropdown-menu (menu "⋮" của activity, Task 2.6): có sẵn điều hướng bàn phím và focus |
 | Server state | TanStack Query v5 |
 | Client state | Zustand |
 | Routing | React Router v7 (package `react-router-dom`) |
@@ -128,7 +131,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Map | Leaflet + react-leaflet + OpenStreetMap tiles (free, không cần API key) |
 | Realtime | @stomp/stompjs + sockjs-client |
 | HTTP | axios + interceptor tự refresh token |
-| Drag & drop | dnd-kit |
+| Drag & drop | dnd-kit (core 6.3, sortable 10.0, utilities 3.2) |
 | Chart | recharts (trang expense + admin dashboard) |
 | Lint | ESLint (flat config do create-vite sinh: typescript-eslint, react-hooks, react-refresh) |
 
@@ -699,6 +702,7 @@ Lỗi (`ErrorResponse`):
 
 **Trip** `/api/v1/trips`
 | GET | `` | Danh sách trip của tôi + trip được share, filter `status`, `q`, `from`, `to` | Auth |
+| GET | `/status-counts?q=` | Số trip theo từng trạng thái cho chip lọc (Task 2.6) | Auth |
 | POST | `` | Tạo trip (tự sinh TripDay) | Auth + quota |
 | GET | `/{id}` | Chi tiết đầy đủ (days + activities + members) | canView |
 | PATCH | `/{id}` | Sửa. Nếu đổi ngày → reconcile TripDay | canEdit |
@@ -719,7 +723,8 @@ Lỗi (`ErrorResponse`):
 > - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
 > - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
 > - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 1000 ký tự (5000 trước Task 2.5); `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
-> - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`.
+> - `TripSummaryResponse` = bản rút gọn cho **từng dòng của danh sách**, không liên quan endpoint `GET /{id}/summary`. Từ Task 2.6 có `activityCount` (tổng activity của cả trip, cho thẻ "N ngày · M hoạt động"), đếm bằng **một** câu `GROUP BY` cho cả trang: danh sách luôn tốn 2 câu SQL (trip + số activity), trang rỗng thì không đếm (chốt 2026-10-01).
+> - `GET /status-counts?q=` (Task 2.6): `data = { total, counts }`, `counts` có **đủ 5 trạng thái** theo thứ tự khai báo, trạng thái không có trip nào là 0; `total` = mọi trip khớp `q`. Dùng **cùng điều kiện** với danh sách (chủ sở hữu, chưa xoá, `q`), không áp `status` / `from` / `to`, để chip "Tất cả" và từng chip luôn khớp với kết quả khi bấm. `q` > 200 ký tự → 400.
 > - `GET /{id}` trả **`TripDetailResponse`** = các field của `TripResponse` + `days` (thêm ở Task 2.2; `activities` trong từng ngày ở Task 2.3). `POST` / `PATCH /{id}` vẫn trả `TripResponse` gọn để thao tác ghi không phải nạp danh sách ngày (chốt 2026-09-27).
 > - Từ Task 2.3, mỗi phần tử của `days` trong `TripDetailResponse` là **`TripDayDetailResponse`** = các field của `TripDayResponse` + `activities` (sắp theo `orderIndex`). `GET /days` và `PATCH /days/{dayId}` vẫn trả `TripDayResponse` gọn, không kèm activity. `GET /{id}` tốn **4 câu SQL** bất kể số ngày và số activity: quyền + trip + ngày + activity của cả trip (chốt 2026-09-29).
 > - `PATCH /{id}?force=true` (query param, mặc định `false`): đổi ngày làm **cắt ngày đang có activity** → 409 `TRIP_DAY_HAS_ACTIVITIES`, không ghi gì; gửi lại kèm `force=true` thì ngày bị cắt và activity của nó bị xoá (rule 14.3). Dời nguyên khối không cắt ngày nào nên không bao giờ bị chặn (chốt 2026-09-29, Task 2.3). `details` của lỗi 409 có một phần tử ở field `force`, message nêu số activity và số ngày sẽ mất ("2 hoạt động trong 1 ngày sẽ bị xoá nếu đổi ngày") để giao diện hỏi lại người dùng. Ngày bị cắt mà **trống** thì không bị chặn.
@@ -741,7 +746,8 @@ Lỗi (`ErrorResponse`):
 > - `dayId` hoặc `activityId` không thuộc `tripId` trên URL → 404 `RESOURCE_NOT_FOUND`. Trip không tồn tại / đã xoá mềm → 404.
 > - `createdBy` lấy từ `SecurityContext`, không nhận từ body (CLAUDE.md rule 16).
 > - `POST` body: `title` bắt buộc, ≤ 200 ký tự, được trim; `type` không gửi → `OTHER`; `startTime` / `endTime` dạng `HH:mm` hoặc `HH:mm:ss`; `note` ≤ 255 ký tự (5000 trước Task 2.5); `costAmount >= 0`, vừa `DECIMAL(15,2)`; `currency` 3 chữ in hoa; `bookingUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`.
-> - `orderIndex` do server gán khi tạo: giá trị lớn nhất trong ngày + 1000, activity đầu tiên là 1000 (rule 14.5). Client không gửi `orderIndex` ở `POST` / `PATCH`; đổi thứ tự và chuyển ngày chỉ qua `reorder` (Task 2.4).
+> - `orderIndex` do server gán khi tạo: không có `startTime` → giá trị lớn nhất trong ngày + 1000, activity đầu tiên là 1000 (rule 14.5). Có `startTime` → **xếp theo giờ** (rule 14.5, Task 2.6). Client không gửi `orderIndex` ở `POST` / `PATCH`; đổi thứ tự và chuyển ngày chỉ qua `reorder` (Task 2.4).
+> - **Xếp theo giờ** (chốt 2026-10-01, Task 2.6): khi `POST` có `startTime`, hoặc `PATCH` làm **`startTime` đổi** (kể cả thêm giờ cho activity chưa có giờ), activity được đặt ngay trước activity **đầu tiên** của ngày (theo thứ tự đang hiển thị) có `startTime` muộn hơn; không có thì xuống **cuối ngày**. Cùng giờ bắt đầu → activity có sẵn đứng trước. Chỗ hiện tại vẫn đúng → không di chuyển. Activity không có giờ và thứ tự người dùng đã kéo **không** bị sắp lại (chỉ activity vừa đổi giờ di chuyển). Đổi tên, ghi chú, chi phí, `endTime` không làm di chuyển. `orderIndex` mới = trung điểm giữa hai activity kề bên; hết chỗ → normalize như reorder. Giờ so trong Java, không đưa `LocalTime` vào câu SQL. Bản đầu "không có activity muộn hơn → ngay sau activity có giờ cuối cùng" bị đổi vì activity không giờ ở cuối ngày bị chen lên trước (BUG-ACT-004).
 > - `PATCH` là cập nhật **từng phần**: field không gửi hoặc `null` → giữ nguyên. Field văn bản tuỳ chọn (`note`, `bookingUrl`) gửi `""` → xoá, lưu `NULL` (giống "Quy ước sửa ngày"). **Chưa hỗ trợ xoá trắng** `startTime`, `endTime`, `costAmount`, `currency` đã đặt (giống PATCH của trip).
 > - Rule về giờ kiểm ở service trên dữ liệu **đã gộp** (PATCH chỉ gửi `endTime` vẫn phải so với `startTime` đang lưu): có `endTime` mà không có `startTime` → 400 `VALIDATION_ERROR`, `details` ở field `startTime`; `endTime <= startTime` → 400, `details` ở field `endTime`.
 > - **Trùng giờ** (rule 14.4): `?allowOverlap=true` là **query param** của `POST` và `PATCH` (mặc định `false`). Trùng → 409 `ACTIVITY_TIME_CONFLICT`, `details` ở field `startTime` nêu tên và giờ của activity bị trùng, không ghi gì. `PATCH` không so activity với chính nó, và **chỉ kiểm trùng khi khoảng giờ thật sự đổi** (giờ sau khi gộp khác giờ đang lưu): đổi tên hay ghi chú của một activity đã được lưu với `allowOverlap=true` không bị từ chối (chốt Task 2.3 mốc 5). Ngược lại, khoảng giờ đã đổi thì được kiểm với **mọi** activity khác, kể cả activity mà nó vốn đang trùng: một lần `allowOverlap=true` trước đó không miễn kiểm cho lần đổi giờ sau (chốt Task 2.3 mốc 9).
@@ -936,7 +942,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
    - Chỉ so giữa các activity có **đủ cả** `start_time` và `end_time`; activity không có giờ hoặc chỉ có giờ bắt đầu không tham gia kiểm tra.
    - Hai khoảng trùng khi `start_a < end_b` **và** `start_b < end_a`. Chạm đầu nhau (09:00–10:00 và 10:00–11:00) **không** tính là trùng.
    - Vi phạm → 409 `ACTIVITY_TIME_CONFLICT`. Áp dụng cho cả tạo mới và sửa; khi sửa không so với chính nó.
-5. `order_index` đánh số cách nhau 1000 (1000, 2000, 3000) để chèn giữa không phải đánh lại toàn bộ; khi khoảng cách < 10 thì normalize lại cả ngày. Khoảng cách tính cả từ 0 tới activity đầu tiên (chèn liên tục lên đầu ngày: 1000 → 500 → 250...). Chi tiết ở 10.2 "Quy ước Reorder" (chốt Task 2.4).
+5. `order_index` đánh số cách nhau 1000 (1000, 2000, 3000) để chèn giữa không phải đánh lại toàn bộ; khi khoảng cách < 10 thì normalize lại cả ngày. Khoảng cách tính cả từ 0 tới activity đầu tiên (chèn liên tục lên đầu ngày: 1000 → 500 → 250...). Chi tiết ở 10.2 "Quy ước Reorder" (chốt Task 2.4). Activity có giờ bắt đầu được **tự xếp theo giờ** khi tạo hoặc khi đổi giờ bắt đầu; kéo thả vẫn tự do (10.2 "Xếp theo giờ", chốt Task 2.6).
 6. Không thể mời chính chủ sở hữu làm member.
 7. Không thể hạ role của OWNER; chuyển quyền sở hữu là hành động riêng.
 8. Xoá trip = soft delete; sau 30 ngày scheduler xoá cứng.
@@ -961,7 +967,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | `/verify-email` | Xác thực email | |
 | `/trips` | Danh sách chuyến đi | Grid card, filter status, search |
 | `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến (map picker) → ngày. Task 2.5: bước điểm đến chỉ nhập tên, map picker thêm ở Task 3.4 |
-| `/trips/:id` | **Màn hình chính** | Layout 3 cột: timeline ngày ⟷ danh sách activity (drag-drop) ⟷ bản đồ + weather. Task 2.5 làm 2 cột: mục lục ngày ⟷ mọi ngày xếp dọc (kéo thả sang ngày khác không phải đổi màn); cột bản đồ + weather thêm ở Phase 3 |
+| `/trips/:id/days/:dayIndex` | **Màn hình chính** | Layout 3 cột: danh sách ngày ⟷ activity của **một ngày** (drag-drop) ⟷ bản đồ + weather của ngày đó. `dayIndex` là số thứ tự ngày 1..n; `/trips/:id` và `dayIndex` không tồn tại chuyển về ngày 1. Task 2.5 làm 2 cột với mọi ngày xếp dọc; Task 2.6 đổi sang một ngày một trang, chuyển ngày bằng thả lên tên ngày ở cột trái hoặc menu "⋮" (chi tiết bố cục: `UI_GUIDE.md` 8.1). Cột bản đồ + weather thêm ở Phase 3 |
 | `/trips/:id/expenses` | Chi phí | Chart + settlement |
 | `/trips/:id/members` | Chia sẻ | Mời, phân quyền, share link |
 | `/share/:token` | Trip công khai | Read-only, không cần đăng nhập |

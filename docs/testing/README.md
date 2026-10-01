@@ -1,6 +1,6 @@
 # Tài liệu kiểm thử — Smart Trip Planner
 
-> Cập nhật: 2026-09-30 · build backend xanh tại commit `eb1ad5e` (merge Task 2.5)
+> Cập nhật: 2026-10-01 · build backend xanh tại commit `8f06d72` (merge Task 2.6)
 
 Thư mục này ghi lại **hệ thống phải làm gì, đã kiểm tra thế nào, kết quả ra sao**.
 Mỗi tính năng là một file. Người đọc không cần biết code.
@@ -46,13 +46,13 @@ Mã `TC-` là test tự động, máy chạy mỗi lần build. Mã `MT-` là te
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Nền tảng | 28 | 5 | 33 | 0 | 0 | 0 |
 | Xác thực người dùng | 54 | 6 | 60 | 0 | 0 | 5 |
-| Chuyến đi | 53 | 5 | 57 | 0 | 1 | 3 |
+| Chuyến đi | 65 | 5 | 69 | 0 | 1 | 3 |
 | Các ngày của chuyến đi | 35 | 3 | 38 | 0 | 0 | 3 |
-| Hoạt động trong ngày | 158 | 12 | 170 | 0 | 0 | 3 |
-| Giao diện lịch trình | 0 | 33 | 0 | 0 | 33 | 1 |
-| **Tổng** | **328** | **64** | **358** | **0** | **34** | **15** |
+| Hoạt động trong ngày | 174 | 12 | 186 | 0 | 0 | 4 |
+| Giao diện lịch trình | 0 | 41 | 0 | 0 | 41 | 2 |
+| **Tổng** | **356** | **72** | **386** | **0** | **42** | **17** |
 
-Dự án có 451 method test trong 40 class, chạy thành 479 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
+Dự án có 463 method test trong 41 class, chạy thành 491 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
 
 ## Chưa kiểm thử
 

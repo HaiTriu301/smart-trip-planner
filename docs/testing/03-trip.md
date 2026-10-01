@@ -1,9 +1,9 @@
 # 03 · Chuyến đi
 
-> Cập nhật: 2026-09-30 · build xanh tại commit `eb1ad5e` (merge Task 2.5) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
 
 Tính năng này cho người dùng tạo, xem danh sách, xem chi tiết, sửa và xoá chuyến đi. Làm ở Task 2.1.
-Đổi trạng thái chuyến đi (phần H) làm ở Task 2.5 Mốc 5. Giới hạn mô tả 1000 ký tự (phần I) chốt ở Task 2.5, trước đó là 5000.
+Đổi trạng thái chuyến đi (phần H) làm ở Task 2.5 Mốc 5. Giới hạn mô tả 1000 ký tự (phần I) chốt ở Task 2.5, trước đó là 5000. Số hoạt động trên thẻ chuyến đi (phần J) và số chuyến đi theo trạng thái (phần K) làm trên Task 2.6 (`feat/T2.6-ui-guide`).
 Ở giai đoạn này chỉ **chủ sở hữu** mới có quyền trên chuyến đi. Chia sẻ cho người khác thuộc Phase 4.
 
 Vài từ dùng trong file:
@@ -136,6 +136,38 @@ Trạng thái gồm: nháp, đã lên kế hoạch, đang diễn ra, đã hoàn 
 | TC-TRIP-051 | Tạo chuyến đi có mô tả đúng 1000 chữ có dấu tiếng Việt | 201. Giới hạn tính theo số ký tự, không theo số byte | Biên | Đạt |
 | TC-TRIP-052 | Tạo chuyến đi có mô tả 1001 ký tự | 400, lỗi ở ô mô tả: "Mô tả không được vượt quá 1000 ký tự". Không tạo gì | Biên | Đạt |
 | TC-TRIP-053 | Sửa mô tả thành 1001 ký tự | 400, lỗi ở ô mô tả. Không sửa gì | Biên | Đạt |
+
+## J. Số hoạt động trên danh sách chuyến đi
+
+> **Yêu cầu:** Task 2.6 (`feat/T2.6-ui-guide`), mockup trang danh sách ("5 ngày · 12 hoạt động") · **Kiểm bởi:** `ActivityRepositoryTest`, `TripServiceTest`, `TripControllerTest`, `TripListActivityCountIntegrationTest`
+
+Mỗi dòng của danh sách chuyến đi có thêm tổng số hoạt động của chuyến đó, tính gộp mọi ngày.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-TRIP-054 | Chuyến đi có 2 hoạt động ở ngày 1 và 1 hoạt động ở ngày 2 | Thẻ ghi 3 hoạt động, gộp mọi ngày | Đúng | Đạt |
+| TC-TRIP-055 | Chuyến đi chưa có hoạt động nào | Ghi 0, không bị thiếu hay báo lỗi | Biên | Đạt |
+| TC-TRIP-056 | Người khác có hoạt động trong chuyến đi của họ | Không được cộng vào số của chủ tài khoản đang xem | Bảo mật | Đạt |
+| TC-TRIP-057 | Trang danh sách không có chuyến đi nào | Hệ thống không chạy câu đếm hoạt động | Biên | Đạt |
+| TC-TRIP-058 | Số chuyến đi trên trang tăng từ 1 lên 6 | Số câu truy vấn database **không đổi** (2 câu): đếm gộp một lần cho cả trang, không đếm riêng từng thẻ | Đúng | Đạt |
+
+TC-TRIP-058 được kiểm chứng ngược: sửa tạm code cho đếm từng thẻ một thì test này đỏ, trả code về thì xanh.
+
+## K. Số chuyến đi theo trạng thái
+
+> **Yêu cầu:** Task 2.6 (`feat/T2.6-ui-guide`), mockup trang danh sách (chip "Tất cả 6", "Nháp 1"...), endpoint `GET /api/v1/trips/status-counts?q=` · **Kiểm bởi:** `TripRepositoryTest`, `TripServiceTest`, `TripControllerTest`, `TripFlowIntegrationTest`
+
+Con số trên từng chip trạng thái của trang danh sách. Dùng đúng bộ lọc của danh sách (chỉ chuyến của mình, từ khoá tìm kiếm, bỏ chuyến đã xoá), nên số trên chip luôn khớp với kết quả khi bấm chip đó.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-TRIP-059 | Có 2 chuyến nháp và 1 chuyến đã lên kế hoạch | Trả số từng trạng thái, "Tất cả" là 3 | Đúng | Đạt |
+| TC-TRIP-060 | Trạng thái không có chuyến nào | Vẫn có mặt trong kết quả với số 0, đủ 5 trạng thái theo đúng thứ tự | Biên | Đạt |
+| TC-TRIP-061 | Tài khoản chưa có chuyến đi nào | Tất cả là 0 | Biên | Đạt |
+| TC-TRIP-062 | Đang tìm "hội an" (viết hoa, có dấu hay không đều được) | Chỉ đếm các chuyến có tên hoặc điểm đến khớp từ khoá, giống danh sách | Đúng | Đạt |
+| TC-TRIP-063 | Chuyến đi của người khác, và chuyến đi đã xoá | Không được đếm | Bảo mật | Đạt |
+| TC-TRIP-064 | Gọi khi chưa đăng nhập | 401 | Bảo mật | Đạt |
+| TC-TRIP-065 | Từ khoá dài hơn 200 ký tự | 400 `VALIDATION_ERROR`, không đếm gì | Sai | Đạt |
 
 ---
 

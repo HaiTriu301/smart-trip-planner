@@ -11,6 +11,7 @@ Hướng dẫn cho Claude Code khi làm việc trên repository này.
 - Backend: **Spring Boot 4.1.x / Java 21** / MySQL 8 / Redis 7 — thư mục `backend/`
 - Frontend: **React 19 + Vite 8 + TypeScript + Tailwind v4** (React Router v7, TanStack Query v5, Zustand, react-hook-form + zod) — thư mục `frontend/`. Phiên bản chốt ở `design.md` mục 3.2.
 - **`design.md` ở thư mục gốc là nguồn sự thật.** Trước khi implement bất kỳ tính năng nào, đọc mục tương ứng trong `design.md`. Nếu yêu cầu của tôi mâu thuẫn với `design.md`, dừng lại và hỏi, đừng tự chọn.
+- **`UI_GUIDE.md` là nguồn sự thật về giao diện** (token, component, bố cục từng màn). Task có giao diện: đọc mục của màn đó trước khi code, và ở bước đưa bảng commit thì soạn sẵn **prompt Stitch** theo mục 15 của UI_GUIDE cho các màn mới (chốt 2026-10-01, Task 2.6).
 - **`WORKFLOW.md` là lịch trình thực hiện.** Task được làm theo đúng thứ tự trong đó. Nếu tôi nhờ làm một task thuộc phase sau khi phase trước chưa xong, nhắc tôi.
 
 > ⚠️ Dự án dùng **Spring Boot 4 / Spring Framework 7 / Spring Security 7 / Jakarta EE 11 / Jackson 3**.
@@ -126,6 +127,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
 36. Auth phía client (chốt Task 1.5): access token chỉ ở `stores/authStore` (memory), không `localStorage`. Chỉ `refreshAccessToken()` trong `api/client.ts` được gọi `/auth/refresh` (single-flight + Web Lock giữa các tab) — không tự gọi refresh ở nơi khác, hai lần refresh song song bị backend coi là trộm token và thu hồi mọi phiên. Lỗi API hiển thị qua `api/errors.ts` (`getErrorMessage`, `applyFieldErrors`), không tự đọc `error.response`.
 37. Route cần đăng nhập đặt trong `ProtectedRoute`; trang login/register/forgot trong `GuestRoute`. Trang mở từ link trong mail (`/verify-email`, `/reset-password`) không guard.
+38. Giao diện theo `UI_GUIDE.md`: màu / bo góc / bóng dùng token trong `src/styles/tokens.css` (`bg-jade`, `text-ink`, `rounded-card`...), không dùng màu Tailwind thô (`sky-600`); icon lấy từ `lucide-react`. Mỗi màn chỉ một nút chính (`variant="primary"`). Màn mới hoặc đổi bố cục → cập nhật mục tương ứng trong UI_GUIDE trong cùng commit.
 
 ---
 
@@ -164,6 +166,7 @@ Cây **mục tiêu cuối dự án**; các package/file chưa có (`security/`, 
 ```
 smart-trip-planner/
 ├── design.md              ← nguồn sự thật, đọc trước khi code
+├── UI_GUIDE.md            ← nguồn sự thật về giao diện, prompt Stitch ở mục 15
 ├── CLAUDE.md
 ├── README.md
 ├── docs/testing/          ← test case theo tính năng (README.md = quy ước), cập nhật khi đóng task
@@ -194,7 +197,8 @@ smart-trip-planner/
     └── src/
         ├── main.tsx                      ← QueryClientProvider bọc App
         ├── App.tsx
-        ├── index.css                     ← chỉ có @import "tailwindcss"
+        ├── index.css                     ← @import "tailwindcss" + styles/tokens.css
+        ├── styles/tokens.css             ← @theme: màu, bo góc, bóng, font (UI_GUIDE.md)
         ├── vite-env.d.ts                 ← type cho import.meta.env.VITE_*
         ├── api/                          ← client.ts (axios instance) + 1 file mỗi module (health.ts, auth.ts...)
         ├── types/                        ← api.ts (ApiResponse/ErrorResponse viết tay, sau thay bằng gen:api)
@@ -209,7 +213,7 @@ Cập nhật mục này sau mỗi phase hoàn thành.
 
 - [x] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler, init frontend (2026-09-18)
 - [x] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password, auth UI (2026-09-25)
-- [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30)
+- [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30); làm lại giao diện theo UI_GUIDE — Task 2.6 (2026-10-01)
 - [ ] Phase 3 — Place + Weather (mock provider + Redis cache)
 - [ ] Phase 4 — Sharing + Permission (member, share link, PermissionEvaluator)
 - [ ] Phase 5 — Realtime WebSocket + optimistic locking
@@ -242,6 +246,8 @@ Khi review code, kiểm tra lại các điểm này:
 - `UPDATE` hàng loạt đổi giá trị cột có UNIQUE (ví dụ dời `trip_days.date`) mà không `ORDER BY` theo chiều dời: MySQL kiểm UNIQUE sau từng dòng → `Duplicate entry`
 - MapStruct `@Mapper(uses = ...)` thiếu `injectionStrategy = InjectionStrategy.CONSTRUCTOR` → mapper sinh ra inject qua field, unit test NPE
 - Ghi đè lớp Tailwind của component bằng một lớp cùng thuộc tính qua `className` (ví dụ `w-auto` đè `w-full`, `hover:text-red-700` đè `hover:text-slate-800`): không chắc lớp nào thắng. Thuộc tính thay đổi theo chỗ dùng phải là prop của component (`Button` có `variant` / `size` / `fullWidth`) — BUG-UI-001, WORKFLOW.md Task 2.5
+- Hai phần tử cùng `z-index` chồng lên nhau khi cuộn (chấm trên ray `z-10` đè khối dính `z-10`): danh sách có phần tử `z` riêng phải `isolate` — BUG-UI-002, WORKFLOW.md Task 2.6
+- `scrollIntoView` tới phần tử nằm trong khối `sticky`: trình duyệt coi như luôn hiện nên không cuộn. Cuộn tới phần tử cha không dính, đặt `scroll-margin` — WORKFLOW.md Task 2.6
 - Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")
 
 ---

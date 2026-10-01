@@ -1,8 +1,8 @@
 # 05 · Hoạt động trong ngày
 
-> Cập nhật: 2026-09-30 · build xanh tại commit `eb1ad5e` (merge Task 2.5) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
 
-Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Thêm, xem, sửa, xoá làm ở Task 2.3, hoàn thành ngày 2026-09-29. Sắp xếp lại bằng kéo thả làm ở Task 2.4, hoàn thành ngày 2026-09-30.
+Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Thêm, xem, sửa, xoá làm ở Task 2.3, hoàn thành ngày 2026-09-29. Sắp xếp lại bằng kéo thả làm ở Task 2.4, hoàn thành ngày 2026-09-30. Tự xếp chỗ theo giờ bắt đầu làm ở Task 2.6 (commit 12).
 
 File này được ghi dần theo từng mốc của task. Mỗi mốc là một commit:
 
@@ -26,6 +26,12 @@ Task 2.4, sắp xếp lại:
 | 2 | Chặn trùng giờ khi chuyển ngày | K | `bdfe725` |
 | 3 | Đánh lại số thứ tự khi khoảng cách quá nhỏ | L | `e56f21a` |
 | 4 | Kiểm toàn luồng | M | `1b30b1f` |
+
+Task 2.6, giao diện (chỉ commit có đổi backend của hoạt động):
+
+| Commit | Nội dung | Phần trong file | Commit |
+|---|---|---|---|
+| 12 | Tự xếp hoạt động theo giờ bắt đầu | N | `db74c66` |
 
 Vài từ dùng trong file:
 
@@ -433,6 +439,42 @@ Sáu câu SQL của `TC-ACT-155`: kiểm quyền, kiểm chuyến đi còn sốn
 
 ---
 
+## N. Tự xếp hoạt động theo giờ bắt đầu
+
+> **Yêu cầu:** design.md rule 14.5 (bổ sung Task 2.6) · **Kiểm bởi:** `ActivityServiceTest`, `ActivityFlowIntegrationTest`
+
+Khi thêm hoạt động có giờ bắt đầu, hoặc khi sửa **giờ bắt đầu** của một hoạt động, hệ thống tự đặt nó vào đúng chỗ trong ngày. Bốn quy tắc đã chốt với chủ dự án:
+
+1. Hoạt động được đặt ngay trước hoạt động **đầu tiên** (theo thứ tự đang hiển thị) có giờ bắt đầu muộn hơn. Không có hoạt động nào muộn hơn thì xuống **cuối ngày** (đổi ngày 2026-10-01 sau `BUG-ACT-004`; bản đầu đặt ngay sau hoạt động có giờ cuối cùng).
+2. Hoạt động không có giờ giữ nguyên chỗ: nó luôn đi liền sau hoạt động đứng trước nó.
+3. Kéo thả vẫn tự do. Thứ tự đã kéo chỉ bị điều chỉnh quanh hoạt động vừa đổi giờ, cả ngày không bị sắp lại.
+4. Sửa tên, ghi chú, chi phí hay giờ kết thúc không làm hoạt động di chuyển.
+
+Hai hoạt động cùng giờ bắt đầu: hoạt động có sẵn đứng trước. Hết chỗ chèn giữa hai hoạt động thì cả ngày được đánh lại 1000, 2000, 3000 như phần L.
+
+Trong bảng, "08:00 (1000)" nghĩa là hoạt động bắt đầu 08:00, số thứ tự 1000; "không giờ" là hoạt động chưa có giờ bắt đầu.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-159 | Ngày có 08:00 (1000), 12:00 (2000). Thêm hoạt động 10:00 | Số thứ tự 1500, nằm giữa hai hoạt động | Đúng | Đạt |
+| TC-ACT-160 | Cùng ngày trên. Thêm hoạt động 06:00 | Số thứ tự 500, lên đầu ngày | Biên | Đạt |
+| TC-ACT-161 | Ngày có 08:00 (1000), không giờ (2000). Thêm hoạt động 20:00 | Số thứ tự 3000: xuống cuối ngày, hoạt động không giờ vẫn đi liền sau 08:00 | Biên | Đạt |
+| TC-ACT-162 | Ngày có 08:00 (1000), không giờ (2000), 12:00 (3000). Thêm hoạt động 10:00 | Số thứ tự 2500: bỏ qua hoạt động không giờ, đứng ngay trước 12:00 | Đúng | Đạt |
+| TC-ACT-163 | Ngày có 09:00 (1000), 12:00 (2000). Thêm hoạt động cũng 09:00 | Số thứ tự 1500, đứng sau hoạt động 09:00 có sẵn | Biên | Đạt |
+| TC-ACT-164 | Ngày chỉ có hoạt động không giờ (1000, 2000). Thêm hoạt động 09:00 | Số thứ tự 3000, xuống cuối ngày như trước đây | Biên | Đạt |
+| TC-ACT-165 | Ngày có 08:00 (1000), 12:00 (1001), không còn số nào ở giữa. Thêm hoạt động 10:00 | Cả ngày được đánh lại: 08:00 là 1000, hoạt động mới 2000, 12:00 là 3000 | Biên | Đạt |
+| TC-ACT-166 | Thêm hoạt động không có giờ | Xuống cuối ngày như trước đây, hệ thống không cần đọc các hoạt động của ngày | Đúng | Đạt |
+| TC-ACT-167 | Ngày có hoạt động đang sửa 09:00 (1000), 10:00 (2000), 12:00 (3000). Đổi giờ bắt đầu thành 11:00 | Số thứ tự 2500, nằm giữa 10:00 và 12:00, vẫn ở ngày cũ | Đúng | Đạt |
+| TC-ACT-174 | Ngày có hoạt động đang sửa 09:00 (1000), không giờ (2000), 12:00 (3000), không giờ (4000). Đổi thành 20:00 | Số thứ tự 5000, xuống cuối ngày | Biên | Đạt |
+| TC-ACT-168 | Ngày có 08:00 (1000), 12:00 (2000), hoạt động đang sửa 15:00 (3000). Đổi thành 10:00 | Số thứ tự 1500, lên giữa 08:00 và 12:00 | Đúng | Đạt |
+| TC-ACT-169 | Ngày có hoạt động đang sửa 09:00 (1000), 12:00 (2000). Đổi thành 10:00 | Vẫn 1000: chỗ cũ vẫn đúng nên không di chuyển | Biên | Đạt |
+| TC-ACT-170 | Hoạt động chưa có giờ (3000) ở ngày có 08:00 (1000), 12:00 (2000). Thêm giờ bắt đầu 10:00 | Số thứ tự 1500 | Đúng | Đạt |
+| TC-ACT-171 | Người dùng đã kéo 12:00 (1000) lên trên 08:00 (2000). Hoạt động đang sửa 07:00 (3000) đổi thành 10:00 | Hoạt động đang sửa lên 500, trước 12:00 là hoạt động muộn hơn đầu tiên nó gặp. 12:00 và 08:00 giữ nguyên số thứ tự | Biên | Đạt |
+| TC-ACT-172 | Hoạt động 09:00 đang nằm sai thứ tự giờ vì người dùng đã kéo. Sửa tên, ghi chú, chi phí và giờ kết thúc, giữ giờ bắt đầu | Không di chuyển, hệ thống không đọc các hoạt động của ngày | Đúng | Đạt |
+| TC-ACT-173 | Trên MySQL thật: thêm 08:00, một hoạt động không giờ, 12:00, rồi 10:00. Đổi 12:00 thành 07:00. Kéo "Ăn sáng" lên đầu, rồi sửa tên nó | Danh sách ngày đúng thứ tự sau từng bước. Sửa tên không làm đổi chỗ | Đúng | Đạt · từng lỗi BUG-ACT-004 |
+
+---
+
 ## Kiểm tra thủ công
 
 Làm trên trang Swagger `http://localhost:8080/swagger-ui.html`. Cần có: backend đang chạy bản code mới nhất, đã đăng nhập bằng một tài khoản đã xác thực email, và một chuyến đi từ `2026-10-01` đến `2026-10-02`.
@@ -612,8 +654,11 @@ Task 2.3: Mốc 1 phát sinh `BUG-ACT-001`, Mốc 3 phát sinh `BUG-ACT-002`, M�
 
 Task 2.4: cả bốn mốc không phát sinh lỗi, test mới đều đạt ngay lần chạy đầu.
 
+Task 2.6: commit 12 phát sinh `BUG-ACT-004`.
+
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
+| BUG-ACT-004 | TC-ACT-173 | 2026-10-01 | Ngày có "Ăn sáng" 08:00 và "Dạo phố" không giờ. Thêm "Ăn trưa" 12:00 rồi "Bảo tàng" 10:00. Test báo: mong đợi `["Ăn sáng", "Dạo phố", "Bảo tàng", "Ăn trưa"]`, thực tế `["Ăn sáng", "Bảo tàng", "Ăn trưa", "Dạo phố"]` | **Quy tắc chưa hợp ý người dùng.** Code làm đúng quy tắc 1 bản đầu: lúc thêm "Ăn trưa" 12:00, không có hoạt động nào muộn hơn, nên nó được đặt ngay sau "Ăn sáng" (hoạt động có giờ cuối cùng), chen lên trước "Dạo phố". Test thì mong đợi "Ăn trưa" xuống cuối ngày, đúng với cách người dùng hình dung | Chủ dự án quyết định đổi quy tắc 1: không có hoạt động nào muộn hơn thì xuống cuối ngày. Code đổi theo, test giữ nguyên kỳ vọng ban đầu, `TC-ACT-161` đổi kết quả mong đợi, thêm `TC-ACT-174` | Đã sửa, commit `db74c66` |
 | BUG-ACT-003 | TC-ACT-103 | 2026-09-29 | Kéo dài giờ kết thúc của "Đi chợ" từ 11:00 lên 11:30 thì bị từ chối. Test báo: mong đợi 200, thực tế 409 | **Test sai.** Hệ thống làm đúng: khoảng mới 10:00 đến 11:30 trùng với "Cà phê" 09:30 đến 10:30. Người viết test quên rằng "Cà phê" đã được thêm có xác nhận ở bước trước | Sửa kịch bản trong test: bước này mong đợi 409, và việc "không tự trùng với chính mình" được kiểm bằng một hoạt động không trùng ai. Code không đổi | Đã sửa, commit `50bb13c` |
 | BUG-ACT-002 | TC-ACT-034, TC-ACT-035, TC-ACT-036 | 2026-09-29 | Câu truy vấn tìm hoạt động trùng giờ trả về danh sách rỗng, dù trong ngày có hoạt động trùng giờ. Test báo: mong đợi `["Ăn sáng"]`, thực tế `[]` | Cách sửa của BUG-ACT-001 chỉ áp dụng cho giờ **được lưu**. Giờ **đem ra so sánh** trong câu truy vấn vẫn bị đổi sang giờ quốc tế, nên 09:30 bị so như 02:30 | Không so giờ trong câu truy vấn nữa. Hệ thống lấy các hoạt động có giờ của ngày, rồi so trong code | Đã sửa, commit `0abaf97` |
 | BUG-ACT-001 | TC-ACT-003 | 2026-09-29 | Hoạt động 03:00 đến 08:15 bị lưu thành 20:00 đến 01:15. Giờ kết thúc nằm trước giờ bắt đầu nên database từ chối | Ứng dụng đổi mọi giá trị thời gian sang giờ quốc tế trước khi lưu. Điều đó đúng với một thời điểm cụ thể, nhưng sai với giờ trong ngày không kèm ngày | Hai cột giờ của hoạt động được ghi nguyên văn, không chuyển đổi | Đã sửa, commit `3c4c294` |
@@ -625,5 +670,7 @@ Bài học: giá trị ứng dụng đọc lại đúng vẫn có thể sai tron
 BUG-ACT-002 là hệ quả của BUG-ACT-001: sửa một lỗi ở chỗ ghi dữ liệu không có nghĩa là chỗ đọc và chỗ so sánh cũng đã đúng. Nếu không có test chạy trên database thật, lỗi này sẽ cho phép mọi hoạt động trùng giờ lọt qua mà không ai biết, vì hệ thống không báo lỗi gì cả.
 
 Thứ tự xử lý BUG-ACT-002 đúng theo quy tắc "ghi trước, sửa sau": test đỏ, ghi lỗi với trạng thái đang mở, tìm nguyên nhân, sửa, chạy lại, đóng lỗi.
+
+BUG-ACT-004 khác BUG-ACT-003 ở chỗ người quyết định. Code làm đúng quy tắc đã chốt, nhưng test (viết theo cách người dùng hình dung) lộ ra một hệ quả của quy tắc mà người dùng thấy lạ: hoạt động không giờ ở cuối ngày bị hoạt động có giờ mới thêm chen lên trước. Khi code và quy tắc khớp nhau mà kết quả vẫn lạ, người viết code không tự sửa: báo lại chủ dự án, và chủ dự án đã đổi quy tắc.
 
 BUG-ACT-003 cho thấy vì sao bước "xác định ai sai" quan trọng. Nếu sửa code cho test đạt, hệ thống sẽ cho phép kéo dài một hoạt động đè lên hoạt động khác mà không hỏi lại người dùng. Log của server ghi rõ hoạt động nào bị trùng, và đó là căn cứ để kết luận test sai. Lỗi này cũng làm rõ một quy tắc chưa được viết ra, nay đã thành `TC-ACT-104`.

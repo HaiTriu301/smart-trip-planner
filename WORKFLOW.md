@@ -968,6 +968,46 @@ Mốc 6 — feat(frontend): add drag and drop activity reorder
 >
 > **Việc cho sau (từ thảo luận làm lại giao diện, 2026-09-30):** chủ dự án sẽ đưa một mẫu giao diện chung để làm lại toàn bộ frontend sau khi xong các phase. Để việc đó dễ và an toàn: (1) có test Vitest + Testing Library kiểm **hành vi** (chữ, vai trò), không kiểm class, trước khi làm lại — Task 8.3; (2) gom màu chủ đạo về `@theme` trong `index.css` (`bg-brand` thay `bg-sky-600`) — Task 8.3; (3) tách logic khỏi component lớn (`DragDropContainer`, `ActivityFormDialog`, `EditTripDialog`) thành hook — làm dần khi sửa file, xong trước khi làm lại giao diện; (4) làm lại giao diện trước Task 8.5 để ảnh chụp là bản cuối.
 
+### Task 2.6 — Làm lại giao diện theo UI_GUIDE.md
+
+Nhánh: `feat/T2.6-ui-guide` · **Task thêm ngoài kế hoạch** (2026-09-30): chủ dự án thử mockup Stitch cho trang đăng nhập và danh sách chuyến đi, chọn làm lại giao diện ngay sau Phase 2 thay vì đợi cuối dự án (xem "Việc cho sau" của Task 2.5). Nguồn sự thật về giao diện: `UI_GUIDE.md` (design.md 3.2). Điều kiện mỗi commit frontend: `npm run lint` + `npm run build` xanh; commit có backend: `./gradlew build` xanh.
+
+> **Thực tế khi làm 2.6 (2026-10-01):** PR #15, merge commit `8f06d72` (Merge commit, giữ lịch sử). 16 commit:
+>
+> | Commit | Nội dung |
+> |---|---|
+> | `d949878` docs(ui): add ui guide | `UI_GUIDE.md` bản đầu |
+> | `c3c8e4e` style(frontend): add ui guide tokens, font and shared components | `styles/tokens.css` (`@theme`), font, `lucide-react`, Badge, Toaster, Skeleton, EmptyState, Logo |
+> | `6923e05` style(frontend): apply ui guide form conventions | `FieldShell`, `PasswordField`, nút `size` / `variant` mới |
+> | `042b8e9` feat(frontend): restyle trip list per ui guide | Thẻ chuyến đi, chip trạng thái, sắp xếp |
+> | `332ad85` feat(frontend): add timetable rail to trip detail | Dải thời gian (ray) có chấm theo loại activity, menu "⋮" (Radix) |
+> | `521d566` feat(frontend): mobile trip detail with day chips and move buttons | Chip ngày dính, nút ↑ / ↓ theo `pointer-coarse` |
+> | `efa9e73` style(frontend): restyle auth pages and create trip wizard | Trang đăng nhập / đăng ký / đặt lại mật khẩu, thanh bước dạng tuyến |
+> | `9501e8e` feat(trip): show activity count on trip cards | Backend `activityCount`, đếm `GROUP BY`, test số câu SQL |
+> | `a838d5b` feat(trip): add trip counts by status | Backend `GET /trips/status-counts`, số trên chip |
+> | `7811124` feat(frontend): move trip search to the top bar | Ô tìm kiếm trên thanh điều hướng |
+> | `3beda76` docs(ui): align ui guide with the implementation and add stitch prompts per screen | UI_GUIDE viết lại theo code, mục 15 prompt Stitch |
+> | `dcf747b` docs(ui): rename the trial to task 2.6 | |
+> | `3bd7fcf` feat(frontend): show one trip day per page | Route `/trips/:id/days/:dayIndex`, nút ngày trước / sau |
+> | `c74a21f` feat(frontend): move an activity to another day | Thả lên tên ngày ở cột trái, menu "Chuyển sang ngày…", thông báo có link |
+> | `db74c66` feat(activity): place activities by start time | Backend tự xếp theo giờ bắt đầu (design.md 10.2 "Xếp theo giờ") |
+> | `b73fc79` feat(frontend): pin the day header and add back to top | Ngày dài: khối mô tả ngày dính, "Đầu ngày", nút tròn lên đầu trang |
+>
+> Quyết định khi làm (chi tiết ở design.md 3.2, 10.2, 14.5, 15 và `UI_GUIDE.md`):
+> - Token qua `@theme` (`jade`, `ink`, `paper`, `tide`...) đã làm ở đây, không đợi Task 8.3. Component vẫn tự viết, chỉ thêm `lucide-react` (icon) và Radix Dropdown Menu (menu "⋮").
+> - **Một ngày một trang** để khớp với bản đồ từng ngày ở Phase 3; chuyển ngày bằng thả lên tên ngày (chỉ tính khi con trỏ nằm đúng trên mục) hoặc menu "⋮" (dùng được trên mọi thiết bị).
+> - **Xếp theo giờ** chỉ di chuyển activity vừa đổi giờ, không sắp lại cả ngày, để kéo thả vẫn tự do.
+> - **Ngày dài:** cả trang một thanh cuộn, khối mô tả ngày dính (từ 1024px), không dùng khung cao cố định có thanh cuộn riêng (cản kéo thả, khó dùng trên điện thoại, cột bản đồ Phase 3 sẽ dính theo trang). Bản đầu (thanh gọn hiện khi tiêu đề khuất) bị chủ dự án bỏ trước khi commit.
+> - Lịch sử commit giữ nguyên (không squash), PR merge bằng Merge commit.
+> - 507 lượt test backend (thêm 28). Frontend kiểm bằng 41 bài `MT-UI` trong `docs/testing/06-itinerary-ui.md`, **chưa chạy** lúc đóng task.
+>
+> **Bẫy đã gặp khi làm 2.6:**
+> 1. **BUG-ACT-004 — quy tắc đúng nhưng người dùng thấy lạ:** "không có activity muộn hơn → đặt sau activity có giờ cuối cùng" làm activity không giờ ở cuối ngày bị chen lên trước. Code khớp quy tắc nên không tự sửa: báo chủ dự án, chủ dự án đổi quy tắc thành "xuống cuối ngày".
+> 2. **BUG-UI-002 — cùng `z-index`:** chấm trên ray (`z-10`) vẽ đè lên khối mô tả ngày đang dính (cũng `z-10`) vì nằm sau trong DOM. Sửa: `isolate` cho danh sách activity, `z` của chấm chỉ có tác dụng trong danh sách.
+> 3. **Cuộn tới phần tử đang dính không có tác dụng:** tiêu đề nằm trong khối `sticky` luôn được coi là "đang hiện", `scrollIntoView` không cuộn. Đích cuộn phải là phần tử không dính (`section#day-start` với `scroll-margin`).
+> 4. **`space-y-*` của Tailwind v4 cho phần tử con margin qua `:where()`** (độ ưu tiên 0): một phần tử cao 0 vẫn đẩy nội dung 16px. Phần tử `fixed` không bị ảnh hưởng vì nằm ngoài luồng.
+> 5. **Prettier không được cấu hình trong dự án:** chạy `npx prettier --write` định dạng lại cả file theo mặc định, diff phình to. Không chạy Prettier, sửa tay theo kiểu của file.
+
 > ✅ Hết Phase 2 → **đây là mốc "sản phẩm dùng được"**. Tick `[x] Phase 2` trong CLAUDE.md. Ảnh chụp màn hình **chưa** làm ở đây — để dành tới Task 8.5 khi project hoàn chỉnh (quyết định 2026-09-26). Trước khi sang Phase 3: rà lại Phase 3 theo quy ước A.2 "Rà soát theo phase".
 
 ---
@@ -1373,8 +1413,7 @@ Nhánh: `chore/T8.3-test-coverage`
 7. Frontend — test (từ 2.5): Vitest + Testing Library nếu task frontend trước chưa thêm; ưu tiên luồng trong
    docs/testing/06-itinerary-ui.md (trùng giờ → allowOverlap, force=true, kéo thả trả về chỗ cũ khi lỗi).
    Truy vấn theo chữ / role, không theo class, để test sống qua lần làm lại giao diện
-8. Frontend — màu chủ đạo (từ 2.5): khai báo `@theme` trong index.css (`--color-brand`...), thay `sky-*` rải rác
-   bằng `brand` → đổi màu cả app ở một chỗ. Làm trước khi làm lại giao diện
+8. ~~Frontend — màu chủ đạo (từ 2.5): khai báo `@theme`~~ — **đã làm ở Task 2.6** (`src/styles/tokens.css`, xem UI_GUIDE.md)
 ```
 
 **Commit:** `chore(test): add jacoco coverage gate` + `perf(trip): fix n+1 query on trip detail`
@@ -1452,6 +1491,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.3 Activity + trùng giờ | ☑ | 2026-09-29 |
 | 2 | 2.4 Reorder | ☑ | 2026-09-30 |
 | 2 | 2.5 Itinerary UI | ☑ | 2026-09-30 |
+| 2 | 2.6 Làm lại giao diện theo UI_GUIDE | ☑ | 2026-10-01 |
 | 3 | 3.1 Provider abstraction | ☐ | |
 | 3 | 3.2 Place service | ☐ | |
 | 3 | 3.3 Redis cache | ☐ | |
