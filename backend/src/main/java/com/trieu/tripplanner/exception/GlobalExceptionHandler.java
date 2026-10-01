@@ -13,11 +13,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -36,6 +41,7 @@ public class GlobalExceptionHandler {
 
     private static final String MALFORMED_BODY_KEY = "error.validation.malformed-body";
     private static final String TYPE_MISMATCH_KEY = "error.validation.type-mismatch";
+    private static final String MISSING_PARAMETER_KEY = "error.validation.missing-parameter";
 
     private static final Comparator<ErrorResponse.FieldError> DETAILS_ORDER = Comparator
             .comparing(ErrorResponse.FieldError::field)
@@ -112,14 +118,32 @@ public class GlobalExceptionHandler {
         return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingRequestParameter(MissingServletRequestParameterException ex,
+                                                                       HttpServletRequest request) {
+        return validationError(
+                List.of(new ErrorResponse.FieldError(ex.getParameterName(), message(MISSING_PARAMETER_KEY))), request);
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
                                                                   HttpServletRequest request) {
-        ErrorCode errorCode = ErrorCode.METHOD_NOT_ALLOWED;
         // ex.getHeaders() carries the Allow header that a 405 response must include
-        return ResponseEntity.status(errorCode.getHttpStatus())
-                .headers(ex.getHeaders())
-                .body(ErrorResponse.of(errorCode, message(errorCode.getMessageKey()), request.getRequestURI()));
+        return build(ErrorCode.METHOD_NOT_ALLOWED, ex.getHeaders(), request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
+                                                                     HttpServletRequest request) {
+        // ex.getHeaders() carries the Accept header: the content types the endpoint does take
+        return build(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ex.getHeaders(), request);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex,
+                                                                      HttpServletRequest request) {
+        ErrorCode errorCode = ErrorCode.NOT_ACCEPTABLE;
+        return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
     }
 
     /**
@@ -150,8 +174,25 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(ErrorCode errorCode, String message,
                                                 List<ErrorResponse.FieldError> details, HttpServletRequest request) {
-        return ResponseEntity.status(errorCode.getHttpStatus())
+        return json(errorCode, new HttpHeaders())
                 .body(ErrorResponse.of(errorCode, message, details, request.getRequestURI()));
+    }
+
+    /** For framework exceptions that bring response headers of their own (Allow, Accept). */
+    private ResponseEntity<ErrorResponse> build(ErrorCode errorCode, HttpHeaders headers, HttpServletRequest request) {
+        return json(errorCode, headers)
+                .body(ErrorResponse.of(errorCode, message(errorCode.getMessageKey()), request.getRequestURI()));
+    }
+
+    /**
+     * The content type is set up front so the error is written as JSON whatever the Accept header asks for.
+     * Left to content negotiation, a request with "Accept: text/xml" makes writing the error itself fail; the
+     * container then forwards to /error, which is not public, and the client gets a misleading 401.
+     */
+    private static ResponseEntity.BodyBuilder json(ErrorCode errorCode, HttpHeaders headers) {
+        return ResponseEntity.status(errorCode.getHttpStatus())
+                .headers(headers)
+                .contentType(MediaType.APPLICATION_JSON);
     }
 
     private String message(String key, Object... args) {

@@ -163,6 +163,67 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void wrongContentTypeReturnsUnsupportedMediaTypeNotInternalError() {
+        MvcTestResult result = mvc.post().uri("/test/body")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .content("name=Da+Lat&days=3")
+                .exchange();
+
+        // The Accept response header tells the caller which types the endpoint does take
+        assertThat(result.getResponse().getHeader(HttpHeaders.ACCEPT)).contains(MediaType.APPLICATION_JSON_VALUE);
+        assertThat(result)
+                .hasStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": false,
+                          "errorCode": "UNSUPPORTED_MEDIA_TYPE",
+                          "message": "Kiểu nội dung gửi lên không được hỗ trợ, API chỉ nhận application/json",
+                          "path": "/test/body"
+                        }
+                        """);
+    }
+
+    @Test
+    void acceptHeaderWithoutJsonReturnsNotAcceptableAsJson() {
+        MvcTestResult result = mvc.get().uri("/test/value").accept(MediaType.TEXT_XML).exchange();
+
+        assertThat(result)
+                .hasStatus(HttpStatus.NOT_ACCEPTABLE)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": false,
+                          "errorCode": "NOT_ACCEPTABLE",
+                          "message": "API chỉ trả dữ liệu dạng application/json",
+                          "path": "/test/value"
+                        }
+                        """);
+    }
+
+    @Test
+    void errorIsStillWrittenAsJsonWhenAcceptHeaderExcludesJson() {
+        // Without a preset content type the error body itself cannot be written, and the real error is lost
+        assertThat(mvc.get().uri("/test/not-found").accept(MediaType.TEXT_XML))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void missingRequiredRequestParamReturnsFieldDetails() {
+        assertThat(mvc.get().uri("/test/param"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": false,
+                          "errorCode": "VALIDATION_ERROR",
+                          "message": "Dữ liệu không hợp lệ",
+                          "details": [ { "field": "size", "message": "Thiếu tham số bắt buộc" } ]
+                        }
+                        """);
+    }
+
+    @Test
     void unexpectedExceptionReturnsGenericMessageWithoutInternalDetails() {
         MvcTestResult result = mvc.get().uri("/test/unexpected").exchange();
 
@@ -214,6 +275,11 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/items/{id}")
         void item(@PathVariable Long id) {
+        }
+
+        @GetMapping("/value")
+        SampleRequest value() {
+            return new SampleRequest("Da Lat", 3);
         }
 
         @GetMapping("/service-validation")
