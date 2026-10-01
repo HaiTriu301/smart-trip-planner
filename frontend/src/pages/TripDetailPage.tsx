@@ -56,9 +56,12 @@ export function TripDetailPage() {
         {/* Title takes the free width and stops at two lines; status and actions keep one fixed spot on the
             right (on their own row under the title on narrow screens), whatever the title length */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          {/* data-page-top: "Lên đầu trang" puts the focus back here */}
           <h1
             title={trip.title}
-            className="line-clamp-2 min-w-0 flex-1 text-[32px] leading-10 font-bold tracking-[-0.02em] wrap-anywhere text-ink"
+            data-page-top
+            tabIndex={-1}
+            className="line-clamp-2 min-w-0 flex-1 text-[32px] leading-10 font-bold tracking-[-0.02em] wrap-anywhere text-ink focus:outline-none"
           >
             {trip.title}
           </h1>

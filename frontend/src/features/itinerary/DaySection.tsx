@@ -8,6 +8,7 @@ import { updateTripDay } from '../../api/trips'
 import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
+import { BackToTopButton } from '../../components/BackToTopButton'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
@@ -36,6 +37,10 @@ interface DaySectionProps {
 /**
  * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
  * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
+ * <p>
+ * On wide screens the heading block is sticky (UI_GUIDE 8.1 "Ngày dài"): its 24px top padding lines it up with
+ * the pinned day list on the left, and its paper background covers the cards scrolling underneath. The negative
+ * top margin cancels that padding while nothing is scrolled, so the page looks the same as before at rest.
  */
 export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: DaySectionProps) {
   const queryClient = useQueryClient()
@@ -56,13 +61,21 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
   })
 
   return (
-    <section aria-labelledby="day-heading" className="space-y-4">
+    // id day-start: target of "Đầu ngày" and of the scroll after a day change. Not the heading: on wide screens it
+    // sits in the pinned header, always "in view", so scrolling to it would do nothing. The scroll margins land
+    // the section under the sticky day chips (phones) or 24px down, where the pinned header rests (wide screens).
+    <section
+      id="day-start"
+      aria-labelledby="day-heading"
+      tabIndex={-1}
+      className="scroll-mt-20 space-y-4 focus:outline-none lg:scroll-mt-6"
+    >
       {isEditingDay ? (
         <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
       ) : (
-        <header className="flex items-start justify-between gap-3">
+        <header className="flex items-start justify-between gap-3 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
           <div className="min-w-0 space-y-1">
-            <h2 id="day-heading" className="scroll-mt-20 text-lg leading-[26px] font-semibold text-ink lg:scroll-mt-6">
+            <h2 id="day-heading" className="text-lg leading-[26px] font-semibold text-ink">
               Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
             </h2>
             {day.title ? (
@@ -73,6 +86,10 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
             {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {/* Wide screens only, where this header stays pinned; phones have the floating button */}
+            <div className="hidden lg:block">
+              <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+            </div>
             <Button
               variant="ghost"
               size="sm"

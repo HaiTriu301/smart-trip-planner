@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { BackToTopButton } from '../../components/BackToTopButton'
 import { LinkButton } from '../../components/LinkButton'
 import { formatDate } from '../../lib/format'
 import type { TripDayDetail } from '../../types/trip'
@@ -21,16 +22,25 @@ const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${d
  * One day per page (UI_GUIDE 8.1): the list of days on the left (chips on narrow screens) links to each day,
  * the middle column shows only the chosen one. The whole grid sits inside the drag and drop area, so a card can
  * be dropped on another day of the list to move it there. The map column comes in Phase 3.
+ * <p>
+ * Long days (UI_GUIDE 8.1 "Ngày dài"): on wide screens the day list and the day header both stay pinned at the
+ * same height while the activities scroll; "Đầu ngày" sits in the day header and a small floating button in the
+ * bottom right corner goes back to the top of the page. On narrow screens the floating button goes back to the
+ * start of the day instead.
  */
 export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
   const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
 
-  // Coming from "Ngày sau" at the bottom of a long day: bring the new day's heading back into view.
-  // Clicking the sticky day list leaves the page where it is when the heading is already visible.
+  // Coming from "Ngày sau" at the bottom of a long day: bring the start of the new day back into view. When the
+  // start of the day is still in sight (a click on the day list near the top), the page stays where it is.
+  // The section, not the heading: on wide screens the heading is pinned and counts as always visible.
   useEffect(() => {
-    document.getElementById('day-heading')?.scrollIntoView({ block: 'nearest' })
+    const start = document.getElementById('day-start')
+    if (start && start.getBoundingClientRect().top < parseFloat(getComputedStyle(start).scrollMarginTop)) {
+      start.scrollIntoView({ block: 'start' })
+    }
   }, [currentDayIndex])
 
   if (!current) return null
@@ -42,6 +52,10 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: Day
         const shown = shownDays.find((d) => d.id === current.id) ?? current
         return (
           <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+            {/* Fixed position, so they take no room in the grid. Narrow screens: back to the start of the day, the
+                place that matters there. Wide screens: back to the top of the page ("Đầu ngày" is in the header) */}
+            <BackToTopButton placement="floating" screens="narrow" label="Về đầu ngày" targetId="day-start" />
+            <BackToTopButton placement="floating" screens="wide" label="Lên đầu trang" />
             <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
             <nav aria-label="Các ngày" className="hidden lg:block">
               <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto p-1">

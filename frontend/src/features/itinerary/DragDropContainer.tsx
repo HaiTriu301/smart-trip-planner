@@ -359,9 +359,11 @@ export function SortableDayList({ dayId, activityIds, children }: SortableDayLis
   const rail = activityIds.length > 0 ? 'before:absolute before:inset-y-3 before:left-12 before:w-px before:bg-tide' : ''
   return (
     <SortableContext id={dayKey(dayId)} items={activityIds.map(activityKey)} strategy={verticalListSortingStrategy}>
+      {/* isolate: the station dots (z-10, above the rail line) stay inside the list and never paint over the
+          sticky day header (BUG-UI-002) */}
       <ol
         ref={setNodeRef}
-        className={`relative min-h-12 space-y-3 rounded-card transition-colors ${rail} ${isOver ? 'bg-jade-light/60' : ''}`}
+        className={`relative isolate min-h-12 space-y-3 rounded-card transition-colors ${rail} ${isOver ? 'bg-jade-light/60' : ''}`}
       >
         {children}
       </ol>

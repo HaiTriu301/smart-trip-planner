@@ -426,6 +426,12 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 - **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` và số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
 - **Cột trái (200px):** các ngày kèm số hoạt động, mỗi mục là một link. Ngày đang xem có nền `jade-light` + vạch `jade` 3px ở mép trái (`aria-current="page"`).
 - **Cột giữa:** chỉ ngày đang xem: tiêu đề ngày với nút "Sửa" và nút chính "+ Thêm hoạt động", rồi đến ray. Dưới ray là nút "‹ Ngày trước" / "Ngày sau ›"; bấm "Ngày sau" ở cuối một ngày dài thì trang cuộn lên tiêu đề của ngày mới.
+- **Ngày dài** (Task 2.6 commit 13): từ 1024px, **khối mô tả ngày** (tên ngày, tiêu đề, ghi chú, "Sửa", "+ Thêm hoạt động") dính ở trên khi cuộn, **ngang hàng với cột ngày bên trái** (cả hai cách mép trên 24px); nền `paper` che các thẻ cuộn qua bên dưới, viền `tide` ở đáy khối. Cả trang vẫn chỉ có **một thanh cuộn**: không dùng khung cao cố định có thanh cuộn riêng (hai thanh cuộn lồng nhau khó dùng, cản kéo thả, và cột bản đồ Phase 3 sẽ dính theo trang). Màn hình hẹp: khối mô tả **không** dính, vì sẽ chiếm gần nửa màn hình.
+- **Nút quay lên** (`BackToTopButton`), chỉ hiện khi đã cuộn quá một chiều cao màn hình:
+  - Từ 1024px: nút ghost **"↑ Đầu ngày"** trong khối mô tả ngày đang dính, cạnh "Sửa" (về chỗ hoạt động đầu tiên nằm ngay dưới khối, như lúc mới mở ngày), và một nút tròn `ink` **nhỏ 40px** ở **góc dưới phải** màn hình, cách mép dưới **96px**, **"Lên đầu trang"** (về tên chuyến đi). Độ cao này để nút nằm trên một thông báo (toast) đang hiện ở cùng góc và không chạm footer khi cuộn tới cuối trang; cột trái chỉ có danh sách ngày.
+  - Dưới 1024px chỉ một nút tròn `ink` 48px, **"Về đầu ngày"** (đầu ngày nằm ngay dưới dải chip). Cách mép dưới 56px để không chạm footer. Điện thoại: góc phải (toast ở trên). Máy tính bảng: góc **trái**, vì toast chiếm góc dưới phải.
+  - Bấm thì focus chuyển tới chỗ vừa cuộn về (phần ngày, hoặc tên chuyến đi).
+  - Đích cuộn "đầu ngày" là **cả phần ngày** (`#day-start`), không phải tiêu đề: tiêu đề nằm trong khối dính nên trình duyệt coi như luôn hiện, cuộn tới nó không có tác dụng. Chuyển sang ngày khác từ cuối một ngày dài cũng cuộn về `#day-start`.
 
 **Phase 3:** cột phải 420px: bản đồ dính khi cuộn, dải thời tiết bên dưới.
 
@@ -440,6 +446,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
 - **Màn hình cảm ứng:** không kéo thả (xung đột với cuộn trang); mỗi thẻ có **nút ↑ / ↓** 44px, chỉ đổi thứ tự **trong** ngày (hoạt động đầu ngày không lên được, cuối ngày không xuống được). Việc chọn tay nắm hay mũi tên dựa vào **loại con trỏ** (`pointer-coarse`), không dựa vào độ rộng màn hình.
 - **Chuyển sang ngày khác:** trên máy tính, kéo thẻ **thả lên tên ngày ở cột trái** (mục đó có viền `jade` khi rê qua; chỉ tính khi con trỏ nằm đúng trên mục, nên kéo trong ngày không bị hút sang). Mọi thiết bị: menu "⋮" → **"Chuyển sang ngày…"** (hộp chọn ngày). Hoạt động xuống **cuối** ngày đích và biến khỏi ngày đang xem, nên thông báo có link "Mở Ngày N". Vẫn hỏi lại khi trùng giờ ở ngày mới.
+- **Tự xếp theo giờ** (Task 2.6 commit 12, backend làm): thêm hoạt động có giờ bắt đầu, hoặc đổi giờ bắt đầu, thì hoạt động vào ngay trước hoạt động đầu tiên bắt đầu muộn hơn; không có thì xuống cuối ngày. Hoạt động không giờ và thứ tự đã kéo giữ nguyên; sửa tên, ghi chú, chi phí, giờ kết thúc không làm di chuyển.
 - Kéo thả và nút mũi tên dùng chung một đường lưu: cập nhật giao diện ngay, hỏi lại khi trùng giờ ở ngày mới, trả về chỗ cũ khi lỗi.
 
 ### 8.2. Danh sách chuyến đi — **Đã làm**
