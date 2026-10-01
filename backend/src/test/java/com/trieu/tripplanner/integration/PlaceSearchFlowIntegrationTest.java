@@ -4,13 +4,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.dto.request.SavePlaceRequest;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.MockMapProvider;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.JwtTokenProvider;
+import com.trieu.tripplanner.service.PlaceService;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +39,8 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
  * Place search through every layer of the real application: security filter → controller → service → the map
- * source Spring actually wires in (the bundled data) → JSON. Nothing is mocked.
+ * source Spring actually wires in (the bundled data) → JSON. Nothing is mocked. Also the one thing about picking
+ * a result that only a real database can prove: simultaneous picks of the same place end in one row.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,6 +65,9 @@ class PlaceSearchFlowIntegrationTest {
     @Autowired
     private ApplicationContext applicationContext;
 
+    @Autowired
+    private PlaceService placeService;
+
     private String bearer;
 
     @BeforeEach
@@ -68,6 +83,7 @@ class PlaceSearchFlowIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("DELETE FROM places");
         jdbcTemplate.update("DELETE FROM users");
     }
 
@@ -162,6 +178,38 @@ class PlaceSearchFlowIntegrationTest {
         assertThat(mvc.get().uri(SEARCH_URL + "?q=cho"))
                 .hasStatus(HttpStatus.UNAUTHORIZED)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+    }
+
+    // ---------- picking a result ----------
+
+    @Test
+    void manyUsersPickingTheSamePlaceAtTheSameMomentShareOneRow() throws Exception {
+        int users = 8;
+        SavePlaceRequest request = new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-cho-han");
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(users);
+        try {
+            List<Future<Long>> answers = new ArrayList<>();
+            for (int i = 0; i < users; i++) {
+                answers.add(pool.submit(() -> {
+                    start.await();
+                    return placeService.getOrCreate(request).id();
+                }));
+            }
+            start.countDown();
+
+            Set<Long> ids = new HashSet<>();
+            for (Future<Long> answer : answers) {
+                ids.add(answer.get(20, TimeUnit.SECONDS));
+            }
+
+            // Whoever wins the INSERT, nobody gets an error and nobody gets a different id
+            assertThat(ids).hasSize(1);
+            assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM places", Integer.class)).isEqualTo(1);
+        }
+        finally {
+            pool.shutdownNow();
+        }
     }
 
     // ---------- helpers ----------

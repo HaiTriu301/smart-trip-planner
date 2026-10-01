@@ -32,6 +32,7 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
@@ -168,6 +169,34 @@ class PlaceServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
 
         verify(placeRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void whenAnotherRequestStoresTheSamePlaceFirstItsRowIsReturned() {
+        // Both requests saw "not stored yet"; the UNIQUE key lets only one INSERT through
+        when(placeRepository.findByProviderAndExternalId(PlaceProvider.MOCK, "da-nang-chua-linh-ung"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(storedLinhUng(31L)));
+        when(mapProvider.lookup("da-nang-chua-linh-ung")).thenReturn(Optional.of(LINH_UNG));
+        when(placeRepository.saveAndFlush(any(Place.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate entry for key 'uk_places_provider_external_id'"));
+
+        PlaceResponse response = placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung"));
+
+        assertThat(response.id()).isEqualTo(31L);
+    }
+
+    @Test
+    void integrityErrorThatIsNotADuplicateIsNotSwallowed() {
+        DataIntegrityViolationException failure = new DataIntegrityViolationException("Column 'name' cannot be null");
+        when(placeRepository.findByProviderAndExternalId(PlaceProvider.MOCK, "da-nang-chua-linh-ung"))
+                .thenReturn(Optional.empty());
+        when(mapProvider.lookup("da-nang-chua-linh-ung")).thenReturn(Optional.of(LINH_UNG));
+        when(placeRepository.saveAndFlush(any(Place.class))).thenThrow(failure);
+
+        // Nothing to read back: the original error must reach the caller, not a made-up "not found"
+        assertThatThrownBy(() -> placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
+                .isSameAs(failure);
     }
 
     private static Place storedLinhUng(Long id) {

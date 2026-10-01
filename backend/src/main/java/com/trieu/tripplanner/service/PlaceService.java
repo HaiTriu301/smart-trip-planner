@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -49,7 +50,12 @@ public class PlaceService {
 
     /**
      * "I pick this search result": returns the stored copy of the place, creating it on first use (design.md
-     * rule 14.18). Asking twice for the same place ends with one row and one id.
+     * rule 14.18). Asking twice, or two users asking for the same place, always ends with one row and one id.
+     * <p>
+     * Not @Transactional on purpose. Each repository call runs in its own short transaction, so when a
+     * concurrent request wins the INSERT and the UNIQUE key rejects ours, only that INSERT is rolled back and the
+     * row of the winner can still be read. Inside one surrounding transaction the failed INSERT would mark the
+     * whole transaction rollback-only.
      *
      * @throws ResourceNotFoundException the source knows no place with this externalId (404)
      */
@@ -65,17 +71,24 @@ public class PlaceService {
     private Place copyFromSource(PlaceProvider provider, String externalId) {
         PlaceResult found = mapProvider.lookup(externalId)
                 .orElseThrow(() -> new ResourceNotFoundException(PLACE, provider + "/" + externalId));
-        Place saved = placeRepository.saveAndFlush(Place.builder()
-                .provider(found.provider())
-                .externalId(found.externalId())
-                .name(found.name())
-                .address(found.address())
-                .lat(found.lat())
-                .lng(found.lng())
-                .category(found.category())
-                .build());
-        log.info("Place {} stored from {}/{}", saved.getId(), provider, externalId);
-        return saved;
+        try {
+            Place saved = placeRepository.saveAndFlush(Place.builder()
+                    .provider(found.provider())
+                    .externalId(found.externalId())
+                    .name(found.name())
+                    .address(found.address())
+                    .lat(found.lat())
+                    .lng(found.lng())
+                    .category(found.category())
+                    .build());
+            log.info("Place {} stored from {}/{}", saved.getId(), provider, externalId);
+            return saved;
+        }
+        catch (DataIntegrityViolationException ex) {
+            // Another request stored the same place between our SELECT and our INSERT: the UNIQUE key kept one row
+            log.info("Place {}/{} was stored by a concurrent request, reading it back", provider, externalId);
+            return placeRepository.findByProviderAndExternalId(provider, externalId).orElseThrow(() -> ex);
+        }
     }
 
     /** A point needs both numbers; half a coordinate is a client mistake, not "no preference". */
