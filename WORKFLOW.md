@@ -1400,7 +1400,7 @@ Commit 7 — test(weather): add trip weather flow integration test              
 
 **Vì sao mock phải ổn định:** test tích hợp không được đỏ ngẫu nhiên (CLAUDE.md rule 24), và người dùng tải lại trang phải thấy cùng dự báo.
 
-> **Thực tế khi làm 3.3 (2026-10-02 → 2026-10-03):** 7 commit code trên nhánh, đúng bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`8a0fe9e`). Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.4.
+> **Thực tế khi làm 3.3 (2026-10-02 → 2026-10-03):** 7 commit code trên nhánh, đúng bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`8a0fe9e`). PR #19, merge commit `5cfa377` (Merge commit, giữ lịch sử), docs đóng task `9f99b55`.
 >
 > | Commit | File | Nội dung |
 > |---|:--:|---|
@@ -1431,7 +1431,6 @@ Commit 7 — test(weather): add trip weather flow integration test              
 > 6. **Thay bean `Clock` trong test toàn luồng** bằng `@TestBean(methodName = ...)` tạo một context riêng (và một container MySQL riêng) cho class đó: build dài thêm khoảng 10 giây. Chấp nhận, vì test theo "hôm nay" mà không có đồng hồ đứng yên sẽ đỏ quanh nửa đêm.
 > 7. **Script sửa tài liệu nhét vào heredoc của Bash lại hỏng** (dấu nháy trong nội dung tiếng Việt) lúc soạn tài liệu đóng task; không file nào bị ghi dở vì lệnh hỏng trước khi chạy. Script dài: ghi ra file `.py` rồi chạy, như đã ghi ở Task 3.1.
 >
-> **Việc cho Task 3.4 Mốc 0:** ghi số PR và merge commit của Task 3.3 vào dòng đầu của khối này.
 > **Việc cho Task 3.4:** lời gọi provider nằm trong method `private` của `WeatherService`; `@Cacheable` đặt ở đó sẽ không chạy (tự gọi trong cùng bean). Đặt cache ở một bean riêng bọc lời gọi provider, hoặc ngay trên bản hiện thực của provider. Khoá cache theo design 8.1 gồm `from` và `to` đã thu hẹp theo "hôm nay", nên mỗi ngày là một khoá mới cho chuyến đi đang diễn ra. `DailyForecast` là `record` có `LocalDate` và enum: kiểm serializer đọc lại đúng kiểu.
 > **Việc cho Task 3.7:** response là `{ status, days[{ dayId, date, forecast }] }`; `forecast: null` + `status: OK` = "Chưa có dự báo", `NO_DESTINATION` = mời chọn điểm đến. 7 giá trị `condition` cần 7 icon. Không có ô `warning` (Mốc 2 hoãn). "Hôm nay" ở giao diện lấy từ `timezone` của `GET /users/me`, cùng nguồn với backend.
 > **Việc cho Task 3.8:** `OpenMeteoWeatherProvider` đổi mã WMO về 7 giá trị (mưa phùn, mưa rào → `RAIN`), được phép trả thiếu ngày; service đã lọc và ghép theo ngày nên không phải sửa. Ngày của dự báo là ngày lịch **tại điểm đến**, trong khi khoảng 16 ngày tính theo "hôm nay" của tài khoản: lệch tối đa một ngày khi hai nơi khác múi giờ, quyết định có cần xử lý không. Provider lỗi → 200 không dự báo (design 10.2): cân nhắc thêm một giá trị `status` để giao diện ghi "tạm thời không có dự báo".
@@ -1440,26 +1439,60 @@ Commit 7 — test(weather): add trip weather flow integration test              
 
 ### Task 3.4 — Redis cache
 
-Nhánh: `feat/T3.4-redis-cache` · Test: thêm phần "cache" vào `07-place.md` và `08-weather.md`.
+Nhánh: `feat/T3.4-redis-cache` · Test: thêm phần "cache" vào `07-place.md` và `08-weather.md`; kết nối Redis và health ghi ở `01-platform.md`. Mỗi commit một việc, code + test cùng commit, số file ghi trong ngoặc vuông.
+
+Kết quả của task (người dùng không thấy tính năng mới): kết quả tìm địa điểm được giữ trong Redis 24 giờ, dự báo thời tiết 3 giờ; Redis tắt thì API vẫn chạy.
 
 ```
-Mốc 1 — feat(cache): cache place search in redis
-        dependency spring-boot-starter-data-redis + spring-boot-starter-cache (BOM quản version),
-        config/CacheConfig (@EnableCaching, TTL theo từng cache name, JSON bằng Jackson 3),
-        common/constant/CacheNames, application.yml spring.data.redis (REDIS_HOST / REDIS_PORT đã có trong .env),
-        TestcontainersConfiguration thêm container redis:7-alpine,
-        @Cacheable cho tìm địa điểm: khoá = từ khoá đã chuẩn hoá + limit + toạ độ làm tròn, TTL 24h;
-        test: tìm 2 lần → provider chỉ bị gọi 1 lần; từ khoá khác → gọi lại; cache được xoá giữa các test
+Mốc 0 — docs (main): PR #19 của Task 3.3; design.md 8.1 (cache đặt ở bean riêng, dữ liệu lưu, thời gian chờ, health);
+        bảng commit này
 
-Mốc 2 — feat(cache): cache weather forecast in redis
-        khoá = toạ độ làm tròn 4 chữ số + khoảng ngày, TTL 3h; test như Mốc 1
+Commit 1 — feat(cache): connect the application to redis                                            [4 file]
+        build.gradle (spring-boot-starter-data-redis, BOM quản version), application.yml spring.data.redis
+        (REDIS_HOST / REDIS_PORT đã có trong .env; tắt Redis repository), TestcontainersConfiguration thêm container
+        redis:7-alpine (@ServiceConnection name = "redis"), RedisConnectionIntegrationTest: ghi một khoá có hạn rồi
+        đọc lại. Chưa chức năng nào dùng kết nối này cho tới Commit 4 (điểm tách (b) của A.2)
 
-Mốc 3 — feat(cache): keep the api working when redis is down
-        CacheErrorHandler: lỗi Redis → log WARN, bỏ qua cache, gọi thẳng provider (không trả 500);
-        /actuator/health không báo DOWN chỉ vì Redis; test
+Commit 2 — feat(cache): keep health up when redis is down                                           [2 file]
+        application.yml management.health.redis.enabled=false (chỉ báo Redis tự xuất hiện từ Commit 1),
+        RedisDownIntegrationTest: dừng container Redis → /actuator/health vẫn UP (context riêng, @DirtiesContext)
+
+Commit 3 — feat(cache): build the cache key of a place search                                       [2 file]
+        service/PlaceSearchCache.keyOf(query, limit, near): từ khoá bỏ dấu, chữ thường, gộp khoảng trắng + limit +
+        toạ độ làm tròn 4 chữ số (hoặc "không có toạ độ"); PlaceSearchCacheTest: "Chợ  Hàn" và "cho han" chung khoá,
+        khác limit / khác toạ độ → khác khoá. Chưa ai gọi cho tới Commit 4
+
+Commit 4 — feat(cache): cache place search in redis                                                 [7 file]
+        build.gradle (spring-boot-starter-cache), config/CacheConfig (@EnableCaching, cache place:search TTL 24h,
+        JSON có kiểu List<PlaceResult> bằng JacksonJsonRedisSerializer), common/constant/CacheNames,
+        PlaceSearchCache thành bean có search(...) @Cacheable gọi MapProvider.search, PlaceService.search gọi qua nó,
+        PlaceServiceTest; PlaceSearchCacheIntegrationTest (Redis thật): tìm 2 lần → provider bị gọi 1 lần; từ khoá
+        khác → gọi lại; đọc lại đúng kiểu PlaceResult; khoá trong Redis có hạn 24h; cache được xoá giữa các test
+
+Commit 5 — feat(cache): skip the cache when redis fails                                             [3 file]
+        CacheConfig: CacheErrorHandler ghi log WARN rồi bỏ qua cache (không trả 500); application.yml
+        spring.data.redis.timeout và connect-timeout = 1s; RedisDownIntegrationTest: dừng container → tìm địa điểm
+        vẫn 200 và đủ kết quả, trong vài giây
+
+Commit 6 — feat(cache): cache weather forecast in redis                                             [7 file]
+        CacheNames + CacheConfig (weather:forecast TTL 3h, List<DailyForecast>), service/ForecastCache
+        (keyOf: toạ độ làm tròn 4 chữ số + from + to; forecast(...) @Cacheable gọi WeatherProvider.forecast),
+        WeatherService gọi qua nó, WeatherServiceTest; ForecastCacheIntegrationTest như Commit 4;
+        RedisDownIntegrationTest thêm: Redis dừng → thời tiết vẫn 200
 ```
 
-**Nhớ:** DTO được cache là `record`: kiểm serializer đọc lại đúng kiểu (không thành `Map`) ngay ở test của Mốc 1. Tên class serializer Jackson 3 của Spring Data Redis 4: tra tài liệu chính thức trước khi dùng (CLAUDE.md mục 1).
+> **Quyết định khi duyệt bảng commit 3.4 (2026-10-03)** — chi tiết ở design.md 8.1:
+> - **Cache đặt ở một bean riêng giữa service và provider** (`PlaceSearchCache`, `ForecastCache`), không ghi `@Cacheable` lên bản hiện thực của provider và không bọc provider bằng một bean cùng interface. Lý do: nhìn vào là biết cái gì được cache; Task 3.8 thêm provider thật mà không đụng tới cache; `@Cacheable` trên method `private` của `WeatherService` không chạy.
+> - Redis là **cache dùng chung cho mọi người dùng**, nằm cạnh backend, không nằm ở máy người dùng. Chỉ cache câu trả lời của nguồn bên ngoài (không có dữ liệu riêng của ai). Khác bảng `places`: bảng là dữ liệu lâu dài mà activity trỏ tới; cache là bản tạm, mất không sao.
+> - Kiểm "Redis tắt" bằng test **dừng hẳn container**, cộng một bài thủ công.
+> - Thời gian chờ Redis: **1 giây** cho kết nối và cho mỗi lệnh (mặc định của thư viện là 60 giây).
+> - Thứ tự commit chia lại so với bản đầu của buổi thảo luận: "bật cache" đi cùng cache đầu tiên chứ không cùng kết nối; health đứng ngay sau kết nối; "Redis lỗi" đứng trước cache thứ hai để điểm hở ngắn nhất.
+>
+> **Điểm hở tạm thời:** sau Commit 4, Redis tắt thì tìm địa điểm trả 500; Commit 5 đóng lại và có test.
+>
+> **Hạn chế đã biết, xét lại ở Task 3.8:** khoá tìm địa điểm bỏ dấu nên "chợ hàn" và "cho han" chung một ô cache (với Photon thật hai cách gõ có thể cho kết quả khác nhau); khoá thời tiết gồm cả khoảng ngày nên hai chuyến đi cùng điểm đến nhưng lệch ngày không dùng chung cache.
+
+**Nhớ:** DTO được cache là `record`: kiểm serializer đọc lại đúng kiểu (không thành `Map`) ngay ở test của Commit 4. Tên class serializer Jackson 3 của Spring Data Redis 4, đã tra tài liệu chính thức ngày 2026-10-03: `JacksonJsonRedisSerializer` (một kiểu cố định) và `GenericJacksonJsonRedisSerializer`. Spring Boot 4.1.1 nối Redis trong test bằng `GenericContainer` + `@ServiceConnection(name = "redis")`, không cần thêm thư viện test.
 
 ---
 

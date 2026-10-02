@@ -631,6 +631,15 @@ Chốt 2026-10-01 (rà soát Phase 3, làm ở Task 3.4):
 - Redis không phải nguồn dữ liệu: Redis lỗi hoặc tắt → bỏ qua cache, gọi thẳng provider, API không trả 500.
 - Test chạy với Redis thật (Testcontainers), cùng cách với MySQL.
 
+Chốt 2026-10-03 (bảng commit Task 3.4):
+- **Cache dùng chung cho mọi người dùng**, nằm ở máy chủ cạnh backend. Khoá không có mã người dùng: cùng một câu hỏi thì ai cũng nhận cùng câu trả lời. Vì vậy chỉ cache câu trả lời của nguồn bên ngoài (tìm địa điểm, dự báo); dữ liệu riêng của người dùng (chuyến đi, hoạt động, địa điểm tự thêm) không vào Redis.
+- Khác bảng `places`: bảng là dữ liệu lâu dài, có `id`, activity trỏ tới, không hết hạn. Cache là bản tạm của một câu trả lời, tự hết hạn, xoá sạch lúc nào cũng không mất gì (lần hỏi sau gọi lại nguồn).
+- Nạp theo nhu cầu: hết hạn thì Redis tự xoá, không có tác vụ nền nạp lại; lần hỏi kế tiếp gọi nguồn một lần rồi cất lại.
+- **Vị trí:** mỗi cache là một bean riêng đứng giữa service và provider (`service/PlaceSearchCache`, `service/ForecastCache`), method `@Cacheable` gọi thẳng port. Service gọi bean này thay vì gọi provider. Không ghi `@Cacheable` lên bản hiện thực của provider, không bọc provider bằng bean cùng interface.
+- **Dữ liệu lưu:** kiểu của tầng provider (`List<PlaceResult>`, `List<DailyForecast>`) dạng JSON, mỗi cache khai báo rõ kiểu của nó (`JacksonJsonRedisSerializer`), không lưu tên class trong Redis.
+- **Thời gian chờ Redis:** 1 giây cho kết nối và cho mỗi lệnh. Quá hạn hoặc lỗi → ghi log WARN, bỏ qua cache, gọi thẳng provider.
+- **Health:** tắt chỉ báo Redis của Actuator (`management.health.redis.enabled=false`); Redis tắt không làm `/actuator/health` báo DOWN.
+
 ### 8.2. Rate limit (Bucket4j + Redis)
 
 | Nhóm endpoint | FREE | PREMIUM | Guest/IP |
