@@ -2,11 +2,13 @@ package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherResponse;
+import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.service.WeatherService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,12 +30,15 @@ public class WeatherController {
                description = "Mỗi ngày của chuyến đi một phần tử, sắp theo ngày. forecast gồm condition (CLEAR, "
                        + "PARTLY_CLOUDY, CLOUDY, FOG, RAIN, THUNDERSTORM, SNOW), tempMin và tempMax (độ C) và "
                        + "precipitationProbability (0 đến 100). Dự báo lấy theo toạ độ điểm đến của chuyến đi. "
+                       + "Chỉ có dự báo cho 16 ngày tính từ hôm nay (hôm nay theo múi giờ của tài khoản đang đăng nhập); "
+                       + "ngày đã qua hoặc xa hơn thì forecast là null. "
                        + "status là OK, hoặc NO_DESTINATION khi chuyến đi chưa có toạ độ điểm đến: vẫn 200, forecast của "
                        + "mọi ngày là null. 403 nếu không có quyền xem, 404 nếu chuyến đi không tồn tại.")
     @GetMapping("/trips/{tripId}")
     @PreAuthorize("@tripPermission.canView(#tripId, principal)")
-    public ApiResponse<TripWeatherResponse> forTrip(@PathVariable Long tripId) {
-        return ApiResponse.ok(weatherService.forTrip(tripId));
+    public ApiResponse<TripWeatherResponse> forTrip(@PathVariable Long tripId,
+                                                    @AuthenticationPrincipal CustomUserDetails principal) {
+        return ApiResponse.ok(weatherService.forTrip(tripId, principal.getId()));
     }
 
 }

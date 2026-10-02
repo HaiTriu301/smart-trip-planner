@@ -41,6 +41,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 class WeatherControllerTest {
 
     private static final long TRIP_ID = 5L;
+    private static final long USER_ID = 7L;
     private static final String WEATHER_URL = "/api/v1/weather/trips/5";
 
     @Autowired
@@ -60,13 +61,14 @@ class WeatherControllerTest {
 
     @BeforeEach
     void signIn() {
-        bearer = "Bearer " + jwtTokenProvider.generateAccessToken(TestUsers.verified(7L, "an@example.com")).token();
+        bearer = "Bearer " + jwtTokenProvider.generateAccessToken(TestUsers.verified(USER_ID, "an@example.com")).token();
     }
 
     @Test
     void returnsEachDayWithItsForecastWhenViewAllowed() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(weatherService.forTrip(TRIP_ID)).thenReturn(new TripWeatherResponse(TripWeatherStatus.OK, List.of(
+        // Stubbed for the signed-in user only: the controller must pass the id of the token, nothing else
+        when(weatherService.forTrip(TRIP_ID, USER_ID)).thenReturn(new TripWeatherResponse(TripWeatherStatus.OK, List.of(
                 new TripWeatherDayResponse(11L, LocalDate.of(2026, 10, 5),
                         new ForecastResponse(WeatherCondition.RAIN, 24.1, 29.6, 70)),
                 new TripWeatherDayResponse(12L, LocalDate.of(2026, 10, 6), null))));
@@ -86,7 +88,7 @@ class WeatherControllerTest {
     @Test
     void tripWithoutDestinationIsAnAnswerNotAnError() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(weatherService.forTrip(TRIP_ID)).thenReturn(new TripWeatherResponse(TripWeatherStatus.NO_DESTINATION,
+        when(weatherService.forTrip(TRIP_ID, USER_ID)).thenReturn(new TripWeatherResponse(TripWeatherStatus.NO_DESTINATION,
                 List.of(new TripWeatherDayResponse(11L, LocalDate.of(2026, 10, 5), null))));
 
         assertThat(mvc.get().uri(WEATHER_URL).header(HttpHeaders.AUTHORIZATION, bearer))
@@ -113,13 +115,13 @@ class WeatherControllerTest {
         assertThat(mvc.get().uri(WEATHER_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
-        verify(weatherService, never()).forTrip(any());
+        verify(weatherService, never()).forTrip(any(), any());
     }
 
     @Test
     void returns404WhenTripDoesNotExist() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(weatherService.forTrip(TRIP_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
+        when(weatherService.forTrip(TRIP_ID, USER_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
 
         assertThat(mvc.get().uri(WEATHER_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.NOT_FOUND)
