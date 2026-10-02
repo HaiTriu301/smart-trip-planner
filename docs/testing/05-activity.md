@@ -1,6 +1,6 @@
 # 05 · Hoạt động trong ngày
 
-> Cập nhật: 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-02 · build xanh tại commit `532bc80` (Task 3.2, 681 lượt test) · kiểm tra thủ công `MT-ACT-13`, `MT-ACT-14` chưa chạy · [Về trang chính](README.md)
 
 Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Thêm, xem, sửa, xoá làm ở Task 2.3, hoàn thành ngày 2026-09-29. Sắp xếp lại bằng kéo thả làm ở Task 2.4, hoàn thành ngày 2026-09-30. Tự xếp chỗ theo giờ bắt đầu làm ở Task 2.6 (commit 12).
 
@@ -32,6 +32,17 @@ Task 2.6, giao diện (chỉ commit có đổi backend của hoạt động):
 | Commit | Nội dung | Phần trong file | Commit |
 |---|---|---|---|
 | 12 | Tự xếp hoạt động theo giờ bắt đầu | N | `db74c66` |
+
+Task 3.2, gắn địa điểm vào hoạt động (phần của địa điểm ghi ở [07-place.md](07-place.md)):
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 8a | Hoạt động có thêm chỗ ghi địa điểm của nó | O | `cb5b475` |
+| 8b | Mọi phản hồi có hoạt động đều kèm địa điểm của nó | P | `744c3ec` |
+| 9 | Gắn địa điểm khi thêm hoạt động | Q | `9abd7cd` |
+| 10 | Đổi địa điểm của hoạt động đã có | R | `6c2140a` |
+| 11 | Bỏ địa điểm của hoạt động | S | `449e4ba` |
+| 12 | Kiểm toàn luồng địa điểm của hoạt động qua mọi tầng | T | `532bc80` |
 
 Vài từ dùng trong file:
 
@@ -473,6 +484,104 @@ Trong bảng, "08:00 (1000)" nghĩa là hoạt động bắt đầu 08:00, số 
 | TC-ACT-172 | Hoạt động 09:00 đang nằm sai thứ tự giờ vì người dùng đã kéo. Sửa tên, ghi chú, chi phí và giờ kết thúc, giữ giờ bắt đầu | Không di chuyển, hệ thống không đọc các hoạt động của ngày | Đúng | Đạt |
 | TC-ACT-173 | Trên MySQL thật: thêm 08:00, một hoạt động không giờ, 12:00, rồi 10:00. Đổi 12:00 thành 07:00. Kéo "Ăn sáng" lên đầu, rồi sửa tên nó | Danh sách ngày đúng thứ tự sau từng bước. Sửa tên không làm đổi chỗ | Đúng | Đạt · từng lỗi BUG-ACT-004 |
 
+## O. Lưu địa điểm của hoạt động
+
+> **Yêu cầu:** design.md 5.2 bảng `activities` (cột `place_id`), rule 14.18 · **Kiểm bởi:** `ActivityMappingTest`
+
+Chạy trên MySQL thật. Mỗi hoạt động có nhiều nhất một địa điểm, hoặc không có. Địa điểm là bản lưu dùng chung (xem [07-place.md](07-place.md)), nên phần này kiểm rằng hoạt động và địa điểm không kéo nhau mất khi một bên bị xoá.
+
+Phần này mới chỉ là chỗ chứa. Việc hiện địa điểm trong phản hồi và việc gắn, đổi, bỏ địa điểm thuộc các commit sau của Task 3.2.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-175 | Lưu hai hoạt động cùng gắn "Chợ Đà Lạt" rồi đọc lại | Cả hai đọc lại đúng địa điểm đó. Bảng địa điểm chỉ có một dòng, dùng chung cho cả hai | Đúng | Đạt |
+| TC-ACT-176 | Một hoạt động được ghi theo cấu trúc cũ, trước khi có địa điểm | Vẫn đọc được, không có địa điểm. Hoạt động đang có của người dùng không bị ảnh hưởng khi nâng cấp | Biên | Đạt |
+| TC-ACT-177 | Xoá một hoạt động đang gắn địa điểm | Hoạt động mất, địa điểm còn nguyên để hoạt động khác dùng | Đúng | Đạt |
+| TC-ACT-178 | Xoá thẳng trong database một địa điểm đang được hoạt động dùng | Database từ chối, địa điểm còn nguyên. Hoạt động không bao giờ trỏ tới một địa điểm đã mất | Biên | Đạt |
+| TC-ACT-179 | Ghi thẳng vào hoạt động một mã địa điểm không tồn tại | Database từ chối. Đây là chốt chặn cuối; thông báo thân thiện cho người dùng làm ở commit gắn địa điểm | Sai | Đạt |
+
+## P. Địa điểm trong phản hồi của hoạt động
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Activity API" (đoạn "Địa điểm của activity"), CLAUDE.md mục 8 (N+1) · **Kiểm bởi:** `ActivityServiceTest`, `ActivityControllerTest`, `ActivityRepositoryTest`
+
+Mỗi hoạt động trong phản hồi có thêm ô `place`: đủ thông tin để hiện tên, địa chỉ và chấm lên bản đồ, hoặc `null` khi chưa gắn. Áp dụng cho danh sách hoạt động của ngày, chi tiết chuyến đi, kết quả sắp xếp lại và kết quả sửa hoạt động.
+
+Ở commit này chưa có cách gắn địa điểm qua API (thuộc commit sau), nên trên ứng dụng thật mọi hoạt động đang trả `place` = `null`. Các kịch bản dưới đây tự đặt sẵn địa điểm trong dữ liệu test.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-180 | Xem danh sách của một ngày có hai hoạt động: một gắn "Chợ Đà Lạt", một không gắn gì | Hoạt động đầu kèm `place` đủ 7 thông tin: mã, nguồn, tên, địa chỉ, vĩ độ, kinh độ, loại. Hoạt động sau có `place` = `null` (ô vẫn có mặt, không bị lược bỏ) | Đúng | Đạt |
+| TC-ACT-181 | Trên MySQL thật, ba truy vấn danh sách (danh sách của ngày, chi tiết chuyến đi, kết quả sắp xếp lại) với dữ liệu như trên | Địa điểm được đọc **ngay trong cùng câu truy vấn** với hoạt động, không tốn thêm câu nào cho mỗi hoạt động. Hoạt động không có địa điểm không bị rơi khỏi danh sách | Biên | Đạt |
+| TC-ACT-182 | Trên MySQL thật, truy vấn lấy một hoạt động để sửa | Địa điểm cũng được đọc trong cùng câu truy vấn; hoạt động không có địa điểm vẫn tìm thấy | Biên | Đạt |
+
+Kiểm chứng ngược (2026-10-02): tạm bỏ phần đọc kèm địa điểm ở cả bốn truy vấn thì `TC-ACT-181` và `TC-ACT-182` đỏ; bật lại thì xanh.
+
+Các test đếm câu SQL có sẵn (`TC-ACT` ở phần H, I, M: chi tiết chuyến đi 4 câu, danh sách hoạt động 4 câu, sắp xếp lại 6 câu) vẫn đạt sau commit này, với dữ liệu **chưa có** địa điểm. Việc đếm lại khi hoạt động **có** địa điểm trên cả ứng dụng thật là `TC-ACT-202` ở phần T.
+
+## Q. Gắn địa điểm khi thêm hoạt động
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Activity API" (đoạn "Địa điểm của activity"), rule 14.19 · **Kiểm bởi:** `ActivityServiceTest`, `ActivityControllerTest`
+
+`POST .../days/{dayId}/activities` nhận thêm `placeId`: mã của một địa điểm lấy từ `POST /places` hoặc `POST /places/manual`. Không gửi thì hoạt động không có địa điểm, như trước. Quy tắc "địa điểm nào được dùng" ghi ở [07-place.md](07-place.md) phần J.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-183 | Thêm hoạt động "Mua đặc sản" kèm `placeId` của "Chợ Đà Lạt" | 201. Hoạt động được lưu cùng địa điểm; phản hồi có `place` đầy đủ. Địa điểm được tra với đúng người đang đăng nhập | Đúng | Đạt |
+| TC-ACT-184 | Thêm hoạt động không gửi `placeId` | 201 như trước. `place` = `null`, hệ thống không tra địa điểm nào | Đúng | Đạt |
+| TC-ACT-185 | Thêm hoạt động với `placeId` không dùng được (không tồn tại, hoặc là địa điểm riêng của người khác) | 400 `VALIDATION_ERROR` ở ô `placeId`: "Địa điểm không tồn tại". Không hoạt động nào được lưu | Sai | Đạt |
+| TC-ACT-186 | Thêm hoạt động có giờ, `placeId` sai | Báo lỗi địa điểm (400) trước khi xét trùng giờ. Nhờ vậy người dùng không gặp cảnh bấm "vẫn thêm dù trùng giờ" rồi lại bị từ chối vì một ô đã sai từ đầu | Biên | Đạt |
+
+Toàn luồng trên ứng dụng thật với MySQL được kiểm ở phần T; đổi và bỏ địa điểm ở phần R và S.
+
+## R. Đổi địa điểm của hoạt động
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Activity API" (đoạn "Địa điểm của activity"), rule 14.19 · **Kiểm bởi:** `ActivityServiceTest`, `ActivityControllerTest`
+
+`PATCH .../activities/{activityId}` nhận thêm `placeId`. Gửi mã thì hoạt động chuyển sang địa điểm đó (hoặc được gắn lần đầu). Không gửi thì địa điểm giữ nguyên, như mọi ô khác của PATCH. Việc **bỏ** địa điểm ghi ở phần S.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-187 | Hoạt động chưa có địa điểm. Sửa, chỉ gửi `placeId` của "Chợ Đà Lạt" | Hoạt động được gắn địa điểm; phản hồi có `place`. Tên và vị trí trong ngày không đổi | Đúng | Đạt |
+| TC-ACT-188 | Hoạt động đang ở "Chợ Đà Lạt". Sửa với `placeId` của "Bảo tàng Lâm Đồng" | Địa điểm đổi sang bảo tàng; phản hồi hiện địa điểm mới | Đúng | Đạt |
+| TC-ACT-189 | Hoạt động đang có địa điểm. Chỉ sửa tên, không gửi `placeId` | Địa điểm giữ nguyên; hệ thống không tra địa điểm nào | Đúng | Đạt |
+| TC-ACT-190 | Sửa với một `placeId` không dùng được, kèm tên mới trong cùng lần gọi | 400 ở ô `placeId`: "Địa điểm không tồn tại". Hoạt động giữ **nguyên vẹn**: tên cũ, địa điểm cũ, không gì được lưu | Sai | Đạt |
+| TC-ACT-191 | Người gọi gửi `placeId` kèm `userId` = 99 trong body | `userId` trong body bị bỏ qua. Địa điểm được kiểm với người trong token; phản hồi có địa điểm mới | Bảo mật | Đạt |
+
+Số phiên bản của hoạt động tăng khi đổi địa điểm: do database và Hibernate làm nên chỉ kiểm được trên MySQL thật, xem `TC-ACT-197` ở phần T.
+
+## S. Bỏ địa điểm của hoạt động
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Activity API" (đoạn "Địa điểm của activity") · **Kiểm bởi:** `ActivityServiceTest`, `ActivityControllerTest`
+
+`PATCH .../activities/{activityId}` với `clearPlace: true` bỏ địa điểm khỏi hoạt động. Cần một ô riêng vì `placeId` là số: không có "chuỗi rỗng" để nói "xoá" như ghi chú hay đường dẫn đặt chỗ. Địa điểm vẫn nằm trong bảng địa điểm cho hoạt động khác dùng.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-192 | Hoạt động đang ở "Chợ Đà Lạt". Sửa, chỉ gửi `clearPlace: true` | Hoạt động không còn địa điểm; phản hồi có `place` = `null`. Tên và vị trí trong ngày không đổi; hệ thống không tra địa điểm nào | Đúng | Đạt |
+| TC-ACT-193 | Hoạt động chưa có địa điểm. Gửi `clearPlace: true` kèm tên mới | Không lỗi. Tên mới được lưu, `place` vẫn `null` | Biên | Đạt |
+| TC-ACT-194 | Hoạt động đang có địa điểm. Gửi `clearPlace: false` | Giống như không gửi: địa điểm giữ nguyên | Biên | Đạt |
+| TC-ACT-195 | Gửi **cả** `placeId` lẫn `clearPlace: true`, kèm tên mới | 400 `VALIDATION_ERROR` ở ô `clearPlace`: "Không thể vừa đổi vừa bỏ địa điểm trong cùng một lần sửa". Hoạt động giữ nguyên vẹn; bị chặn trước khi tra địa điểm, không gì được lưu | Sai | Đạt |
+| TC-ACT-196 | Gọi API với body `{"clearPlace": true}` | Yêu cầu tới đúng tầng xử lý với `clearPlace` = có, `placeId` = trống; phản hồi 200 có `"place": null` | Đúng | Đạt |
+
+Cùng commit này, mô tả trên Swagger của hai endpoint thêm và sửa hoạt động được viết lại: thêm phần `placeId` / `clearPlace`, và sửa câu cũ "hoạt động mới nằm cuối ngày" (sai từ Task 2.6, khi hoạt động có giờ được tự xếp theo giờ). Đây là chữ hiển thị, không có kịch bản test.
+
+## T. Kiểm toàn luồng địa điểm của hoạt động qua mọi tầng
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Activity API" (đoạn "Địa điểm của activity"), rule 14.18, 14.19, CLAUDE.md mục 8 (N+1) · **Kiểm bởi:** `ActivityPlaceFlowIntegrationTest`
+
+Chạy cả ứng dụng thật với MySQL, không giả lập tầng nào: đăng nhập bằng token thật, gọi API thật, rồi đọc lại database. Phần này chứng minh những điều mà test từng tầng không chứng minh được: số phiên bản tăng, không gì bị ghi khi yêu cầu bị từ chối, và số câu SQL.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-ACT-197 | Một người tìm "cho da lat", chọn "Chợ Đà Lạt", thêm hoạt động gắn địa điểm đó; xem danh sách ngày và chi tiết chuyến đi; đổi sang "Hồ Xuân Hương"; sửa tên; bỏ địa điểm; bỏ lần nữa | Từng bước đúng: hoạt động mới có địa điểm, phiên bản 0; hai màn xem đều hiện địa điểm; đổi địa điểm lên phiên bản 1; sửa tên giữ địa điểm, phiên bản 2; bỏ địa điểm còn `null`, phiên bản 3, hai địa điểm vẫn nằm trong database; bỏ lần nữa không lỗi và phiên bản **vẫn 3** | Đúng | Đạt |
+| TC-ACT-198 | Xoá hoạt động đang gắn địa điểm; chọn lại đúng kết quả tìm kiếm đó; gắn vào một hoạt động mới | Địa điểm còn nguyên sau khi xoá hoạt động. Chọn lại nhận **cùng mã**, gắn lại được | Đúng | Đạt |
+| TC-ACT-199 | Hai người mỗi người tự thêm một địa điểm. Người thứ nhất gắn địa điểm của mình; rồi thử gắn địa điểm của người kia; rồi thử một mã không tồn tại; rồi thử đổi hoạt động đang có sang địa điểm của người kia kèm tên mới | Địa điểm của mình: gắn được. Hai lần thử sau trả lời **giống nhau từng chữ** (400, ô `placeId`, "Địa điểm không tồn tại"), không hoạt động nào được tạo. Lần sửa cũng bị từ chối: tên, địa điểm và phiên bản của hoạt động không đổi | Bảo mật | Đạt |
+| TC-ACT-200 | Sửa hoạt động, gửi cả `placeId` lẫn `clearPlace: true` | 400 ở ô `clearPlace`. Trong database địa điểm và phiên bản không đổi | Sai | Đạt |
+| TC-ACT-201 | Ngày đã có "Ăn sáng" 08:00–09:00. Thêm hoạt động 08:30–09:30 với `placeId` không tồn tại | 400 ở ô `placeId`, không phải 409 trùng giờ. Không hoạt động nào được tạo | Biên | Đạt |
+| TC-ACT-202 | Một ngày có 5 hoạt động gắn 5 địa điểm khác nhau và 1 hoạt động không địa điểm. Đếm câu SQL của: danh sách ngày, chi tiết chuyến đi, sắp xếp lại, sửa tên | Danh sách ngày 4 câu, chi tiết chuyến đi 4 câu, sắp xếp lại 6 câu: **đúng bằng** các con số trước khi có địa điểm. Sửa tên hoạt động có địa điểm tốn bằng sửa hoạt động không có. Phản hồi vẫn có đủ 5 địa điểm | Biên | Đạt |
+
+Kiểm chứng ngược (2026-10-02): tạm bỏ phần đọc kèm địa điểm trong các truy vấn thì `TC-ACT-202` đỏ, danh sách ngày tốn 9 câu thay vì 4 (thêm một câu cho mỗi địa điểm). Bật lại thì xanh.
+
 ---
 
 ## Kiểm tra thủ công
@@ -645,6 +754,36 @@ Cần có: một ngày có ba hoạt động A, B, C với số thứ tự 1000,
 - [x] Gọi lại danh sách hoạt động. Số thứ tự trong database cũng là 1000, 2000, 3000.
 
 **Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy trên Swagger
+
+### MT-ACT-13 · Gắn địa điểm khi thêm hoạt động
+
+Thêm ở Task 3.2 Commit 9. Cần backend chạy bản mới (log khởi động có Flyway phiên bản 10) và một chuyến đi có ít nhất một ngày.
+
+- [ ] Đăng nhập, "Authorize". Gọi `POST /api/v1/places` với body `{"provider": "MOCK", "externalId": "da-lat-cho-da-lat"}`. Ghi lại `id` trả về (gọi là P).
+- [ ] Gọi `GET /api/v1/trips/{tripId}` của một chuyến đi của mình, ghi lại `id` của một ngày.
+- [ ] Gọi `POST /api/v1/trips/{tripId}/days/{dayId}/activities` với body `{"title": "Mua đặc sản", "placeId": P}`. Trả 201; trong phản hồi `place.name` là "Chợ Đà Lạt", có toạ độ.
+- [ ] Gọi lại `GET /api/v1/trips/{tripId}`. Hoạt động "Mua đặc sản" có `place`; các hoạt động cũ có `"place": null`.
+- [ ] Body `{"title": "Thử", "placeId": 999999}`: 400, ô `placeId`, thông báo "Địa điểm không tồn tại". Gọi danh sách hoạt động của ngày: không có "Thử".
+- [ ] Gọi `POST /api/v1/places/manual` với `{"name": "Nhà bà ngoại", "lat": 16.0471234, "lng": 108.2068765}`, ghi lại `id` (gọi là M). Thêm hoạt động với `"placeId": M`: 201, `place.provider` là `MANUAL`.
+- [ ] (Cần tài khoản thứ hai) Đăng nhập tài khoản khác, ở một chuyến đi của tài khoản đó thêm hoạt động với `"placeId": M`. Trả 400 với **đúng câu** "Địa điểm không tồn tại", giống hệt trường hợp mã 999999.
+
+**Kết quả:** Chưa chạy
+
+### MT-ACT-14 · Đổi và bỏ địa điểm của hoạt động
+
+Thêm ở Task 3.2 Commit 10, bổ sung phần bỏ địa điểm ở Commit 11. Làm tiếp sau `MT-ACT-13`: đã có hoạt động "Mua đặc sản" gắn "Chợ Đà Lạt" (ghi lại `id` và `version` của hoạt động).
+
+- [ ] Gọi `POST /api/v1/places` với `{"provider": "MOCK", "externalId": "da-nang-cho-han"}`, ghi lại `id` (gọi là H).
+- [ ] Gọi `PATCH /api/v1/trips/{tripId}/activities/{activityId}` với body `{"placeId": H}`. Trả 200; `place.name` là "Chợ Hàn"; `title` vẫn là "Mua đặc sản"; `version` tăng 1.
+- [ ] `PATCH` với body `{"title": "Mua quà"}`. Trả 200; `place` vẫn là "Chợ Hàn".
+- [ ] `PATCH` với body `{"title": "Tên khác", "placeId": 999999}`. Trả 400, ô `placeId`. Gọi `GET /api/v1/trips/{tripId}`: tên vẫn là "Mua quà", địa điểm vẫn là "Chợ Hàn".
+- [ ] (Commit 11) `PATCH` với body `{"placeId": H, "clearPlace": true}`. Trả 400, ô `clearPlace`, thông báo "Không thể vừa đổi vừa bỏ địa điểm trong cùng một lần sửa". Địa điểm vẫn là "Chợ Hàn".
+- [ ] (Commit 11) `PATCH` với body `{"clearPlace": true}`. Trả 200; `"place": null`; tên vẫn là "Mua quà".
+- [ ] (Commit 11) Gọi lại y nguyên. Trả 200, không lỗi.
+- [ ] (Commit 11) Chạy lệnh ở `MT-PLACE-02` ([07-place.md](07-place.md)): dòng "Chợ Hàn" vẫn còn trong bảng địa điểm.
+- [ ] (Commit 11) Trên Swagger, mở mô tả của `POST .../activities` và `PATCH .../activities/{activityId}`: có nói về `placeId` và `clearPlace`; không còn câu "Hoạt động mới nằm cuối ngày".
+
+**Kết quả:** Chưa chạy
 
 ---
 

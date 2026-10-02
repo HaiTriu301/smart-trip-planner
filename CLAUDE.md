@@ -93,6 +93,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
     - Endpoint public phải được thêm vào `SecurityConfig.PUBLIC_PATHS` (mặc định mọi thứ bị khoá). `@WebMvcTest` mới phải `@Import(SecurityConfig.class)`; test URL cần đăng nhập dùng `@WithMockUser`.
     - Mật khẩu chỉ đi qua `PasswordEncoder` bean (BCrypt 12); DTO response không bao giờ có field password/hash.
 16. Không bao giờ tin `userId` từ request body — luôn lấy từ `SecurityContext`.
+    - Mọi chỗ nhận `placeId` từ client phải đi qua `PlaceService.findAttachable(placeId, userId)`: địa điểm `MANUAL` chỉ người tạo dùng được, và lỗi trả về giống hệt "không tồn tại" (design rule 14.19, Task 3.2). Không tự `placeRepository.findById` rồi gắn vào entity.
 17. Không log password, token, JWT, Stripe secret, payload thẻ.
     - Refresh token bị thu hồi luôn kèm lý do (`revoked_reason`). Chỉ token đã **xoay vòng** (`ROTATED`) bị gửi lại mới là dấu hiệu trộm và làm thu hồi mọi phiên; token bị thu hồi do đăng xuất / đặt lại mật khẩu chỉ trả 401. Thứ tự kiểm ở design.md 6.1 (chốt Task 2.7).
     - Refresh token chỉ lưu **SHA-256 hex** trong DB, token thô chỉ nằm trong cookie `refresh_token` (HttpOnly, SameSite=Lax, Path=/api/v1/auth). Access token không lưu server.
@@ -232,6 +233,7 @@ Khi review code, kiểm tra lại các điểm này:
 - Trả Entity thay vì DTO ở controller
 - Thiếu `@Transactional` khi ghi nhiều bảng trong một thao tác
 - Query N+1 ở `GET /trips/{id}` (kiểm tra số câu SQL trong log)
+- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 4 / 4 / 6 câu — Task 3.2
 - Quên `@PreAuthorize` trên endpoint thao tác trip
 - Sửa file migration cũ thay vì tạo file mới (Flyway báo `checksum mismatch`, app không lên)
 - Thêm hằng vào enum Java mà không `ALTER TABLE ... MODIFY col ENUM(...)` → `Data truncated for column` lúc INSERT
@@ -247,6 +249,8 @@ Khi review code, kiểm tra lại các điểm này:
 - Dùng `String` cho tiền hoặc `double` cho amount
 - `UPDATE` hàng loạt đổi giá trị cột có UNIQUE (ví dụ dời `trip_days.date`) mà không `ORDER BY` theo chiều dời: MySQL kiểm UNIQUE sau từng dòng → `Duplicate entry`
 - MapStruct `@Mapper(uses = ...)` thiếu `injectionStrategy = InjectionStrategy.CONSTRUCTOR` → mapper sinh ra inject qua field, unit test NPE
+- Test tự gọi constructor của record request / response (`new CreateActivityRequest(...)`): thêm một trường là vỡ hàng loạt. Dựng qua `support/TestActivities` (`createRequest`, `updateRequest`, `response`, `withPlace`...) — Task 3.2
+- Test ràng buộc `CHECK` của MySQL mà mong `DataIntegrityViolationException`: Spring trả `UncategorizedSQLException` (lỗi 3819). Kiểm tên ràng buộc trong thông báo — BUG-PLACE-002
 - Ghi đè lớp Tailwind của component bằng một lớp cùng thuộc tính qua `className` (ví dụ `w-auto` đè `w-full`, `hover:text-red-700` đè `hover:text-slate-800`): không chắc lớp nào thắng. Thuộc tính thay đổi theo chỗ dùng phải là prop của component (`Button` có `variant` / `size` / `fullWidth`) — BUG-UI-001, WORKFLOW.md Task 2.5
 - Hai phần tử cùng `z-index` chồng lên nhau khi cuộn (chấm trên ray `z-10` đè khối dính `z-10`): danh sách có phần tử `z` riêng phải `isolate` — BUG-UI-002, WORKFLOW.md Task 2.6
 - `scrollIntoView` tới phần tử nằm trong khối `sticky`: trình duyệt coi như luôn hiện nên không cuộn. Cuộn tới phần tử cha không dính, đặt `scroll-margin` — WORKFLOW.md Task 2.6

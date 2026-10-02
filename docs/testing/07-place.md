@@ -1,6 +1,6 @@
 # 07 · Địa điểm
 
-> Cập nhật: 2026-10-01 · build xanh tại commit `2c84e02` (Task 3.1, 592 lượt test) · kiểm tra thủ công `MT-PLACE-01` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-02 · build xanh tại commit `532bc80` (Task 3.2, 681 lượt test) · kiểm tra thủ công `MT-PLACE-01`, `MT-PLACE-02`, `MT-PLACE-03` chưa chạy · [Về trang chính](README.md)
 
 Địa điểm là một nơi có tên và toạ độ, ví dụ "Chùa Linh Ứng". Người dùng tìm địa điểm theo tên rồi gắn vào một hoạt động; từ đó hoạt động hiện được trên bản đồ. Tìm địa điểm làm ở Task 3.1, gắn vào hoạt động ở Task 3.2.
 
@@ -14,12 +14,33 @@ File này được ghi dần theo từng mốc. Mỗi mốc là một commit:
 | 4 | Mở rộng dữ liệu có sẵn lên 56 địa điểm ở 5 điểm đến, kèm kiểm tra chính dữ liệu | E | `3ba2e85` |
 | 5 | Kiểm toàn luồng tìm địa điểm qua mọi tầng | F | `2c84e02` |
 
+Task 3.2, gắn địa điểm vào hoạt động (phần của hoạt động ghi ở [05-activity.md](05-activity.md)):
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 1 | Bảng lưu địa điểm | G (`TC-PLACE-050` đến `055`) | `5b9088f` |
+| 2 | Hỏi nguồn một địa điểm theo mã của nó | H (`TC-PLACE-057`) | `9c7d7af` |
+| 3 | Chọn một kết quả tìm kiếm: lưu thành địa điểm có mã riêng của ứng dụng | G (`056`), H | `914f80e` |
+| 4 | Nhiều người chọn cùng một địa điểm cùng lúc vẫn chỉ có một dòng | H (`TC-PLACE-063`, `064`) | `e04c842` |
+| 5 | Tự thêm một địa điểm khi không kết quả tìm kiếm nào phù hợp | I | `db89c31` |
+| 6 | Từ chối việc chọn địa điểm từ một nguồn không phải nguồn đang dùng | H (`TC-PLACE-083`, `084`) | `8ba7137` |
+| 7 | Dọn test của hoạt động trước khi thêm địa điểm: mọi test tạo dữ liệu hoạt động qua một chỗ chung. Không đổi hành vi, không có kịch bản mới | (không có) | `19bad4a` |
+| 8a, 8b | Hoạt động lưu và trả kèm địa điểm của nó | [05-activity.md](05-activity.md) phần O, P | `cb5b475`, `744c3ec` |
+| 9 | Địa điểm nào được gắn vào hoạt động | J | `9abd7cd` |
+| 10, 11 | Đổi và bỏ địa điểm của hoạt động | [05-activity.md](05-activity.md) phần R, S | `6c2140a`, `449e4ba` |
+| 12 | Kiểm toàn luồng chọn và tự thêm địa điểm qua mọi tầng | K (và [05-activity.md](05-activity.md) phần T) | `532bc80` |
+
+Bốn commit trên vốn là một mốc 17 file (`e492ed3`), được tách lại ngày 2026-10-01 theo yêu cầu của chủ dự án trước khi push. Kịch bản và kết quả không đổi; chỉ cách chia commit đổi.
+
 Vài từ dùng trong file:
 
 | Từ | Nghĩa |
 |---|---|
 | Bỏ dấu | Đổi chữ có dấu thành chữ không dấu: "Chùa Linh Ứng" thành "Chua Linh Ung" |
 | Nguồn địa điểm | Nơi ứng dụng lấy danh sách địa điểm: một file có sẵn (mock) hoặc dịch vụ bản đồ thật |
+| Mã ở nguồn | Mã mà nguồn tự đặt cho địa điểm, ví dụ `da-nang-cho-han`. Kết quả tìm kiếm chỉ có mã này |
+| Bản lưu | Bản chép của địa điểm trong database của ứng dụng, có mã riêng (`id`). Hoạt động trỏ tới bản lưu, nên trang chuyến đi không phải hỏi lại nguồn |
+| Địa điểm tự thêm | Địa điểm do người dùng tự nhập tên và toạ độ, không lấy từ nguồn nào. Là của riêng người tạo |
 
 ---
 
@@ -138,6 +159,110 @@ Các phần trên kiểm từng tầng riêng, tầng bên cạnh được thay 
 | TC-PLACE-048 | Gọi thiếu từ khoá; từ khoá một ký tự; chỉ gửi vĩ độ | Cả ba đều 400 `VALIDATION_ERROR` với câu tiếng Việt đúng ở đúng tham số. Riêng lỗi "chỉ gửi vĩ độ" do tầng service phát hiện, nên chỉ test toàn luồng mới chứng minh được nó ra tới người gọi | Sai | Đạt |
 | TC-PLACE-049 | Tìm khi không có token | 401 `UNAUTHORIZED` | Bảo mật | Đạt |
 
+## G. Bảng lưu địa điểm
+
+> **Yêu cầu:** design.md 5.2 bảng `places` · **Kiểm bởi:** `PlaceMappingTest`, `PlaceRepositoryTest`
+
+Chạy trên MySQL thật. Phần này kiểm cái "tủ" chứa bản lưu: cột nào cũng giữ đúng dữ liệu, và các chốt chặn cuối cùng ở database hoạt động.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-050 | Lưu một địa điểm rồi đọc lại | Nguồn, mã ở nguồn, tên, địa chỉ, loại đọc lại đúng. Toạ độ giữ đủ 7 chữ số thập phân (khoảng 1 cm trên mặt đất) | Đúng | Đạt |
+| TC-PLACE-051 | Lưu địa điểm không có địa chỉ và không có loại | Lưu được; hai ô đó để trống | Biên | Đạt |
+| TC-PLACE-052 | Lưu lần thứ hai cùng một địa điểm của cùng một nguồn | Database từ chối. Đây là chốt chặn khi hai người chọn cùng địa điểm đúng cùng lúc | Biên | Đạt |
+| TC-PLACE-053 | Hai mã ở nguồn chỉ khác chữ hoa và chữ thường: `W123` và `w123` | Là **hai** địa điểm khác nhau, lưu được cả hai; tìm `w123` không ra `W123`. Mã không phải chữ để đọc, phải so từng ký tự | Biên | Đạt |
+| TC-PLACE-054 | Ghi thẳng vào database một toạ độ ngoài khoảng (vĩ độ quá 90, kinh độ quá 180, cả hai chiều âm dương); rồi ghi đúng mép 90 và −180 | Bốn lần đầu bị từ chối, nêu đúng ràng buộc bị vi phạm. Đúng mép thì được nhận | Biên | Đạt · từng lỗi BUG-PLACE-002 |
+| TC-PLACE-055 | Ghi địa điểm của nguồn OpenStreetMap, và hai địa điểm tự thêm không có mã ở nguồn | Cả ba lưu được: bảng đã sẵn sàng cho các mốc sau, và địa điểm tự thêm không đụng nhau ở ràng buộc không trùng | Đúng | Đạt |
+| TC-PLACE-056 | Tìm bản lưu theo nguồn và mã ở nguồn, khi đã có và khi chưa có | Đã có thì trả đúng dòng đó; chưa có thì trả "không có" | Đúng | Đạt |
+
+## H. Chọn một kết quả tìm kiếm
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Place API", rule 14.18 · **Kiểm bởi:** `MockMapProviderTest`, `PlaceServiceTest`, `PlaceControllerTest`, `PlaceSearchFlowIntegrationTest`
+
+`POST /api/v1/places` với `{ provider, externalId }`. Người dùng nói "tôi chọn kết quả này"; máy chủ **tự hỏi lại nguồn** rồi lưu, và trả địa điểm có `id`. Tên và toạ độ không bao giờ lấy từ người gọi, vì bản lưu dùng chung cho mọi người.
+
+Các kịch bản dưới đây được kiểm ở từng tầng (nguồn, service, controller). Riêng `TC-PLACE-063` chạy trên cả ứng dụng thật với MySQL. Toàn bộ luồng chọn địa điểm trên ứng dụng thật được kiểm ở phần K.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-057 | Hỏi nguồn một địa điểm theo mã của nó; rồi hỏi bằng mã lạ, bằng tên, bằng mã viết hoa | Mã đúng thì trả đúng địa điểm đã hiện lúc tìm kiếm. Ba trường hợp sau đều "không có" | Đúng | Đạt |
+| TC-PLACE-058 | Chọn một kết quả lần đầu | 200. Một bản lưu được tạo với tên, địa chỉ, toạ độ, loại **lấy từ nguồn**; phản hồi có `id` | Đúng | Đạt |
+| TC-PLACE-059 | Chọn lại đúng kết quả đó | 200 với **cùng `id`**. Không hỏi nguồn, không ghi thêm; database vẫn một dòng | Đúng | Đạt |
+| TC-PLACE-060 | Người gọi bỏ qua giao diện, gửi kèm tên "Giữa biển" và toạ độ giả cho một địa điểm có thật | Phần gửi thừa bị bỏ qua. Bản lưu vẫn là "Chùa Linh Ứng" với toạ độ của nguồn | Bảo mật | Đạt |
+| TC-PLACE-061 | Mã ở nguồn có khoảng trắng thừa ở hai đầu | Khoảng trắng bị cắt, vẫn ra đúng địa điểm | Biên | Đạt |
+| TC-PLACE-062 | Chọn một mã mà nguồn không có | 404 `RESOURCE_NOT_FOUND`. Không lưu gì | Sai | Đạt |
+| TC-PLACE-063 | Tám người chọn cùng một địa điểm **đúng cùng lúc**, trên database thật | Cả tám nhận cùng một `id`, không ai gặp lỗi, database chỉ có một dòng | Biên | Đạt |
+| TC-PLACE-064 | Database báo một lỗi khác lúc lưu, không phải lỗi trùng | Lỗi đó được báo ra nguyên vẹn, không bị nuốt, không bị đổi thành "không tìm thấy" | Sai | Đạt |
+| TC-PLACE-065 | Gửi thiếu nguồn và mã chỉ có khoảng trắng | 400 `VALIDATION_ERROR`, liệt kê **cả hai** ô: "Thiếu nguồn của địa điểm", "Thiếu mã của địa điểm" | Sai | Đạt |
+| TC-PLACE-066 | Mã dài 129 ký tự | 400: "Mã của địa điểm không được vượt quá 128 ký tự" | Biên | Đạt |
+| TC-PLACE-067 | Gửi một nguồn mà hệ thống không có, ví dụ `GOOGLE` | 400 `VALIDATION_ERROR` | Sai | Đạt |
+| TC-PLACE-068 | Chọn khi chưa đăng nhập | 401, không lưu gì | Bảo mật | Đạt |
+| TC-PLACE-083 | Chọn với nguồn `MANUAL` kèm một mã có thật của dữ liệu có sẵn (nguồn đang dùng là `MOCK`) | 400 `VALIDATION_ERROR` ở ô `provider`: "Nguồn địa điểm này hiện không dùng được". Bị chặn trước khi đọc database hay hỏi nguồn; không lưu gì | Sai | Đạt |
+| TC-PLACE-084 | Mọi kết quả tìm kiếm có mang đúng nguồn mà nguồn tự khai không | Có. Nhờ vậy kết quả nào hiện ra cũng chọn được, không bị quy tắc ở `TC-PLACE-083` từ chối nhầm | Đúng | Đạt |
+
+Kiểm chứng ngược (2026-10-01): tạm bỏ bước "đọc lại dòng của người lưu trước" thì `TC-PLACE-063` và bản mô phỏng của nó ở tầng service đỏ; bật lại thì xanh. Khi chạy thật, log cho thấy đúng 1 request lưu được và 7 request đọc lại.
+
+Kiểm chứng ngược (2026-10-02): tạm gỡ bước so nguồn thì test của `TC-PLACE-083` ở tầng service đỏ; bật lại thì xanh.
+
+## I. Tự thêm một địa điểm
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Place API", rule 14.19 · **Kiểm bởi:** `PlaceMappingTest`, `PlaceServiceTest`, `PlaceControllerTest`
+
+`POST /api/v1/places/manual` với `{ name, address, lat, lng, category }`. Dùng khi không kết quả tìm kiếm nào phù hợp, ví dụ nhà người quen. Khác với phần H, ở đây mọi thông tin là của người gọi, vì địa điểm này chỉ người tạo dùng. Chỉ tên và toạ độ là bắt buộc.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-069 | Tự thêm "Nhà bà ngoại" với đủ tên, địa chỉ, toạ độ, loại "lưu trú" | 201. Địa điểm được lưu với nguồn `MANUAL`, không có mã ở nguồn; phản hồi có `id` và đúng những gì đã nhập | Đúng | Đạt |
+| TC-PLACE-070 | Chỉ gửi tên và toạ độ | 201. Địa chỉ và loại để trống | Biên | Đạt |
+| TC-PLACE-071 | Tên và địa chỉ có khoảng trắng thừa ở hai đầu; một lần khác địa chỉ chỉ toàn khoảng trắng | Khoảng trắng thừa bị cắt. Địa chỉ toàn khoảng trắng được coi là không có địa chỉ | Biên | Đạt |
+| TC-PLACE-072 | Người tạo của địa điểm | Là người đang đăng nhập (lấy từ token) | Đúng | Đạt |
+| TC-PLACE-073 | Người gọi bỏ qua giao diện, gửi kèm `createdBy` = 99 để ghi địa điểm dưới tên người khác | Phần gửi thừa bị bỏ qua. Người tạo vẫn là người trong token | Bảo mật | Đạt |
+| TC-PLACE-074 | Tự thêm một địa điểm: ứng dụng có hỏi nguồn bản đồ hay tìm địa điểm trùng để gộp không | Không. Mỗi lần gọi là một địa điểm mới (trùng tên được phép, đã chốt ở Task 3.2) | Đúng | Đạt |
+| TC-PLACE-075 | Lưu một địa điểm tự thêm vào database thật rồi đọc lại | Giữ đúng nguồn `MANUAL` và người tạo; mã ở nguồn để trống | Đúng | Đạt |
+| TC-PLACE-076 | Lưu một địa điểm chép từ nguồn rồi đọc lại | Không có người tạo: địa điểm của nguồn dùng chung, không thuộc về ai | Đúng | Đạt |
+| TC-PLACE-077 | Tên chỉ có khoảng trắng, không gửi toạ độ | 400 `VALIDATION_ERROR`, liệt kê **cả ba** ô: "Tên địa điểm không được để trống", "Thiếu vĩ độ của địa điểm", "Thiếu kinh độ của địa điểm". Không lưu gì | Sai | Đạt |
+| TC-PLACE-078 | Toạ độ ngoài quả đất: vĩ độ `90.0000001` và `-91`, kinh độ `180.0000001` và `-181` | 400 ở đúng ô: "Vĩ độ phải nằm trong khoảng -90 đến 90" hoặc "Kinh độ phải nằm trong khoảng -180 đến 180" | Biên | Đạt |
+| TC-PLACE-079 | Vĩ độ có 8 chữ số thập phân: `16.12345678` | 400: "Toạ độ có tối đa 7 chữ số thập phân". Không âm thầm làm tròn | Biên | Đạt |
+| TC-PLACE-080 | Tên dài 201 ký tự và địa chỉ dài 501 ký tự | 400, liệt kê cả hai ô: tên tối đa 200, địa chỉ tối đa 500 ký tự | Biên | Đạt |
+| TC-PLACE-081 | Loại không thuộc 6 loại hoạt động, ví dụ `CASINO` | 400 `VALIDATION_ERROR` | Sai | Đạt |
+| TC-PLACE-082 | Tự thêm địa điểm khi chưa đăng nhập | 401, không lưu gì | Bảo mật | Đạt |
+
+Quy tắc "địa điểm tự thêm của người khác không gắn được vào hoạt động của mình" (rule 14.19) được kiểm ở phần J.
+
+**Điểm hở của Commit 5 đã đóng ở Commit 6:** sau Commit 5, `POST /api/v1/places` (phần H) chưa từ chối `provider` = `MANUAL`. Commit 6 chặn bằng lỗi 400 ở ô `provider` (`TC-PLACE-083`).
+
+## J. Địa điểm nào được gắn vào hoạt động
+
+> **Yêu cầu:** design.md rule 14.19, 10.2 "Quy ước Activity API" (đoạn "Địa điểm của activity") · **Kiểm bởi:** `PlaceServiceTest`
+
+Khi một hoạt động gửi `placeId`, hệ thống kiểm địa điểm đó có dùng được không. Địa điểm chép từ nguồn là của chung. Địa điểm tự thêm là của riêng người tạo.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-085 | Hai người khác nhau cùng gắn một địa điểm chép từ nguồn ("Chùa Linh Ứng") | Cả hai đều được | Đúng | Đạt |
+| TC-PLACE-086 | Người tạo gắn địa điểm tự thêm của chính mình | Được | Đúng | Đạt |
+| TC-PLACE-087 | Một người gắn địa điểm tự thêm **của người khác**; và gắn một mã không tồn tại | Cả hai bị từ chối bằng **cùng một lỗi**: 400 ở ô `placeId`, "Địa điểm không tồn tại". Người gọi không phân biệt được hai trường hợp, nên không dò ra được địa điểm riêng của ai | Bảo mật | Đạt |
+
+Việc gắn vào hoạt động (thêm, rồi đổi và bỏ) ghi ở [05-activity.md](05-activity.md) từ phần Q.
+
+## K. Kiểm toàn luồng chọn và tự thêm địa điểm qua mọi tầng
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Place API", rule 14.18, 14.19 · **Kiểm bởi:** `PlaceSearchFlowIntegrationTest`
+
+Chạy cả ứng dụng thật với MySQL, không giả lập tầng nào. Các kịch bản ở phần H và I đã kiểm từng tầng; phần này chứng minh các tầng ghép lại đúng và database thật sự chứa điều mong đợi.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-088 | Tìm "bun cha ca", lấy nguồn và mã của kết quả đầu, chọn nó hai lần | Lần đầu 200 với tên, địa chỉ, toạ độ, loại của "Bún chả cá 109". Lần hai trả **cùng mã**. Database có đúng một dòng | Đúng | Đạt |
+| TC-PLACE-089 | Chọn "Chùa Linh Ứng" nhưng gửi kèm tên "Giữa biển" và toạ độ giả | 200. Dòng trong database mang tên và toạ độ **của nguồn**, không phải giá trị gửi lên | Bảo mật | Đạt |
+| TC-PLACE-090 | Chọn một mã mà nguồn không có | 404 `RESOURCE_NOT_FOUND`. Database không có dòng nào | Sai | Đạt |
+| TC-PLACE-091 | Chọn với nguồn `MANUAL` kèm mã có thật "da-nang-cho-han" | 400 ở ô `provider`: "Nguồn địa điểm này hiện không dùng được". Database không có dòng nào. Đây là bằng chứng trên ứng dụng thật rằng điểm hở của Commit 5 đã đóng | Sai | Đạt |
+| TC-PLACE-092 | Chọn khi không có token | 401. Database không có dòng nào | Bảo mật | Đạt |
+| TC-PLACE-093 | Tự thêm "Nhà bà ngoại" hai lần với cùng nội dung, body gửi kèm `createdBy` = 999999 | Hai lần đều 201 với **hai mã khác nhau** (không gộp theo tên); tên đã cắt khoảng trắng. Trong database: không có mã ở nguồn, người tạo là người trong token, không phải số gửi lên | Bảo mật | Đạt |
+| TC-PLACE-094 | Tự thêm với vĩ độ 91 và không có kinh độ | 400, liệt kê cả hai ô. Database không có dòng nào | Sai | Đạt |
+
+Luồng tiếp theo, gắn địa điểm vào hoạt động trên ứng dụng thật, ghi ở [05-activity.md](05-activity.md) phần T.
+
 ---
 
 ## Kiểm tra thủ công
@@ -160,12 +285,51 @@ Cần có: Docker đang chạy, backend chạy bản code mới nhất (profile 
 
 **Kết quả:** Chưa chạy
 
+### MT-PLACE-02 · Chọn một kết quả tìm kiếm trên Swagger
+
+Thêm ở Task 3.2 Commit 3. Cần backend chạy bản mới: log khởi động có dòng Flyway áp dụng phiên bản 9.
+
+- [ ] Đăng nhập và "Authorize" như `MT-PLACE-01`. Gọi `GET /api/v1/places/search` với `q` = `bun cha ca`. Kết quả có `provider` = `MOCK`, `externalId` = `da-nang-bun-cha-ca-109`, không có `id`.
+- [ ] Gọi `POST /api/v1/places` với body `{"provider": "MOCK", "externalId": "da-nang-bun-cha-ca-109"}`. Trả 200, có `id` (ghi lại số này), tên "Bún chả cá 109", toạ độ `16.0743887`, `108.2207958`.
+- [ ] Gọi lại y nguyên. Trả 200 với **đúng `id` đó**.
+- [ ] Chạy lệnh bên dưới (nhập mật khẩu database khi được hỏi). Chỉ có **một** dòng cho địa điểm này.
+- [ ] Gọi `POST /api/v1/places` với body `{"provider": "MOCK", "externalId": "da-nang-chua-linh-ung", "name": "Giữa biển", "lat": 10, "lng": 115}`. Trả 200 với tên "Chùa Linh Ứng" và toạ độ thật, không phải giá trị vừa gửi.
+- [ ] Body `{"provider": "MOCK", "externalId": "khong-co"}`: 404.
+- [ ] (Commit 6) Body `{"provider": "MANUAL", "externalId": "da-nang-cho-han"}`: 400, ô `provider`, thông báo "Nguồn địa điểm này hiện không dùng được". Chạy lại lệnh bên dưới: không có dòng mới.
+- [ ] Body `{"externalId": ""}`: 400, liệt kê hai ô `externalId` và `provider`.
+
+```powershell
+docker exec -it tripplanner-mysql mysql -u tripuser -p tripplanner -e "SELECT id, provider, external_id, name, lat, lng FROM places;"
+```
+
+**Kết quả:** Chưa chạy
+
+### MT-PLACE-03 · Tự thêm một địa điểm trên Swagger
+
+Thêm ở Task 3.2 Commit 5. Không có migration mới: bảng `places` của phiên bản 9 đã có sẵn cột người tạo.
+
+- [ ] Đăng nhập và "Authorize" như `MT-PLACE-01`. Gọi `POST /api/v1/places/manual` với body `{"name": "Nhà bà ngoại", "address": "12 Lê Lợi, Đà Nẵng", "lat": 16.0471234, "lng": 108.2068765, "category": "ACCOMMODATION"}`. Trả **201**, có `id` (ghi lại số này), `provider` = `MANUAL`, tên, địa chỉ, toạ độ, loại đúng như đã nhập.
+- [ ] Gọi lại y nguyên. Trả 201 với một **`id` khác**: trùng tên không bị gộp.
+- [ ] Body chỉ có `{"name": "Điểm hẹn", "lat": 16, "lng": 108}`: 201, `address` và `category` là `null`.
+- [ ] Chạy lệnh bên dưới. Có ba dòng `MANUAL`, cột `external_id` là `NULL`, cột `created_by` là mã của tài khoản đang đăng nhập (đối chiếu với `id` trong `GET /api/v1/users/me`).
+- [ ] Body `{"name": "Điểm hẹn", "lat": 91, "lng": 108}`: 400, thông báo "Vĩ độ phải nằm trong khoảng -90 đến 90".
+- [ ] Body `{"name": "  "}`: 400, liệt kê ba ô `name`, `lat`, `lng`.
+- [ ] Body `{"name": "Điểm hẹn", "lat": 16, "lng": 108, "category": "CASINO"}`: 400.
+- [ ] Bấm "Authorize" → "Logout" rồi gọi lại body đầu tiên: 401.
+
+```powershell
+docker exec -it tripplanner-mysql mysql -u tripuser -p tripplanner -e "SELECT id, provider, external_id, name, created_by FROM places WHERE provider = 'MANUAL';"
+```
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
+| BUG-PLACE-002 | Test mới của Task 3.2 Mốc 1: database từ chối toạ độ ngoài khoảng | 2026-10-01 | `PlaceMappingTest > coordinatesOutsideTheGlobeAreRejectedByTheDatabase` đỏ cả 4 lượt. Database **có** từ chối (`Check constraint 'chk_places_lat' is violated`), nhưng test mong đợi loại lỗi `DataIntegrityViolationException` còn thực tế nhận `UncategorizedSQLException`. 63 lượt còn lại của năm class đạt | **Test sai**, hệ thống đúng. Spring chỉ đổi một số mã lỗi của MySQL sang loại "vi phạm ràng buộc dữ liệu"; lỗi của ràng buộc `CHECK` (mã 3819) không nằm trong số đó nên ra loại lỗi chung | Test không còn dựa vào loại lỗi, mà kiểm đúng tên ràng buộc bị vi phạm (`chk_places_lat`, `chk_places_lng`). Kiểm như vậy còn chặt hơn bản đầu. Code không đổi | Đã sửa, commit `5b9088f` |
 | BUG-PLACE-001 | Test mới của Task 3.1 Mốc 4: mỗi điểm đến phải có đủ các loại địa điểm | 2026-10-01 | `MockPlacesDataTest > everyDestinationHasEnoughPlacesOfSeveralKinds() FAILED`: với Hội An, test mong đợi có đủ bốn loại tham quan, ăn uống, lưu trú, di chuyển; thực tế thiếu loại di chuyển (`could not find the following element(s): ["TRANSPORT"]`). 19 test còn lại của hai class đạt | **Dữ liệu thiếu**, test đúng. Khi soạn danh sách Hội An, lần tra "Bến xe Hội An" trên OpenStreetMap không ra kết quả dùng được nên điểm đến này bị bỏ trống loại di chuyển | Tra thêm và bổ sung "Cảng du lịch Cửa Đại" (bến tàu đi Cù Lao Chàm) vào Hội An | Đã sửa, commit `3ba2e85` |
 
 BUG-PLACE-001 cho thấy vì sao dữ liệu cũng cần test: người soạn dữ liệu (ở đây là trợ lý lập trình) không nhận ra mình bỏ sót một loại cho tới khi test đếm hộ. Lỗi được ghi vào tài liệu trước khi bổ sung dữ liệu.

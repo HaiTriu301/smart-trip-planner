@@ -60,7 +60,8 @@ refactor(activity): extract reorder logic to service
    - Hạ tầng dùng chung: commit riêng **chỉ khi** nhiều chức năng dùng **và** có test riêng; còn lại đi cùng chức năng đầu tiên dùng nó.
    - Cấu hình không gắn chức năng nào (logging, profile...): commit `chore(...)` riêng.
    - Docs: commit riêng lên `main` (ngoại lệ ở trên).
-5. **Quy mô gợi ý:** khoảng 3–8 file mỗi commit, một lý do để thay đổi.
+5. **Quy mô gợi ý:** khoảng 3–8 file mỗi commit, một lý do để thay đổi. Bảng commit dự kiến phải ghi **số file của từng commit**; dòng nào quá 8 file thì tách, hoặc ghi ngay trong bảng vì sao không tách được (chốt 2026-10-01, Task 3.2).
+   Điểm tách đã dùng: (a) migration + entity + test mapping là commit riêng đứng đầu; (b) một method mới của provider, có test riêng, là commit riêng ngay trước chức năng gọi nó; (c) endpoint ở dạng đơn giản nhất trước, mỗi quy tắc thêm (xử lý đồng thời, một kiểu từ chối) là commit riêng; (d) phần hiển thị tách khỏi phần ghi; (e) "đổi" tách khỏi "bỏ"; (f) trường mới làm vỡ nhiều chỗ tạo dữ liệu trong test → trước đó một commit `refactor(test)` gom chúng về một hàm, không đổi hành vi; (g) test toàn luồng chỉ ở commit cuối, trừ test là bằng chứng trực tiếp của một commit.
 6. **Quy trình với Claude Code:** đầu task Claude đưa **bảng commit dự kiến** (tên commit + file) để duyệt trước khi code. Mỗi mốc = **một commit**: code → build xanh → Claude đưa lệnh `git add` + `git commit` → dừng chờ tôi commit → mốc tiếp theo. File dùng chung (service, controller, mapper, test class) được viết dần: commit nào chỉ chứa phần chức năng của commit đó cần.
 
 > Task 0.1 → 2.1 làm theo cách chia cũ (mốc lớn, test tách riêng). Giữ nguyên lịch sử, không reset / force push.
@@ -1220,44 +1221,68 @@ Mốc 5 — test(place): add place search flow integration test
 
 ### Task 3.2 — Gắn địa điểm vào hoạt động
 
-Nhánh: `feat/T3.2-activity-place` · Test: `07-place.md`, `05-activity.md`. Mỗi mốc là một commit, code + test cùng commit.
+Nhánh: `feat/T3.2-activity-place` · Test: `07-place.md`, `05-activity.md`. Mỗi commit một việc, code + test cùng commit, số file ghi trong ngoặc vuông.
 
 Kết quả của task (chưa có giao diện, xem trên Swagger): chọn một kết quả tìm kiếm → địa điểm có `id`; tạo hoạt động kèm `placeId` → mọi nơi trả về hoạt động đều có `place` (tên, địa chỉ, toạ độ).
 
 ```
 Mốc 0 — docs (main): design.md 10.2 (lỗi placeId, địa điểm tự thêm), rule 14.22 (chuyến đi đã qua), UI_GUIDE 8.1,
-        PR #17 của Task 3.1 (đã soạn 2026-10-01)
+        PR #17 của Task 3.1 (commit `56c9cde`)
 
-Mốc 1 — feat(place): save a chosen search result as a place
-        V9__create_places.sql + model/Place (migration và entity cùng commit; cột ENUM khai báo sẵn MOCK, OSM, MANUAL),
-        PlaceRepository (UNIQUE (provider, external_id)),
-        MapProvider.lookup(externalId) + MapProvider.provider() (nguồn nào đang bật), MockMapProvider.lookup,
-        PlaceService.getOrCreate: đã có → trả lại, không tạo dòng thứ hai; hai request cùng lúc → UNIQUE bắt, đọc lại,
-        dto/request/SavePlaceRequest, dto/response/PlaceResponse, PlaceMapper.toResponse,
-        POST /places {provider, externalId} (Auth) → 200; externalId lạ → 404; provider không phải nguồn đang bật → 400;
-        test: gọi hai lần → một dòng, cùng id; mapping entity ↔ migration; 401; validate
+Commit 1 — feat(place): add place entity and migration                                              [3 file]
+        V9__create_places.sql (cột ENUM khai báo sẵn MOCK, OSM, MANUAL; external_id so từng ký tự), model/Place,
+        PlaceMappingTest
 
-Mốc 2 — feat(place): add manual place endpoint
-        PlaceProvider.MANUAL, dto/request/CreateManualPlaceRequest, PlaceService.createManual,
-        POST /places/manual {name, address, lat, lng, category} → 201, created_by = người đang đăng nhập
-        (không nhận từ body, rule 16); category để trống được, có gửi thì thuộc 6 loại hoạt động; không gộp theo tên;
-        test happy + validate + 401
+Commit 2 — feat(place): look up a place of the map source by its id                                 [3 file]
+        MapProvider.lookup(externalId), MockMapProvider.lookup, MockMapProviderTest
 
-Mốc 3 — feat(activity): attach a place when creating an activity
-        V10__add_place_to_activities.sql (place_id nullable + FK, không CASCADE), Activity.place (LAZY),
-        CreateActivityRequest.placeId, ActivityResponse.place (id, provider, name, address, lat, lng, category),
-        ActivityMapper dùng PlaceMapper (injectionStrategy = CONSTRUCTOR — bẫy Task 2.2),
-        cả 3 truy vấn hiển thị activity nạp kèm place (JOIN FETCH / @EntityGraph);
-        placeId không tồn tại, hoặc là địa điểm MANUAL của người khác → cùng một lỗi 400 ở field placeId;
-        test: số câu SQL của GET /trips/{id} vẫn 4, GET .../activities vẫn 4, reorder vẫn 6
+Commit 3 — feat(place): save a chosen search result as a place                                      [10 file]
+        PlaceRepository, SavePlaceRequest, PlaceResponse, PlaceMapper.toResponse, PlaceService.getOrCreate,
+        POST /places {provider, externalId} (Auth) → 200; externalId lạ → 404; messages.properties;
+        test repository, service, controller.
+        10 file vì một endpoint đi qua mỗi tầng một file; chia nhỏ hơn là chia theo tầng (A.2 điểm 1)
 
-Mốc 4 — feat(activity): change or remove the place of an activity
-        UpdateActivityRequest: placeId (đổi), clearPlace: true (bỏ); gửi cả hai → 400; null = giữ nguyên;
-        version tăng (địa điểm là nội dung); sửa mô tả Swagger còn ghi "nằm cuối ngày" (ghi nợ Task 2.7); test
+Commit 4 — feat(place): keep one row when the same place is picked at the same moment               [3 file]
+        PlaceService: INSERT bị UNIQUE từ chối → đọc lại dòng của request thắng (không @Transactional, xem javadoc);
+        PlaceServiceTest; test 8 request cùng lúc trên MySQL thật trong PlaceSearchFlowIntegrationTest
 
-Mốc 5 — test(activity): add activity place flow integration test
-        cả ứng dụng thật: tìm → chọn → gắn → xem chi tiết chuyến đi → đổi → bỏ; đếm câu SQL
+Commit 5 — feat(place): add manual place endpoint                                                   [~9 file]
+        PlaceProvider.MANUAL, Place.createdBy, CreateManualPlaceRequest, PlaceService.createManual,
+        POST /places/manual → 201; category để trống được, có gửi thì thuộc 6 loại hoạt động; không gộp theo tên
+
+Commit 6 — feat(place): reject a pick from a source that is not active                              [~6 file]
+        MapProvider.provider(); POST /places với provider khác nguồn đang bật (kể cả MANUAL) → 400
+
+Commit 7 — refactor(test): build activity requests and responses through one helper                 [~5 file]
+        gom các chỗ test tự `new CreateActivityRequest(...)` / `new ActivityResponse(...)` về một hàm; hành vi không đổi
+
+Commit 8a — feat(activity): add place column to activities                                          [3 file]
+        V10__add_place_to_activities.sql (FK không cascade), Activity.place (LAZY), ActivityMappingTest
+
+Commit 8b — feat(activity): show the place of an activity in every response                         [9 file]
+        ActivityResponse.place, ActivityMapper dùng PlaceMapper (injectionStrategy = CONSTRUCTOR), 4 truy vấn có kết quả
+        thành response nạp kèm place (3 truy vấn danh sách + findByIdAndTripId của PATCH); số câu SQL không đổi:
+        chi tiết chuyến đi 4, danh sách hoạt động 4, reorder 6.
+        Bảng duyệt ghi một Commit 8 ~9 file; đo trên code là 12 (thiếu 3 file test phải đổi cách khởi tạo mapper)
+        nên tách theo điểm (a) của A.2, chủ dự án đồng ý ngày 2026-10-02. 8b còn 9 file, 3 file trong đó chỉ đổi
+        một dòng khởi tạo ActivityMapper
+
+Commit 9 — feat(activity): attach a place when creating an activity                                 [~7 file]
+        CreateActivityRequest.placeId, PlaceService.findAttachable; placeId không tồn tại hoặc MANUAL của người khác →
+        cùng một lỗi 400 ở field placeId
+
+Commit 10 — feat(activity): change the place of an activity                                         [~6 file]
+        UpdateActivityRequest.placeId; update nhận người đang đăng nhập; version tăng
+
+Commit 11 — feat(activity): remove the place of an activity                                         [~5 file]
+        clearPlace: true; gửi cả placeId lẫn clearPlace → 400; sửa mô tả Swagger còn ghi "nằm cuối ngày" (ghi nợ Task 2.7)
+
+Commit 12 — test(place): add place and activity place flow integration test                         [~2 file]
+        cả ứng dụng thật: tìm → chọn (một dòng, cùng id, không nhận tên / toạ độ của client) → gắn → xem chi tiết →
+        đổi → bỏ; đếm câu SQL
 ```
+
+> **Chia lại ngày 2026-10-01:** bản đầu của task có 5 mốc; Mốc 1 gộp bảng, `lookup`, endpoint, xử lý đồng thời và test toàn luồng thành **17 file / 863 dòng** (commit `e492ed3`). Chủ dự án chỉ ra nó trái A.2 ("3–8 file, một lý do để thay đổi"). Commit chưa push nên được gỡ bằng `git reset --soft HEAD~1` và commit lại thành Commit 1–4 ở trên; phần còn lại chia thành Commit 5–12. Mỗi commit trong 1–3 được dựng riêng (bản `git archive` của HEAD + đúng file của commit) và build xanh trước khi commit: 602, 604, 618 lượt test. Task 3.1 Mốc 2 (13 file) và Mốc 3 (10 file) cũng quá cỡ nhưng đã merge, giữ nguyên lịch sử.
 
 > **Quyết định khi duyệt bảng commit 3.2 (2026-10-01)** — chi tiết ở design.md 5.2 `places`, 10.2 "Quy ước Place API" và "Địa điểm của activity", rule 14.18, 14.19:
 > - `placeId` sai (không tồn tại, hoặc `MANUAL` của người khác) → **400 `VALIDATION_ERROR` ở field `placeId`**, "Địa điểm không tồn tại", không phải 404: đây là lỗi của một ô trong form.
@@ -1268,7 +1293,50 @@ Mốc 5 — test(activity): add activity place flow integration test
 >
 > **Ý tưởng để sau (chưa gán task):** dọn địa điểm `MANUAL` không còn ai dùng; ô "đã làm" cho từng activity (design rule 14.22); hạn mức gói miễn phí chỉ tính chuyến đi chưa hoàn thành (xét ở Task 6.1 cùng rule 14.9).
 
-**Nhớ:** Mốc 3 là mốc lớn nhất của phase: 5 chỗ chuyển `Activity → ActivityResponse` (list, create, update, reorder, trip detail) và khoảng 20 chỗ `new CreateActivityRequest(...)` / `new ActivityResponse(...)` trong test phải thêm tham số. Thấy quá lớn cho một commit thì báo trước khi tách, không âm thầm gộp hay tách.
+**Nhớ:** có 5 chỗ chuyển `Activity → ActivityResponse` (list, create, update, reorder, trip detail) và 20 chỗ trong test tự tạo request / response của activity (6 `CreateActivityRequest`, 9 `UpdateActivityRequest`, 5 `ActivityResponse`): Commit 7 gom chúng lại trước khi Commit 8 thêm trường. Số file trong ngoặc là ước lượng; commit nào vượt 8 file khi làm thì dừng lại báo trước, không âm thầm gộp hay tách.
+
+> **Thực tế khi làm 3.2 (2026-10-01 → 2026-10-02):** 13 commit code trên nhánh, sau commit docs Mốc 0 trên `main` (`56c9cde`). Bảng duyệt có 12 commit; Commit 8 tách thành 8a / 8b khi đo ra 12 file. Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.3.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `5b9088f` feat(place): add place entity and migration | 3 | V9 `places`, `Place`, `PlaceMappingTest` |
+> | `9c7d7af` feat(place): look up a place of the map source by its id | 3 | `MapProvider.lookup(externalId)` |
+> | `914f80e` feat(place): save a chosen search result as a place | 10 | `POST /places`, `PlaceService.getOrCreate`; 10 file vì một endpoint đi qua mỗi tầng một file |
+> | `e04c842` feat(place): keep one row when the same place is picked at the same moment | 3 | đọc lại dòng của request thắng khi UNIQUE từ chối; test 8 luồng trên MySQL |
+> | `db89c31` feat(place): add manual place endpoint | 9 | `POST /places/manual`, `PlaceProvider.MANUAL`, `Place.createdBy` |
+> | `8ba7137` feat(place): reject a pick from a source that is not active | 8 | `MapProvider.provider()`; 400 ở field `provider` |
+> | `19bad4a` refactor(test): build activity requests and responses through one helper | 5 | `support/TestActivities`; 20 chỗ gọi constructor về một nơi |
+> | `cb5b475` feat(activity): add place column to activities | 3 | V10 `activities.place_id`, `Activity.place` |
+> | `744c3ec` feat(activity): show the place of an activity in every response | 9 | `ActivityResponse.place`, 4 truy vấn đọc kèm place |
+> | `9abd7cd` feat(activity): attach a place when creating an activity | 8 | `placeId` ở POST, `PlaceService.findAttachable` |
+> | `6c2140a` feat(activity): change the place of an activity | 8 | `placeId` ở PATCH, `update` nhận `userId` |
+> | `449e4ba` feat(activity): remove the place of an activity | 8 | `clearPlace`, viết lại mô tả Swagger của POST / PATCH |
+> | `532bc80` test(place): add place and activity place flow integration test | 2 | `ActivityPlaceFlowIntegrationTest` (mới), `PlaceSearchFlowIntegrationTest` |
+>
+> Endpoint mới: `POST /api/v1/places` (200), `POST /api/v1/places/manual` (201). Endpoint đổi: `POST .../days/{dayId}/activities` nhận `placeId`; `PATCH .../activities/{activityId}` nhận `placeId`, `clearPlace`; mọi phản hồi có activity thêm `place`. Migration V9, V10. 89 lượt test mới, toàn dự án **681 lượt** (627 method, 50 file test); `07-place.md` 94 kịch bản, `05-activity.md` 202 kịch bản. Kiểm chứng ngược 4 lần (bỏ đọc lại khi trùng dòng; bỏ so nguồn; bỏ đọc kèm place ở repository; bỏ đọc kèm place ở test toàn luồng: danh sách ngày tốn 9 câu SQL thay vì 4). Một lỗi test (`BUG-PLACE-002`), không lỗi code. Bài thủ công `MT-PLACE-02`, `MT-PLACE-03`, `MT-ACT-13`, `MT-ACT-14` **chưa chạy** lúc đóng task (và `MT-PLACE-01` của Task 3.1).
+>
+> Quyết định khi làm (đã ghi vào design.md 10.2):
+> - `provider` không phải nguồn đang bật → 400 ở field `provider`, kiểm **trước** khi đọc database. Khi Task 3.8 bật `osm`, chọn với `MOCK` tự bị từ chối, không cần sửa service.
+> - `placeId` được kiểm **trước** bước trùng giờ (create và update): lỗi 409 mời người dùng gửi lại với `allowOverlap=true`, lần gửi lại đó không được vấp một ô đã sai từ đầu.
+> - Gửi cả `placeId` lẫn `clearPlace: true` → 400 ở field `clearPlace`, bị chặn trước khi tra địa điểm. `clearPlace: false` = không gửi. Bỏ địa điểm của activity không có địa điểm: 200, version không tăng.
+> - Bốn truy vấn đọc kèm place, không phải ba như bảng duyệt: thêm `findByIdAndTripId` vì PATCH cũng trả activity.
+> - `PlaceService.getOrCreate` **không** `@Transactional`: mỗi lệnh repository là một transaction ngắn, nên khi INSERT bị UNIQUE từ chối chỉ lệnh đó rollback và vẫn đọc lại được dòng của request thắng.
+> - `ActivityServiceImpl` gọi `PlaceService` (service gọi service) để quy tắc "địa điểm nào dùng được" chỉ nằm một chỗ.
+>
+> **Bẫy đã gặp khi làm 3.2:**
+> 1. **Commit quá cỡ:** xem "Chia lại ngày 2026-10-01" ở trên. Ước lượng số file hay thiếu các file test bị kéo theo khi một constructor đổi (mapper, record); đếm bằng `grep` các chỗ gọi trước khi ghi số vào bảng.
+> 2. **`CHECK` của MySQL không ra `DataIntegrityViolationException` (BUG-PLACE-002):** lỗi 3819 được Spring đổi thành `UncategorizedSQLException`. Test ràng buộc `CHECK` nên kiểm tên ràng buộc trong thông báo, đừng kiểm loại exception. Vi phạm khoá ngoại và UNIQUE thì vẫn là `DataIntegrityViolationException`.
+> 3. **Mapper có `uses`:** `Mappers.getMapper(ActivityMapper.class)` không dựng được nữa (không còn constructor rỗng); unit test dùng `new ActivityMapperImpl(Mappers.getMapper(PlaceMapper.class))`, test `@DataJpaTest` phải `@Import` thêm `PlaceMapperImpl`.
+> 4. **Record không có builder:** thêm một trường làm vỡ mọi chỗ `new XxxRequest(...)` trong test. Gom về `support/TestActivities` trước (Commit 7) thì ba lần thêm trường sau đó chỉ sửa một file.
+> 5. **`verifyNoInteractions(mock)` vỡ khi service bắt đầu hỏi mock một câu vô hại** (`mapProvider.provider()`): đổi sang `verify(mock, never()).lookup(any())`, nói đúng điều test muốn chặn.
+> 6. **Script sửa nhiều file ghi từng file một:** một anchor sai ở file thứ bảy để lại sáu file đã sửa, chạy lại thì vấp chính các file đó. Script phải kiểm **mọi** anchor trước rồi mới ghi (đã làm từ Commit 11).
+> 7. **Điểm hở giữa hai commit:** sau Commit 5, `POST /places` với `MANUAL` chưa bị chặn cho tới Commit 6. Chia nhỏ commit thì phải nói rõ điểm hở tạm thời trong báo cáo và có test đóng nó ở commit sau (`TC-PLACE-083`, `091`).
+>
+> **Việc cho Task 3.3 Mốc 0:** ghi số PR và merge commit của Task 3.2 vào dòng đầu của khối này.
+> **Việc cho Task 3.5:** `Activity.place` đã có toạ độ; quãng đường trong ngày đọc từ `findByTripDayIdOrderByOrderIndexAscIdAsc` (đã đọc kèm place), bỏ qua activity không có địa điểm.
+> **Việc cho Task 3.6:** form hoạt động gửi `placeId` khi chọn kết quả (gọi `POST /places` trước), `clearPlace: true` khi bấm bỏ; chỉ gửi `placeId` khi người dùng **đổi** địa điểm. `ActivityResponse.place` có đủ dữ liệu để chấm lên bản đồ, không cần gọi thêm.
+> **Việc cho Task 3.8:** `OsmMapProvider.provider()` trả `OSM`, thêm hằng `OSM` vào `PlaceProvider` (cột ENUM của V9 đã có sẵn, không cần migration); bản lưu `MOCK` cũ vẫn hiển thị trong activity nhưng không chọn mới được.
+> **Việc cho Task 4.2:** cộng tác viên gửi lại đúng `placeId` mà activity đang có, khi đó là địa điểm `MANUAL` của chủ chuyến đi, sẽ nhận 400 theo quy tắc hiện tại. Quyết định: hoặc coi "gửi lại địa điểm đang có" là không đổi, hoặc giữ nguyên và để giao diện chỉ gửi `placeId` khi đổi (Task 3.6 đã làm theo hướng này).
 
 ---
 
@@ -1857,7 +1925,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.6 Làm lại giao diện theo UI_GUIDE | ☑ | 2026-10-01 |
 | 2 | 2.7 Sửa lỗi sau rà soát Phase 1–2 | ☑ | 2026-10-01 |
 | 3 | 3.1 Tìm địa điểm | ☑ | 2026-10-01 |
-| 3 | 3.2 Gắn địa điểm vào hoạt động | ☐ | |
+| 3 | 3.2 Gắn địa điểm vào hoạt động | ☑ | 2026-10-02 |
 | 3 | 3.3 Thời tiết của chuyến đi | ☐ | |
 | 3 | 3.4 Redis cache | ☐ | |
 | 3 | 3.5 Quãng đường trong ngày | ☐ | |
