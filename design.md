@@ -41,7 +41,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 - Quản lý chuyến đi: CRUD, clone, archive, soft delete
 - Lịch trình: TripDay tự sinh, Activity CRUD + reorder + validate trùng giờ
 - Địa điểm: search (mock → OSM), lưu snapshot, hiển thị bản đồ, tính khoảng cách giữa các điểm
-- Thời tiết: forecast theo ngày của trip, cache Redis, cảnh báo hoạt động ngoài trời
+- Thời tiết: forecast theo ngày của trip, cache Redis, cảnh báo hoạt động ngoài trời (cảnh báo: hoãn ngày 2026-10-02, rule 14.21)
 - Chia sẻ: mời theo email với role EDITOR/VIEWER, public share link có thể thu hồi
 - Real-time: đồng chỉnh sửa activity qua WebSocket, presence (ai đang xem trip)
 - Chi phí: ghi nhận expense, tổng hợp theo ngày/trip, chia tiền giữa thành viên
@@ -814,12 +814,16 @@ Lỗi (`ErrorResponse`):
 > - `GET /places/{id}` của bản cũ **hoãn**: chưa màn nào cần (activity đã trả kèm `place`), và mở ra thì phải kiểm quyền riêng cho địa điểm `MANUAL`.
 
 **Weather** `/api/v1/weather`
-| GET | `/trips/{tripId}` | Dự báo cho từng ngày của trip + cảnh báo ngoài trời (Task 3.3) | canView |
+| GET | `/trips/{tripId}` | Dự báo cho từng ngày của trip (Task 3.3) | canView |
 
 > **Quy ước Weather API** (chốt 2026-10-01, rà soát Phase 3; làm ở Task 3.3):
 > - `GET /weather/trips/{tripId}` trả `{ status, days }`. `status` = `OK`, hoặc `NO_DESTINATION` khi chuyến đi chưa có toạ độ điểm đến: vẫn 200, `days` không có dự báo, giao diện mời chọn điểm đến.
-> - `days` có **đúng một phần tử cho mỗi ngày** của chuyến đi: `{ dayId, date, forecast, warning }`. `forecast` = `{ condition, tempMin, tempMax, precipitationProbability }` hoặc `null` ("chưa có dự báo"). `warning` = `{ type, activityIds }` hoặc `null`.
-> - Toạ độ, giới hạn 16 ngày và quy tắc cảnh báo: rule 14.20 và 14.21. Danh sách giá trị của `condition` chốt ở bảng commit Task 3.3, phải ánh xạ được từ mã thời tiết của Open-Meteo.
+> - `days` có **đúng một phần tử cho mỗi ngày** của chuyến đi: `{ dayId, date, forecast }`. `forecast` = `{ condition, tempMin, tempMax, precipitationProbability }` hoặc `null` ("chưa có dự báo").
+> - Ô `warning` = `{ type, activityIds }` của bản 2026-10-01 **hoãn** (2026-10-02, rule 14.21): response chưa có ô này; thêm lại sau không làm hỏng client cũ.
+> - Toạ độ và giới hạn 16 ngày: rule 14.20.
+> - `condition` (chốt 2026-10-02, Task 3.3) là một trong 7 giá trị: `CLEAR`, `PARTLY_CLOUDY`, `CLOUDY`, `FOG`, `RAIN`, `THUNDERSTORM`, `SNOW`. Khai báo đủ từ Task 3.3 vì đây là hợp đồng với giao diện (Task 3.7 chọn icon theo danh sách này). Bản mock chỉ sinh `CLEAR`, `PARTLY_CLOUDY`, `CLOUDY`, `RAIN`, `THUNDERSTORM` và suy `condition` từ xác suất mưa. Ánh xạ từ mã thời tiết của Open-Meteo làm ở Task 3.8 (mưa phùn và mưa rào gộp vào `RAIN`).
+> - `tempMin` / `tempMax`: độ C, số có một chữ số thập phân (giao diện tự làm tròn). `precipitationProbability`: số nguyên 0–100.
+> - "Hôm nay" của giới hạn 16 ngày: đọc `users.timezone` của người gọi bằng một câu SQL riêng (múi giờ không nằm trong JWT). Giá trị không hợp lệ → dùng `Asia/Ho_Chi_Minh` và ghi log WARN.
 > - Provider lỗi (từ Task 3.8) → vẫn 200, các ngày không có dự báo; trang chuyến đi không hỏng vì thời tiết.
 > - `GET /weather/forecast` của bản cũ **hoãn**: chưa màn nào dùng.
 >
@@ -1016,7 +1020,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 18. **Địa điểm là bản lưu dùng chung** (chốt 2026-10-01): khi người dùng chọn một kết quả tìm kiếm, ứng dụng chép địa điểm vào bảng `places` và từ đó hiển thị từ bản chép, không hỏi lại dịch vụ ngoài. Thông tin để chép do **server tự tra từ nguồn** theo mã của kết quả; không tin tên hay toạ độ do client gửi, vì một bản chép sai sẽ sai cho mọi người chọn địa điểm đó về sau.
 19. **Địa điểm tự thêm là riêng tư** (chốt 2026-10-01): địa điểm `MANUAL` chỉ người tạo gắn được vào activity. Người khác chỉ thấy nó qua chuyến đi họ được xem. Không có endpoint nào liệt kê hay đọc địa điểm `MANUAL` theo id.
 20. **Dự báo thời tiết** (chốt 2026-10-01): lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau). Chỉ có dự báo cho **16 ngày tới** tính từ hôm nay: ngày đã qua hoặc xa hơn trả "chưa có dự báo". Quy tắc nằm ở `WeatherService`, nên provider mock cũng tuân theo. "Hôm nay" tính theo múi giờ của tài khoản đang đăng nhập (`users.timezone`, rule 14.22).
-21. **Cảnh báo hoạt động ngoài trời** (chốt 2026-10-01): một ngày có xác suất mưa **≥ 60%** và có ít nhất một activity loại `SIGHTSEEING` → cảnh báo cho ngày đó, kèm danh sách activity bị ảnh hưởng. Hạn chế đã biết của bản đầu: tham quan trong nhà (bảo tàng) cũng bị cảnh báo; hoạt động ngoài trời được xếp loại khác thì không.
+21. **Cảnh báo hoạt động ngoài trời — HOÃN** (2026-10-02, bảng commit Task 3.3): chưa làm ở backend lẫn giao diện. Lý do: hiển thị tình trạng, nhiệt độ và xác suất mưa của từng ngày đã đủ để người dùng tự quyết, và quy tắc dưới đây còn thô. Xét lại khi làm quyền lợi Premium "Weather alert qua email" (mục 9). Quy tắc đã chốt 2026-10-01, giữ lại làm điểm bắt đầu: một ngày có xác suất mưa **≥ 60%** và có ít nhất một activity loại `SIGHTSEEING` → cảnh báo cho ngày đó, kèm danh sách activity bị ảnh hưởng. Hạn chế đã biết của bản đầu: tham quan trong nhà (bảo tàng) cũng bị cảnh báo; hoạt động ngoài trời được xếp loại khác thì không.
 22. **Chuyến đi, ngày và hoạt động đã qua** (chốt 2026-10-01):
     - **"Hôm nay" / "bây giờ"** tính theo múi giờ của tài khoản (`users.timezone`). Mặc định là `Asia/Ho_Chi_Minh` và chưa có màn hình đổi, nên hiện tại mọi người dùng theo giờ Việt Nam. Giao diện lấy múi giờ từ `GET /users/me`, không lấy giờ của trình duyệt, để trùng với backend.
     - **Đã qua khi nào:** chuyến đi khi hết ngày `end_date`; một ngày khi hết ngày đó; activity có `end_time` khi qua giờ kết thúc của nó trong ngày đó; activity không có `end_time` khi hết ngày của nó.

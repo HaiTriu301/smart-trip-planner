@@ -1141,7 +1141,7 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 > 2. Bỏ địa điểm khỏi activity: `clearPlace: true` trong `PATCH` (`placeId` là số, không có `""` như field văn bản). ✔
 > 3. Địa điểm tự thêm (`MANUAL`) là **riêng tư**: có `created_by`, chỉ người tạo gắn được vào activity; người khác thấy nó qua chuyến đi họ được xem. Hoãn `GET /places/{id}` và `GET /weather/forecast` (chưa màn nào dùng). ✔
 > 4. Thời tiết lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau); chưa có toạ độ → 200 kèm trạng thái "chưa có điểm đến", không phải lỗi. Dự báo chỉ có cho **16 ngày tới** (giới hạn của dịch vụ dự báo thật): quy tắc nằm ở service nên mock cũng tuân theo; ngày đã qua hoặc xa hơn trả "chưa có dự báo". ✔
-> 5. Cảnh báo ngoài trời: ngày có xác suất mưa ≥ 60% **và** có activity loại `SIGHTSEEING` → cảnh báo cấp ngày kèm danh sách activity. Nguồn dự báo: mock ở Task 3.3, Open-Meteo thật ở Task 3.8. ✔
+> 5. Cảnh báo ngoài trời: ngày có xác suất mưa ≥ 60% **và** có activity loại `SIGHTSEEING` → cảnh báo cấp ngày kèm danh sách activity. Nguồn dự báo: mock ở Task 3.3, Open-Meteo thật ở Task 3.8. ✔ **Hoãn ngày 2026-10-02** (bảng commit Task 3.3): phần cảnh báo chưa làm, dự báo vẫn làm như đã chốt.
 > 6. Bỏ cache `trip:detail` (design 8.1): `GET /trips/{id}` đã chỉ 4 câu SQL, trong khi phải xoá cache ở 8 chỗ ghi và dễ ra dữ liệu cũ khi làm realtime (Phase 5). ✔
 > 7. Dữ liệu mock: **56 địa điểm ở 5 điểm đến** (Hà Nội, Đà Nẵng, Hội An, Đà Lạt, TP. Hồ Chí Minh), toạ độ tra từ OpenStreetMap lúc soạn file, có ghi nguồn. Giảm so với ~120 đề xuất ban đầu vì provider thật có ngay ở Task 3.8; mock chỉ còn phục vụ test và chạy khi không có mạng. ✔
 > 8. Test có Redis: thêm container Redis vào `TestcontainersConfiguration`; `@DataJpaTest` / `@WebMvcTest` không nạp cache nên không đổi. ✔
@@ -1295,7 +1295,7 @@ Commit 12 — test(place): add place and activity place flow integration test   
 
 **Nhớ:** có 5 chỗ chuyển `Activity → ActivityResponse` (list, create, update, reorder, trip detail) và 20 chỗ trong test tự tạo request / response của activity (6 `CreateActivityRequest`, 9 `UpdateActivityRequest`, 5 `ActivityResponse`): Commit 7 gom chúng lại trước khi Commit 8 thêm trường. Số file trong ngoặc là ước lượng; commit nào vượt 8 file khi làm thì dừng lại báo trước, không âm thầm gộp hay tách.
 
-> **Thực tế khi làm 3.2 (2026-10-01 → 2026-10-02):** 13 commit code trên nhánh, sau commit docs Mốc 0 trên `main` (`56c9cde`). Bảng duyệt có 12 commit; Commit 8 tách thành 8a / 8b khi đo ra 12 file. Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.3.
+> **Thực tế khi làm 3.2 (2026-10-01 → 2026-10-02):** 13 commit code trên nhánh, sau commit docs Mốc 0 trên `main` (`56c9cde`). Bảng duyệt có 12 commit; Commit 8 tách thành 8a / 8b khi đo ra 12 file. PR #18, merge commit `8f38592` (Merge commit, giữ lịch sử), docs đóng task `48a7754`.
 >
 > | Commit | File | Nội dung |
 > |---|:--:|---|
@@ -1332,7 +1332,6 @@ Commit 12 — test(place): add place and activity place flow integration test   
 > 6. **Script sửa nhiều file ghi từng file một:** một anchor sai ở file thứ bảy để lại sáu file đã sửa, chạy lại thì vấp chính các file đó. Script phải kiểm **mọi** anchor trước rồi mới ghi (đã làm từ Commit 11).
 > 7. **Điểm hở giữa hai commit:** sau Commit 5, `POST /places` với `MANUAL` chưa bị chặn cho tới Commit 6. Chia nhỏ commit thì phải nói rõ điểm hở tạm thời trong báo cáo và có test đóng nó ở commit sau (`TC-PLACE-083`, `091`).
 >
-> **Việc cho Task 3.3 Mốc 0:** ghi số PR và merge commit của Task 3.2 vào dòng đầu của khối này.
 > **Việc cho Task 3.5:** `Activity.place` đã có toạ độ; quãng đường trong ngày đọc từ `findByTripDayIdOrderByOrderIndexAscIdAsc` (đã đọc kèm place), bỏ qua activity không có địa điểm.
 > **Việc cho Task 3.6:** form hoạt động gửi `placeId` khi chọn kết quả (gọi `POST /places` trước), `clearPlace: true` khi bấm bỏ; chỉ gửi `placeId` khi người dùng **đổi** địa điểm. `ActivityResponse.place` có đủ dữ liệu để chấm lên bản đồ, không cần gọi thêm.
 > **Việc cho Task 3.8:** `OsmMapProvider.provider()` trả `OSM`, thêm hằng `OSM` vào `PlaceProvider` (cột ENUM của V9 đã có sẵn, không cần migration); bản lưu `MOCK` cũ vẫn hiển thị trong activity nhưng không chọn mới được.
@@ -1344,28 +1343,59 @@ Commit 12 — test(place): add place and activity place flow integration test   
 
 Nhánh: `feat/T3.3-trip-weather` · Test: `docs/testing/08-weather.md` (file mới).
 
+Mỗi commit một việc, code + test cùng commit, số file ghi trong ngoặc vuông.
+
+Kết quả của task (chưa có giao diện, xem trên Swagger): `GET /weather/trips/{tripId}` trả mỗi ngày của chuyến đi một phần tử; ngày nằm trong 16 ngày tới có dự báo (tình trạng, nhiệt độ thấp / cao, xác suất mưa).
+
 ```
-Mốc 1 — feat(weather): add trip forecast endpoint with mock weather provider
-        provider/weather/WeatherProvider.forecast(lat, lng, from, to), provider/weather/dto/DailyForecast
-        (date, condition, tempMin, tempMax, precipitationProbability), MockWeatherProvider
-        (seed = hash(lat, lng làm tròn 4 chữ số, date) → cùng input luôn ra cùng kết quả),
-        service/WeatherService.forTrip, dto/response/TripWeatherResponse (mỗi ngày của chuyến đi một phần tử),
+Mốc 0 — docs (main): PR #18 của Task 3.2; design.md 10.2 (7 giá trị condition, kiểu nhiệt độ, nguồn múi giờ);
+        hoãn cảnh báo ngoài trời (design 2.1, 10.2, rule 14.21; UI_GUIDE 7.3, 9, 14, 15.3; Task 3.7 Mốc 2); bảng commit này
+
+Commit 1 — feat(weather): add forecast model and weather provider port                              [3 file]
+        provider/weather/dto/WeatherCondition (7 giá trị), provider/weather/dto/DailyForecast
+        (date, condition, tempMin, tempMax, precipitationProbability), provider/weather/WeatherProvider
+        .forecast(lat, lng, from, to): mỗi ngày một DailyForecast, được phép thiếu ngày.
+        Chưa có hành vi nên chưa có test; test của Commit 2 là test đầu tiên chạm tới chúng
+
+Commit 2 — feat(weather): add mock weather provider                                                 [2 file]
+        MockWeatherProvider (@ConditionalOnProperty app.providers.weather=mock): seed = hash(lat, lng làm tròn
+        4 chữ số, date); xác suất mưa sinh trước, condition suy ra từ nó; nhiệt độ thấp < cao;
+        MockWeatherProviderTest: cùng input → cùng kết quả, khác ngày / khác toạ độ → khác, mỗi ngày trong khoảng
+        đúng một phần tử
+
+Commit 3 — feat(weather): add trip forecast endpoint                                                [8 file]
+        dto/response/ForecastResponse, TripWeatherDayResponse (dayId, date, forecast), TripWeatherResponse (days),
+        mapper/WeatherMapper, service/WeatherService.forTrip(tripId) (ghép dự báo theo ngày, không theo vị trí),
         controller/WeatherController GET /weather/trips/{tripId} (@PreAuthorize canView);
-        chuyến đi chưa có toạ độ điểm đến → 200, trạng thái NO_DESTINATION, không có dự báo;
-        test: happy, 403 người lạ, 404 trip đã xoá, mock ổn định
+        chuyến đi chưa có toạ độ: không gọi provider, mọi ngày forecast = null;
+        test service + controller: 200, 401, 403 người lạ, 404 trip đã xoá, tripId không phải số → 400
 
-Mốc 2 — feat(weather): limit the forecast to the next sixteen days
-        bean Clock (config), WeatherService chỉ hỏi provider các ngày trong [hôm nay, hôm nay + 15];
-        "hôm nay" theo múi giờ của tài khoản đang đăng nhập (users.timezone, mặc định Asia/Ho_Chi_Minh — rule 14.22);
-        ngày đã qua hoặc xa hơn → phần tử không có dự báo ("chưa có dự báo");
-        test biên với Clock cố định: ngày thứ 16 có, ngày thứ 17 không, chuyến đi nằm trọn ngoài khoảng → không gọi provider
+Commit 4 — feat(weather): report a trip without destination                                         [5 file]
+        model/enums/TripWeatherStatus (OK, NO_DESTINATION), TripWeatherResponse.status; 2 file test
 
-Mốc 3 — feat(weather): warn about outdoor activities on rainy days
-        ngày có precipitationProbability ≥ 60 và có activity loại SIGHTSEEING → warning kèm activityIds;
-        test biên 59 / 60; ngày mưa không có activity ngoài trời → không cảnh báo
+Commit 5 — feat(user): tell today's date in the time zone of the account                            [5 file]
+        config/ClockConfig (bean Clock), UserRepository.findTimezoneById, UserService.today(userId);
+        múi giờ không hợp lệ → Asia/Ho_Chi_Minh + log WARN; UserRepositoryTest, UserServiceTest (mới):
+        23:30 UTC thì ở Việt Nam đã sang ngày hôm sau. Chưa ai gọi cho tới Commit 6 (điểm tách (b) của A.2)
 
-Mốc 4 — test(weather): add trip weather flow integration test (kèm đếm số câu SQL)
+Commit 6 — feat(weather): limit the forecast to the next sixteen days                               [4 file]
+        WeatherService.forTrip(tripId, userId) chỉ hỏi provider phần giao giữa chuyến đi và [hôm nay, hôm nay + 15];
+        controller truyền id người đang đăng nhập; test biên với Clock cố định: ngày thứ 16 có, ngày thứ 17 không,
+        hôm qua không, chuyến đi nằm trọn ngoài khoảng → không gọi provider
+
+Commit 7 — test(weather): add trip weather flow integration test                                    [1 file]
+        cả ứng dụng thật, Clock cố định: đăng nhập → tạo chuyến đi có điểm đến → xem thời tiết; người lạ 403;
+        chuyến đi đã xoá 404; đếm câu SQL: 4 khi có điểm đến, 3 khi chưa có
 ```
+
+> **Quyết định khi duyệt bảng commit 3.3 (2026-10-02)** — chi tiết ở design.md 10.2 "Quy ước Weather API":
+> - `condition` có 7 giá trị, khai báo đủ ngay từ task này (hợp đồng với giao diện); mock chỉ sinh 5 giá trị hợp với Việt Nam.
+> - Múi giờ của tài khoản đọc thẳng từ `users.timezone` (thêm 1 câu SQL mỗi request), không đưa vào JWT.
+> - Nhiệt độ: độ C, một chữ số thập phân; xác suất mưa: số nguyên 0–100.
+> - **Cảnh báo hoạt động ngoài trời hoãn** (Mốc 3 của bản cũ): chủ dự án thấy hiển thị tình trạng, nhiệt độ và xác suất mưa là đủ; quy tắc `SIGHTSEEING` còn thô (bảo tàng cũng bị cảnh báo). Response không có ô `warning`; thêm lại sau không làm hỏng client cũ. Xét lại khi làm quyền lợi Premium "Weather alert qua email" (design mục 9).
+> - Bảng duyệt lần đầu có 6 commit; chủ dự án nhắc lại quy ước cắt lát nhỏ (mô hình dữ liệu đứng riêng, mỗi hành vi nhỏ một commit) nên chia lại thành 9, còn 7 sau khi hoãn cảnh báo.
+>
+> **Điểm hở tạm thời:** sau Commit 3, ngày đã qua và ngày quá xa vẫn có dự báo (mock trả mọi ngày được hỏi); Commit 6 đóng lại và có test.
 
 **Vì sao mock phải ổn định:** test tích hợp không được đỏ ngẫu nhiên (CLAUDE.md rule 24), và người dùng tải lại trang phải thấy cùng dự báo.
 
@@ -1458,8 +1488,8 @@ Mốc 1 — feat(frontend): add the weather strip under the map
         types/weather.ts, api/weather.ts, components/weather/WeatherStrip.tsx: mỗi ngày một ô (icon, cao / thấp,
         xác suất mưa); chuyến đi chưa có điểm đến → câu mời chọn điểm đến; ngày ngoài 16 ngày tới → "Chưa có dự báo"
 
-Mốc 2 — feat(frontend): flag outdoor activities on rainy days
-        ô ngày có cảnh báo viền `warning`; thẻ hoạt động ngoài trời của ngày đó có chip thời tiết
+Mốc 2 — HOÃN (2026-10-02, cùng cảnh báo ngoài trời của Task 3.3, design rule 14.21): viền `warning` ở ô ngày và
+        chip thời tiết trên thẻ hoạt động. Giữ số mốc để các chỗ dẫn tới Mốc 3, 4, 5 không lệch
 
 Mốc 3 — feat(frontend): show travel distance between activities
         api/routes.ts, đoạn nối "25 phút · 8,4 km" giữa hai thẻ liền nhau cùng có địa điểm (nằm trong từng hàng,

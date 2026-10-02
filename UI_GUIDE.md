@@ -303,7 +303,7 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
 - **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền `warning` mờ 8% và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
-- **Phase 3:** dòng địa chỉ có icon ghim; ô thời tiết trong hàng meta.
+- **Phase 3:** dòng địa chỉ có icon ghim. Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).
 - **Phase 5:** người tạo trong hàng meta; khi người khác vừa sửa thì viền ngoài nhấp nháy jade 1,2 giây, kèm chip "Trieu vừa sửa" biến mất sau 3 giây.
 
 ### 7.4. Thanh ray thời gian ⭐
@@ -500,7 +500,7 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 - **Bản đồ:** tile CartoDB Positron (xám nhạt, chữ mờ) thay vì OSM mặc định, để marker không chìm. Chế độ tối dùng CartoDB Dark Matter. Ghi nguồn tile theo điều khoản.
 - **Marker:** hình giọt nước 28px, nền màu tuyến, icon trắng bên trong (cùng icon lucide ở mục 3.4), số thứ tự trong ngày ở góc. Marker đang được rê chuột phóng to 1,15 lần và có vòng sáng.
 - **Đường nối:** đường liền 2px `jade` mờ 60%, nối các điểm theo đúng thứ tự trong ngày. Không vẽ đường giữa các ngày khác nhau.
-- **Thời tiết:** dải ngang dưới bản đồ, mỗi ngày một ô: icon + nhiệt độ cao/thấp + xác suất mưa. Ngày có cảnh báo hiện viền `warning`. Icon nét đơn (lucide `CloudRain`, `Sun`, `CloudSun`).
+- **Thời tiết:** dải ngang dưới bản đồ, mỗi ngày một ô: icon + nhiệt độ cao/thấp + xác suất mưa. Ngày chưa có dự báo ghi "Chưa có dự báo". Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21). Icon nét đơn (lucide `CloudRain`, `Sun`, `CloudSun`).
 
 ---
 
@@ -608,7 +608,7 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 2.5 | Danh sách chuyến đi, wizard tạo chuyến, chi tiết chuyến đi (ray thời gian, chưa có bản đồ) | Đã làm, làm lại theo guide ở Task 2.6 |
 | 2.6 | Token, font, thành phần dùng chung, số đếm chip, số hoạt động trên thẻ, ô tìm trên thanh điều hướng, giao diện điện thoại | Đã làm (`feat/T2.6-ui-guide`) |
 | 3.6 | Ô tìm địa điểm trong hộp thoại hoạt động, cột bản đồ, tab bản đồ trên điện thoại, tự thêm địa điểm, chọn điểm đến trong wizard | Phase 3 |
-| 3.7 | Dải thời tiết, cảnh báo ngoài trời, đoạn di chuyển giữa hai ga | Phase 3 |
+| 3.7 | Dải thời tiết, đoạn di chuyển giữa hai ga, ngày đã qua (cảnh báo ngoài trời: hoãn) | Phase 3 |
 | 4.4 | Panel chia sẻ, danh sách thành viên, trang công khai, bình luận, huy hiệu vai trò | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
@@ -869,8 +869,8 @@ A dialog opened from the bottom edge like a sheet, full width, top corners round
 
 #### Phase 3 — Task 3.6 (bản đồ) và 3.7 (thời tiết, quãng đường): chi tiết chuyến đi ba cột
 
-**Dữ liệu có thật (dự kiến, kiểm lại API đầu task):** như màn F + toạ độ và tên địa điểm của hoạt động (`place`), khoảng cách và thời gian giữa hai hoạt động liền nhau (`/days/{dayId}/route`), dự báo từng ngày (`/weather/trips/{tripId}`): nhiệt độ cao / thấp, xác suất mưa, cảnh báo cho hoạt động ngoài trời.
-**Không được thêm:** lớp giao thông, điểm ưa thích quanh đó, đánh giá sao, ảnh người đang xem (Phase 5).
+**Dữ liệu có thật (dự kiến, kiểm lại API đầu task):** như màn F + toạ độ và tên địa điểm của hoạt động (`place`), khoảng cách và thời gian giữa hai hoạt động liền nhau (`/days/{dayId}/route`), dự báo từng ngày (`/weather/trips/{tripId}`): tình trạng (7 giá trị, design 10.2), nhiệt độ cao / thấp, xác suất mưa; ngày ngoài 16 ngày tới không có dự báo.
+**Không được thêm:** viền hoặc chip cảnh báo thời tiết (hoãn ngày 2026-10-02, design rule 14.21), lớp giao thông, điểm ưa thích quanh đó, đánh giá sao, ảnh người đang xem (Phase 5).
 
 ```
 Trip detail as in the current version (header, 200px day list, middle rail), plus a third
@@ -881,13 +881,11 @@ in a small circle at the corner; one marker is hovered: scaled up 1.15x with a s
 The markers of the day are joined in order by a 2px jade line at 60% opacity; no line
 between different days.
 Under the map, a weather strip: one cell per day with a line icon (sun, cloud-sun,
-cloud-rain), "32° / 25°" and a rain chance "60%"; the cell of a rainy day has an amber
-#E0A33C border and a small warning icon.
+cloud-rain), "32° / 25°" and a rain chance "60%"; a day with no forecast yet shows
+"Chưa có dự báo" in muted text.
 In the middle rail, between two activity cards, a 2px dashed grey segment with the centered
 caption "25 phút · 8,4 km" (12px, muted).
-Each activity card gains a third row: a pin icon and the address in 13px muted text, and in
-the meta row a small weather chip "28° mưa rào" in amber when that activity is outdoors on
-a rainy day.
+Each activity card gains a third row: a pin icon and the address in 13px muted text.
 The hovered activity card in the middle is linked to the enlarged marker on the map.
 ```
 
