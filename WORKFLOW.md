@@ -1370,8 +1370,9 @@ Commit 3 — feat(weather): add trip forecast endpoint                          
         chuyến đi chưa có toạ độ: không gọi provider, mọi ngày forecast = null;
         test service + controller: 200, 401, 403 người lạ, 404 trip đã xoá, tripId không phải số → 400
 
-Commit 4 — feat(weather): report a trip without destination                                         [5 file]
-        model/enums/TripWeatherStatus (OK, NO_DESTINATION), TripWeatherResponse.status; 2 file test
+Commit 4 — feat(weather): report a trip without destination                                         [6 file]
+        dto/response/TripWeatherStatus (OK, NO_DESTINATION), TripWeatherResponse.status; mô tả Swagger; 2 file test.
+        Bảng duyệt ghi model/enums và 5 file; đổi khi làm, xem "Thực tế khi làm 3.3"
 
 Commit 5 — feat(user): tell today's date in the time zone of the account                            [5 file]
         config/ClockConfig (bean Clock), UserRepository.findTimezoneById, UserService.today(userId);
@@ -1398,6 +1399,42 @@ Commit 7 — test(weather): add trip weather flow integration test              
 > **Điểm hở tạm thời:** sau Commit 3, ngày đã qua và ngày quá xa vẫn có dự báo (mock trả mọi ngày được hỏi); Commit 6 đóng lại và có test.
 
 **Vì sao mock phải ổn định:** test tích hợp không được đỏ ngẫu nhiên (CLAUDE.md rule 24), và người dùng tải lại trang phải thấy cùng dự báo.
+
+> **Thực tế khi làm 3.3 (2026-10-02 → 2026-10-03):** 7 commit code trên nhánh, đúng bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`8a0fe9e`). Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.4.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `8e6ac29` feat(weather): add forecast model and weather provider port | 3 | `WeatherCondition` (7 giá trị), `DailyForecast`, `WeatherProvider.forecast` |
+> | `df402db` feat(weather): add mock weather provider | 2 | `MockWeatherProvider`: số ổn định theo toạ độ làm tròn + ngày |
+> | `2413c06` feat(weather): add trip forecast endpoint | 8 | `GET /weather/trips/{tripId}`, `WeatherService.forTrip`, `WeatherMapper`, 3 DTO |
+> | `5923b50` feat(weather): report a trip without destination | 6 | `TripWeatherStatus`, `TripWeatherResponse.status`; bảng duyệt ghi 5, thêm `WeatherController` vì mô tả Swagger phải nhắc `status` |
+> | `f7d0704` feat(user): tell today's date in the time zone of the account | 5 | `ClockConfig`, `UserRepository.findTimezoneById`, `UserService.today` |
+> | `6f58daf` feat(weather): limit the forecast to the next sixteen days | 4 | `forTrip(tripId, userId)`, khoảng [hôm nay, hôm nay + 15] |
+> | `2085c1e` test(weather): add trip weather flow integration test | 1 | `TripWeatherFlowIntegrationTest`, đồng hồ đứng yên, đếm câu SQL |
+>
+> Endpoint mới: `GET /api/v1/weather/trips/{tripId}` (canView). Không có migration, không đổi cấu hình (`app.providers.weather: mock` đã có sẵn). 37 lượt test mới, toàn dự án **718 lượt** (664 method, 55 file test); `08-weather.md` 37 kịch bản. Kiểm chứng ngược 8 lần (tình trạng không theo xác suất mưa; bỏ kiểm toạ độ; coi nửa toạ độ là có điểm đến; bỏ múi giờ tài khoản ở `UserService` và ở test toàn luồng; khoảng 17 ngày; bỏ lọc kết quả thừa; khoảng bắt đầu từ ngày đầu chuyến đi). Không có test đỏ ngoài dự kiến, không dòng `BUG-` mới. Bài thủ công `MT-WEATHER-01` **chưa chạy** lúc đóng task. Số câu SQL: 4 khi có điểm đến (quyền, chuyến đi, các ngày, múi giờ), 3 khi chưa có; không tăng theo số ngày.
+>
+> Quyết định khi làm (đã ghi vào design.md 10.2):
+> - `WeatherService.forTrip` **không** `@Transactional`: hai lần đọc là hai lệnh ngắn; bọc cả method thì kết nối database bị giữ suốt lúc chờ nguồn dự báo, mà từ Task 3.8 đó là lời gọi mạng.
+> - Dự báo ghép vào ngày **theo ngày lịch**, không theo vị trí. Nguồn lặp một ngày → giữ dự báo đầu; nguồn trả thừa ngoài khoảng đã hỏi → bỏ, không làm khoảng 16 ngày rộng ra.
+> - Chuyến đi chỉ có một nửa toạ độ → `NO_DESTINATION`. Chưa có điểm đến thì không tra múi giờ. Có điểm đến mà không ngày nào có dự báo (đã qua, quá xa, nguồn không trả) → vẫn `OK`.
+> - `TripWeatherStatus` nằm ở `dto/response`, không ở `model/enums` như bảng duyệt: `model/enums` chỉ dành cho enum gắn với cột database. `WeatherCondition` nằm ở `provider/weather/dto` và được response dùng chung.
+> - "Hôm nay" của tài khoản: `UserService.today(userId)` trên bean `Clock`; tài khoản không còn → 404. `WeatherService` gọi `UserService` (service gọi service, như `ActivityServiceImpl` → `PlaceService`).
+> - Mock: xác suất mưa sinh trước, tình trạng suy ra (dưới 20 `CLEAR`, 40 `PARTLY_CLOUDY`, 60 `CLOUDY`, 85 `RAIN`, còn lại `THUNDERSTORM`); nhiệt độ cao 24–35, thấp hơn 4–8 độ, sinh theo phần mười độ.
+>
+> **Bẫy đã gặp khi làm 3.3:**
+> 1. **Bảng commit lần đầu vẫn quá thô:** 6 commit, trong đó một dòng ~8 file gộp provider + endpoint. Chủ dự án nhắc lại: mô hình dữ liệu đứng riêng, mỗi hành vi nhỏ một commit. Khi phân vân thì tách nhỏ hơn, đừng biện minh cho dòng lớn.
+> 2. **Báo cáo sau commit quá ngắn:** commit 3 file không có hành vi vẫn phải báo đủ bốn phần (file, mục đích, từng file và method, luồng), kể cả khi luồng là "chưa có luồng chạy".
+> 3. **Seed liền nhau:** `new Random(seed)` với các seed chênh nhau 1 (hai ngày liền nhau) cho số đầu tiên gần giống nhau. Trộn seed bằng một hàm băm 64 bit trước khi dùng.
+> 4. **Ước lượng số file bỏ sót mô tả Swagger:** thêm một trường vào response thì mô tả ở controller cũng phải đổi (Commit 4: 6 file thay vì 5).
+> 5. **Test thừa:** một test "hôm nay là của người gọi" chỉ lặp lại điều các stub đã chứng minh, đã bỏ trước khi commit (CLAUDE.md rule 25).
+> 6. **Thay bean `Clock` trong test toàn luồng** bằng `@TestBean(methodName = ...)` tạo một context riêng (và một container MySQL riêng) cho class đó: build dài thêm khoảng 10 giây. Chấp nhận, vì test theo "hôm nay" mà không có đồng hồ đứng yên sẽ đỏ quanh nửa đêm.
+> 7. **Script sửa tài liệu nhét vào heredoc của Bash lại hỏng** (dấu nháy trong nội dung tiếng Việt) lúc soạn tài liệu đóng task; không file nào bị ghi dở vì lệnh hỏng trước khi chạy. Script dài: ghi ra file `.py` rồi chạy, như đã ghi ở Task 3.1.
+>
+> **Việc cho Task 3.4 Mốc 0:** ghi số PR và merge commit của Task 3.3 vào dòng đầu của khối này.
+> **Việc cho Task 3.4:** lời gọi provider nằm trong method `private` của `WeatherService`; `@Cacheable` đặt ở đó sẽ không chạy (tự gọi trong cùng bean). Đặt cache ở một bean riêng bọc lời gọi provider, hoặc ngay trên bản hiện thực của provider. Khoá cache theo design 8.1 gồm `from` và `to` đã thu hẹp theo "hôm nay", nên mỗi ngày là một khoá mới cho chuyến đi đang diễn ra. `DailyForecast` là `record` có `LocalDate` và enum: kiểm serializer đọc lại đúng kiểu.
+> **Việc cho Task 3.7:** response là `{ status, days[{ dayId, date, forecast }] }`; `forecast: null` + `status: OK` = "Chưa có dự báo", `NO_DESTINATION` = mời chọn điểm đến. 7 giá trị `condition` cần 7 icon. Không có ô `warning` (Mốc 2 hoãn). "Hôm nay" ở giao diện lấy từ `timezone` của `GET /users/me`, cùng nguồn với backend.
+> **Việc cho Task 3.8:** `OpenMeteoWeatherProvider` đổi mã WMO về 7 giá trị (mưa phùn, mưa rào → `RAIN`), được phép trả thiếu ngày; service đã lọc và ghép theo ngày nên không phải sửa. Ngày của dự báo là ngày lịch **tại điểm đến**, trong khi khoảng 16 ngày tính theo "hôm nay" của tài khoản: lệch tối đa một ngày khi hai nơi khác múi giờ, quyết định có cần xử lý không. Provider lỗi → 200 không dự báo (design 10.2): cân nhắc thêm một giá trị `status` để giao diện ghi "tạm thời không có dự báo".
 
 ---
 
@@ -1956,7 +1993,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 2 | 2.7 Sửa lỗi sau rà soát Phase 1–2 | ☑ | 2026-10-01 |
 | 3 | 3.1 Tìm địa điểm | ☑ | 2026-10-01 |
 | 3 | 3.2 Gắn địa điểm vào hoạt động | ☑ | 2026-10-02 |
-| 3 | 3.3 Thời tiết của chuyến đi | ☐ | |
+| 3 | 3.3 Thời tiết của chuyến đi | ☑ | 2026-10-03 |
 | 3 | 3.4 Redis cache | ☐ | |
 | 3 | 3.5 Quãng đường trong ngày | ☐ | |
 | 3 | 3.6 UI: địa điểm + bản đồ | ☐ | |

@@ -105,6 +105,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 19. Mọi lời gọi ra ngoài phải đi qua interface trong `provider/`. Service **không** import SDK của Stripe/Google/Anthropic trực tiếp. Gửi mail cũng là gọi ra ngoài: `provider/mail/MailProvider` (`smtp` | `mock`), service không import `JavaMailSender`.
 20. Mặc định môi trường local là `mock` cho tất cả provider. Code mới phải chạy được khi chưa có API key nào.
     - `provider/map/MapProvider` (`mock` | `osm` từ Task 3.8): bản mock đọc `resources/mock/places.json`. Thêm / sửa địa điểm trong file này thì toạ độ phải tra từ OpenStreetMap (Nominatim: 1 lần hỏi mỗi giây, có `User-Agent`), không viết theo trí nhớ; `MockPlacesDataTest` phải xanh (Task 3.1).
+    - `provider/weather/WeatherProvider` (`mock` | `open-meteo` từ Task 3.8): bản mock sinh số ổn định theo toạ độ làm tròn + ngày. Quy tắc nghiệp vụ (chỉ 16 ngày tới, ghép dự báo theo ngày lịch) nằm ở `WeatherService`, không ở provider, nên đổi nguồn không đổi hành vi (Task 3.3).
 
 ### Realtime
 21. Broadcast WebSocket chỉ được phát **sau khi transaction commit** (`@TransactionalEventListener(phase = AFTER_COMMIT)`).
@@ -261,6 +262,9 @@ Khi review code, kiểm tra lại các điểm này:
 - Hộp thoại có form đóng được bằng Esc / "×" trong lúc đang lưu → câu trả lời của máy chủ không còn chỗ hiện. Vỏ hộp dùng `useIsMutating` với `mutationKey` của form — BUG-UI-004
 - Kiểm `error` trước `data` của `useQuery`: một lần tải lại ngầm lỗi thay cả trang (và form đang gõ) bằng ô báo lỗi. Còn dữ liệu thì giữ trang, báo lỗi kèm "Thử lại" — BUG-UI-005
 - Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")
+- Code mới cần "hôm nay" / "bây giờ" mà tự gọi `LocalDate.now()` / `Instant.now()`: test phụ thuộc ngày chạy và múi giờ của máy. Lấy từ bean `Clock` (`config/ClockConfig`); "hôm nay" của người dùng lấy từ `UserService.today(userId)` (múi giờ tài khoản, design rule 14.22). Test dùng `Clock.fixed(...)`, test toàn luồng thay bean bằng `@TestBean` — Task 3.3
+- Bọc `@Transactional` quanh một lời gọi provider ra ngoài: kết nối database bị giữ suốt lúc chờ mạng. Đọc database xong mới gọi provider, như `WeatherService.forTrip` — Task 3.3
+- `@Cacheable` (hoặc annotation dựa trên proxy khác) đặt lên method `private` hay method được gọi từ chính bean đó: không chạy. Ghi ở WORKFLOW.md "Việc cho Task 3.4" — Task 3.3
 
 ---
 

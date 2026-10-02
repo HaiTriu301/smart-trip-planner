@@ -202,6 +202,7 @@ com.trieu.tripplanner
 │   ├── WebSocketConfig.java
 │   ├── OpenApiConfig.java
 │   ├── AsyncConfig.java
+│   ├── ClockConfig.java              // bean Clock: nguồn "bây giờ" duy nhất, test thay bằng đồng hồ đứng yên (Task 3.3)
 │   ├── CorsConfig.java
 │   └── properties/                   // @ConfigurationProperties + @Validated: AppProperties (app), JwtProperties (app.jwt), StripeProperties...
 ├── security
@@ -824,6 +825,12 @@ Lỗi (`ErrorResponse`):
 > - `condition` (chốt 2026-10-02, Task 3.3) là một trong 7 giá trị: `CLEAR`, `PARTLY_CLOUDY`, `CLOUDY`, `FOG`, `RAIN`, `THUNDERSTORM`, `SNOW`. Khai báo đủ từ Task 3.3 vì đây là hợp đồng với giao diện (Task 3.7 chọn icon theo danh sách này). Bản mock chỉ sinh `CLEAR`, `PARTLY_CLOUDY`, `CLOUDY`, `RAIN`, `THUNDERSTORM` và suy `condition` từ xác suất mưa. Ánh xạ từ mã thời tiết của Open-Meteo làm ở Task 3.8 (mưa phùn và mưa rào gộp vào `RAIN`).
 > - `tempMin` / `tempMax`: độ C, số có một chữ số thập phân (giao diện tự làm tròn). `precipitationProbability`: số nguyên 0–100.
 > - "Hôm nay" của giới hạn 16 ngày: đọc `users.timezone` của người gọi bằng một câu SQL riêng (múi giờ không nằm trong JWT). Giá trị không hợp lệ → dùng `Asia/Ho_Chi_Minh` và ghi log WARN.
+> - Chi tiết chốt khi làm Task 3.3 (2026-10-03):
+>   - Dự báo được ghép vào ngày của chuyến đi **theo ngày lịch**. Nguồn trả thiếu ngày → ngày đó `forecast: null`; nguồn lặp một ngày → dùng dự báo đầu tiên; nguồn trả thừa ngoài khoảng đã hỏi → bỏ.
+>   - Ứng dụng chỉ hỏi nguồn phần chuyến đi nằm trong [hôm nay, hôm nay + 15]; không có ngày nào nằm trong thì không hỏi. Khi đó `status` vẫn là `OK`: "chưa có dự báo" khác "chưa có điểm đến".
+>   - Chuyến đi chỉ có một trong hai toạ độ được coi là chưa có điểm đến (`NO_DESTINATION`).
+>   - Số câu SQL mỗi lần gọi: 4 khi có điểm đến (quyền, chuyến đi, các ngày, múi giờ), 3 khi chưa có; không tăng theo số ngày.
+>   - `WeatherService.forTrip` không `@Transactional`: không giữ kết nối database trong lúc chờ nguồn dự báo.
 > - Provider lỗi (từ Task 3.8) → vẫn 200, các ngày không có dự báo; trang chuyến đi không hỏng vì thời tiết.
 > - `GET /weather/forecast` của bản cũ **hoãn**: chưa màn nào dùng.
 >
@@ -1022,7 +1029,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 20. **Dự báo thời tiết** (chốt 2026-10-01): lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau). Chỉ có dự báo cho **16 ngày tới** tính từ hôm nay: ngày đã qua hoặc xa hơn trả "chưa có dự báo". Quy tắc nằm ở `WeatherService`, nên provider mock cũng tuân theo. "Hôm nay" tính theo múi giờ của tài khoản đang đăng nhập (`users.timezone`, rule 14.22).
 21. **Cảnh báo hoạt động ngoài trời — HOÃN** (2026-10-02, bảng commit Task 3.3): chưa làm ở backend lẫn giao diện. Lý do: hiển thị tình trạng, nhiệt độ và xác suất mưa của từng ngày đã đủ để người dùng tự quyết, và quy tắc dưới đây còn thô. Xét lại khi làm quyền lợi Premium "Weather alert qua email" (mục 9). Quy tắc đã chốt 2026-10-01, giữ lại làm điểm bắt đầu: một ngày có xác suất mưa **≥ 60%** và có ít nhất một activity loại `SIGHTSEEING` → cảnh báo cho ngày đó, kèm danh sách activity bị ảnh hưởng. Hạn chế đã biết của bản đầu: tham quan trong nhà (bảo tàng) cũng bị cảnh báo; hoạt động ngoài trời được xếp loại khác thì không.
 22. **Chuyến đi, ngày và hoạt động đã qua** (chốt 2026-10-01):
-    - **"Hôm nay" / "bây giờ"** tính theo múi giờ của tài khoản (`users.timezone`). Mặc định là `Asia/Ho_Chi_Minh` và chưa có màn hình đổi, nên hiện tại mọi người dùng theo giờ Việt Nam. Giao diện lấy múi giờ từ `GET /users/me`, không lấy giờ của trình duyệt, để trùng với backend.
+    - **"Hôm nay" / "bây giờ"** tính theo múi giờ của tài khoản (`users.timezone`). Mặc định là `Asia/Ho_Chi_Minh` và chưa có màn hình đổi, nên hiện tại mọi người dùng theo giờ Việt Nam. Giao diện lấy múi giờ từ `GET /users/me`, không lấy giờ của trình duyệt, để trùng với backend. Backend tính bằng `UserService.today(userId)` trên bean `Clock` (Task 3.3).
     - **Đã qua khi nào:** chuyến đi khi hết ngày `end_date`; một ngày khi hết ngày đó; activity có `end_time` khi qua giờ kết thúc của nó trong ngày đó; activity không có `end_time` khi hết ngày của nó.
     - **Không khoá, không tự xoá, không tự sửa:** lịch trình (ngày và activity) của chuyến đi đã qua được giữ nguyên và **vẫn sửa được** (ghi chi phí thật, thêm ghi chú) cho tới khi người dùng tự xoá chuyến đi (rule 8) hoặc tự rút ngắn (rule 3). Trạng thái `COMPLETED` và `ARCHIVED` cũng không khoá.
     - **Không tự đổi trạng thái.** Khi người dùng mở một chuyến đi đã qua ngày cuối mà trạng thái còn là `DRAFT`, `PLANNED` hoặc `ONGOING`, giao diện hỏi xác nhận đã hoàn thành. Đồng ý → `PATCH /trips/{id}/status` sang **`COMPLETED`** (không phải `ARCHIVED`: lưu trữ là thao tác riêng do người dùng chọn, và `ARCHIVED` gắn với hạn mức của rule 9). "Để sau" → không hỏi lại về chuyến đi đó cho tới lần đăng nhập sau.
