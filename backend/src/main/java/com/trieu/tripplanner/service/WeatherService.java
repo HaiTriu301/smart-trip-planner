@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.response.TripWeatherDayResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherResponse;
+import com.trieu.tripplanner.dto.response.TripWeatherStatus;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.WeatherMapper;
 import com.trieu.tripplanner.model.Trip;
@@ -37,7 +38,8 @@ public class WeatherService {
     /**
      * One element per day of the trip, in calendar order, each with the forecast at the destination of the trip
      * (one place for the whole trip, rule 14.20). A trip that has no destination coordinates yet gets its days
-     * without any forecast, and the source is not asked.
+     * without any forecast and the status NO_DESTINATION, and the source is not asked. That is an answer, not an
+     * error: a trip may be created first and given a destination later.
      * <p>
      * Not @Transactional on purpose. Each repository call is one short read; a surrounding transaction would
      * keep a database connection busy for as long as the weather source takes to answer, and a real source is a
@@ -49,11 +51,22 @@ public class WeatherService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(TRIP, tripId));
         List<TripDay> days = tripDayRepository.findByTripIdOrderByDate(tripId);
-        Map<LocalDate, DailyForecast> forecasts = forecastsByDate(trip);
-        return new TripWeatherResponse(days.stream()
+        if (!hasDestination(trip)) {
+            return new TripWeatherResponse(TripWeatherStatus.NO_DESTINATION, withForecasts(days, Map.of()));
+        }
+        return new TripWeatherResponse(TripWeatherStatus.OK, withForecasts(days, forecastsByDate(trip)));
+    }
+
+    /** A point needs both numbers; a trip holding only one of them has no usable destination. */
+    private static boolean hasDestination(Trip trip) {
+        return trip.getDestinationLat() != null && trip.getDestinationLng() != null;
+    }
+
+    private List<TripWeatherDayResponse> withForecasts(List<TripDay> days, Map<LocalDate, DailyForecast> forecasts) {
+        return days.stream()
                 .map(day -> new TripWeatherDayResponse(day.getId(), day.getDate(),
                         weatherMapper.toResponse(forecasts.get(day.getDate()))))
-                .toList());
+                .toList();
     }
 
     /**
@@ -61,9 +74,6 @@ public class WeatherService {
      * finds its forecast by date or finds nothing.
      */
     private Map<LocalDate, DailyForecast> forecastsByDate(Trip trip) {
-        if (trip.getDestinationLat() == null || trip.getDestinationLng() == null) {
-            return Map.of();
-        }
         return weatherProvider
                 .forecast(trip.getDestinationLat(), trip.getDestinationLng(), trip.getStartDate(), trip.getEndDate())
                 .stream()

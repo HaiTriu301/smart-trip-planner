@@ -27,9 +27,9 @@ public class WeatherController {
     @Operation(summary = "Dự báo thời tiết từng ngày của chuyến đi",
                description = "Mỗi ngày của chuyến đi một phần tử, sắp theo ngày. forecast gồm condition (CLEAR, "
                        + "PARTLY_CLOUDY, CLOUDY, FOG, RAIN, THUNDERSTORM, SNOW), tempMin và tempMax (độ C) và "
-                       + "precipitationProbability (0 đến 100). Dự báo lấy theo toạ độ điểm đến của chuyến đi; chuyến đi "
-                       + "chưa có toạ độ điểm đến thì forecast của mọi ngày là null. 403 nếu không có quyền xem, "
-                       + "404 nếu chuyến đi không tồn tại.")
+                       + "precipitationProbability (0 đến 100). Dự báo lấy theo toạ độ điểm đến của chuyến đi. "
+                       + "status là OK, hoặc NO_DESTINATION khi chuyến đi chưa có toạ độ điểm đến: vẫn 200, forecast của "
+                       + "mọi ngày là null. 403 nếu không có quyền xem, 404 nếu chuyến đi không tồn tại.")
     @GetMapping("/trips/{tripId}")
     @PreAuthorize("@tripPermission.canView(#tripId, principal)")
     public ApiResponse<TripWeatherResponse> forTrip(@PathVariable Long tripId) {

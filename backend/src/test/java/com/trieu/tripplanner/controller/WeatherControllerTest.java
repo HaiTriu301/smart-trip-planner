@@ -12,6 +12,7 @@ import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.response.ForecastResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherDayResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherResponse;
+import com.trieu.tripplanner.dto.response.TripWeatherStatus;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.provider.weather.dto.WeatherCondition;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -65,7 +66,7 @@ class WeatherControllerTest {
     @Test
     void returnsEachDayWithItsForecastWhenViewAllowed() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(weatherService.forTrip(TRIP_ID)).thenReturn(new TripWeatherResponse(List.of(
+        when(weatherService.forTrip(TRIP_ID)).thenReturn(new TripWeatherResponse(TripWeatherStatus.OK, List.of(
                 new TripWeatherDayResponse(11L, LocalDate.of(2026, 10, 5),
                         new ForecastResponse(WeatherCondition.RAIN, 24.1, 29.6, 70)),
                 new TripWeatherDayResponse(12L, LocalDate.of(2026, 10, 6), null))));
@@ -74,11 +75,26 @@ class WeatherControllerTest {
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": true,
-                          "data": { "days": [
+                          "data": { "status": "OK", "days": [
                               { "dayId": 11, "date": "2026-10-05",
                                 "forecast": { "condition": "RAIN", "tempMin": 24.1, "tempMax": 29.6,
                                               "precipitationProbability": 70 } },
                               { "dayId": 12, "date": "2026-10-06", "forecast": null } ] } }
+                        """);
+    }
+
+    @Test
+    void tripWithoutDestinationIsAnAnswerNotAnError() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(weatherService.forTrip(TRIP_ID)).thenReturn(new TripWeatherResponse(TripWeatherStatus.NO_DESTINATION,
+                List.of(new TripWeatherDayResponse(11L, LocalDate.of(2026, 10, 5), null))));
+
+        assertThat(mvc.get().uri(WEATHER_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": { "status": "NO_DESTINATION",
+                                    "days": [ { "dayId": 11, "date": "2026-10-05", "forecast": null } ] } }
                         """);
     }
 

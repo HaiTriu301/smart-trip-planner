@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.trieu.tripplanner.dto.response.ForecastResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherDayResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherResponse;
+import com.trieu.tripplanner.dto.response.TripWeatherStatus;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.WeatherMapper;
 import com.trieu.tripplanner.model.Trip;
@@ -71,6 +72,7 @@ class WeatherServiceTest {
 
         TripWeatherResponse response = weatherService.forTrip(TRIP_ID);
 
+        assertThat(response.status()).isEqualTo(TripWeatherStatus.OK);
         assertThat(response.days()).containsExactly(
                 new TripWeatherDayResponse(11L, OCT_5, new ForecastResponse(WeatherCondition.CLEAR, 24.1, 31.5, 10)),
                 new TripWeatherDayResponse(12L, OCT_6, new ForecastResponse(WeatherCondition.RAIN, 23.0, 27.4, 70)),
@@ -115,11 +117,35 @@ class WeatherServiceTest {
 
         TripWeatherResponse response = weatherService.forTrip(TRIP_ID);
 
+        assertThat(response.status()).isEqualTo(TripWeatherStatus.NO_DESTINATION);
         assertThat(response.days()).containsExactly(
                 new TripWeatherDayResponse(11L, OCT_5, null),
                 new TripWeatherDayResponse(12L, OCT_6, null),
                 new TripWeatherDayResponse(13L, OCT_7, null));
         verifyNoInteractions(weatherProvider);
+    }
+
+    @Test
+    void tripHoldingOnlyHalfACoordinateHasNoDestination() {
+        // The trip service refuses half a coordinate, but a row written another way must not crash the page
+        threeDayTrip(LAT, null);
+
+        TripWeatherResponse response = weatherService.forTrip(TRIP_ID);
+
+        assertThat(response.status()).isEqualTo(TripWeatherStatus.NO_DESTINATION);
+        verifyNoInteractions(weatherProvider);
+    }
+
+    @Test
+    void tripWithDestinationIsOkEvenWhenTheSourceHasNoForecastAtAll() {
+        threeDayTrip(LAT, LNG);
+        when(weatherProvider.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of());
+
+        TripWeatherResponse response = weatherService.forTrip(TRIP_ID);
+
+        // "No forecast yet" is not "no destination": the UI must not ask for a destination here
+        assertThat(response.status()).isEqualTo(TripWeatherStatus.OK);
+        assertThat(response.days()).extracting(TripWeatherDayResponse::forecast).containsOnlyNulls().hasSize(3);
     }
 
     @Test
