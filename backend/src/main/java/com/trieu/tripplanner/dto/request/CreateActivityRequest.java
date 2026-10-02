@@ -21,6 +21,8 @@ import java.time.LocalTime;
  * @param startTime "HH:mm" or "HH:mm:ss"; seconds are dropped
  * @param endTime   needs a startTime and must be after it
  * @param currency  ISO 4217 code; null with a cost → the currency of the trip
+ * @param placeId   id of a place returned by POST /places or POST /places/manual; null → no place. Whether the
+ *                  place exists and may be used by this user is checked in the service
  */
 public record CreateActivityRequest(
         @NotBlank(message = "{validation.activity.title.required}")
@@ -45,5 +47,7 @@ public record CreateActivityRequest(
 
         @Size(max = 512, message = "{validation.activity.booking-url.too-long}")
         @Pattern(regexp = "^https?://\\S+$", message = "{validation.activity.booking-url.invalid}")
-        String bookingUrl) {
+        String bookingUrl,
+
+        Long placeId) {
 }

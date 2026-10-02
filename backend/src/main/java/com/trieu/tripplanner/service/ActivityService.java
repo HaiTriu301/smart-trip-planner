@@ -45,13 +45,17 @@ public interface ActivityService {
      * The overlap rule is applied only when the time range actually changes, and never against the activity
      * itself: renaming an activity that was saved with allowOverlap must not be refused.
      *
+     * @param userId       the signed-in user: a place sent in the request must be one this user may use
      * @param allowOverlap true: the client confirmed that the new time range may overlap another activity
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException trip missing or deleted, or the activity
      *                                                                   belongs to another trip (404)
-     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged times (400); the new
-     *                                                                   range overlaps another activity (409)
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     invalid merged times, a placeId this
+     *                                                                   user cannot use, or placeId together
+     *                                                                   with clearPlace (400); the new range
+     *                                                                   overlaps another activity (409)
      */
-    ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request, boolean allowOverlap);
+    ActivityResponse update(Long tripId, Long activityId, Long userId, UpdateActivityRequest request,
+                            boolean allowOverlap);
 
     /**
      * Hard delete (design.md 5.2 "activities"): the row is gone, there is nothing to restore. The order indexes

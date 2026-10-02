@@ -1,8 +1,10 @@
 package com.trieu.tripplanner.provider.map;
 
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Port for everything a map service does for the app (design.md 7.2). The implementation is chosen by
@@ -10,6 +12,12 @@ import java.util.List;
  * Services depend on this interface only (CLAUDE.md rule 19).
  */
 public interface MapProvider {
+
+    /**
+     * The source this implementation reads. Every result it returns carries this value, and it is the only
+     * provider a client may name when it picks a result: an id of one source means nothing to another.
+     */
+    PlaceProvider provider();
 
     /**
      * Places whose name or address matches the keyword, best match first.
@@ -22,5 +30,14 @@ public interface MapProvider {
      *         the same order
      */
     List<PlaceResult> search(String query, int limit, Coordinate near);
+
+    /**
+     * One place by the id the source itself gave it in a search result. This is how the server reads the facts
+     * of a place a client says it picked, instead of trusting the name and coordinates the client would send.
+     *
+     * @param externalId {@link PlaceResult#externalId()} of an earlier result
+     * @return empty when the source knows no such place
+     */
+    Optional<PlaceResult> lookup(String externalId);
 
 }

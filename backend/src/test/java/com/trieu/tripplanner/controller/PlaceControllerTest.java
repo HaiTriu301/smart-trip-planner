@@ -6,8 +6,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
+import com.trieu.tripplanner.dto.request.CreateManualPlaceRequest;
+import com.trieu.tripplanner.dto.request.SavePlaceRequest;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.service.PlaceService;
@@ -17,15 +22,18 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
  * Web layer only: PlaceService is a mock.
@@ -35,6 +43,8 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 @ActiveProfiles("test")
 class PlaceControllerTest {
 
+    private static final String PLACES_URL = "/api/v1/places";
+    private static final String MANUAL_URL = "/api/v1/places/manual";
     private static final String SEARCH_URL = "/api/v1/places/search";
 
     @Autowired
@@ -243,6 +253,249 @@ class PlaceControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(placeService);
+    }
+
+    // ---------- POST /places ----------
+
+    @Test
+    void pickingAResultReturnsThePlaceWithItsId() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
+                .thenReturn(new PlaceResponse(31L, PlaceProvider.MOCK, "Chùa Linh Ứng",
+                        "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng", new BigDecimal("16.1001567"),
+                        new BigDecimal("108.2784112"), "SIGHTSEEING"));
+
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "da-nang-chua-linh-ung"}
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": true,
+                          "data": {
+                            "id": 31,
+                            "provider": "MOCK",
+                            "name": "Chùa Linh Ứng",
+                            "address": "Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng",
+                            "lat": 16.1001567,
+                            "lng": 108.2784112,
+                            "category": "SIGHTSEEING"
+                          }
+                        }
+                        """);
+    }
+
+    @Test
+    void nameAndCoordinatesSentByTheClientNeverReachTheService() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung")))
+                .thenReturn(new PlaceResponse(31L, PlaceProvider.MOCK, "Chùa Linh Ứng", null, new BigDecimal("16.1"),
+                        new BigDecimal("108.2"), null));
+
+        // Extra fields are dropped: the request type has no place to keep them
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "da-nang-chua-linh-ung", "name": "Giữa biển", "lat": 10, "lng": 115}
+                """)).hasStatusOk();
+
+        verify(placeService).getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "da-nang-chua-linh-ung"));
+    }
+
+    @Test
+    void pickingWithoutLoginIsRejected() {
+        assertThat(mvc.post().uri(PLACES_URL).contentType(MediaType.APPLICATION_JSON).content("""
+                {"provider": "MOCK", "externalId": "da-nang-chua-linh-ung"}
+                """))
+                .hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void pickingAPlaceTheSourceDoesNotKnowIsNotFound() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MOCK, "bia-ra")))
+                .thenThrow(new ResourceNotFoundException("Place", "MOCK/bia-ra"));
+
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "bia-ra"}
+                """))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "RESOURCE_NOT_FOUND", "message": "Không tìm thấy dữ liệu yêu cầu" }
+                        """);
+    }
+
+    @Test
+    void pickingFromASourceThatIsNotInUseIsReportedOnProvider() {
+        when(placeService.getOrCreate(new SavePlaceRequest(PlaceProvider.MANUAL, "da-nang-cho-han")))
+                .thenThrow(BusinessRuleException.invalidField("provider", "error.place.provider-not-active",
+                        "Place picked from MANUAL while the active map source is MOCK"));
+
+        assertThat(save("""
+                {"provider": "MANUAL", "externalId": "da-nang-cho-han"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "provider", "message": "Nguồn địa điểm này hiện không dùng được" } ]
+                        }
+                        """);
+    }
+
+    @Test
+    void missingProviderAndBlankExternalIdAreBothReported() {
+        assertThat(save("""
+                {"externalId": "   "}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [
+                            { "field": "externalId", "message": "Thiếu mã của địa điểm" },
+                            { "field": "provider", "message": "Thiếu nguồn của địa điểm" }
+                          ]
+                        }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void externalIdLongerThanTheColumnIsRejected() {
+        assertThat(save("""
+                {"provider": "MOCK", "externalId": "%s"}
+                """.formatted("a".repeat(129))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "details": [ { "field": "externalId", "message": "Mã của địa điểm không được vượt quá 128 ký tự" } ] }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void sourceTheAppDoesNotHaveIsAValidationError() {
+        assertThat(save("""
+                {"provider": "GOOGLE", "externalId": "abc"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(placeService);
+    }
+
+    // ---------- POST /places/manual ----------
+
+    @Test
+    void addingAPlaceByHandReturns201AndUsesTheSignedInUserAsCreator() {
+        CreateManualPlaceRequest request = new CreateManualPlaceRequest("Nhà bà ngoại", "12 Lê Lợi, Đà Nẵng",
+                new BigDecimal("16.0471234"), new BigDecimal("108.2068765"), ActivityType.ACCOMMODATION);
+        when(placeService.createManual(7L, request)).thenReturn(new PlaceResponse(40L, PlaceProvider.MANUAL,
+                "Nhà bà ngoại", "12 Lê Lợi, Đà Nẵng", new BigDecimal("16.0471234"), new BigDecimal("108.2068765"),
+                "ACCOMMODATION"));
+
+        // createdBy in the body is ignored: the creator is the user inside the token (id 7)
+        assertThat(manual("""
+                {"name": "Nhà bà ngoại", "address": "12 Lê Lợi, Đà Nẵng", "lat": 16.0471234, "lng": 108.2068765,
+                 "category": "ACCOMMODATION", "createdBy": 99}
+                """))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": true,
+                          "data": { "id": 40, "provider": "MANUAL", "name": "Nhà bà ngoại", "lat": 16.0471234,
+                                    "lng": 108.2068765, "category": "ACCOMMODATION" }
+                        }
+                        """);
+        verify(placeService).createManual(7L, request);
+    }
+
+    @Test
+    void onlyNameAndCoordinatesAreRequired() {
+        CreateManualPlaceRequest request = new CreateManualPlaceRequest("Điểm hẹn", null, new BigDecimal("16"),
+                new BigDecimal("108"), null);
+        when(placeService.createManual(7L, request)).thenReturn(new PlaceResponse(41L, PlaceProvider.MANUAL, "Điểm hẹn",
+                null, new BigDecimal("16"), new BigDecimal("108"), null));
+
+        assertThat(manual("""
+                {"name": "Điểm hẹn", "lat": 16, "lng": 108}
+                """)).hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void addingAPlaceWithoutLoginIsRejected() {
+        assertThat(mvc.post().uri(MANUAL_URL).contentType(MediaType.APPLICATION_JSON).content("""
+                {"name": "Điểm hẹn", "lat": 16, "lng": 108}
+                """)).hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void missingNameAndCoordinatesAreEachReported() {
+        assertThat(manual("""
+                {"name": "  "}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "errorCode": "VALIDATION_ERROR",
+                          "details": [
+                            { "field": "lat", "message": "Thiếu vĩ độ của địa điểm" },
+                            { "field": "lng", "message": "Thiếu kinh độ của địa điểm" },
+                            { "field": "name", "message": "Tên địa điểm không được để trống" }
+                          ]
+                        }
+                        """);
+        verifyNoInteractions(placeService);
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "90.0000001 | 108          | lat | Vĩ độ phải nằm trong khoảng -90 đến 90",
+            "-91        | 108          | lat | Vĩ độ phải nằm trong khoảng -90 đến 90",
+            "16         | 180.0000001  | lng | Kinh độ phải nằm trong khoảng -180 đến 180",
+            "16         | -181         | lng | Kinh độ phải nằm trong khoảng -180 đến 180",
+            "16.12345678 | 108         | lat | Toạ độ có tối đa 7 chữ số thập phân"})
+    void coordinatesOutsideTheGlobeOrTooPreciseAreRejected(String lat, String lng, String field, String message) {
+        assertThat(manual("""
+                {"name": "Điểm hẹn", "lat": %s, "lng": %s}
+                """.formatted(lat, lng)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR", "details": [ { "field": "%s", "message": "%s" } ] }
+                        """.formatted(field, message));
+        verifyNoInteractions(placeService);
+    }
+
+    @Test
+    void nameAndAddressLongerThanTheirColumnsAreRejected() {
+        assertThat(manual("""
+                {"name": "%s", "address": "%s", "lat": 16, "lng": 108}
+                """.formatted("a".repeat(201), "b".repeat(501))))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "details": [
+                            { "field": "address", "message": "Địa chỉ không được vượt quá 500 ký tự" },
+                            { "field": "name", "message": "Tên địa điểm không được vượt quá 200 ký tự" }
+                          ]
+                        }
+                        """);
+    }
+
+    @Test
+    void categoryThatIsNotAnActivityTypeIsAValidationError() {
+        assertThat(manual("""
+                {"name": "Điểm hẹn", "lat": 16, "lng": 108, "category": "CASINO"}
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(placeService);
+    }
+
+    private MvcTestResult manual(String body) {
+        return mvc.post().uri(MANUAL_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body).exchange();
+    }
+
+    private MvcTestResult save(String body) {
+        return mvc.post().uri(PLACES_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body).exchange();
     }
 
     @Test

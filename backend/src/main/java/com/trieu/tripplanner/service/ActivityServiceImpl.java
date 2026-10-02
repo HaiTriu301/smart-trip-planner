@@ -12,6 +12,7 @@ import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.ActivityMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
+import com.trieu.tripplanner.model.Place;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.enums.ActivityType;
@@ -57,6 +58,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final TripRepository tripRepository;
     private final TripDayRepository tripDayRepository;
     private final UserRepository userRepository;
+    private final PlaceService placeService;
     private final ActivityMapper activityMapper;
     private final TripDayMapper tripDayMapper;
 
@@ -78,6 +80,9 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime startTime = toMinutes(request.startTime());
         LocalTime endTime = toMinutes(request.endTime());
         validateTimeRange(startTime, endTime);
+        // Before the overlap check: a 409 invites a retry with allowOverlap=true, which must not then fail on a
+        // field that was wrong from the start
+        Place place = request.placeId() == null ? null : placeService.findAttachable(request.placeId(), userId);
         if (!allowOverlap) {
             validateNoTimeConflict(dayId, startTime, endTime, null);
         }
@@ -96,6 +101,7 @@ public class ActivityServiceImpl implements ActivityService {
                 .costAmount(request.costAmount())
                 .currency(resolveCurrency(request.currency(), request.costAmount(), trip))
                 .bookingUrl(request.bookingUrl())
+                .place(place)
                 // A reference is enough for the FK: no SELECT on users
                 .createdBy(userRepository.getReferenceById(userId))
                 .build();
@@ -110,7 +116,7 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     @Transactional
-    public ActivityResponse update(Long tripId, Long activityId, UpdateActivityRequest request,
+    public ActivityResponse update(Long tripId, Long activityId, Long userId, UpdateActivityRequest request,
                                    boolean allowOverlap) {
         Trip trip = findLiveTrip(tripId);
         Activity activity = findActivityOfTrip(activityId, tripId);
@@ -119,6 +125,8 @@ public class ActivityServiceImpl implements ActivityService {
         LocalTime startTime = request.startTime() != null ? toMinutes(request.startTime()) : activity.getStartTime();
         LocalTime endTime = request.endTime() != null ? toMinutes(request.endTime()) : activity.getEndTime();
         validateTimeRange(startTime, endTime);
+        // As in create: the place is checked before the overlap, so a retry with allowOverlap cannot fail on it
+        Place place = resolvePlace(activity, request, userId);
 
         LocalTime originalStart = activity.getStartTime();
         boolean rangeChanged = !Objects.equals(startTime, activity.getStartTime())
@@ -142,6 +150,7 @@ public class ActivityServiceImpl implements ActivityService {
         activity.setCostAmount(costAmount);
         activity.setCurrency(resolveCurrency(currency, costAmount, trip));
         activity.setBookingUrl(applyText(request.bookingUrl(), activity.getBookingUrl()));
+        activity.setPlace(place);
         // Only a new start time moves the activity; a new name, note, cost or end time leaves it where it is
         if (startTime != null && !startTime.equals(originalStart)) {
             placeByStartTime(activity, activity.getTripDay(), startTime);
@@ -149,7 +158,7 @@ public class ActivityServiceImpl implements ActivityService {
 
         // Flush now so the response carries the incremented version and updatedAt
         Activity saved = activityRepository.saveAndFlush(activity);
-        log.info("Activity {} of trip {} updated", activityId, tripId);
+        log.info("Activity {} of trip {} updated by user {}", activityId, tripId, userId);
         return activityMapper.toResponse(saved);
     }
 
@@ -465,6 +474,24 @@ public class ActivityServiceImpl implements ActivityService {
     /** Times are shown as HH:mm (design.md 10.1), so seconds sent by a client are dropped, not stored. */
     private static LocalTime toMinutes(LocalTime time) {
         return time == null ? null : time.truncatedTo(ChronoUnit.MINUTES);
+    }
+
+    /**
+     * The place the activity has after the update: none (clearPlace), another one (placeId), or the current one.
+     * Asking for both is refused before any place is looked up.
+     */
+    private Place resolvePlace(Activity activity, UpdateActivityRequest request, Long userId) {
+        boolean clear = Boolean.TRUE.equals(request.clearPlace());
+        if (clear && request.placeId() != null) {
+            throw BusinessRuleException.invalidField("clearPlace", "error.activity.place-change-and-clear",
+                    "Activity " + activity.getId() + " update asks to change and to clear the place at once");
+        }
+        if (clear) {
+            return null;
+        }
+        return request.placeId() != null
+                ? placeService.findAttachable(request.placeId(), userId)
+                : activity.getPlace();
     }
 
     /** A cost without a currency is counted in the currency of the trip; without a cost the value sent is kept. */

@@ -19,21 +19,26 @@ import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
-import com.trieu.tripplanner.mapper.ActivityMapper;
+import com.trieu.tripplanner.mapper.ActivityMapperImpl;
+import com.trieu.tripplanner.mapper.PlaceMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
+import com.trieu.tripplanner.model.Place;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.ActivityType;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.support.TestActivities;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -84,6 +89,9 @@ class ActivityServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PlaceService placeService;
+
     private ActivityServiceImpl activityService;
 
     private User creator;
@@ -93,7 +101,8 @@ class ActivityServiceTest {
     @BeforeEach
     void setUp() {
         activityService = new ActivityServiceImpl(activityRepository, tripRepository, tripDayRepository,
-                userRepository, Mappers.getMapper(ActivityMapper.class), Mappers.getMapper(TripDayMapper.class));
+                userRepository, placeService, new ActivityMapperImpl(Mappers.getMapper(PlaceMapper.class)),
+                Mappers.getMapper(TripDayMapper.class));
 
         creator = TestUsers.verified(USER_ID, "an@example.com");
         trip = Trip.builder()
@@ -111,6 +120,24 @@ class ActivityServiceTest {
 
     @Nested
     class ListOfDay {
+
+        @Test
+        void activityWithAPlaceCarriesEveryFieldOfThePlaceAndTheOthersCarryNone() {
+            Place market = market();
+            Activity shopping = Activity.builder().tripDay(day).title("Mua đặc sản").orderIndex(1000)
+                    .createdBy(creator).place(market).build();
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(tripDayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).thenReturn(Optional.of(day));
+            when(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(DAY_ID)).thenReturn(List.of(
+                    shopping, existing(32L, "Cà phê", "10:00", "11:00")));
+
+            List<ActivityResponse> responses = activityService.list(TRIP_ID, DAY_ID);
+
+            assertThat(responses.get(0).place()).isEqualTo(new PlaceResponse(71L, PlaceProvider.MOCK, "Chợ Đà Lạt",
+                    "Nguyễn Thị Minh Khai, Đà Lạt", new BigDecimal("11.9434358"), new BigDecimal("108.4371779"),
+                    "SHOPPING"));
+            assertThat(responses.get(1).place()).isNull();
+        }
 
         @Test
         void returnsTheActivitiesOfTheDayInRepositoryOrder() {
@@ -182,7 +209,7 @@ class ActivityServiceTest {
 
         @Test
         void storesEveryFieldWithDayAndCreatorAndReturnsTheResponse() {
-            ActivityResponse response = create(new CreateActivityRequest(
+            ActivityResponse response = create(TestActivities.createRequest(
                     "  Ăn trưa lẩu gà lá é  ", ActivityType.FOOD, NINE, TEN, "  Đặt bàn trước  ",
                     new BigDecimal("350000.00"), "VND", "https://example.com/booking/123"));
 
@@ -192,7 +219,7 @@ class ActivityServiceTest {
             assertThat(saved.getTitle()).isEqualTo("Ăn trưa lẩu gà lá é");
             assertThat(saved.getNote()).isEqualTo("Đặt bàn trước");
 
-            assertThat(response).isEqualTo(new ActivityResponse(NEW_ACTIVITY_ID, DAY_ID, "Ăn trưa lẩu gà lá é",
+            assertThat(response).isEqualTo(TestActivities.response(NEW_ACTIVITY_ID, DAY_ID, "Ăn trưa lẩu gà lá é",
                     ActivityType.FOOD, NINE, TEN, 1000, "Đặt bàn trước", new BigDecimal("350000.00"), "VND",
                     "https://example.com/booking/123", USER_ID, 0L, null, null));
         }
@@ -245,7 +272,7 @@ class ActivityServiceTest {
 
         @Test
         void blankNoteIsStoredAsNull() {
-            create(new CreateActivityRequest("Dạo phố", null, null, null, "   ", null, null, null));
+            create(TestActivities.createRequest("Dạo phố", null, null, null, "   ", null, null, null));
 
             assertThat(savedActivity().getNote()).isNull();
         }
@@ -394,6 +421,50 @@ class ActivityServiceTest {
             verify(activityRepository, never()).findTimedByTripDayId(anyLong());
         }
 
+        @Test
+        void placeIdAttachesThePlaceTheSignedInUserMayUse() {
+            Place market = market();
+            when(placeService.findAttachable(71L, USER_ID)).thenReturn(market);
+
+            ActivityResponse response = create(TestActivities.withPlace(titled("Mua đặc sản"), 71L));
+
+            assertThat(savedActivity().getPlace()).isSameAs(market);
+            assertThat(response.place()).isEqualTo(new PlaceResponse(71L, PlaceProvider.MOCK, "Chợ Đà Lạt",
+                    "Nguyễn Thị Minh Khai, Đà Lạt", new BigDecimal("11.9434358"), new BigDecimal("108.4371779"),
+                    "SHOPPING"));
+        }
+
+        @Test
+        void withoutPlaceIdTheActivityHasNoPlaceAndNoPlaceIsLookedUp() {
+            ActivityResponse response = create(titled("Dạo phố"));
+
+            assertThat(savedActivity().getPlace()).isNull();
+            assertThat(response.place()).isNull();
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
+        void placeThatCannotBeUsedStopsTheCreationBeforeAnythingIsSaved() {
+            BusinessRuleException refused = BusinessRuleException.invalidField("placeId",
+                    "error.activity.place-not-found", "Place 999 cannot be attached by user 7");
+            when(placeService.findAttachable(999L, USER_ID)).thenThrow(refused);
+
+            assertThatThrownBy(() -> create(TestActivities.withPlace(titled("Mua đặc sản"), 999L)))
+                    .isSameAs(refused);
+            verify(activityRepository, never()).save(any());
+        }
+
+        @Test
+        void placeIsCheckedBeforeTheOverlapSoARetryWithAllowOverlapCannotFailOnIt() {
+            when(placeService.findAttachable(999L, USER_ID)).thenThrow(BusinessRuleException.invalidField("placeId",
+                    "error.activity.place-not-found", "Place 999 cannot be attached by user 7"));
+
+            assertThatThrownBy(() -> create(TestActivities.withPlace(timed(NINE, TEN), 999L)))
+                    .satisfies(ex -> assertSingleViolation(ex, "placeId", "error.activity.place-not-found"));
+            // The day was never read for overlapping activities
+            verify(activityRepository, never()).findTimedByTripDayId(any());
+        }
+
         private Activity savedActivity() {
             ArgumentCaptor<Activity> saved = ArgumentCaptor.forClass(Activity.class);
             verify(activityRepository, atLeastOnce()).save(saved.capture());
@@ -458,7 +529,7 @@ class ActivityServiceTest {
 
         @Test
         void everyEditableFieldCanBeChanged() {
-            update(new UpdateActivityRequest("Ăn trưa", ActivityType.SHOPPING, LocalTime.of(11, 30),
+            update(TestActivities.updateRequest("Ăn trưa", ActivityType.SHOPPING, LocalTime.of(11, 30),
                     LocalTime.of(13, 0), "  Ghi chú mới  ", new BigDecimal("12.50"), "USD",
                     "https://example.com/new"));
 
@@ -474,7 +545,7 @@ class ActivityServiceTest {
 
         @Test
         void blankNoteAndBookingUrlAreCleared() {
-            update(new UpdateActivityRequest(null, null, null, null, "   ", null, null, ""));
+            update(TestActivities.updateRequest(null, null, null, null, "   ", null, null, ""));
 
             assertThat(stored.getNote()).isNull();
             assertThat(stored.getBookingUrl()).isNull();
@@ -572,7 +643,7 @@ class ActivityServiceTest {
 
         @Test
         void allowOverlapSkipsTheCheckAndSaves() {
-            activityService.update(TRIP_ID, ACTIVITY_ID, times(LocalTime.of(9, 30), TEN_THIRTY), true);
+            activityService.update(TRIP_ID, ACTIVITY_ID, USER_ID, times(LocalTime.of(9, 30), TEN_THIRTY), true);
 
             assertThat(stored.getStartTime()).isEqualTo(LocalTime.of(9, 30));
             verify(activityRepository, never()).findTimedByTripDayId(anyLong());
@@ -585,7 +656,7 @@ class ActivityServiceTest {
             stored.setCostAmount(null);
             stored.setCurrency(null);
 
-            update(new UpdateActivityRequest(null, null, null, null, null, new BigDecimal("12.50"), null, null));
+            update(TestActivities.updateRequest(null, null, null, null, null, new BigDecimal("12.50"), null, null));
 
             assertThat(stored.getCostAmount()).isEqualByComparingTo("12.50");
             assertThat(stored.getCurrency()).isEqualTo("USD");
@@ -593,7 +664,7 @@ class ActivityServiceTest {
 
         @Test
         void newCostKeepsTheStoredCurrency() {
-            update(new UpdateActivityRequest(null, null, null, null, null, new BigDecimal("75000"), null, null));
+            update(TestActivities.updateRequest(null, null, null, null, null, new BigDecimal("75000"), null, null));
 
             assertThat(stored.getCostAmount()).isEqualByComparingTo("75000");
             assertThat(stored.getCurrency()).isEqualTo("VND");
@@ -622,17 +693,120 @@ class ActivityServiceTest {
             assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
         }
 
+        @Test
+        void placeIdGivesAPlaceToAnActivityThatHadNone() {
+            Place market = market();
+            when(placeService.findAttachable(71L, USER_ID)).thenReturn(market);
+
+            ActivityResponse response = update(TestActivities.withPlace(titled(null), 71L));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(response.place().id()).isEqualTo(71L);
+            // Nothing else moved
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getOrderIndex()).isEqualTo(2000);
+        }
+
+        @Test
+        void placeIdReplacesThePlaceTheActivityAlreadyHas() {
+            stored.setPlace(market());
+            Place museum = Place.builder().provider(PlaceProvider.MOCK).externalId("da-lat-bao-tang")
+                    .name("Bảo tàng Lâm Đồng").lat(new BigDecimal("11.9416000")).lng(new BigDecimal("108.4583000"))
+                    .build();
+            ReflectionTestUtils.setField(museum, "id", 72L);
+            when(placeService.findAttachable(72L, USER_ID)).thenReturn(museum);
+
+            ActivityResponse response = update(TestActivities.withPlace(titled(null), 72L));
+
+            assertThat(stored.getPlace()).isSameAs(museum);
+            assertThat(response.place().name()).isEqualTo("Bảo tàng Lâm Đồng");
+        }
+
+        @Test
+        void withoutPlaceIdThePlaceStaysAndNoPlaceIsLookedUp() {
+            Place market = market();
+            stored.setPlace(market);
+
+            ActivityResponse response = update(titled("Ăn sáng muộn"));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(response.place().id()).isEqualTo(71L);
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
+        void placeThatCannotBeUsedLeavesTheActivityExactlyAsItWas() {
+            Place market = market();
+            stored.setPlace(market);
+            when(placeService.findAttachable(999L, USER_ID)).thenThrow(BusinessRuleException.invalidField("placeId",
+                    "error.activity.place-not-found", "Place 999 cannot be attached by user 7"));
+
+            // A new title in the same request must not be applied either
+            assertThatThrownBy(() -> update(TestActivities.withPlace(titled("Tên mới"), 999L)))
+                    .satisfies(ex -> assertSingleViolation(ex, "placeId", "error.activity.place-not-found"));
+
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getPlace()).isSameAs(market);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void clearPlaceRemovesThePlaceAndTouchesNothingElse() {
+            stored.setPlace(market());
+
+            ActivityResponse response = update(TestActivities.withClearPlace(titled(null), true));
+
+            assertThat(stored.getPlace()).isNull();
+            assertThat(response.place()).isNull();
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            assertThat(stored.getOrderIndex()).isEqualTo(2000);
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
+        void clearPlaceOnAnActivityWithoutPlaceIsNotAnError() {
+            ActivityResponse response = update(TestActivities.withClearPlace(titled("Ăn sáng muộn"), true));
+
+            assertThat(response.place()).isNull();
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng muộn");
+        }
+
+        @Test
+        void clearPlaceFalseIsTheSameAsNotSendingIt() {
+            Place market = market();
+            stored.setPlace(market);
+
+            update(TestActivities.withClearPlace(titled("Ăn sáng muộn"), false));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+        }
+
+        @Test
+        void changingAndClearingThePlaceAtOnceIsRefusedBeforeAnyPlaceIsLookedUp() {
+            Place market = market();
+            stored.setPlace(market);
+
+            assertThatThrownBy(() -> update(TestActivities.withClearPlace(
+                    TestActivities.withPlace(titled("Tên mới"), 72L), true)))
+                    .satisfies(ex -> assertSingleViolation(ex, "clearPlace", "error.activity.place-change-and-clear"));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            verifyNoInteractions(placeService);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
         /** The default case of the endpoint: allowOverlap = false. */
         private ActivityResponse update(UpdateActivityRequest request) {
-            return activityService.update(TRIP_ID, ACTIVITY_ID, request, false);
+            return activityService.update(TRIP_ID, ACTIVITY_ID, USER_ID, request, false);
         }
 
         private static UpdateActivityRequest titled(String title) {
-            return new UpdateActivityRequest(title, null, null, null, null, null, null, null);
+            return TestActivities.updateRequest(title, null, null, null, null, null, null, null);
         }
 
         private static UpdateActivityRequest times(LocalTime start, LocalTime end) {
-            return new UpdateActivityRequest(null, null, start, end, null, null, null, null);
+            return TestActivities.updateRequest(null, null, start, end, null, null, null, null);
         }
 
     }
@@ -1222,7 +1396,7 @@ class ActivityServiceTest {
             // Out of time order on purpose: an edit that keeps the start time must not "fix" the position
             Activity edited = edited("09:00", 3000);
 
-            update(new UpdateActivityRequest("Ăn sáng muộn", null, LocalTime.of(9, 0), LocalTime.of(11, 0),
+            update(TestActivities.updateRequest("Ăn sáng muộn", null, LocalTime.of(9, 0), LocalTime.of(11, 0),
                     "Ghi chú", new BigDecimal("10.00"), null, null));
 
             assertThat(edited.getOrderIndex()).isEqualTo(3000);
@@ -1260,15 +1434,16 @@ class ActivityServiceTest {
         }
 
         private void update(UpdateActivityRequest request) {
-            activityService.update(TRIP_ID, EDITED_ID, request, false);
+            activityService.update(TRIP_ID, EDITED_ID, USER_ID, request, false);
         }
 
         private static CreateActivityRequest startingAt(String start) {
-            return new CreateActivityRequest("Tham quan", null, LocalTime.parse(start), null, null, null, null, null);
+            return TestActivities.createRequest("Tham quan", null, LocalTime.parse(start), null, null, null, null,
+                    null);
         }
 
         private static UpdateActivityRequest newStart(String start) {
-            return new UpdateActivityRequest(null, null, LocalTime.parse(start), null, null, null, null, null);
+            return TestActivities.updateRequest(null, null, LocalTime.parse(start), null, null, null, null, null);
         }
 
     }
@@ -1313,6 +1488,15 @@ class ActivityServiceTest {
     }
 
     /** Every call in this class is the default case of the endpoint: allowOverlap = false. */
+    /** A stored place of the bundled data, id 71. */
+    private static Place market() {
+        Place market = Place.builder().provider(PlaceProvider.MOCK).externalId("da-lat-cho-da-lat")
+                .name("Chợ Đà Lạt").address("Nguyễn Thị Minh Khai, Đà Lạt").lat(new BigDecimal("11.9434358"))
+                .lng(new BigDecimal("108.4371779")).category("SHOPPING").build();
+        ReflectionTestUtils.setField(market, "id", 71L);
+        return market;
+    }
+
     private ActivityResponse create(CreateActivityRequest request) {
         return activityService.create(TRIP_ID, DAY_ID, USER_ID, request, false);
     }
@@ -1332,15 +1516,15 @@ class ActivityServiceTest {
     }
 
     private static CreateActivityRequest titled(String title) {
-        return new CreateActivityRequest(title, null, null, null, null, null, null, null);
+        return TestActivities.createRequest(title, null, null, null, null, null, null, null);
     }
 
     private static CreateActivityRequest timed(LocalTime start, LocalTime end) {
-        return new CreateActivityRequest("Tham quan", null, start, end, null, null, null, null);
+        return TestActivities.createRequest("Tham quan", null, start, end, null, null, null, null);
     }
 
     private static CreateActivityRequest withCost(BigDecimal cost, String currency) {
-        return new CreateActivityRequest("Vé vào cổng", null, null, null, null, cost, currency, null);
+        return TestActivities.createRequest("Vé vào cổng", null, null, null, null, cost, currency, null);
     }
 
 }

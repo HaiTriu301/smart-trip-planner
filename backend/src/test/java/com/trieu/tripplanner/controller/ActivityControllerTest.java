@@ -14,14 +14,17 @@ import com.trieu.tripplanner.dto.request.CreateActivityRequest;
 import com.trieu.tripplanner.dto.request.ReorderActivitiesRequest;
 import com.trieu.tripplanner.dto.request.UpdateActivityRequest;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.ActivityType;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
 import com.trieu.tripplanner.service.ActivityService;
+import com.trieu.tripplanner.support.TestActivities;
 import com.trieu.tripplanner.support.TestUsers;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -87,7 +90,7 @@ class ActivityControllerTest {
         Instant now = Instant.parse("2026-09-29T10:00:00Z");
         when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of(
                 sampleActivity(),
-                new ActivityResponse(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
+                TestActivities.response(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
                         null, USER_ID, 0L, now, now)));
 
         assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
@@ -98,6 +101,28 @@ class ActivityControllerTest {
                                       "orderIndex": 1000 },
                                     { "id": 22, "title": "Dạo hồ", "type": "OTHER", "startTime": null,
                                       "endTime": null, "orderIndex": 2000 } ] }
+                        """);
+    }
+
+    @Test
+    void activityWithAPlaceShowsItInFullAndActivityWithoutOneShowsNull() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        Instant now = Instant.parse("2026-09-29T10:00:00Z");
+        when(activityService.list(TRIP_ID, DAY_ID)).thenReturn(List.of(
+                TestActivities.withPlace(sampleActivity(), new PlaceResponse(71L, PlaceProvider.MOCK, "Chợ Đà Lạt",
+                        "Nguyễn Thị Minh Khai, Đà Lạt", new BigDecimal("11.9434358"), new BigDecimal("108.4371779"),
+                        "SHOPPING")),
+                TestActivities.response(22L, DAY_ID, "Dạo hồ", ActivityType.OTHER, null, null, 2000, null, null, null,
+                        null, USER_ID, 0L, now, now)));
+
+        assertThat(mvc.get().uri(DAY_ACTIVITIES_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": [ { "id": 21,
+                                      "place": { "id": 71, "provider": "MOCK", "name": "Chợ Đà Lạt",
+                                                 "address": "Nguyễn Thị Minh Khai, Đà Lạt", "lat": 11.9434358,
+                                                 "lng": 108.4371779, "category": "SHOPPING" } },
+                                    { "id": 22, "place": null } ] }
                         """);
     }
 
@@ -177,6 +202,43 @@ class ActivityControllerTest {
         assertThat(request.getValue().startTime()).isEqualTo(LocalTime.of(11, 30));
         assertThat(request.getValue().endTime()).isEqualTo(LocalTime.of(13, 0));
         assertThat(request.getValue().costAmount()).isEqualByComparingTo("350000");
+    }
+
+    @Test
+    void createPassesThePlaceIdOnAndShowsThePlaceOfTheNewActivity() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
+                .thenReturn(TestActivities.withPlace(sampleActivity(), new PlaceResponse(71L, PlaceProvider.MOCK,
+                        "Chợ Đà Lạt", null, new BigDecimal("11.9434358"), new BigDecimal("108.4371779"), "SHOPPING")));
+
+        assertThat(post("""
+                { "title": "An trua", "placeId": 71 }
+                """))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "id": 21, "place": { "id": 71, "name": "Chợ Đà Lạt" } } }
+                        """);
+
+        ArgumentCaptor<CreateActivityRequest> request = ArgumentCaptor.forClass(CreateActivityRequest.class);
+        verify(activityService).create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), request.capture(), eq(false));
+        assertThat(request.getValue().placeId()).isEqualTo(71L);
+    }
+
+    @Test
+    void createWithAPlaceThatCannotBeUsedIsAValidationErrorOnPlaceId() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.create(eq(TRIP_ID), eq(DAY_ID), eq(USER_ID), any(), eq(false)))
+                .thenThrow(BusinessRuleException.invalidField("placeId", "error.activity.place-not-found",
+                        "Place 999 cannot be attached by user 7"));
+
+        assertThat(post("""
+                { "title": "An trua", "placeId": 999 }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "placeId", "message": "Địa điểm không tồn tại" } ] }
+                        """);
     }
 
     @Test
@@ -396,9 +458,68 @@ class ActivityControllerTest {
     // ---- PATCH /trips/{tripId}/activities/{activityId} ------------------------------------------------------
 
     @Test
+    void updatePassesThePlaceIdWithTheUserOfTheTokenAndShowsTheNewPlace() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenReturn(TestActivities.withPlace(sampleActivity(), new PlaceResponse(72L, PlaceProvider.MOCK,
+                        "Bảo tàng Lâm Đồng", null, new BigDecimal("11.9416000"), new BigDecimal("108.4583000"), null)));
+
+        // userId in the body is ignored: the place is checked against the user inside the token (id 7)
+        assertThat(patch(ACTIVITY_URL, """
+                { "placeId": 72, "userId": 99 }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "id": 21, "place": { "id": 72, "name": "Bảo tàng Lâm Đồng" } } }
+                        """);
+
+        ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), request.capture(), eq(false));
+        assertThat(request.getValue().placeId()).isEqualTo(72L);
+    }
+
+    @Test
+    void updatePassesClearPlaceOnAndShowsTheActivityWithoutPlace() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenReturn(sampleActivity());
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "clearPlace": true }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "id": 21, "place": null } }
+                        """);
+
+        ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), request.capture(), eq(false));
+        assertThat(request.getValue().clearPlace()).isTrue();
+        assertThat(request.getValue().placeId()).isNull();
+    }
+
+    @Test
+    void changingAndClearingThePlaceAtOnceIsAValidationErrorOnClearPlace() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenThrow(BusinessRuleException.invalidField("clearPlace", "error.activity.place-change-and-clear",
+                        "Activity 21 update asks to change and to clear the place at once"));
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "placeId": 72, "clearPlace": true }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "clearPlace",
+                                         "message": "Không thể vừa đổi vừa bỏ địa điểm trong cùng một lần sửa" } ] }
+                        """);
+    }
+
+    @Test
     void updateReturnsTheActivityWhenEditAllowed() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false))).thenReturn(sampleActivity());
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL, """
                 { "title": "An trua", "endTime": "13:00", "note": "", "bookingUrl": "" }
@@ -412,15 +533,15 @@ class ActivityControllerTest {
 
         // "" must reach the service untouched: it means "clear", unlike an omitted field
         ArgumentCaptor<UpdateActivityRequest> request = ArgumentCaptor.forClass(UpdateActivityRequest.class);
-        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), request.capture(), eq(false));
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), request.capture(), eq(false));
         assertThat(request.getValue()).isEqualTo(
-                new UpdateActivityRequest("An trua", null, null, LocalTime.of(13, 0), "", null, null, ""));
+                TestActivities.updateRequest("An trua", null, null, LocalTime.of(13, 0), "", null, null, ""));
     }
 
     @Test
     void updateWithEmptyBodyObjectIsAcceptedAsNoChange() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false))).thenReturn(sampleActivity());
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL, "{}")).hasStatusOk();
     }
@@ -463,7 +584,7 @@ class ActivityControllerTest {
     @Test
     void updateReturns409WhenNewTimesOverlap() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false)))
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
                 .thenThrow(new BusinessRuleException(ErrorCode.ACTIVITY_TIME_CONFLICT,
                         "Activity 09:30-10:30 overlaps 1 activities of day 11, first is activity 32",
                         List.of(FieldViolation.of("startTime", "error.activity.time-conflict-with",
@@ -482,19 +603,19 @@ class ActivityControllerTest {
     @Test
     void updateWithAllowOverlapPassesTheFlagToTheService() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(true))).thenReturn(sampleActivity());
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(true))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL + "?allowOverlap=true", """
                 { "startTime": "09:30", "endTime": "10:30" }
                 """))
                 .hasStatusOk();
-        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(true));
+        verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(true));
     }
 
     @Test
     void updateReturns404WhenActivityIsNotInTheTrip() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
-        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), any(), eq(false)))
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
                 .thenThrow(new ResourceNotFoundException("Activity", ACTIVITY_ID));
 
         assertThat(patch(ACTIVITY_URL, """
@@ -824,7 +945,7 @@ class ActivityControllerTest {
 
     private static ActivityResponse sampleActivity() {
         Instant now = Instant.parse("2026-09-29T10:00:00Z");
-        return new ActivityResponse(21L, DAY_ID, "An trua", ActivityType.FOOD, LocalTime.of(11, 30),
+        return TestActivities.response(21L, DAY_ID, "An trua", ActivityType.FOOD, LocalTime.of(11, 30),
                 LocalTime.of(13, 0), 1000, null, new BigDecimal("350000.00"), "VND", "https://example.com/b/1",
                 USER_ID, 0L, now, now);
     }

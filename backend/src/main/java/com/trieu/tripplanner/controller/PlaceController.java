@@ -1,10 +1,15 @@
 package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
+import com.trieu.tripplanner.dto.request.CreateManualPlaceRequest;
+import com.trieu.tripplanner.dto.request.SavePlaceRequest;
+import com.trieu.tripplanner.dto.response.PlaceResponse;
 import com.trieu.tripplanner.dto.response.PlaceResultResponse;
+import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.service.PlaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -14,16 +19,21 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Places (design.md 10.2 "Place"). Any signed-in user may search; nothing here belongs to a trip, so there is
- * no {@code tripPermission} check.
+ * Places (design.md 10.2 "Place"). Any signed-in user may search, pick a result or add a place of their own;
+ * nothing here belongs to a trip, so there is no {@code tripPermission} check.
  */
-@Tag(name = "Place", description = "Tìm địa điểm để gắn vào hoạt động")
+@Tag(name = "Place", description = "Tìm và chọn địa điểm để gắn vào hoạt động")
 @RestController
 @RequestMapping("/api/v1/places")
 @RequiredArgsConstructor
@@ -59,6 +69,27 @@ public class PlaceController {
             @DecimalMax(value = "180", message = "{validation.place.longitude.range}")
             BigDecimal lng) {
         return ApiResponse.ok(placeService.search(q, limit, lat, lng));
+    }
+
+    @Operation(summary = "Chọn một kết quả tìm kiếm",
+               description = "Gửi provider và externalId của kết quả đã chọn. Máy chủ tự đọc tên, địa chỉ, toạ độ từ nguồn "
+                       + "rồi lưu, và trả địa điểm có id để gắn vào hoạt động. Gọi lại với cùng địa điểm luôn nhận cùng id. "
+                       + "404 nếu nguồn không có địa điểm đó. 400 nếu provider không phải nguồn đang dùng "
+                       + "(kể cả MANUAL: địa điểm tự thêm tạo qua POST /places/manual).")
+    @PostMapping
+    public ApiResponse<PlaceResponse> save(@Valid @RequestBody SavePlaceRequest request) {
+        return ApiResponse.ok(placeService.getOrCreate(request));
+    }
+
+    @Operation(summary = "Tự thêm một địa điểm",
+               description = "Dùng khi không kết quả tìm kiếm nào phù hợp. name và toạ độ bắt buộc; address và category "
+                       + "được để trống, category nếu có là một trong 6 loại hoạt động. Địa điểm tự thêm là riêng của "
+                       + "người tạo: chỉ người đó gắn được nó vào hoạt động. Mỗi lần gọi tạo một địa điểm mới.")
+    @PostMapping("/manual")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<PlaceResponse> createManual(@AuthenticationPrincipal CustomUserDetails principal,
+                                                   @Valid @RequestBody CreateManualPlaceRequest request) {
+        return ApiResponse.ok(placeService.createManual(principal.getId(), request));
     }
 
 }

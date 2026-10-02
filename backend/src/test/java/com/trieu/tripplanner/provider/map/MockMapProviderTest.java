@@ -88,6 +88,32 @@ class MockMapProviderTest {
         assertThat(provider.search("khong co noi nay", 8, null)).isEmpty();
     }
 
+    @Test
+    void everyResultCarriesTheSourceTheProviderAnnounces() {
+        assertThat(provider.provider()).isEqualTo(PlaceProvider.MOCK);
+        // A pick is accepted only for provider(): a result stamped with anything else could never be picked
+        assertThat(provider.search("da nang", 100, null))
+                .isNotEmpty()
+                .allSatisfy(result -> assertThat(result.provider()).isEqualTo(provider.provider()));
+    }
+
+    // ---------- lookup by the id of the source ----------
+
+    @Test
+    void lookupReturnsExactlyWhatTheSearchShowed() {
+        PlaceResult shown = provider.search("chùa linh ứng", 8, null).getFirst();
+
+        assertThat(provider.lookup(shown.externalId())).contains(shown);
+    }
+
+    @Test
+    void lookupOfAnIdTheSourceDoesNotKnowIsEmpty() {
+        assertThat(provider.lookup("da-nang-khong-co")).isEmpty();
+        // The id is matched exactly: a name, or the id in another case, is not an id
+        assertThat(provider.lookup("Chùa Linh Ứng")).isEmpty();
+        assertThat(provider.lookup("DA-NANG-CHUA-LINH-UNG")).isEmpty();
+    }
+
     // ---------- ordering around a reference point ----------
 
     /** Four markets in file order: one in Hồ Chí Minh City, three in Đà Nẵng (one only contains the keyword). */

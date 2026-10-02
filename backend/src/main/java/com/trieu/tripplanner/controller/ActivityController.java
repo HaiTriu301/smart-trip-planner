@@ -50,9 +50,12 @@ public class ActivityController {
     }
 
     @Operation(summary = "Thêm hoạt động vào một ngày",
-               description = "Hoạt động mới nằm cuối ngày. Giờ dạng HH:mm, được để trống. Có giờ kết thúc thì phải có "
+               description = "Hoạt động có giờ bắt đầu được xếp vào đúng chỗ theo giờ; không có giờ thì nằm cuối ngày. "
+                       + "Giờ dạng HH:mm, được để trống. Có giờ kết thúc thì phải có "
                        + "giờ bắt đầu và kết thúc phải sau bắt đầu. Có chi phí mà không gửi currency thì lấy tiền tệ "
-                       + "của chuyến đi. 404 nếu ngày không thuộc chuyến đi. 409 ACTIVITY_TIME_CONFLICT nếu trùng giờ "
+                       + "của chuyến đi. placeId là id của một địa điểm lấy từ POST /places hoặc POST /places/manual, "
+                       + "được để trống; địa điểm không tồn tại hoặc là địa điểm tự thêm của người khác: 400 ở field "
+                       + "placeId. 404 nếu ngày không thuộc chuyến đi. 409 ACTIVITY_TIME_CONFLICT nếu trùng giờ "
                        + "với hoạt động khác trong ngày; gửi lại kèm allowOverlap=true để vẫn thêm.")
     @PostMapping("/days/{dayId}/activities")
     @ResponseStatus(HttpStatus.CREATED)
@@ -66,15 +69,18 @@ public class ActivityController {
 
     @Operation(summary = "Sửa hoạt động",
                description = "Chỉ gửi field cần đổi (field null giữ nguyên). note và bookingUrl gửi chuỗi rỗng để xoá. "
+                       + "placeId: đổi sang địa điểm khác (400 ở field placeId nếu không dùng được); clearPlace=true: "
+                       + "bỏ địa điểm; gửi cả hai: 400. "
                        + "Không đổi ngày và thứ tự ở đây. Đổi giờ làm trùng hoạt động khác: 409 "
                        + "ACTIVITY_TIME_CONFLICT, gửi lại kèm allowOverlap=true để vẫn lưu. 404 nếu hoạt động không "
                        + "thuộc chuyến đi.")
     @PatchMapping("/activities/{activityId}")
     @PreAuthorize("@tripPermission.canEdit(#tripId, principal)")
     public ApiResponse<ActivityResponse> update(@PathVariable Long tripId, @PathVariable Long activityId,
+                                                @AuthenticationPrincipal CustomUserDetails principal,
                                                 @RequestParam(defaultValue = "false") boolean allowOverlap,
                                                 @Valid @RequestBody UpdateActivityRequest request) {
-        return ApiResponse.ok(activityService.update(tripId, activityId, request, allowOverlap));
+        return ApiResponse.ok(activityService.update(tripId, activityId, principal.getId(), request, allowOverlap));
     }
 
     @Operation(summary = "Sắp xếp lại hoạt động (kéo thả)",
