@@ -50,6 +50,11 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    redis:
+      # Redis only holds temporary copies (design.md 8.1): the application works without it, so a Redis that
+      # is down must not make /actuator/health answer DOWN and take the application out of service
+      enabled: false
 
 app:
   mail-from: no-reply@smart-trip-planner.local
