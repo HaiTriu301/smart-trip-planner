@@ -138,6 +138,28 @@ class UserRepositoryTest {
     }
 
     @Test
+    void findTimezoneByIdReadsTheTimeZoneOfTheAccount() {
+        User paris = userRepository.saveAndFlush(User.builder().email("paris@example.com")
+                .passwordHash("$2a$12$hash").fullName("Paris").timezone("Europe/Paris").build());
+        User byDefault = userRepository.saveAndFlush(newUser("default@example.com"));
+        entityManager.clear();
+
+        assertThat(userRepository.findTimezoneById(paris.getId())).contains("Europe/Paris");
+        assertThat(userRepository.findTimezoneById(byDefault.getId())).contains(User.DEFAULT_TIMEZONE);
+    }
+
+    @Test
+    void findTimezoneByIdIsEmptyForAnUnknownOrDeletedAccount() {
+        User gone = userRepository.saveAndFlush(newUser("gone-zone@example.com"));
+        userRepository.delete(gone);
+        userRepository.flush();
+        entityManager.clear();
+
+        assertThat(userRepository.findTimezoneById(gone.getId())).isEmpty();
+        assertThat(userRepository.findTimezoneById(999_999L)).isEmpty();
+    }
+
+    @Test
     void updateChangesColumnsAndKeepsCreatedAt() {
         User saved = userRepository.saveAndFlush(newUser("dung@example.com"));
         Instant createdAt = saved.getCreatedAt();
