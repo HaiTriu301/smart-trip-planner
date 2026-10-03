@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ExternalLink, TriangleAlert, Wallet } from 'lucide-react'
+import { ExternalLink, MapPin, TriangleAlert, Wallet } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
 import type { Activity } from '../../types/activity'
@@ -10,6 +10,18 @@ import { ACTIVITY_ROUTE, ACTIVITY_TYPE_LABELS } from './activityType'
 function formatTimeRange(activity: Activity): string | null {
   if (!activity.startTime) return null
   return activity.endTime ? `${activity.startTime} – ${activity.endTime}` : activity.startTime
+}
+
+/**
+ * The place row: "Chợ Hàn · Phường Hải Châu, Đà Nẵng". The name is left out when the title already says it
+ * (an activity is often named after its place) and an address follows; null when no place is attached.
+ */
+function formatPlace(activity: Activity): string | null {
+  const place = activity.place
+  if (!place) return null
+  const sameAsTitle = place.name.trim().toLowerCase() === activity.title.trim().toLowerCase()
+  if (!place.address) return place.name
+  return sameAsTitle ? place.address : `${place.name} · ${place.address}`
 }
 
 // Shown on hover (and keyboard focus) with a mouse; always shown on touch screens, which have no hover
@@ -29,7 +41,8 @@ interface ActivityCardProps {
 
 /**
  * The most important component (UI_GUIDE 7.3): white card, 1px tide border, 3px left edge in the route colour.
- * First row: time range + type (icon and label, so colour is never the only signal) + "⋮" menu.
+ * First row: time range + type (icon and label, so colour is never the only signal) + "⋮" menu. Under the
+ * title, the place of the activity with a pin icon.
  */
 export function ActivityCard({
   activity,
@@ -41,6 +54,7 @@ export function ActivityCard({
 }: ActivityCardProps) {
   const time = formatTimeRange(activity)
   const route = ACTIVITY_ROUTE[activity.type]
+  const place = formatPlace(activity)
 
   return (
     <article
@@ -67,6 +81,13 @@ export function ActivityCard({
           </span>
         </div>
         <h4 className="text-base leading-6 font-semibold wrap-anywhere text-ink">{activity.title}</h4>
+        {place && (
+          <p className="flex items-start gap-1 text-[13px] leading-5 text-gray-600">
+            <MapPin aria-hidden className="mt-[3px] size-3.5 shrink-0 text-gray-400" />
+            <span className="sr-only">Địa điểm: </span>
+            <span className="wrap-anywhere">{place}</span>
+          </p>
+        )}
         {activity.note && <ExpandableText text={activity.note} className="max-w-[68ch] text-[13px] leading-5 text-gray-600" />}
         {(activity.costAmount !== null || activity.bookingUrl) && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5 text-xs text-gray-600">

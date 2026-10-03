@@ -292,6 +292,7 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 ┌─┬───────────────────────────────────────────────────────┐
 │ │ ⠿  09:00 – 11:30   🏛 Tham quan                    ⋮   │ ← viền trái 3px màu tuyến
 │ │    Chùa Linh Ứng                                      │ ← 16px / 600
+│ │    📍 Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng         │ ← địa điểm 13px, khi có
 │ │    Đi sớm tránh nắng… Đọc thêm                        │ ← ghi chú 13px, tối đa 2 dòng
 │ │    👛 350.000 ₫    Link đặt chỗ ↗                     │ ← 12px, hàng meta
 └─┴───────────────────────────────────────────────────────┘
@@ -303,7 +304,8 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
 - **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền `warning` mờ 8% và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
-- **Phase 3:** dòng địa chỉ có icon ghim. Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).
+- **Hàng địa điểm** (Task 3.6, **Đã làm**): ngay dưới tên, icon ghim `MapPin` xám + chữ 13px `gray-600`, được xuống dòng. Nội dung: "Tên địa điểm · địa chỉ". Tên hoạt động trùng tên địa điểm (không phân biệt hoa thường) thì chỉ ghi địa chỉ, để không lặp chữ; địa điểm không có địa chỉ thì ghi tên. Hoạt động chưa gắn địa điểm: **không có hàng này**, không ghi "Chưa gắn địa điểm" (mockup Stitch có, đã bỏ vì lặp trên mọi thẻ).
+- Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).
 - **Phase 5:** người tạo trong hàng meta; khi người khác vừa sửa thì viền ngoài nhấp nháy jade 1,2 giây, kèm chip "Trieu vừa sửa" biến mất sau 3 giây.
 
 ### 7.4. Thanh ray thời gian ⭐
