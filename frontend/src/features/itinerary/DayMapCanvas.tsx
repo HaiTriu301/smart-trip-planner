@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import L from 'leaflet'
-import { AttributionControl, MapContainer, Marker, TileLayer, ZoomControl, useMap } from 'react-leaflet'
+import { AttributionControl, MapContainer, Marker, Polyline, TileLayer, ZoomControl, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { ACTIVITY_ROUTE } from './activityType'
 import type { DayStop } from './DayMap'
@@ -30,6 +30,20 @@ const MAX_FIT_ZOOM = 15
 const MARKER_SIZE: L.PointTuple = [28, 34]
 const MARKER_ANCHOR: L.PointTuple = [14, 34]
 
+/**
+ * The line that joins the places of the day in order (UI_GUIDE 9). Dashed on purpose: it is a straight line
+ * from one place to the next, not the road, and a solid line would read as a street of the map. The colour
+ * comes from the class (the jade token); Leaflet's own stroke colour is only an attribute, which CSS overrides.
+ */
+const ROUTE_LINE: L.PolylineOptions = {
+  className: 'stroke-jade',
+  weight: 2,
+  opacity: 0.7,
+  dashArray: '6 6',
+  // Nothing to click: the pointer goes through to the map
+  interactive: false,
+}
+
 interface DayMapCanvasProps {
   stops: DayStop[]
 }
@@ -53,6 +67,9 @@ export default function DayMapCanvas({ stops }: DayMapCanvasProps) {
       <AttributionControl position="bottomright" prefix={LEAFLET_CREDIT} />
       <ZoomControl position="bottomright" zoomInTitle="Phóng to" zoomOutTitle="Thu nhỏ" />
       <FitToStops stops={stops} />
+      {stops.length > 1 && (
+        <Polyline positions={stops.map((stop) => [stop.lat, stop.lng])} pathOptions={ROUTE_LINE} />
+      )}
       {stops.map((stop) => (
         <StopMarker key={stop.activityId} stop={stop} />
       ))}
