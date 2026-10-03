@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Map as MapIcon, Maximize2, X } from 'lucide-react'
 import { Skeleton } from '../../components/Skeleton'
+import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Activity, ActivityType } from '../../types/activity'
 import type { Coordinates } from '../../types/place'
+import type { RevealMode } from './DayMapCanvas'
 
 // The map library is large and only this page needs it: it is fetched when a trip is opened, not with the app
 const DayMapCanvas = lazy(() => import('./DayMapCanvas'))
@@ -31,6 +33,20 @@ function toStops(activities: Activity[]): DayStop[] {
     }))
 }
 
+/**
+ * Brings the card of an activity into view and marks it. The card goes to the middle of the screen: aiming at
+ * the top would put it under the pinned day header. The focus moves to the card, which also keeps its marker
+ * highlighted, so the eye can go back and forth between the two.
+ */
+function revealActivity(activityId: number) {
+  const card = document.getElementById(activityCardId(activityId))
+  if (!card) return
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  card.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' })
+  card.focus({ preventScroll: true })
+  useMapLinkStore.getState().reveal(activityId)
+}
+
 interface DayMapProps {
   /** Activities of the day being shown, in display order */
   activities: Activity[]
@@ -50,6 +66,10 @@ export function DayMap({ activities, destination }: DayMapProps) {
   const stops = toStops(activities)
   const [expanded, setExpanded] = useState(false)
   const expandButtonRef = useRef<HTMLButtonElement>(null)
+  // The card asked for from the expanded map, shown once that map is closed
+  const revealAfterCollapse = useRef<number | null>(null)
+  // A finger cannot hover: on touch screens a tap opens the name box instead of jumping to the card
+  const [touchScreen] = useState(() => window.matchMedia('(pointer: coarse)').matches)
 
   function collapse() {
     setExpanded(false)
@@ -57,12 +77,22 @@ export function DayMap({ activities, destination }: DayMapProps) {
     expandButtonRef.current?.focus()
   }
 
+  // While the expanded map is open the page behind it cannot take the focus. This effect runs after the one
+  // of ExpandedMap (children first), which has closed the dialog by then
+  useEffect(() => {
+    if (expanded || revealAfterCollapse.current === null) return
+    revealActivity(revealAfterCollapse.current)
+    revealAfterCollapse.current = null
+  }, [expanded])
+
   return (
     <>
       <MapFrame
         stops={stops}
         destination={destination}
         className="h-full rounded-card border border-tide"
+        revealMode={touchScreen ? 'popup' : 'direct'}
+        onReveal={revealActivity}
         action={
           <MapButton ref={expandButtonRef} label="Phóng to bản đồ" onClick={() => setExpanded(true)}>
             <Maximize2 aria-hidden className="size-4" />
@@ -74,6 +104,11 @@ export function DayMap({ activities, destination }: DayMapProps) {
           stops={stops}
           destination={destination}
           className="h-full"
+          revealMode="popup"
+          onReveal={(activityId) => {
+            revealAfterCollapse.current = activityId
+            setExpanded(false)
+          }}
           action={
             <MapButton label="Thu nhỏ bản đồ" onClick={collapse}>
               <X aria-hidden className="size-4" />
@@ -92,6 +127,8 @@ interface MapFrameProps {
   className: string
   /** Button in the top right corner: expand, or close when already expanded */
   action: ReactNode
+  revealMode: RevealMode
+  onReveal: (activityId: number) => void
 }
 
 /**
@@ -99,13 +136,13 @@ interface MapFrameProps {
  * layers up to z-index 1000, and without "isolate" they would cover the sticky day header and the dialogs'
  * backdrop (BUG-UI-002).
  */
-function MapFrame({ stops, destination, className, action }: MapFrameProps) {
+function MapFrame({ stops, destination, className, action, revealMode, onReveal }: MapFrameProps) {
   return (
     <section aria-label="Bản đồ của ngày" className={`relative isolate overflow-hidden bg-gray-100 ${className}`}>
       {/* z-0 closes the layers of the map library into their own stack, so the note and the button sit above */}
       <div className="relative z-0 h-full">
         <Suspense fallback={<Skeleton className="h-full" />}>
-          <DayMapCanvas stops={stops} destination={destination} />
+          <DayMapCanvas stops={stops} destination={destination} revealMode={revealMode} onReveal={onReveal} />
         </Suspense>
       </div>
       <div className="absolute top-3 right-3 z-10">{action}</div>

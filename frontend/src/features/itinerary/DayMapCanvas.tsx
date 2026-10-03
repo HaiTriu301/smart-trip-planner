@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import L from 'leaflet'
-import { AttributionControl, MapContainer, Marker, Polyline, TileLayer, ZoomControl, useMap } from 'react-leaflet'
+import {
+  AttributionControl,
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  ZoomControl,
+  useMap,
+} from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
@@ -36,6 +45,8 @@ const MAX_FIT_ZOOM = 15
 // Teardrop of 28px whose tip, 34px down, sits on the place
 const MARKER_SIZE: L.PointTuple = [28, 34]
 const MARKER_ANCHOR: L.PointTuple = [14, 34]
+// The name box opens above the teardrop, centred on it
+const POPUP_ANCHOR: L.PointTuple = [0, -32]
 
 /**
  * The line that joins the places of the day in order (UI_GUIDE 9). Dashed on purpose: it is a straight line
@@ -51,14 +62,24 @@ const ROUTE_LINE: L.PolylineOptions = {
   interactive: false,
 }
 
+/**
+ * What a click on a marker does. "direct": go to the card at once, for the small map next to the list when a
+ * mouse is used. "popup": open a box with the name of the activity and a button to go to its card, for touch
+ * screens (a finger cannot hover to read the name) and for the map that covers the list.
+ */
+export type RevealMode = 'direct' | 'popup'
+
 interface DayMapCanvasProps {
   stops: DayStop[]
   /** Where to look when the day has no place; null when the trip has no position */
   destination: Coordinates | null
+  revealMode: RevealMode
+  /** The user asked to see the card of that activity */
+  onReveal: (activityId: number) => void
 }
 
 /** The Leaflet part of DayMap, in its own file so it can be loaded on demand (default export for lazy()). */
-export default function DayMapCanvas({ stops, destination }: DayMapCanvasProps) {
+export default function DayMapCanvas({ stops, destination, revealMode, onReveal }: DayMapCanvasProps) {
   return (
     <MapContainer
       center={DEFAULT_CENTER}
@@ -80,7 +101,7 @@ export default function DayMapCanvas({ stops, destination }: DayMapCanvasProps) 
         <Polyline positions={stops.map((stop) => [stop.lat, stop.lng])} pathOptions={ROUTE_LINE} />
       )}
       {stops.map((stop) => (
-        <StopMarker key={stop.activityId} stop={stop} />
+        <StopMarker key={stop.activityId} stop={stop} revealMode={revealMode} onReveal={onReveal} />
       ))}
     </MapContainer>
   )
@@ -90,7 +111,7 @@ export default function DayMapCanvas({ stops, destination }: DayMapCanvasProps) 
  * Frames all the places of the day; a day without places shows the destination of the trip. The view is
  * recomputed when the set of places (or the destination) changes, not when the order of the places does: dragging a card must not make the map jump, and the user's own zoom and pan survive a reorder.
  */
-function FitToStops({ stops, destination }: DayMapCanvasProps) {
+function FitToStops({ stops, destination }: Pick<DayMapCanvasProps, 'stops' | 'destination'>) {
   const map = useMap()
   const destinationLat = destination?.lat
   const destinationLng = destination?.lng
@@ -121,12 +142,25 @@ function FitToStops({ stops, destination }: DayMapCanvasProps) {
  * colour of the activity type, its icon in white, the order number in a small badge. Leaflet is given an empty
  * element as the icon and React renders into it, so the marker uses the same tokens and icons as the cards.
  * The marker of the activity whose card is hovered or focused is 1.15 times larger, has a soft ring and comes
- * to the front.
+ * to the front. A click leads to the card of the activity, at once or through a name box (see RevealMode).
  */
-function StopMarker({ stop }: { stop: DayStop }) {
+interface StopMarkerProps {
+  stop: DayStop
+  revealMode: RevealMode
+  onReveal: (activityId: number) => void
+}
+
+function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
   const [element] = useState(() => document.createElement('div'))
   const icon = useMemo(
-    () => L.divIcon({ html: element, className: '', iconSize: MARKER_SIZE, iconAnchor: MARKER_ANCHOR }),
+    () =>
+      L.divIcon({
+        html: element,
+        className: '',
+        iconSize: MARKER_SIZE,
+        iconAnchor: MARKER_ANCHOR,
+        popupAnchor: POPUP_ANCHOR,
+      }),
     [element],
   )
   const route = ACTIVITY_ROUTE[stop.type]
@@ -141,6 +175,8 @@ function StopMarker({ stop }: { stop: DayStop }) {
       title={label}
       alt={label}
       zIndexOffset={highlighted ? HIGHLIGHT_Z_OFFSET : 0}
+      // Enter on a focused marker counts as a click (Leaflet), so the keyboard gets the same behaviour
+      eventHandlers={revealMode === 'direct' ? { click: () => onReveal(stop.activityId) } : undefined}
     >
       {createPortal(
         // Grows from its tip, so the point of the teardrop stays on the place
@@ -162,6 +198,19 @@ function StopMarker({ stop }: { stop: DayStop }) {
           </span>
         </div>,
         element,
+      )}
+      {revealMode === 'popup' && (
+        <Popup>
+          {/* Leaflet gives paragraphs of a popup a large margin: m-0! takes it back */}
+          <p className="m-0! text-sm leading-5 font-semibold text-ink">{label}</p>
+          <button
+            type="button"
+            onClick={() => onReveal(stop.activityId)}
+            className="mt-1 rounded-control text-[13px] leading-5 font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+          >
+            Xem trong lịch trình
+          </button>
+        </Popup>
       )}
     </Marker>
   )

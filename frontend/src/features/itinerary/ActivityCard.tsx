@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ExternalLink, MapPin, TriangleAlert, Wallet } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
-import { useMapLinkStore } from '../../stores/mapLinkStore'
+import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Activity } from '../../types/activity'
 import { ActivityMenu } from './ActivityMenu'
 import { ACTIVITY_ROUTE, ACTIVITY_TYPE_LABELS } from './activityType'
@@ -59,17 +59,24 @@ export function ActivityCard({
   // Only the two actions are read: the card itself does not redraw when the highlight moves
   const highlight = useMapLinkStore((state) => state.highlight)
   const clearHighlight = useMapLinkStore((state) => state.clearHighlight)
+  const revealed = useMapLinkStore((state) => state.revealedActivityId === activity.id)
+  // The card that follows the pointer during a drag is a second copy of the same activity: only the real one
+  // (it has actions) carries the id a marker scrolls to
+  const isRealCard = Boolean(onEdit)
 
   return (
     <article
+      id={isRealCard ? activityCardId(activity.id) : undefined}
+      // Reachable by script only (a marker moves the focus here), not by Tab
+      tabIndex={isRealCard ? -1 : undefined}
       // Pointer on the card, or keyboard focus inside it: its marker on the map stands out (UI_GUIDE 9)
       onMouseEnter={() => highlight(activity.id)}
       onMouseLeave={() => clearHighlight(activity.id)}
       onFocus={() => highlight(activity.id)}
       onBlur={() => clearHighlight(activity.id)}
-      className={`group flex gap-1 rounded-card border-y border-r border-l-[3px] border-y-tide border-r-tide py-3 pr-2 pl-1 transition-colors ${route.edge} ${
+      className={`group flex gap-1 rounded-card border-y border-r border-l-[3px] border-y-tide border-r-tide py-3 pr-2 pl-1 transition-[color,background-color,box-shadow] focus:outline-none ${route.edge} ${
         overlapping ? 'bg-warning/8' : 'bg-white hover:bg-gray-50'
-      }`}
+      } ${revealed ? 'ring-2 ring-jade/40' : ''}`}
     >
       {dragHandle && <div className={`shrink-0 self-start ${REVEAL}`}>{dragHandle}</div>}
 
