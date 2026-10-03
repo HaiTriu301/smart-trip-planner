@@ -136,6 +136,40 @@ class RouteServiceTest {
     }
 
     @Test
+    void dayWithoutActivitiesHasAnEmptyRouteAndTheMapIsNotAsked() {
+        dayHas();
+
+        assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
+        verifyNoInteractions(mapProvider);
+    }
+
+    @Test
+    void dayWithOnePlaceHasAnEmptyRouteAndTheMapIsNotAsked() {
+        dayHas(activity(101L, CHO_HAN));
+
+        // One stop is nowhere to travel to: a real routing service would answer an error to such a question
+        assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
+        verifyNoInteractions(mapProvider);
+    }
+
+    @Test
+    void manyActivitiesButOnlyOneWithAPlaceIsStillAnEmptyRoute() {
+        dayHas(activity(101L, null), activity(102L, CHO_HAN), activity(103L, null), activity(104L, null));
+
+        // What counts is the number of places, not the number of activities
+        assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
+        verifyNoInteractions(mapProvider);
+    }
+
+    @Test
+    void dayWithNoPlaceAtAllIsAnEmptyRoute() {
+        dayHas(activity(101L, null), activity(102L, null));
+
+        assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
+        verifyNoInteractions(mapProvider);
+    }
+
+    @Test
     void missingTripIsNotFoundAndNothingIsRead() {
         when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
 

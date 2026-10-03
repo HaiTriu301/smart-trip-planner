@@ -24,6 +24,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RouteService {
 
+    /** Fewer activities with a place than this and there is nothing to travel (design.md 10.2). */
+    static final int MIN_STOPS = 2;
+
     private static final String TRIP = "Trip";
     private static final String TRIP_DAY = "TripDay";
 
@@ -36,7 +39,8 @@ public class RouteService {
      * One leg between every two consecutive activities of the day that have a place, in the order the day shows
      * them, and the totals of the day. The activities are travelled as they are ordered; nothing is rearranged
      * to shorten the way. Activities without a place are left out, so there is always one leg fewer than there
-     * are activities with a place; two activities at the same place keep their leg, of zero.
+     * are activities with a place; two activities at the same place keep their leg, of zero. A day with no
+     * place or only one has no leg and totals of zero, and the map source is not asked.
      * <p>
      * Not @Transactional on purpose. Each repository call is one short read, and the activities come with their
      * places already loaded; a surrounding transaction would keep a database connection busy for as long as the
@@ -59,6 +63,11 @@ public class RouteService {
         List<Activity> stops = activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayId).stream()
                 .filter(activity -> activity.getPlace() != null)
                 .toList();
+        // A leg needs two stops. The rule lives here and not in the source, so no source is ever asked a question
+        // that has no answer, and a real one is spared a network call
+        if (stops.size() < MIN_STOPS) {
+            return new DayRouteResponse(List.of(), 0, 0);
+        }
         List<Coordinate> points = stops.stream()
                 .map(stop -> new Coordinate(stop.getPlace().getLat(), stop.getPlace().getLng()))
                 .toList();
