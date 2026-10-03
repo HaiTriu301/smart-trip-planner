@@ -91,7 +91,7 @@ Sáu màu này phải phân biệt được khi đứng cạnh nhau trên bản 
 | `SHOPPING` | Mua sắm | `act-shopping` | `#BE3C79` | `ShoppingBag` |
 | `OTHER` | Khác | `act-other` | `#4F8A62` | `MapPin` |
 
-**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, viền trái 3px của thẻ hoạt động, marker trên bản đồ, cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
+**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, viền trái 3px của thẻ hoạt động, marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
 
 ### 3.5. Màu trạng thái chuyến đi
 
@@ -292,6 +292,7 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 ┌─┬───────────────────────────────────────────────────────┐
 │ │ ⠿  09:00 – 11:30   🏛 Tham quan                    ⋮   │ ← viền trái 3px màu tuyến
 │ │    Chùa Linh Ứng                                      │ ← 16px / 600
+│ │    📍 Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng         │ ← địa điểm 13px, khi có
 │ │    Đi sớm tránh nắng… Đọc thêm                        │ ← ghi chú 13px, tối đa 2 dòng
 │ │    👛 350.000 ₫    Link đặt chỗ ↗                     │ ← 12px, hàng meta
 └─┴───────────────────────────────────────────────────────┘
@@ -303,7 +304,8 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
 - **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền `warning` mờ 8% và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
-- **Phase 3:** dòng địa chỉ có icon ghim. Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).
+- **Hàng địa điểm** (Task 3.6, **Đã làm**): ngay dưới tên, icon ghim `MapPin` xám + chữ 13px `gray-600`, được xuống dòng. Nội dung: "Tên địa điểm · địa chỉ". Tên hoạt động trùng tên địa điểm (không phân biệt hoa thường) thì chỉ ghi địa chỉ, để không lặp chữ; địa điểm không có địa chỉ thì ghi tên. Hoạt động chưa gắn địa điểm: **không có hàng này**, không ghi "Chưa gắn địa điểm" (mockup Stitch có, đã bỏ vì lặp trên mọi thẻ).
+- Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).
 - **Phase 5:** người tạo trong hàng meta; khi người khác vừa sửa thì viền ngoài nhấp nháy jade 1,2 giây, kèm chip "Trieu vừa sửa" biến mất sau 3 giây.
 
 ### 7.4. Thanh ray thời gian ⭐
@@ -341,7 +343,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Bo 14px, viền `tide`, `shadow-lg`, lớp phủ `ink` 45%. Góc trên bên phải có nút "×".
 - Trên điện thoại: nằm sát mép dưới, rộng hết màn hình, cao tối đa 90%, chỉ bo hai góc trên.
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
-- Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×". `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
+- Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×", và bỏ qua mọi nút mang `data-no-initial-focus` (nút bỏ một thứ gì đó, Task 3.6). `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
 
@@ -381,6 +383,51 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 Ô vuông `jade` bo 6px chứa icon ghim trắng, cạnh chữ "Smart Trip Planner".
 - `tone="dark"`: chữ trắng, trên thanh điều hướng.
 - `tone="light"` + `tagline`: cỡ lớn kèm dòng phụ "Kế hoạch hành trình theo dòng thời gian", trên các trang đăng nhập.
+
+### 7.12. Ô tìm địa điểm — `PlaceSearchField`, `ActivityPlaceField`
+
+```
+Địa điểm
+┌──────────────────────────────────────┐
+│ 🔍 chợ                               │   ô tìm 40px, kính lúp bên trái
+└──────────────────────────────────────┘
+┌──────────────────────────────────────┐   danh sách NỔI đè lên các ô bên dưới,
+│▌(🛍) Chợ Hàn                          │   không đẩy chúng xuống
+│▌     119 Trần Phú, Phường Hải Châu   │   dòng đang chọn: nền jade-light + vạch jade 3px
+│ (🛍) Chợ Cồn                          │   icon nhóm trong vòng tròn gray-100 32px
+│      290 Hùng Vương, Phường Hải Châu │   tên 15px/600, địa chỉ 13px gray-600
+└──────────────────────────────────────┘
+```
+
+- **`PlaceSearchField`** (`features/places`): chỉ tìm và báo lại kết quả được chọn; dùng lại được ở form khác. Gửi yêu cầu sau khi ngừng gõ **300ms**, từ **2 ký tự**, tối đa 100 ký tự. Khoá truy vấn `['places', 'search', từ khoá, 20]`, không nằm dưới `['trip', id]`.
+- **5 gợi ý đầu, rồi "Xem tất cả N kết quả":** một lần tìm lấy về tối đa 20 kết quả (giới hạn của máy chủ) nhưng chỉ hiện 5. Còn nữa thì cuối danh sách có dòng chữ `jade` "Xem tất cả 12 kết quả"; bấm (hoặc ↓ tới đó rồi Enter) thì danh sách hiện đủ, cao tối đa 320px và **có thanh cuộn riêng**, vẫn nổi tại chỗ. Đủ 20 kết quả thì có dòng nhắc "Chỉ hiện 20 kết quả đầu. Gõ từ khoá cụ thể hơn để thu hẹp." Gõ tiếp thì danh sách về lại 5 dòng.
+- Danh sách có viền `tide`, bo 6px, `shadow-md`. Icon của gợi ý theo nhóm địa điểm (cùng icon và màu với loại hoạt động, mục 3.4); nhóm lạ hoặc không có nhóm: ghim xám.
+- **Quanh điểm đến:** trong form hoạt động, ô tìm gửi kèm toạ độ điểm đến của chuyến đi; địa điểm trong vòng 50 km quanh đó đứng trước (gõ "chợ" trong chuyến đi Đà Nẵng thì chợ ở Đà Nẵng lên đầu). Chỉ đổi thứ tự, không lọc bớt. Chuyến đi chưa đặt vị trí điểm đến: thứ tự chỉ theo tên. Ô "Vị trí trên bản đồ" của chuyến đi không gửi toạ độ.
+- Trong lúc chờ: "Đang tìm địa điểm…". Không có kết quả: "Không tìm thấy địa điểm nào. Thử từ khoá khác." Máy chủ lỗi: câu của máy chủ.
+- **Bàn phím** (kiểu combobox): ↓ / ↑ di chuyển, Enter chọn dòng đang sáng, Esc **chỉ đóng danh sách** (không đóng hộp thoại). Enter trong ô tìm không bao giờ gửi form bên ngoài.
+- **`ActivityPlaceField`** (`features/itinerary`): ô "Địa điểm" của form hoạt động, đứng **đầu form**. Chọn một gợi ý thì địa điểm được lưu ngay (`POST /places`) và ô tìm đổi thành **khung địa điểm đã chọn**: nền `gray-50`, viền `tide`, icon ghim `jade`, tên 15px/500, địa chỉ 13px `gray-600`, nút "×" bên phải để quay lại ô tìm (con trỏ vào ô tìm).
+- **Bỏ địa điểm:** bấm "×" rồi lưu mà không chọn địa điểm khác thì hoạt động **không còn địa điểm** (`clearPlace: true`); thẻ mất hàng địa điểm. Bấm "×" rồi chọn địa điểm khác là **đổi** (`placeId`). Bấm "×" rồi "Huỷ" thì không có gì thay đổi. Không cần hộp hỏi lại: địa điểm vẫn được lưu trong hệ thống và gắn lại được bằng một lần tìm.
+- Chọn địa điểm khi ô "Tên hoạt động" **còn trống** thì tên địa điểm được điền vào, vẫn sửa được; tên đã có chữ thì không bị đụng tới. Sau khi chọn, con trỏ sang ô tên.
+- **Gợi ý loại:** khi **thêm** hoạt động, chọn địa điểm thì "Loại" tự đổi theo nhóm của địa điểm (Chợ Hàn → "Mua sắm"), miễn là người dùng **chưa tự chọn loại** trong lần mở hộp thoại đó. Đã bấm hoặc dùng phím vào nhóm "Loại" thì lựa chọn của người dùng được giữ. Chọn địa điểm khác (sau "×") thì gợi ý đổi theo. Địa điểm không có nhóm, hoặc nhóm lạ: không đổi gì. Khi **sửa** hoạt động có sẵn: không bao giờ tự đổi loại.
+- **Tự thêm địa điểm** (`ManualPlaceForm`, Task 3.6): dưới ô tìm có dòng chữ `jade` 13px **"Không tìm thấy? Tự thêm địa điểm"**. Bấm thì ô tìm nhường chỗ cho một khung nền `gray-50`, viền `tide`: ô "Tên địa điểm *" (ví dụ "Nhà bà ngoại", con trỏ vào đây), nhãn "Vị trí *" với **bản đồ nhỏ cao 240px** (`PointPicker`, mục 9) và dòng gợi ý "Phóng to rồi bấm lên bản đồ để đặt vị trí."; bấm lên bản đồ thì có một marker `jade` và dòng "Đã đặt vị trí: 16.0471, 108.2069. Bấm chỗ khác để đổi." Bản đồ mở ở điểm đến của chuyến đi (chưa có thì cả Việt Nam). Hai nút ở góc phải: ghost "Quay lại tìm kiếm" và nút phụ "Thêm địa điểm" (không phải nút chính: nút chính của hộp thoại vẫn là "Thêm hoạt động"). Thiếu tên hoặc chưa đặt vị trí thì báo lỗi ngay tại chỗ sau khi bấm "Thêm địa điểm". Thêm xong thì khung địa điểm đã chọn hiện ra như khi chọn một gợi ý, và tên hoạt động còn trống được điền tên địa điểm. Enter trong ô tên chỉ thêm địa điểm, không lưu hoạt động. Địa điểm tự thêm là của riêng người tạo (design rule 14.19); không có địa chỉ và nhóm, nên loại hoạt động không được gợi ý.
+- Khi mở hộp sửa một hoạt động đã có địa điểm, con trỏ **không** nằm ở nút "×" của khung (nhấn Enter sẽ bỏ nhầm địa điểm) mà ở ô tên: nút đó mang `data-no-initial-focus` (mục 7.6).
+
+### 7.13. Chọn loại hoạt động — `ActivityTypeField`
+
+```
+Loại
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 🏛 Tham quan │ │ 🍴 Ăn uống    │ │ 🚌 Di chuyển  │   3 cột × 2 hàng (điện thoại: 2 cột × 3 hàng)
+└──────────────┘ └──────────────┘ └──────────────┘   cao 40px (điện thoại 44px), bo 6px, viền tide
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 🛏 Lưu trú   │ │ 🛍 Mua sắm    │ │ 📍 Khác       │
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+- Thay ô chọn thả xuống ở form hoạt động (Task 3.6): cả 6 loại hiện sẵn, một lần bấm là chọn.
+- Mỗi nút: icon của loại theo **màu tuyến** (mục 3.4) + nhãn `ink` 15px. Nút **đang chọn**: viền 2px màu tuyến, nền màu tuyến mờ 8%, nhãn đổi sang màu tuyến và đậm 500. Luôn có đúng một nút được chọn; hoạt động mới mặc định "Khác".
+- Rê chuột lên nút chưa chọn: viền `gray-300`. Tab tới nhóm: viền ngoài `jade` 2px quanh nút đang có con trỏ.
+- Bên dưới là các ô radio thật (ẩn sau nhãn): Tab vào nhóm một lần, **phím mũi tên** đổi loại, trình đọc màn hình đọc là nhóm "Loại" gồm 6 lựa chọn.
 
 ---
 
@@ -435,7 +482,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
   - Bấm thì focus chuyển tới chỗ vừa cuộn về (phần ngày, hoặc tên chuyến đi).
   - Đích cuộn "đầu ngày" là **cả phần ngày** (`#day-start`), không phải tiêu đề: tiêu đề nằm trong khối dính nên trình duyệt coi như luôn hiện, cuộn tới nó không có tác dụng. Chuyển sang ngày khác từ cuối một ngày dài cũng cuộn về `#day-start`.
 
-**Phase 3:** cột phải 420px: bản đồ dính khi cuộn, dải thời tiết bên dưới.
+**Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 360px (từ 1280px: 420px), dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px) và cao bằng màn hình trừ 48px. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px bản đồ nằm ở tab "Bản đồ" (bảng "Màn hình hẹp" bên dưới). Dải thời tiết bên dưới bản đồ: Task 3.7.
 
 **Task 3.7 (chốt 2026-10-01, `design.md` rule 14.22) — chưa làm:**
 - Ngày đã qua hiện nhạt hơn và có nhãn "Đã qua"; ngày hôm nay có nhãn "Hôm nay". Mở một chuyến đi đang diễn ra thì vào thẳng ngày hôm nay thay vì Ngày 1. "Hôm nay" tính theo múi giờ của tài khoản (hiện là giờ Việt Nam).
@@ -447,7 +494,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 | Bề rộng | Bố cục |
 |---|---|
 | < 1024px | Cột trái thành **dải chip ngày** (link) cuộn ngang, dính ở mép trên khi cuộn; chip của ngày đang xem tô `ink` và tự cuộn vào tầm nhìn. **Đã làm** |
-| < 1024px, Phase 3 | Bản đồ chuyển thành tab ngang (Lịch trình / Bản đồ); thêm tab Chi phí ở Phase 7 |
+| < 1024px | Ngay dưới dải chip ngày có **hai nút gạt** "Lịch trình" / "Bản đồ" (`ViewSwitch`): khung nền `gray-200` bo 6px, mỗi nút cao 44px có icon và chữ; nút đang chọn nền trắng, chữ `jade-dark` đậm, `shadow-sm` (chốt 2026-10-03 theo mockup, thay cho kiểu chữ gạch chân). Mỗi lúc chỉ hiện một trong hai: danh sách của ngày, hoặc bản đồ rộng hết màn hình, cao 70% màn hình (ít nhất 320px). Phần danh sách chỉ bị ẩn, không bị huỷ, nên việc đang sửa dở trong ngày không mất khi sang xem bản đồ; bản đồ chỉ được tạo khi tab của nó đang mở. Ở tab "Bản đồ", chạm marker mở ô tên; "Xem trong lịch trình" chuyển về tab "Lịch trình" rồi cuộn tới thẻ. Đổi ngày giữ nguyên tab đang xem. **Đã làm** (Task 3.6). Tab Chi phí: Phase 7 |
 
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
@@ -479,7 +526,13 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 
 - Tiêu đề 32px + dòng phụ "Ba bước: thông tin chung, điểm đến và ngày đi."
 - Thanh bước là một tuyến ngắn: 3 "ga" đánh số nối bằng ray. Ga đã qua: nền `jade` có dấu ✓; ga hiện tại: viền `jade`, chữ đậm; ray đã đi qua chuyển `jade`.
-- Bước "Điểm đến": hiện chỉ nhập tên; chọn trên bản đồ ở **Phase 3** (Task 3.6).
+- Bước "Điểm đến" (Task 3.6, **Đã làm**), dùng chung với hộp "Sửa chuyến đi":
+  - **"Tên điểm đến":** ô chữ tự gõ như trước ("Ví dụ: Đà Lạt").
+  - **"Vị trí trên bản đồ":** ô tìm địa điểm (mục 7.12) với gợi ý "Tìm theo tên hoặc bấm lên bản đồ để chọn vị trí. Vị trí này dùng cho bản đồ và dự báo thời tiết." Chọn một gợi ý chỉ lấy **toạ độ** của nó; không địa điểm nào được lưu. Ô tìm luôn còn đó để đổi vị trí.
+  - **Bản đồ nhỏ cao 320px** ngay dưới ô tìm (`PointPicker`, mục 9): mở ở vị trí đang có (mức phố), chưa có thì cả Việt Nam. **Bấm lên bản đồ** đặt hoặc dời vị trí; chọn một gợi ý ở ô tìm thì marker nhảy tới đó và bản đồ chuyển theo. Hai cách dùng lẫn nhau được: tìm tới gần đúng rồi bấm để chỉnh.
+  - Đã có vị trí: dưới bản đồ là một dòng 13px gồm icon ghim `jade`, một nhãn, và toạ độ 4 chữ số thập phân bằng số thẳng cột (`16.0612, 108.2279`). Nhãn là tên địa điểm vừa chọn ở ô tìm, "Vị trí chọn trên bản đồ" sau một lần bấm lên bản đồ, hoặc "Vị trí đã lưu" khi mở hộp sửa mà chưa đổi gì.
+  - Chọn vị trí khi ô tên **còn trống** thì tên địa điểm được điền vào, vẫn sửa được.
+  - Nút chữ "Bỏ vị trí" chỉ có khi vị trí **chưa được lưu** (wizard, hoặc chuyến đi chưa có vị trí). Vị trí đã lưu chỉ đổi được, chưa bỏ được (máy chủ chưa hỗ trợ xoá trắng).
 
 ### 8.5. Trang chuyến đi công khai (share link) — **Phase 4**
 
@@ -497,9 +550,18 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 
 ## 9. Bản đồ và thời tiết — **Phase 3**
 
-- **Bản đồ:** tile CartoDB Positron (xám nhạt, chữ mờ) thay vì OSM mặc định, để marker không chìm. Chế độ tối dùng CartoDB Dark Matter. Ghi nguồn tile theo điều khoản.
-- **Marker:** hình giọt nước 28px, nền màu tuyến, icon trắng bên trong (cùng icon lucide ở mục 3.4), số thứ tự trong ngày ở góc. Marker đang được rê chuột phóng to 1,15 lần và có vòng sáng.
-- **Đường nối:** đường liền 2px `jade` mờ 60%, nối các điểm theo đúng thứ tự trong ngày. Không vẽ đường giữa các ngày khác nhau.
+- **Bản đồ** (Task 3.6, **Đã làm**): `DayMap` + `DayMapCanvas` (`features/itinerary`), thư viện Leaflet tải lười. Nền là tile chuẩn của **OpenStreetMap** (không cần API key), **giữ màu gốc** (biển xanh, công viên xanh lá). Bản đầu làm nhạt nền bằng CSS (giảm màu 85%) cho marker nổi; chủ dự án thấy cả trang bị xám nên bỏ bộ lọc ngày 2026-10-04. Marker vẫn tách khỏi nền nhờ viền trắng 2px và bóng. Góc dưới phải ghi nguồn "Leaflet | © OpenStreetMap contributors" (bắt buộc theo điều khoản) và hai nút phóng to / thu nhỏ. CartoDB Positron (kiểu nền của mockup) cần API key từ 2026: là tuỳ chọn ở Task 3.8 (design.md 3.2). Chế độ tối: chưa làm.
+- Bản đồ luôn đóng khung vừa mọi địa điểm của ngày (một địa điểm: mức phố). Khung chỉ tính lại khi **tập địa điểm** đổi; kéo thả đổi thứ tự không làm bản đồ nhảy, và mức phóng người dùng tự chỉnh được giữ.
+- **Ngày chưa có địa điểm nào** (Task 3.6, **Đã làm**): bản đồ mở ở **điểm đến của chuyến đi** (mức thành phố), không có marker. Giữa bản đồ có một thẻ trắng nhỏ (rộng tối đa 280px, bo 10px, viền `tide`, `shadow-md`): icon bản đồ xám, dòng đậm "Ngày này chưa có địa điểm nào.", dòng nhỏ "Thêm địa điểm cho hoạt động để thấy trên bản đồ." Chuyến đi **chưa đặt vị trí điểm đến**: bản đồ hiện cả Việt Nam, và thẻ có thêm câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để bản đồ mở đúng nơi bạn đến.' Quanh thẻ, bản đồ vẫn kéo và phóng được. Thẻ biến mất ngay khi ngày có địa điểm đầu tiên.
+- **Phóng to bản đồ** (Task 3.6, **Đã làm**): góc trên phải bản đồ có nút vuông trắng 36px (màn cảm ứng: 44px), viền `tide`, icon `Maximize2`, nhãn "Phóng to bản đồ". Bấm thì bản đồ của ngày mở **phủ cả cửa sổ** trong một hộp thoại gốc của trình duyệt: cùng marker, đường nối và thẻ "chưa có địa điểm"; nút ở góc trên phải đổi thành "×" ("Thu nhỏ bản đồ"). Đóng bằng nút đó hoặc phím **Esc**; con trỏ trở về nút "Phóng to bản đồ". Trong lúc mở, phần còn lại của trang không bấm được. Bản phóng to là một bản đồ thứ hai, nên mức phóng và vị trí đang xem của bản nhỏ không mang theo (cả hai đều tự đóng khung vừa các địa điểm của ngày).
+- **Bản đồ chọn một điểm** (`components/map/PointPicker`, Task 3.6): bản đồ nhỏ bo 6px, viền `tide`, cùng nền, dòng ghi nguồn và nút + / − như bản đồ của ngày. Bấm (hoặc chạm) lên bản đồ đặt một marker giọt nước `jade` có icon ghim trắng; bấm chỗ khác thì marker dời tới đó. Toạ độ làm tròn 7 chữ số thập phân. Khi điểm vừa đặt không nhìn rõ được, bản đồ tự chuyển tới nó ở mức thành phố: điểm nằm ngoài khung nhìn (một kết quả tìm kiếm ở nơi khác), hoặc bản đồ còn đang ở mức cả nước (một lần bấm ở mức đó quá thô, nên bản đồ phóng vào để bấm lại cho chính xác). Bản đồ đã đủ gần thì giữ nguyên khung nhìn khi bấm. Chọn điểm cần chuột hoặc ngón tay; form nào dùng bản đồ này cũng có ô tìm địa điểm cho người dùng bàn phím. Nguồn nền và các mức phóng chuẩn của mọi bản đồ nằm ở `lib/mapTiles.ts`.
+- Khung bản đồ là một lớp riêng (`isolate`), bo 10px, viền `tide`: các lớp của thư viện bản đồ (z-index tới 1000) không đè lên khối tiêu đề ngày đang dính hay lớp phủ của hộp thoại (bẫy BUG-UI-002).
+- **Marker:** hình giọt nước 28px (**36px trên màn hình cảm ứng**, icon và số lớn theo), nền màu tuyến, viền trắng 2px, icon trắng bên trong (cùng icon lucide ở mục 3.4), số thứ tự ở góc trên phải trong vòng tròn trắng 16px. Số đếm **riêng các hoạt động có địa điểm** (1, 2, 3...), theo thứ tự trong ngày; hoạt động không có địa điểm không có marker và không chiếm số. Marker do ứng dụng tự vẽ bằng HTML, không dùng ảnh marker của Leaflet. Rê chuột lên marker hiện "số. tên hoạt động". **Liên kết thẻ và marker** (Task 3.6, **Đã làm**): rê chuột lên một thẻ hoạt động, hoặc Tab vào trong thẻ, thì marker của hoạt động đó phóng to 1,15 lần (lớn lên từ mũi nhọn, mũi vẫn chỉ đúng chỗ), có vòng sáng `jade` mờ 35% dày 4px và nổi lên trên các marker khác; rời thẻ thì trở lại sau 150ms. Thẻ của hoạt động không có địa điểm không gây gì. Trạng thái này giữ ở `stores/mapLinkStore.ts`, chỉ marker liên quan vẽ lại.
+- **Bấm marker** (Task 3.6, **Đã làm**), hai kiểu:
+  - *Đi thẳng tới thẻ*: bản đồ nhỏ cạnh danh sách, khi dùng chuột. Trang cuộn mượt đưa thẻ của hoạt động vào **giữa màn hình** (không nhắm mép trên, vì ở đó có khối tiêu đề ngày đang dính), thẻ có viền sáng `jade` mờ 40% trong 2 giây và nhận con trỏ; marker của nó vì thế vẫn nổi bật. Người tắt hiệu ứng chuyển động trong hệ điều hành thì trang nhảy thẳng tới thẻ.
+  - *Qua ô tên*: trên **màn cảm ứng** (ngón tay không rê được để đọc chú thích) và trên **bản đồ đang phóng to** (thẻ bị che). Bấm marker mở một ô nhỏ phía trên marker: "số. tên hoạt động" (14px/600) và nút chữ `jade` **"Xem trong lịch trình"**. Bấm nút thì bản đồ phóng to tự thu lại (nếu đang mở) rồi làm như kiểu đi thẳng. Ô đóng bằng "×" của nó hoặc bấm ra ngoài.
+  - Bàn phím: Tab tới marker, Enter có tác dụng như bấm chuột.
+- **Đường nối** (Task 3.6, **Đã làm**): đường **nét đứt** 2px `jade` mờ 70% (đoạn 6px, hở 6px), nối các marker theo đúng thứ tự trong ngày, nằm dưới marker. Nét đứt vì đây là đường thẳng từ điểm này tới điểm kế tiếp, không phải đường đi thật; nét liền dễ bị đọc nhầm thành một con phố của nền bản đồ (chốt 2026-10-03 khi duyệt mockup, bản đầu ghi nét liền mờ 60%). Ngày có dưới 2 địa điểm thì không có đường. Hai hoạt động cùng một địa điểm: marker chồng lên nhau, đường không đổi. Không vẽ đường giữa các ngày khác nhau. Kéo thả đổi thứ tự thì đường vẽ lại ngay.
 - **Thời tiết:** dải ngang dưới bản đồ, mỗi ngày một ô: icon + nhiệt độ cao/thấp + xác suất mưa. Ngày chưa có dự báo ghi "Chưa có dự báo". Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21). Icon nét đơn (lucide `CloudRain`, `Sun`, `CloudSun`).
 
 ---
@@ -532,7 +594,8 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 | < 768px | Ô tìm kiếm xuống hàng riêng dưới logo | **Đã làm** |
 | < 1024px | Cột ngày thành dải chip ngang dính trên cùng; lưới chuyến đi 2 cột (≥ 640px) | **Đã làm** |
 | ≥ 1024px | Cột ngày 200px bên trái; lưới 3 cột | **Đã làm** |
-| ≥ 1024px, Phase 3 | Thêm cột bản đồ 360px (≥ 1280px: 420px); nhỏ hơn thì bản đồ ở tab | **Phase 3** |
+| ≥ 1024px | Thêm cột bản đồ 360px (≥ 1280px: 420px), khoảng cách cột 24px (≥ 1280px: 32px) | **Đã làm** (Task 3.6) |
+| < 1024px | Hai nút gạt "Lịch trình" / "Bản đồ" dưới dải chip ngày; mỗi lúc hiện một trong hai | **Đã làm** (Task 3.6) |
 
 **Cảm ứng hay chuột** quyết định theo loại con trỏ (`pointer-coarse`), không theo độ rộng: màn hình cảm ứng luôn hiện tay nắm / menu "⋮" và dùng nút ↑ / ↓ thay kéo thả.
 
@@ -545,7 +608,7 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 - [x] Mọi phần tử tương tác có vòng focus nhìn thấy được khi dùng phím Tab.
 - [x] Hộp thoại giữ focus bên trong, đóng bằng Esc. [ ] Trả focus về nút đã mở hộp khi mở từ menu "⋮".
 - [x] Ảnh có `alt`; icon trang trí có `aria-hidden`.
-- [x] Vùng chạm ≥ 44×44px trên màn hình cảm ứng (nút thường, nút ↑ / ↓).
+- [x] Vùng chạm ≥ 44×44px trên màn hình cảm ứng: nút thường, nút ↑ / ↓, và từ Task 3.6 nút "⋮" của thẻ, chip ngày, nút "×" của hộp thoại, nút "×" của khung địa điểm, nút trên bản đồ, nút "Xem trong lịch trình". Các nút nhỏ giữ cỡ cũ khi dùng chuột và lớn lên theo loại con trỏ (`pointer-coarse`), không theo bề rộng màn hình. [ ] Còn thiếu: hai nút + / − của bản đồ (30px, cỡ mặc định của Leaflet); marker trên màn cảm ứng là 36px, dưới ngưỡng 44px (chốt 2026-10-03: to hơn nữa thì các marker gần nhau che nhau).
 - [x] Toast trong vùng `aria-live`, lỗi dùng `role="alert"`.
 - [x] Tôn trọng `prefers-reduced-motion` (trong `tokens.css`).
 - [ ] Lời đọc của dnd-kit trong lúc kéo thả bằng bàn phím vẫn bằng tiếng Anh; cần Việt hoá (`accessibility.announcements`).

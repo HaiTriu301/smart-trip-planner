@@ -31,6 +31,8 @@ export const activitySchema = z
     costAmount: moneyText('Chi phí'),
     currency: currencyCode,
     bookingUrl: urlText('Đường dẫn đặt chỗ'),
+    // id of the place shown in the "Địa điểm" field, null when none; the place itself is kept by the field
+    placeId: z.number().nullable(),
   })
   .superRefine((v, ctx) => {
     if (v.endTime && !v.startTime) {
@@ -53,6 +55,7 @@ export function toActivityValues(activity: Activity | null, tripCurrency: string
     costAmount: activity?.costAmount == null ? '' : String(activity.costAmount),
     currency: activity?.currency ?? tripCurrency,
     bookingUrl: activity?.bookingUrl ?? '',
+    placeId: activity?.place?.id ?? null,
   }
 }
 
@@ -68,6 +71,7 @@ export function toCreateActivityRequest(values: ActivityValues): CreateActivityR
     costAmount: hasCost ? Number(values.costAmount) : undefined,
     currency: hasCost ? values.currency : undefined,
     bookingUrl: values.bookingUrl || undefined,
+    placeId: values.placeId ?? undefined,
   }
 }
 
@@ -82,7 +86,12 @@ export function findClearedActivityFields(
   return UNCLEARABLE_FIELDS.filter((field) => before[field] !== '' && values[field] === '')
 }
 
-/** Only the fields that differ from the stored activity; note and bookingUrl emptied are sent as "" to clear them. */
+/**
+ * Only the fields that differ from the stored activity; note and bookingUrl emptied are sent as "" to clear them.
+ * placeId travels only when the place changed: sending back the place an activity already has is not needed,
+ * and for a collaborator it could be refused (a place added by hand belongs to its creator, rule 14.19).
+ * A place that was removed and not replaced is sent as clearPlace; the two never travel together.
+ */
 export function toUpdateActivityRequest(activity: Activity, values: ActivityValues): UpdateActivityRequest {
   const body: UpdateActivityRequest = {}
   if (values.title !== activity.title) body.title = values.title
@@ -96,6 +105,11 @@ export function toUpdateActivityRequest(activity: Activity, values: ActivityValu
     const cost = Number(values.costAmount)
     if (cost !== activity.costAmount) body.costAmount = cost
     if (values.currency !== activity.currency) body.currency = values.currency
+  }
+  if (values.placeId === null) {
+    if (activity.place) body.clearPlace = true
+  } else if (values.placeId !== activity.place?.id) {
+    body.placeId = values.placeId
   }
   return body
 }

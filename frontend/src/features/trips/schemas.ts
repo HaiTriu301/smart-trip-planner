@@ -21,6 +21,10 @@ export const tripSchema = z
       .max(DESCRIPTION_MAX_LENGTH, `Mô tả không được vượt quá ${DESCRIPTION_MAX_LENGTH} ký tự`),
     coverImageUrl: urlText('Đường dẫn ảnh bìa'),
     destinationName: z.string().trim().max(200, 'Tên điểm đến không được vượt quá 200 ký tự'),
+    // Position of the destination, set by picking a place: the form always writes the two together, so they
+    // are both numbers or both null (the backend refuses one without the other)
+    destinationLat: z.number().nullable(),
+    destinationLng: z.number().nullable(),
     // <input type="date"> yields "YYYY-MM-DD", or "" when empty
     startDate: z.string().min(1, 'Ngày bắt đầu không được để trống'),
     endDate: z.string().min(1, 'Ngày kết thúc không được để trống'),
@@ -52,6 +56,8 @@ export function toCreateTripRequest(values: TripValues): CreateTripRequest {
     description: values.description.trim() || undefined,
     coverImageUrl: values.coverImageUrl || undefined,
     destinationName: values.destinationName || undefined,
+    destinationLat: values.destinationLat ?? undefined,
+    destinationLng: values.destinationLng ?? undefined,
     startDate: values.startDate,
     endDate: values.endDate,
     budgetAmount: values.budgetAmount ? Number(values.budgetAmount) : undefined,
@@ -66,6 +72,8 @@ export function toTripValues(trip: TripResponse): TripValues {
     description: trip.description ?? '',
     coverImageUrl: trip.coverImageUrl ?? '',
     destinationName: trip.destinationName ?? '',
+    destinationLat: trip.destinationLat,
+    destinationLng: trip.destinationLng,
     startDate: trip.startDate,
     endDate: trip.endDate,
     budgetAmount: trip.budgetAmount === null ? '' : String(trip.budgetAmount),
@@ -93,6 +101,15 @@ export function toUpdateTripRequest(trip: TripResponse, values: TripValues): Upd
   if (next.coverImageUrl !== undefined && next.coverImageUrl !== trip.coverImageUrl) body.coverImageUrl = next.coverImageUrl
   if (next.destinationName !== undefined && next.destinationName !== trip.destinationName) {
     body.destinationName = next.destinationName
+  }
+  // A moved position is sent as a pair, even when only one of the two numbers changed
+  if (
+    next.destinationLat !== undefined &&
+    next.destinationLng !== undefined &&
+    (next.destinationLat !== trip.destinationLat || next.destinationLng !== trip.destinationLng)
+  ) {
+    body.destinationLat = next.destinationLat
+    body.destinationLng = next.destinationLng
   }
   if (next.startDate !== trip.startDate) body.startDate = next.startDate
   if (next.endDate !== trip.endDate) body.endDate = next.endDate

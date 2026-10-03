@@ -128,7 +128,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Client state | Zustand |
 | Routing | React Router v7 (package `react-router-dom`) |
 | Form | react-hook-form + zod |
-| Map | Leaflet + react-leaflet (Task 3.6). Hình nền là tile **CartoDB Positron**, dựng trên dữ liệu OpenStreetMap: miễn phí cho dự án phi thương mại, không cần API key, phải ghi nguồn ở góc bản đồ. Kiểu nền theo `UI_GUIDE.md` mục 9 (chốt 2026-10-01). Trình duyệt tự tải tile, không đi qua backend |
+| Map | Leaflet 1.9 + react-leaflet 5 (Task 3.6), tải lười cùng trang chi tiết chuyến đi. **Hình nền mặc định là tile chuẩn của OpenStreetMap** (`tile.openstreetmap.org`): không cần API key, nên bản đồ chạy được ngay trên một bản clone mới (CLAUDE.md rule 20); điều khoản yêu cầu ghi "© OpenStreetMap contributors" ở góc bản đồ và cấm tải hàng loạt. Nền giữ màu gốc của nguồn (bản đầu làm nhạt bằng CSS, bỏ ngày 2026-10-04 vì trang bị xám; `UI_GUIDE.md` mục 9). Trình duyệt tự tải tile, không đi qua backend. **Đổi ngày 2026-10-04:** bản trước chọn CartoDB Positron và ghi "không cần API key"; kiểm lại điều khoản ngày 2026-10-04 thì CARTO đã bắt buộc API key (tile không kèm key bị thay bằng ô chữ "API KEY REQUIRED"; key miễn phí cho dự án phi thương mại, tối đa 5 triệu lượt tải mỗi tháng). CARTO Positron thành **tuỳ chọn**: bật bằng key qua biến môi trường, làm ở Task 3.8 cùng các provider thật |
 | Realtime | @stomp/stompjs + sockjs-client |
 | HTTP | axios + interceptor tự refresh token |
 | Drag & drop | dnd-kit (core 6.3, sortable 10.0, utilities 3.2) |

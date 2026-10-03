@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createActivity, updateActivity } from '../../api/activities'
@@ -7,18 +7,16 @@ import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { FormField } from '../../components/FormField'
 import { Modal } from '../../components/Modal'
-import { SelectField } from '../../components/SelectField'
-import { TextAreaField } from '../../components/TextAreaField'
-import { CANNOT_CLEAR_MESSAGE, currencyOptions } from '../../lib/validation'
+import { CANNOT_CLEAR_MESSAGE } from '../../lib/validation'
 import { toast } from '../../stores/toastStore'
 import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../../types/activity'
-import { ACTIVITY_TYPES, ACTIVITY_TYPE_LABELS } from './activityType'
+import type { Coordinates } from '../../types/place'
+import type { TripDetail } from '../../types/trip'
+import { ActivityFormFields } from './ActivityFormFields'
 import {
   activitySchema,
   findClearedActivityFields,
-  NOTE_MAX_LENGTH,
   toActivityValues,
   toCreateActivityRequest,
   toUpdateActivityRequest,
@@ -34,9 +32,8 @@ const FORM_FIELDS = [
   'costAmount',
   'currency',
   'bookingUrl',
+  'placeId',
 ] as const satisfies readonly (keyof ActivityValues)[]
-
-const TYPE_OPTIONS = ACTIVITY_TYPES.map((type) => ({ value: type, label: ACTIVITY_TYPE_LABELS[type] }))
 
 interface ActivityFormDialogProps {
   tripId: number
@@ -46,6 +43,15 @@ interface ActivityFormDialogProps {
   activity: Activity | null
   open: boolean
   onClose: () => void
+}
+
+/**
+ * Position of the trip's destination, read from the trip the page already loaded. A plain read of the cache:
+ * a second subscription to ['trip', id] would refetch the trip every time the dialog opens.
+ */
+function destinationOf(trip: TripDetail | undefined): Coordinates | null {
+  if (trip?.destinationLat == null || trip.destinationLng == null) return null
+  return { lat: trip.destinationLat, lng: trip.destinationLng }
 }
 
 /** Names the save mutation so the dialog shell can tell that the form inside it is saving. */
@@ -84,17 +90,13 @@ interface PendingOverlap {
 function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<ActivityFormDialogProps, 'open'>) {
   const queryClient = useQueryClient()
   const [overlap, setOverlap] = useState<PendingOverlap | null>(null)
-  const {
-    register,
-    handleSubmit,
-    setError,
-    control,
-    formState: { errors },
-  } = useForm<ActivityValues>({
+  const near = destinationOf(queryClient.getQueryData<TripDetail>(['trip', tripId]))
+  const form = useForm<ActivityValues>({
     mode: 'onTouched',
     resolver: zodResolver(activitySchema),
     defaultValues: toActivityValues(activity, tripCurrency),
   })
+  const { handleSubmit, setError } = form
 
   const mutation = useMutation({
     mutationKey: saveActivityKey(tripId),
@@ -138,7 +140,6 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
     mutation.mutate({ request: { kind: 'update', activityId: activity.id, body }, allowOverlap: false })
   }
 
-  const currency = useWatch({ control, name: 'currency' })
   const isConflict = getApiError(mutation.error)?.errorCode === 'ACTIVITY_TIME_CONFLICT'
 
   return (
@@ -146,40 +147,11 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       {mutation.isError && !overlap && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <FormField label="Tên hoạt động" required error={errors.title?.message} {...register('title')} />
-      <SelectField label="Loại" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Giờ bắt đầu" type="time" error={errors.startTime?.message} {...register('startTime')} />
-        <FormField label="Giờ kết thúc" type="time" error={errors.endTime?.message} {...register('endTime')} />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
-        <FormField
-          label="Chi phí"
-          inputMode="decimal"
-          placeholder="Ví dụ: 350000"
-          error={errors.costAmount?.message}
-          {...register('costAmount')}
-        />
-        <SelectField
-          label="Tiền tệ"
-          options={currencyOptions(currency)}
-          error={errors.currency?.message}
-          {...register('currency')}
-        />
-      </div>
-      <FormField
-        label="Link đặt chỗ"
-        type="url"
-        placeholder="https://..."
-        error={errors.bookingUrl?.message}
-        {...register('bookingUrl')}
-      />
-      <TextAreaField
-        label="Ghi chú"
-        hint={`Tối đa ${NOTE_MAX_LENGTH} ký tự`}
-        maxLength={NOTE_MAX_LENGTH}
-        error={errors.note?.message}
-        {...register('note')}
+      <ActivityFormFields
+        form={form}
+        initialPlace={activity?.place ?? null}
+        suggestType={!activity}
+        near={near}
       />
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} disabled={mutation.isPending} onClick={onClose}>
