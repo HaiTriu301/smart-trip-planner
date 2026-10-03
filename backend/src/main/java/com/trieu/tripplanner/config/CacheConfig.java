@@ -14,6 +14,8 @@ import org.springframework.cache.interceptor.LoggingCacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheWriter;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 import tools.jackson.databind.ObjectMapper;
@@ -29,6 +31,10 @@ import tools.jackson.databind.ObjectMapper;
  * A Redis that is down or slow is not an error of the request: the cache step is skipped, the source is asked
  * as if there were no cache, and the failure is logged (see {@link #errorHandler()}). How long a request may
  * wait for Redis before that happens is {@code spring.data.redis.timeout} in application.yml.
+ * <p>
+ * Entries are written to Redis before the cached method returns. Spring Data Redis would otherwise hand the
+ * write to a background task when the driver allows it (Lettuce does): slightly faster, but a read right
+ * after the write may not see it, and a failed write never reaches {@link #errorHandler()} (BUG-PLACE-003).
  */
 @Configuration(proxyBeanMethods = false)
 @EnableCaching
@@ -38,8 +44,9 @@ public class CacheConfig implements CachingConfigurer {
     static final Duration PLACE_SEARCH_TTL = Duration.ofHours(24);
 
     @Bean
-    RedisCacheManagerBuilderCustomizer declaredCaches(ObjectMapper objectMapper) {
+    RedisCacheManagerBuilderCustomizer declaredCaches(ObjectMapper objectMapper, RedisConnectionFactory connectionFactory) {
         return builder -> builder
+                .cacheWriter(RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites()))
                 .withCacheConfiguration(CacheNames.PLACE_SEARCH,
                         listCache(PLACE_SEARCH_TTL, PlaceResult.class, objectMapper))
                 // A typo in a cache name must fail, not create a cache that never expires

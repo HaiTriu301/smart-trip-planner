@@ -126,6 +126,18 @@ class PlaceSearchCacheIntegrationTest {
     }
 
     @Test
+    void storedAnswerIsInRedisTheMomentTheSearchReturns() {
+        // Many different questions in a row: with writes handed to a background task, some of these reads
+        // ran ahead of their write and found nothing (BUG-PLACE-003, red in about one run out of five)
+        for (int i = 0; i < 40; i++) {
+            String keyword = "khong co ket qua so " + i;
+            placeSearchCache.search(keyword, 8, null);
+            assertThat(redis.hasKey("place:search::" + PlaceSearchCache.keyOf(keyword, 8, null)))
+                    .as("entry of search %d", i).isTrue();
+        }
+    }
+
+    @Test
     void cacheThatWasNotDeclaredDoesNotExist() {
         // A typo in a cache name must not quietly create a cache without a lifetime
         assertThat(cacheManager.getCacheNames()).containsExactly(CacheNames.PLACE_SEARCH);
