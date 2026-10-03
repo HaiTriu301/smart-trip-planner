@@ -47,6 +47,7 @@ export default function PointPickerCanvas({ value, around, onPick }: PointPicker
       />
       <AttributionControl position="bottomright" prefix={LEAFLET_CREDIT} />
       <ZoomControl position="bottomright" zoomInTitle="Phóng to" zoomOutTitle="Thu nhỏ" />
+      <FollowBoxSize />
       <ClickToPick onPick={onPick} />
       {value && (
         <>
@@ -56,6 +57,21 @@ export default function PointPickerCanvas({ value, around, onPick }: PointPicker
       )}
     </MapContainer>
   )
+}
+
+/**
+ * Tells the map when its box changes size. The map library measures the box once, when the map is created,
+ * and afterwards only listens to the window. Inside a dialog the map can be created while the dialog is still
+ * closed, with a box of 0 by 0: without this it would stay blank once the dialog is shown. The centre is kept.
+ */
+function FollowBoxSize() {
+  const map = useMap()
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize())
+    observer.observe(map.getContainer())
+    return () => observer.disconnect()
+  }, [map])
+  return null
 }
 
 function ClickToPick({ onPick }: Pick<PointPickerCanvasProps, 'onPick'>) {
@@ -70,14 +86,18 @@ function ClickToPick({ onPick }: Pick<PointPickerCanvasProps, 'onPick'>) {
 }
 
 /**
- * A point chosen by clicking is already in view. One that arrives from elsewhere (a search result) may not be:
- * then the map goes there, at least at city level.
+ * Brings the map to the point when the point cannot be seen properly: it lies outside the view (a search
+ * result elsewhere), or the map still shows a whole country, where a marker says little and a click is too
+ * coarse to mean a place. The map then centres on it at city level, ready for a second, finer click. A point
+ * clicked on a map that is already close is left alone: the view does not move under the pointer.
  */
 function KeepInView({ point }: { point: Coordinates }) {
   const map = useMap()
   const { lat, lng } = point
   useEffect(() => {
-    if (!map.getBounds().contains([lat, lng])) map.setView([lat, lng], Math.max(map.getZoom(), CITY_ZOOM))
+    if (map.getZoom() < CITY_ZOOM || !map.getBounds().contains([lat, lng])) {
+      map.setView([lat, lng], Math.max(map.getZoom(), CITY_ZOOM))
+    }
   }, [map, lat, lng])
   return null
 }
