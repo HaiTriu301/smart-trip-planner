@@ -481,7 +481,7 @@ Loại
   - Bấm thì focus chuyển tới chỗ vừa cuộn về (phần ngày, hoặc tên chuyến đi).
   - Đích cuộn "đầu ngày" là **cả phần ngày** (`#day-start`), không phải tiêu đề: tiêu đề nằm trong khối dính nên trình duyệt coi như luôn hiện, cuộn tới nó không có tác dụng. Chuyển sang ngày khác từ cuối một ngày dài cũng cuộn về `#day-start`.
 
-**Phase 3:** cột phải 420px: bản đồ dính khi cuộn, dải thời tiết bên dưới.
+**Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 360px (từ 1280px: 420px), dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px) và cao bằng màn hình trừ 48px. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px cột này ẩn; bản đồ chuyển vào tab ở commit sau. Dải thời tiết bên dưới bản đồ: Task 3.7.
 
 **Task 3.7 (chốt 2026-10-01, `design.md` rule 14.22) — chưa làm:**
 - Ngày đã qua hiện nhạt hơn và có nhãn "Đã qua"; ngày hôm nay có nhãn "Hôm nay". Mở một chuyến đi đang diễn ra thì vào thẳng ngày hôm nay thay vì Ngày 1. "Hôm nay" tính theo múi giờ của tài khoản (hiện là giờ Việt Nam).
@@ -548,8 +548,10 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 
 ## 9. Bản đồ và thời tiết — **Phase 3**
 
-- **Bản đồ:** tile CartoDB Positron (xám nhạt, chữ mờ) thay vì OSM mặc định, để marker không chìm. Chế độ tối dùng CartoDB Dark Matter. Ghi nguồn tile theo điều khoản.
-- **Marker:** hình giọt nước 28px, nền màu tuyến, icon trắng bên trong (cùng icon lucide ở mục 3.4), số thứ tự trong ngày ở góc. Marker đang được rê chuột phóng to 1,15 lần và có vòng sáng.
+- **Bản đồ** (Task 3.6, **Đã làm**): `DayMap` + `DayMapCanvas` (`features/itinerary`), thư viện Leaflet tải lười. Nền là tile chuẩn của **OpenStreetMap** (không cần API key), được **làm nhạt bằng CSS** (giảm màu 85%, sáng hơn, tương phản thấp hơn) để gần kiểu xám nhạt và marker không chìm. Góc dưới phải ghi nguồn "Leaflet | © OpenStreetMap contributors" (bắt buộc theo điều khoản) và hai nút phóng to / thu nhỏ. CartoDB Positron (kiểu nền của mockup) cần API key từ 2026: là tuỳ chọn ở Task 3.8 (design.md 3.2). Chế độ tối: chưa làm.
+- Bản đồ luôn đóng khung vừa mọi địa điểm của ngày (một địa điểm: mức phố). Khung chỉ tính lại khi **tập địa điểm** đổi; kéo thả đổi thứ tự không làm bản đồ nhảy, và mức phóng người dùng tự chỉnh được giữ.
+- Khung bản đồ là một lớp riêng (`isolate`), bo 10px, viền `tide`: các lớp của thư viện bản đồ (z-index tới 1000) không đè lên khối tiêu đề ngày đang dính hay lớp phủ của hộp thoại (bẫy BUG-UI-002).
+- **Marker:** hình giọt nước 28px, nền màu tuyến, viền trắng 2px, icon trắng bên trong (cùng icon lucide ở mục 3.4), số thứ tự ở góc trên phải trong vòng tròn trắng 16px. Số đếm **riêng các hoạt động có địa điểm** (1, 2, 3...), theo thứ tự trong ngày; hoạt động không có địa điểm không có marker và không chiếm số. Marker do ứng dụng tự vẽ bằng HTML, không dùng ảnh marker của Leaflet. Rê chuột lên marker hiện "số. tên hoạt động". Marker đang được rê chuột phóng to 1,15 lần và có vòng sáng (commit sau của Task 3.6).
 - **Đường nối:** đường liền 2px `jade` mờ 60%, nối các điểm theo đúng thứ tự trong ngày. Không vẽ đường giữa các ngày khác nhau.
 - **Thời tiết:** dải ngang dưới bản đồ, mỗi ngày một ô: icon + nhiệt độ cao/thấp + xác suất mưa. Ngày chưa có dự báo ghi "Chưa có dự báo". Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21). Icon nét đơn (lucide `CloudRain`, `Sun`, `CloudSun`).
 
@@ -583,7 +585,8 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 | < 768px | Ô tìm kiếm xuống hàng riêng dưới logo | **Đã làm** |
 | < 1024px | Cột ngày thành dải chip ngang dính trên cùng; lưới chuyến đi 2 cột (≥ 640px) | **Đã làm** |
 | ≥ 1024px | Cột ngày 200px bên trái; lưới 3 cột | **Đã làm** |
-| ≥ 1024px, Phase 3 | Thêm cột bản đồ 360px (≥ 1280px: 420px); nhỏ hơn thì bản đồ ở tab | **Phase 3** |
+| ≥ 1024px | Thêm cột bản đồ 360px (≥ 1280px: 420px), khoảng cách cột 24px (≥ 1280px: 32px) | **Đã làm** (Task 3.6) |
+| < 1024px | Bản đồ ở tab "Bản đồ" | Task 3.6, commit sau |
 
 **Cảm ứng hay chuột** quyết định theo loại con trỏ (`pointer-coarse`), không theo độ rộng: màn hình cảm ứng luôn hiện tay nắm / menu "⋮" và dùng nút ↑ / ↓ thay kéo thả.
 
