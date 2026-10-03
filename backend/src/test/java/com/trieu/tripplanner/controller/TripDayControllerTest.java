@@ -10,10 +10,13 @@ import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
+import com.trieu.tripplanner.dto.response.DayRouteResponse;
+import com.trieu.tripplanner.dto.response.RouteLegResponse;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
+import com.trieu.tripplanner.service.RouteService;
 import com.trieu.tripplanner.service.TripDayService;
 import com.trieu.tripplanner.support.TestUsers;
 import java.time.LocalDate;
@@ -33,7 +36,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
- * Web layer only: TripDayService and the tripPermission bean are mocks.
+ * Web layer only: TripDayService, RouteService and the tripPermission bean are mocks.
  */
 @WebMvcTest(TripDayController.class)
 @Import(SecurityConfig.class)
@@ -43,6 +46,7 @@ class TripDayControllerTest {
     private static final long TRIP_ID = 5L;
     private static final String DAYS_URL = "/api/v1/trips/5/days";
     private static final long DAY_ID = 11L;
+    private static final String ROUTE_URL = DAYS_URL + "/" + DAY_ID + "/route";
 
     @Autowired
     private MockMvcTester mvc;
@@ -52,6 +56,9 @@ class TripDayControllerTest {
 
     @MockitoBean
     private TripDayService tripDayService;
+
+    @MockitoBean
+    private RouteService routeService;
 
     // Same bean name the SpEL expressions reference: @tripPermission
     @MockitoBean(name = "tripPermission")
@@ -200,6 +207,65 @@ class TripDayControllerTest {
         assertThat(mvc.get().uri("/api/v1/trips/abc/days").header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+    }
+
+    // ---------- travel of a day ----------
+
+    @Test
+    void routeReturnsTheLegsAndTotalsOfTheDayWhenViewAllowed() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(routeService.forDay(TRIP_ID, DAY_ID)).thenReturn(new DayRouteResponse(List.of(
+                new RouteLegResponse(101L, 102L, 1150, 138),
+                new RouteLegResponse(102L, 103L, 8400, 1008)), 9550, 1146));
+
+        assertThat(mvc.get().uri(ROUTE_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": { "legs": [ { "fromActivityId": 101, "toActivityId": 102,
+                                                "distanceMeters": 1150, "durationSeconds": 138 },
+                                              { "fromActivityId": 102, "toActivityId": 103,
+                                                "distanceMeters": 8400, "durationSeconds": 1008 } ],
+                                    "totalDistanceMeters": 9550, "totalDurationSeconds": 1146 } }
+                        """);
+    }
+
+    @Test
+    void routeWithoutTokenReturns401() {
+        assertThat(mvc.get().uri(ROUTE_URL))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+        verifyNoInteractions(routeService);
+    }
+
+    @Test
+    void routeReturns403WhenViewDeniedAndNeverReachesService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.get().uri(ROUTE_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verifyNoInteractions(routeService);
+    }
+
+    @Test
+    void routeReturns404WhenDayIsNotInTheTrip() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(routeService.forDay(TRIP_ID, DAY_ID)).thenThrow(new ResourceNotFoundException("TripDay", DAY_ID));
+
+        assertThat(mvc.get().uri(ROUTE_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void routeWithNonNumericDayIdReturns400() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.get().uri(DAYS_URL + "/abc/route").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(routeService);
     }
 
     private MvcTestResult patchDay(String json) {

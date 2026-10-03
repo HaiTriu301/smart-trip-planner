@@ -2,7 +2,9 @@ package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.request.UpdateTripDayRequest;
+import com.trieu.tripplanner.dto.response.DayRouteResponse;
 import com.trieu.tripplanner.dto.response.TripDayResponse;
+import com.trieu.tripplanner.service.RouteService;
 import com.trieu.tripplanner.service.TripDayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Days of a trip (design.md 10.2 "Itinerary"). Days are created and removed only through the trip's dates;
- * this controller reads them and edits their title / note. Guarded by {@code tripPermission} (CLAUDE.md rule 15).
+ * this controller reads them, edits their title / note and gives the travel of a day. Guarded by {@code tripPermission} (CLAUDE.md rule 15).
  */
 @Tag(name = "Trip day", description = "Các ngày trong lịch trình của chuyến đi")
 @RestController
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TripDayController {
 
     private final TripDayService tripDayService;
+    private final RouteService routeService;
 
     @Operation(summary = "Danh sách ngày của chuyến đi",
                description = "Sắp theo ngày (Ngày 1, 2, 3...). 403 nếu không có quyền xem, 404 nếu chuyến đi không tồn tại.")
@@ -45,6 +48,16 @@ public class TripDayController {
     public ApiResponse<TripDayResponse> update(@PathVariable Long tripId, @PathVariable Long dayId,
                                                @Valid @RequestBody UpdateTripDayRequest request) {
         return ApiResponse.ok(tripDayService.update(tripId, dayId, request));
+    }
+
+    @Operation(summary = "Quãng đường di chuyển trong một ngày",
+               description = "Mỗi chặng nối hai hoạt động liền nhau theo đúng thứ tự của ngày: quãng đường (mét) và "
+                       + "thời gian (giây), kèm tổng cả ngày. Con số là ước lượng cho một phương tiện. "
+                       + "403 nếu không có quyền xem, 404 nếu chuyến đi không tồn tại hoặc ngày không thuộc chuyến đi.")
+    @GetMapping("/{dayId}/route")
+    @PreAuthorize("@tripPermission.canView(#tripId, principal)")
+    public ApiResponse<DayRouteResponse> route(@PathVariable Long tripId, @PathVariable Long dayId) {
+        return ApiResponse.ok(routeService.forDay(tripId, dayId));
     }
 
 }
