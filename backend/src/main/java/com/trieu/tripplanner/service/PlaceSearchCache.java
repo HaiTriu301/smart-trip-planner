@@ -1,22 +1,48 @@
 package com.trieu.tripplanner.service;
 
+import com.trieu.tripplanner.common.constant.CacheNames;
 import com.trieu.tripplanner.common.util.VietnameseText;
+import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
+import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.Locale;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Component;
 
 /**
- * Temporary copies of place search answers (design.md 8.1 "place:search").
+ * Temporary copies of place search answers (design.md 8.1 "place:search"). Stands between PlaceService and the
+ * map source: the first time a question is asked the source answers and the answer is stored in Redis; for the
+ * next 24 hours the same question, from any user, is answered from Redis and the source is left alone.
+ * <p>
+ * A bean of its own on purpose. The cache works through a proxy that Spring puts in front of this bean, so it
+ * only sees calls coming from another bean; and it knows nothing about which map source is in use, so adding a
+ * real source changes nothing here.
  */
-public final class PlaceSearchCache {
+@Component
+@RequiredArgsConstructor
+public class PlaceSearchCache {
 
     /** Two points closer than about 11 m count as the same reference point. */
     static final int COORDINATE_SCALE = 4;
 
     private static final String NO_COORDINATE = "-";
 
-    private PlaceSearchCache() {
+    private final MapProvider mapProvider;
+
+    /**
+     * What the map source answers to this search, from Redis when the same question was asked in the last
+     * 24 hours. An empty answer is stored like any other: "nothing found" is not asked again either.
+     *
+     * @param query keyword, already trimmed
+     * @param near  the point results are ranked around, or null when there is none
+     */
+    @Cacheable(cacheNames = CacheNames.PLACE_SEARCH, key = "#root.target.keyOf(#query, #limit, #near)")
+    public List<PlaceResult> search(String query, int limit, Coordinate near) {
+        return mapProvider.search(query, limit, near);
     }
 
     /**
