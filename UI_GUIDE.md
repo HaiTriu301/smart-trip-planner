@@ -343,7 +343,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Bo 14px, viền `tide`, `shadow-lg`, lớp phủ `ink` 45%. Góc trên bên phải có nút "×".
 - Trên điện thoại: nằm sát mép dưới, rộng hết màn hình, cao tối đa 90%, chỉ bo hai góc trên.
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
-- Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×". `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
+- Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×", và bỏ qua mọi nút mang `data-no-initial-focus` (nút bỏ một thứ gì đó, Task 3.6). `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
 
@@ -383,6 +383,29 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 Ô vuông `jade` bo 6px chứa icon ghim trắng, cạnh chữ "Smart Trip Planner".
 - `tone="dark"`: chữ trắng, trên thanh điều hướng.
 - `tone="light"` + `tagline`: cỡ lớn kèm dòng phụ "Kế hoạch hành trình theo dòng thời gian", trên các trang đăng nhập.
+
+### 7.12. Ô tìm địa điểm — `PlaceSearchField`, `ActivityPlaceField`
+
+```
+Địa điểm
+┌──────────────────────────────────────┐
+│ 🔍 chợ                               │   ô tìm 40px, kính lúp bên trái
+└──────────────────────────────────────┘
+┌──────────────────────────────────────┐   danh sách NỔI đè lên các ô bên dưới,
+│▌(🛍) Chợ Hàn                          │   không đẩy chúng xuống
+│▌     119 Trần Phú, Phường Hải Châu   │   dòng đang chọn: nền jade-light + vạch jade 3px
+│ (🛍) Chợ Cồn                          │   icon nhóm trong vòng tròn gray-100 32px
+│      290 Hùng Vương, Phường Hải Châu │   tên 15px/600, địa chỉ 13px gray-600
+└──────────────────────────────────────┘
+```
+
+- **`PlaceSearchField`** (`features/places`): chỉ tìm và báo lại kết quả được chọn; dùng lại được ở form khác. Gửi yêu cầu sau khi ngừng gõ **300ms**, từ **2 ký tự**, tối đa 100 ký tự; hiện tối đa 5 gợi ý. Khoá truy vấn `['places', 'search', từ khoá, số gợi ý]`, không nằm dưới `['trip', id]`.
+- Danh sách có viền `tide`, bo 6px, `shadow-md`. Icon của gợi ý theo nhóm địa điểm (cùng icon và màu với loại hoạt động, mục 3.4); nhóm lạ hoặc không có nhóm: ghim xám.
+- Trong lúc chờ: "Đang tìm địa điểm…". Không có kết quả: "Không tìm thấy địa điểm nào. Thử từ khoá khác." Máy chủ lỗi: câu của máy chủ.
+- **Bàn phím** (kiểu combobox): ↓ / ↑ di chuyển, Enter chọn dòng đang sáng, Esc **chỉ đóng danh sách** (không đóng hộp thoại). Enter trong ô tìm không bao giờ gửi form bên ngoài.
+- **`ActivityPlaceField`** (`features/itinerary`): ô "Địa điểm" của form hoạt động, đứng **đầu form**. Chọn một gợi ý thì địa điểm được lưu ngay (`POST /places`) và ô tìm đổi thành **khung địa điểm đã chọn**: nền `gray-50`, viền `tide`, icon ghim `jade`, tên 15px/500, địa chỉ 13px `gray-600`, nút "×" bên phải để quay lại ô tìm (con trỏ vào ô tìm).
+- Chọn địa điểm khi ô "Tên hoạt động" **còn trống** thì tên địa điểm được điền vào, vẫn sửa được; tên đã có chữ thì không bị đụng tới. Sau khi chọn, con trỏ sang ô tên.
+- Khi mở hộp sửa một hoạt động đã có địa điểm, con trỏ **không** nằm ở nút "×" của khung (nhấn Enter sẽ bỏ nhầm địa điểm) mà ở ô tên: nút đó mang `data-no-initial-focus` (mục 7.6).
 
 ---
 

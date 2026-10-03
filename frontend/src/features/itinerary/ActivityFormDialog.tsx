@@ -30,6 +30,7 @@ const FORM_FIELDS = [
   'costAmount',
   'currency',
   'bookingUrl',
+  'placeId',
 ] as const satisfies readonly (keyof ActivityValues)[]
 
 interface ActivityFormDialogProps {
@@ -134,7 +135,7 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       {mutation.isError && !overlap && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <ActivityFormFields form={form} />
+      <ActivityFormFields form={form} initialPlace={activity?.place ?? null} />
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} disabled={mutation.isPending} onClick={onClose}>
           Huỷ

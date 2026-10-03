@@ -36,6 +36,8 @@ export interface CreateActivityRequest {
   costAmount?: number
   currency?: string
   bookingUrl?: string
+  /** id of a stored place (POST /places); left out: no place on create, keep the current one on update */
+  placeId?: number
 }
 
 /**

@@ -31,6 +31,8 @@ export const activitySchema = z
     costAmount: moneyText('Chi phí'),
     currency: currencyCode,
     bookingUrl: urlText('Đường dẫn đặt chỗ'),
+    // id of the place shown in the "Địa điểm" field, null when none; the place itself is kept by the field
+    placeId: z.number().nullable(),
   })
   .superRefine((v, ctx) => {
     if (v.endTime && !v.startTime) {
@@ -53,6 +55,7 @@ export function toActivityValues(activity: Activity | null, tripCurrency: string
     costAmount: activity?.costAmount == null ? '' : String(activity.costAmount),
     currency: activity?.currency ?? tripCurrency,
     bookingUrl: activity?.bookingUrl ?? '',
+    placeId: activity?.place?.id ?? null,
   }
 }
 
@@ -68,21 +71,34 @@ export function toCreateActivityRequest(values: ActivityValues): CreateActivityR
     costAmount: hasCost ? Number(values.costAmount) : undefined,
     currency: hasCost ? values.currency : undefined,
     bookingUrl: values.bookingUrl || undefined,
+    placeId: values.placeId ?? undefined,
   }
 }
 
 const UNCLEARABLE_FIELDS = ['startTime', 'endTime', 'costAmount'] as const
 
-/** Times and cost that held a value and were emptied: PATCH cannot clear them yet (design.md 10.2). */
+/**
+ * Times and cost that held a value and were emptied: PATCH cannot clear them yet (design.md 10.2). The place
+ * is in the same situation for now: this form does not send clearPlace yet, so removing the place of a saved
+ * activity without picking another one is reported here instead of being silently ignored.
+ */
 export function findClearedActivityFields(
   activity: Activity,
   values: ActivityValues,
-): (typeof UNCLEARABLE_FIELDS)[number][] {
+): ((typeof UNCLEARABLE_FIELDS)[number] | 'placeId')[] {
   const before = toActivityValues(activity, '')
-  return UNCLEARABLE_FIELDS.filter((field) => before[field] !== '' && values[field] === '')
+  const cleared: ((typeof UNCLEARABLE_FIELDS)[number] | 'placeId')[] = UNCLEARABLE_FIELDS.filter(
+    (field) => before[field] !== '' && values[field] === '',
+  )
+  if (before.placeId !== null && values.placeId === null) cleared.push('placeId')
+  return cleared
 }
 
-/** Only the fields that differ from the stored activity; note and bookingUrl emptied are sent as "" to clear them. */
+/**
+ * Only the fields that differ from the stored activity; note and bookingUrl emptied are sent as "" to clear them.
+ * placeId travels only when the place changed: sending back the place an activity already has is not needed,
+ * and for a collaborator it could be refused (a place added by hand belongs to its creator, rule 14.19).
+ */
 export function toUpdateActivityRequest(activity: Activity, values: ActivityValues): UpdateActivityRequest {
   const body: UpdateActivityRequest = {}
   if (values.title !== activity.title) body.title = values.title
@@ -97,5 +113,6 @@ export function toUpdateActivityRequest(activity: Activity, values: ActivityValu
     if (cost !== activity.costAmount) body.costAmount = cost
     if (values.currency !== activity.currency) body.currency = values.currency
   }
+  if (values.placeId !== null && values.placeId !== activity.place?.id) body.placeId = values.placeId
   return body
 }

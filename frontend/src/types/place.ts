@@ -4,6 +4,26 @@
 /** MOCK: the bundled data set · MANUAL: typed in by a user, private to its creator. */
 export type PlaceProvider = 'MOCK' | 'MANUAL'
 
+/**
+ * One row of GET /places/search. It has no id yet: the place is stored only when the user picks it, and
+ * provider + externalId are what names it in that request.
+ */
+export interface PlaceResult {
+  provider: PlaceProvider
+  externalId: string
+  name: string
+  address: string | null
+  lat: number
+  lng: number
+  category: string | null
+}
+
+/** Query of GET /places/search: q has 2 to 100 characters, limit 1 to 20 (default 8). */
+export interface PlaceSearchParams {
+  q: string
+  limit?: number
+}
+
 /** A place stored in the app: it has an id, the value an activity refers to. Coordinates are JSON numbers. */
 export interface Place {
   id: number
