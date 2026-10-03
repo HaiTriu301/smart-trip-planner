@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import L from 'leaflet'
 import { AttributionControl, MapContainer, Marker, Polyline, TileLayer, ZoomControl, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
 import { ACTIVITY_ROUTE } from './activityType'
 import type { DayStop } from './DayMap'
@@ -26,6 +27,9 @@ const DEFAULT_CENTER: L.LatLngTuple = [16.2, 107.8]
 const DEFAULT_ZOOM = 5
 /** A city and its surroundings: the view of a day without places, centred on the trip's destination */
 const DESTINATION_ZOOM = 12
+/** Leaflet draws markers further south on top; this lifts the highlighted one above any neighbour */
+const HIGHLIGHT_Z_OFFSET = 1000
+
 /** Street level; also the closest the map goes by itself when a day has a single place */
 const MAX_FIT_ZOOM = 15
 
@@ -116,6 +120,8 @@ function FitToStops({ stops, destination }: DayMapCanvasProps) {
  * A marker drawn by the app itself (UI_GUIDE 9), not the image of the map library: teardrop in the route
  * colour of the activity type, its icon in white, the order number in a small badge. Leaflet is given an empty
  * element as the icon and React renders into it, so the marker uses the same tokens and icons as the cards.
+ * The marker of the activity whose card is hovered or focused is 1.15 times larger, has a soft ring and comes
+ * to the front.
  */
 function StopMarker({ stop }: { stop: DayStop }) {
   const [element] = useState(() => document.createElement('div'))
@@ -125,14 +131,27 @@ function StopMarker({ stop }: { stop: DayStop }) {
   )
   const route = ACTIVITY_ROUTE[stop.type]
   const label = `${stop.number}. ${stop.title}`
+  // A boolean, so a marker redraws only when it gains or loses the highlight, not on every card the pointer crosses
+  const highlighted = useMapLinkStore((state) => state.highlightedActivityId === stop.activityId)
 
   return (
-    <Marker position={[stop.lat, stop.lng]} icon={icon} title={label} alt={label}>
+    <Marker
+      position={[stop.lat, stop.lng]}
+      icon={icon}
+      title={label}
+      alt={label}
+      zIndexOffset={highlighted ? HIGHLIGHT_Z_OFFSET : 0}
+    >
       {createPortal(
-        <div className="relative size-7">
+        // Grows from its tip, so the point of the teardrop stays on the place
+        <div
+          className={`relative size-7 origin-[50%_121%] transition-transform duration-150 ${highlighted ? 'scale-115' : ''}`}
+        >
           {/* A square with three round corners, turned so the sharp one points down */}
           <div
-            className={`flex size-7 -rotate-45 items-center justify-center rounded-[50%_50%_50%_0] border-2 border-white shadow-md ${route.marker}`}
+            className={`flex size-7 -rotate-45 items-center justify-center rounded-[50%_50%_50%_0] border-2 border-white shadow-md transition-shadow duration-150 ${route.marker} ${
+              highlighted ? 'ring-4 ring-jade/35' : ''
+            }`}
           >
             <route.Icon aria-hidden className="size-3.5 rotate-45 text-white" strokeWidth={2.25} />
           </div>

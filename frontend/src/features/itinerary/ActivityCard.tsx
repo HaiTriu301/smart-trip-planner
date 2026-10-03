@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ExternalLink, MapPin, TriangleAlert, Wallet } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
+import { useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Activity } from '../../types/activity'
 import { ActivityMenu } from './ActivityMenu'
 import { ACTIVITY_ROUTE, ACTIVITY_TYPE_LABELS } from './activityType'
@@ -55,9 +56,17 @@ export function ActivityCard({
   const time = formatTimeRange(activity)
   const route = ACTIVITY_ROUTE[activity.type]
   const place = formatPlace(activity)
+  // Only the two actions are read: the card itself does not redraw when the highlight moves
+  const highlight = useMapLinkStore((state) => state.highlight)
+  const clearHighlight = useMapLinkStore((state) => state.clearHighlight)
 
   return (
     <article
+      // Pointer on the card, or keyboard focus inside it: its marker on the map stands out (UI_GUIDE 9)
+      onMouseEnter={() => highlight(activity.id)}
+      onMouseLeave={() => clearHighlight(activity.id)}
+      onFocus={() => highlight(activity.id)}
+      onBlur={() => clearHighlight(activity.id)}
       className={`group flex gap-1 rounded-card border-y border-r border-l-[3px] border-y-tide border-r-tide py-3 pr-2 pl-1 transition-colors ${route.edge} ${
         overlapping ? 'bg-warning/8' : 'bg-white hover:bg-gray-50'
       }`}
