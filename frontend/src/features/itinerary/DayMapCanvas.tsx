@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import L from 'leaflet'
 import { AttributionControl, MapContainer, Marker, Polyline, TileLayer, ZoomControl, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import type { Coordinates } from '../../types/place'
 import { ACTIVITY_ROUTE } from './activityType'
 import type { DayStop } from './DayMap'
 
@@ -20,9 +21,11 @@ const TILES = {
 
 const LEAFLET_CREDIT = '<a href="https://leafletjs.com">Leaflet</a>'
 
-/** Viet Nam as a whole: what the map shows while a day has nothing to show */
+/** Viet Nam as a whole: what the map shows when neither the day nor the trip says where to look */
 const DEFAULT_CENTER: L.LatLngTuple = [16.2, 107.8]
 const DEFAULT_ZOOM = 5
+/** A city and its surroundings: the view of a day without places, centred on the trip's destination */
+const DESTINATION_ZOOM = 12
 /** Street level; also the closest the map goes by itself when a day has a single place */
 const MAX_FIT_ZOOM = 15
 
@@ -46,10 +49,12 @@ const ROUTE_LINE: L.PolylineOptions = {
 
 interface DayMapCanvasProps {
   stops: DayStop[]
+  /** Where to look when the day has no place; null when the trip has no position */
+  destination: Coordinates | null
 }
 
 /** The Leaflet part of DayMap, in its own file so it can be loaded on demand (default export for lazy()). */
-export default function DayMapCanvas({ stops }: DayMapCanvasProps) {
+export default function DayMapCanvas({ stops, destination }: DayMapCanvasProps) {
   return (
     <MapContainer
       center={DEFAULT_CENTER}
@@ -66,7 +71,7 @@ export default function DayMapCanvas({ stops }: DayMapCanvasProps) {
       />
       <AttributionControl position="bottomright" prefix={LEAFLET_CREDIT} />
       <ZoomControl position="bottomright" zoomInTitle="Phóng to" zoomOutTitle="Thu nhỏ" />
-      <FitToStops stops={stops} />
+      <FitToStops stops={stops} destination={destination} />
       {stops.length > 1 && (
         <Polyline positions={stops.map((stop) => [stop.lat, stop.lng])} pathOptions={ROUTE_LINE} />
       )}
@@ -78,11 +83,13 @@ export default function DayMapCanvas({ stops }: DayMapCanvasProps) {
 }
 
 /**
- * Frames all the places of the day. The view is recomputed when the set of places changes, not when their order
- * does: dragging a card must not make the map jump, and the user's own zoom and pan survive a reorder.
+ * Frames all the places of the day; a day without places shows the destination of the trip. The view is
+ * recomputed when the set of places (or the destination) changes, not when the order of the places does: dragging a card must not make the map jump, and the user's own zoom and pan survive a reorder.
  */
-function FitToStops({ stops }: { stops: DayStop[] }) {
+function FitToStops({ stops, destination }: DayMapCanvasProps) {
   const map = useMap()
+  const destinationLat = destination?.lat
+  const destinationLng = destination?.lng
   const placesKey = stops
     .map((stop) => `${stop.lat},${stop.lng}`)
     .sort()
@@ -90,12 +97,17 @@ function FitToStops({ stops }: { stops: DayStop[] }) {
 
   useEffect(() => {
     if (placesKey === '') {
-      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+      // No place to frame: the destination of the trip if it has a position, the whole country otherwise
+      if (destinationLat !== undefined && destinationLng !== undefined) {
+        map.setView([destinationLat, destinationLng], DESTINATION_ZOOM)
+      } else {
+        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+      }
       return
     }
     const points = placesKey.split('|').map((pair) => pair.split(',').map(Number) as L.LatLngTuple)
     map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: MAX_FIT_ZOOM })
-  }, [map, placesKey])
+  }, [map, placesKey, destinationLat, destinationLng])
 
   return null
 }

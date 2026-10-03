@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { BackToTopButton } from '../../components/BackToTopButton'
 import { LinkButton } from '../../components/LinkButton'
 import { formatDate } from '../../lib/format'
+import type { Coordinates } from '../../types/place'
 import type { TripDayDetail } from '../../types/trip'
 import { DayMap } from './DayMap'
 import { DaySection } from './DaySection'
@@ -15,6 +16,8 @@ interface DayTimelineProps {
   /** The day on the URL (/trips/:id/days/:dayIndex), already checked to exist */
   currentDayIndex: number
   tripCurrency: string
+  /** Position of the trip's destination, where the map opens for a day without places; null when not set */
+  destination: Coordinates | null
 }
 
 const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${dayIndex}`
@@ -29,7 +32,7 @@ const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${d
  * bottom right corner goes back to the top of the page. On narrow screens the floating button goes back to the
  * start of the day instead.
  */
-export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: DayTimelineProps) {
+export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, destination }: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
   const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
@@ -126,7 +129,7 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency }: Day
                 the working copy of the day, so the numbers follow a card while it is being dragged */}
             <aside className="hidden lg:block">
               <div className="sticky top-6 h-[calc(100vh-3rem)]">
-                <DayMap activities={shown.activities} />
+                <DayMap activities={shown.activities} destination={destination} />
               </div>
             </aside>
           </div>

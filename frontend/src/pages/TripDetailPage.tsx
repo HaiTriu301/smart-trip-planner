@@ -99,7 +99,17 @@ export function TripDetailPage() {
         {trip.description && <ExpandableText text={trip.description} className="max-w-[68ch] text-gray-600" />}
       </header>
 
-      <DayTimeline tripId={trip.id} days={trip.days} currentDayIndex={currentDayIndex} tripCurrency={trip.currency} />
+      <DayTimeline
+        tripId={trip.id}
+        days={trip.days}
+        currentDayIndex={currentDayIndex}
+        tripCurrency={trip.currency}
+        destination={
+          trip.destinationLat !== null && trip.destinationLng !== null
+            ? { lat: trip.destinationLat, lng: trip.destinationLng }
+            : null
+        }
+      />
     </div>
   )
 }
