@@ -1494,7 +1494,7 @@ Commit 6 — feat(cache): cache weather forecast in redis                       
 
 **Nhớ:** DTO được cache là `record`: kiểm serializer đọc lại đúng kiểu (không thành `Map`) ngay ở test của Commit 4. Tên class serializer Jackson 3 của Spring Data Redis 4, đã tra tài liệu chính thức ngày 2026-10-03: `JacksonJsonRedisSerializer` (một kiểu cố định) và `GenericJacksonJsonRedisSerializer`. Spring Boot 4.1.1 nối Redis trong test bằng `GenericContainer` + `@ServiceConnection(name = "redis")`, không cần thêm thư viện test.
 
-> **Thực tế khi làm 3.4 (2026-10-03):** 7 commit code trên nhánh = 6 commit của bảng đã duyệt + 1 commit `fix` chen vào trước Commit 6, sau commit docs Mốc 0 trên `main` (`531f9c1`). Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.5.
+> **Thực tế khi làm 3.4 (2026-10-03):** 7 commit code trên nhánh = 6 commit của bảng đã duyệt + 1 commit `fix` chen vào trước Commit 6, sau commit docs Mốc 0 trên `main` (`531f9c1`). PR #20, merge commit `11d7db6`; commit docs đóng task `c6deddd`.
 >
 > | Commit | File | Nội dung |
 > |---|:--:|---|
@@ -1525,7 +1525,6 @@ Commit 6 — feat(cache): cache weather forecast in redis                       
 > 6. **Thiếu `@ServiceConnection` thì test vẫn xanh trên máy có docker compose đang chạy:** ứng dụng lặng lẽ dùng Redis ở `localhost:6379`. `TC-PLAT-036` kiểm cổng của kết nối đúng là cổng ngẫu nhiên của container.
 > 7. **Gradle bỏ qua test đã xanh:** lặp lại một lệnh `test --tests` không đổi gì thì không chạy lại ("BUILD SUCCESSFUL in 1s"); muốn chạy lại để bắt lỗi lúc có lúc không phải dùng `cleanTest test`.
 >
-> **Việc cho Task 3.5 Mốc 0:** ghi số PR và merge commit của Task 3.4 vào dòng đầu của khối này.
 > **Việc cho Task 3.5:** quãng đường của một ngày hiện chưa cache (mock tính tức thì); khi Task 3.8 nối OSRM thì thêm `RouteCache` theo cùng mẫu (bean riêng, khoá = chuỗi toạ độ làm tròn).
 > **Việc cho Task 3.8:** provider thật không phải biết gì về cache; nhưng khoá tìm địa điểm bỏ dấu nên "chợ hàn" và "cho han" nhận cùng kết quả Photon trong 24 giờ, xét lại có cần giữ dấu trong khoá không. Lỗi của provider (timeout, 5xx) là ngoại lệ nên **không** bị cất vào cache; "stale-while-error" của design 7.3 cần đọc bản cũ đã hết hạn, Spring Cache không hỗ trợ sẵn, cần thiết kế riêng nếu làm.
 > **Việc cho Task 8.1:** rate limit của `/places/search` tính **trước** cache hay sau cache (lượt trúng cache có tính vào hạn mức không), quyết định khi làm.
@@ -1534,19 +1533,52 @@ Commit 6 — feat(cache): cache weather forecast in redis                       
 
 ### Task 3.5 — Quãng đường trong ngày
 
-Nhánh: `feat/T3.5-day-route` · Test: phần "quãng đường" trong `07-place.md`.
+Nhánh: `feat/T3.5-day-route` · Test: phần mới "Quãng đường trong ngày" trong `07-place.md` (mã từ `TC-PLACE-107`). Mỗi commit một việc, code + test cùng commit, số file ghi trong ngoặc vuông.
+
+Kết quả của task (người dùng chưa thấy gì mới, giao diện ở Task 3.7 Mốc 3): `GET /api/v1/trips/{tripId}/days/{dayId}/route` trả khoảng cách và thời gian di chuyển giữa các hoạt động có địa điểm của một ngày. Chỉ backend, không migration, không dependency mới, không key message mới.
 
 ```
-Mốc 1 — feat(route): add day route endpoint
-        MapProvider.route(List<Coordinate>) → các chặng (distanceMeters, durationSeconds) giữa hai điểm liên tiếp;
-        mock: đường chim bay × 1,3, tốc độ 30 km/h; provider/map/dto/Coordinate, RouteLeg,
-        service/RouteService, dto/response/DayRouteResponse (legs: fromActivityId, toActivityId, quãng đường,
-        thời gian; tổng cả ngày), GET /trips/{tripId}/days/{dayId}/route (@PreAuthorize canView);
-        chỉ tính giữa các activity có địa điểm, theo đúng thứ tự orderIndex; ngày có 0–1 địa điểm → legs rỗng;
-        test: happy, 403, 404 (ngày không thuộc trip), mock ổn định
+Mốc 0 — docs (main): PR #20 của Task 3.4; design.md 10.2 "Quy ước Route" (kiểu số, tổng, chặng 0, một phương tiện);
+        bảng commit này
 
-Mốc 2 — test(route): add day route flow integration test (đổi thứ tự bằng reorder → chặng đổi theo; đếm câu SQL)
+Commit 1 — feat(route): add travel legs to the map provider                                         [4 file]
+        provider/map/dto/RouteLeg (distanceMeters, durationSeconds), MapProvider.route(List<Coordinate>): n điểm →
+        n−1 chặng theo đúng thứ tự; MockMapProvider.route: đường chim bay × 1,3, tốc độ 30 km/h, làm tròn tới mét
+        và giây; MockMapProviderTest: đúng công thức, số chặng = số điểm − 1, hỏi lại ra cùng kết quả, hai điểm
+        trùng nhau → 0. Chưa ai gọi cho tới Commit 2 (điểm tách (b) của A.2)
+
+Commit 2 — feat(route): add day route endpoint                                                      [6 file]
+        dto/response/RouteLegResponse + DayRouteResponse, service/RouteService.forDay(tripId, dayId): kiểm chuyến
+        đi và ngày (404), đọc hoạt động kèm địa điểm, gọi MapProvider.route, ghép id hoạt động, cộng tổng; không
+        @Transactional. TripDayController GET /{dayId}/route (@PreAuthorize canView). RouteServiceTest: 3 hoạt
+        động có địa điểm → 2 chặng đúng id và tổng; chuyến đi không tồn tại; ngày không thuộc chuyến đi.
+        TripDayControllerTest: 200, 401, 403, 404, 400 (dayId không phải số)
+
+Commit 3 — feat(route): skip activities without a place                                             [2 file]
+        RouteService: chỉ lấy hoạt động có địa điểm; A (có) → B (không) → C (có) → một chặng A→C. RouteServiceTest:
+        hoạt động không có địa điểm ở đầu / giữa / cuối ngày; hai hoạt động cùng địa điểm → chặng 0
+
+Commit 4 — feat(route): answer an empty route without asking the map                                [2 file]
+        RouteService: ngày có 0 hoặc 1 địa điểm → legs rỗng, tổng 0, không gọi provider. RouteServiceTest: ngày
+        trống; 1 địa điểm; nhiều hoạt động nhưng chỉ 1 có địa điểm; provider không bị gọi
+
+Commit 5 — test(route): add day route flow integration test                                         [1 file]
+        integration/DayRouteFlowIntegrationTest (HTTP + MySQL thật): kéo thả đổi thứ tự → chặng đổi theo; bỏ địa
+        điểm → chặng mất; chuyến đi của người khác → 403; đếm 4 câu SQL, không tăng theo số hoạt động
 ```
+
+> **Quyết định khi duyệt bảng commit 3.5 (2026-10-03)** — chi tiết ở design.md 10.2 "Quy ước Route":
+> - Hoạt động không có địa điểm nằm giữa hai hoạt động có địa điểm: backend trả một chặng nối hai hoạt động có địa điểm (A→C). Giao diện tự quyết cách hiện, dựa vào `fromActivityId` / `toActivityId`.
+> - Hai hoạt động liền nhau ở cùng một địa điểm: vẫn có chặng, 0 m và 0 giây. Số chặng luôn = số hoạt động có địa điểm − 1.
+> - `distanceMeters`, `durationSeconds` là số nguyên; tổng = tổng các chặng đã làm tròn (cộng tay các chặng luôn khớp tổng). Đổi sang "8,4 km" / "25 phút" là việc của giao diện.
+> - **Một phương tiện**, không có tham số `mode`. Mock: 30 km/h. Thêm `mode` sau này không làm hỏng client cũ.
+> - Endpoint đặt trong `TripDayController` (đường dẫn nằm dưới `/trips/{tripId}/days`); service mới `RouteService` là class không interface (CLAUDE.md rule 5). Không có mapper: response ghép từ chặng của provider và id hoạt động, không có entity nào được đổi thành DTO.
+> - Chia lại so với bản 2 mốc cũ: method của provider đứng riêng; mỗi quy tắc (bỏ qua hoạt động không có địa điểm; không hỏi nguồn khi dưới 2 điểm) một commit.
+>
+> **Điểm hở tạm thời:** sau Commit 2, ngày có hoạt động không có địa điểm trả 500; Commit 3 đóng lại và có test.
+>
+> **Việc cho Task 3.7 (Mốc 3):** chặng A→C bắc qua một hoạt động không có địa điểm thì hiện ở đâu (mốc đang ghi "giữa hai thẻ liền nhau cùng có địa điểm", khi đó chặng này không hiện mà vẫn nằm trong tổng): hỏi chủ dự án. Chặng 0 m thì ẩn. Endpoint tính theo từng ngày: quyết định chỉ tải ngày đang mở hay mọi ngày. Ghi rõ con số là ước lượng.
+> **Việc cho Task 3.8 (Mốc 3):** OSRM trả quãng đường theo đường thật, thời gian theo *profile* (vận tốc gán cho từng loại đường của OpenStreetMap, không có dữ liệu kẹt xe). Đọc lại tài liệu ở đầu task: máy chủ công cộng chạy profile nào (theo hiểu biết lúc lập kế hoạch: chỉ ô tô; không có profile xe máy), giới hạn số điểm mỗi lần gọi. OSRM lỗi → 503 hay 200 với `legs` rỗng: quyết định khi làm. Thêm `RouteCache` theo mẫu Task 3.4.
 
 ---
 

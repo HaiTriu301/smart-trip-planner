@@ -850,6 +850,13 @@ Lỗi (`ErrorResponse`):
 > - `GET /weather/forecast` của bản cũ **hoãn**: chưa màn nào dùng.
 >
 > **Quy ước Route** (chốt 2026-10-01; làm ở Task 3.5) — `GET /trips/{tripId}/days/{dayId}/route`: trả `{ legs, totalDistanceMeters, totalDurationSeconds }`, mỗi chặng = `{ fromActivityId, toActivityId, distanceMeters, durationSeconds }`. Chỉ tính giữa các activity **có địa điểm**, theo đúng thứ tự `orderIndex`; ngày có 0 hoặc 1 địa điểm → `legs` rỗng. `dayId` không thuộc `tripId` → 404.
+> - Chi tiết chốt khi duyệt bảng commit Task 3.5 (2026-10-03):
+>   - Hoạt động không có địa điểm bị bỏ qua, không làm đứt đường đi: A (có) → B (không) → C (có) cho một chặng A→C. Số chặng luôn = số hoạt động có địa điểm − 1.
+>   - Hai hoạt động liền nhau ở cùng một địa điểm vẫn có chặng, `distanceMeters` = 0 và `durationSeconds` = 0; giao diện tự ẩn.
+>   - `distanceMeters` (mét) và `durationSeconds` (giây) là **số nguyên**. `totalDistanceMeters` / `totalDurationSeconds` = tổng các chặng đã làm tròn; `legs` rỗng → cả hai tổng bằng 0.
+>   - **Một phương tiện**, không có tham số chọn phương tiện. Mock: 30 km/h. Nguồn thật (Task 3.8): ô tô theo vận tốc gán cho từng loại đường, không tính kẹt xe. Con số là ước lượng.
+>   - Ngày có 0 hoặc 1 địa điểm: không hỏi nguồn bản đồ. `RouteService.forDay` không `@Transactional` (không giữ kết nối database trong lúc chờ nguồn).
+>   - Số câu SQL mỗi lần gọi: 4 (quyền, chuyến đi, ngày, các hoạt động kèm địa điểm), không tăng theo số hoạt động.
 
 **Sharing** `/api/v1/trips/{tripId}`
 | GET | `/members` | | canView |
