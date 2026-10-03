@@ -4,7 +4,7 @@ import { FormField } from '../../components/FormField'
 import { SelectField } from '../../components/SelectField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { currencyOptions } from '../../lib/validation'
-import type { Place } from '../../types/place'
+import type { Coordinates, Place } from '../../types/place'
 import { ActivityPlaceField } from './ActivityPlaceField'
 import { ACTIVITY_TYPES } from './activityType'
 import { ActivityTypeField } from './ActivityTypeField'
@@ -16,6 +16,8 @@ interface ActivityFormFieldsProps {
   initialPlace: Place | null
   /** A new activity takes the type its place suggests; an existing one keeps the type it was saved with */
   suggestType: boolean
+  /** Destination of the trip, for the order of the place suggestions; null when it has no position */
+  near: Coordinates | null
 }
 
 /**
@@ -23,7 +25,7 @@ interface ActivityFormFieldsProps {
  * fill the title and suggest the type. Saving, the overlap question and the
  * buttons stay in ActivityFormDialog; a fragment, so the fields keep the spacing of the form around them.
  */
-export function ActivityFormFields({ form, initialPlace, suggestType }: ActivityFormFieldsProps) {
+export function ActivityFormFields({ form, initialPlace, suggestType, near }: ActivityFormFieldsProps) {
   const { register, control, setValue, getValues, setFocus, clearErrors, formState } = form
   const { errors, touchedFields } = formState
   const currency = useWatch({ control, name: 'currency' })
@@ -48,7 +50,7 @@ export function ActivityFormFields({ form, initialPlace, suggestType }: Activity
 
   return (
     <>
-      <ActivityPlaceField place={place} error={errors.placeId?.message} onChange={changePlace} />
+      <ActivityPlaceField place={place} error={errors.placeId?.message} near={near} onChange={changePlace} />
       <FormField label="Tên hoạt động" required error={errors.title?.message} {...register('title')} />
       <ActivityTypeField registration={register('type')} error={errors.type?.message} />
       <div className="grid gap-4 sm:grid-cols-2">

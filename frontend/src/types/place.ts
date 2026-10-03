@@ -18,10 +18,21 @@ export interface PlaceResult {
   category: string | null
 }
 
-/** Query of GET /places/search: q has 2 to 100 characters, limit 1 to 20 (default 8). */
+/** A point on the map, in decimal degrees. */
+export interface Coordinates {
+  lat: number
+  lng: number
+}
+
+/**
+ * Query of GET /places/search: q has 2 to 100 characters, limit 1 to 20 (default 8). lat and lng go together
+ * or not at all: places around that point come first, nothing is filtered out (design.md 10.2).
+ */
 export interface PlaceSearchParams {
   q: string
   limit?: number
+  lat?: number
+  lng?: number
 }
 
 /** A place stored in the app: it has an id, the value an activity refers to. Coordinates are JSON numbers. */

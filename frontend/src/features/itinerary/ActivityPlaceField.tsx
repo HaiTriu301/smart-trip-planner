@@ -5,7 +5,7 @@ import { pickPlace } from '../../api/places'
 import { getErrorMessage } from '../../api/errors'
 import { FieldShell } from '../../components/FieldShell'
 import { describedBy } from '../../components/fieldStyles'
-import type { Place } from '../../types/place'
+import type { Coordinates, Place } from '../../types/place'
 import { PlaceSearchField } from '../places/PlaceSearchField'
 
 const HINT = 'Tìm theo tên hoặc địa chỉ, từ 2 ký tự.'
@@ -15,6 +15,8 @@ interface ActivityPlaceFieldProps {
   place: Place | null
   /** Error of the form for this field, e.g. the server refused the place */
   error?: string
+  /** Destination of the trip: suggestions around it come first; null when the trip has no position */
+  near: Coordinates | null
   onChange: (place: Place | null) => void
 }
 
@@ -23,7 +25,7 @@ interface ActivityPlaceFieldProps {
  * it on the server right away (POST /places), because an activity refers to a place by its id. With a place:
  * a box with its name and address, and "×" to go back to the search box.
  */
-export function ActivityPlaceField({ place, error, onChange }: ActivityPlaceFieldProps) {
+export function ActivityPlaceField({ place, error, near, onChange }: ActivityPlaceFieldProps) {
   const id = useId()
   // After "×" the search box takes the cursor; when the dialog opens, Modal places it by itself
   const [removedHere, setRemovedHere] = useState(false)
@@ -62,6 +64,7 @@ export function ActivityPlaceField({ place, error, onChange }: ActivityPlaceFiel
           describedBy={describedBy(id, shownError, hint)}
           disabled={pick.isPending}
           focusOnMount={removedHere}
+          near={near}
           onPick={(result) => pick.mutate(result)}
         />
       )}

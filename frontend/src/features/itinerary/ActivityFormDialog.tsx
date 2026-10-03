@@ -11,6 +11,8 @@ import { Modal } from '../../components/Modal'
 import { CANNOT_CLEAR_MESSAGE } from '../../lib/validation'
 import { toast } from '../../stores/toastStore'
 import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../../types/activity'
+import type { Coordinates } from '../../types/place'
+import type { TripDetail } from '../../types/trip'
 import { ActivityFormFields } from './ActivityFormFields'
 import {
   activitySchema,
@@ -41,6 +43,15 @@ interface ActivityFormDialogProps {
   activity: Activity | null
   open: boolean
   onClose: () => void
+}
+
+/**
+ * Position of the trip's destination, read from the trip the page already loaded. A plain read of the cache:
+ * a second subscription to ['trip', id] would refetch the trip every time the dialog opens.
+ */
+function destinationOf(trip: TripDetail | undefined): Coordinates | null {
+  if (trip?.destinationLat == null || trip.destinationLng == null) return null
+  return { lat: trip.destinationLat, lng: trip.destinationLng }
 }
 
 /** Names the save mutation so the dialog shell can tell that the form inside it is saving. */
@@ -79,6 +90,7 @@ interface PendingOverlap {
 function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<ActivityFormDialogProps, 'open'>) {
   const queryClient = useQueryClient()
   const [overlap, setOverlap] = useState<PendingOverlap | null>(null)
+  const near = destinationOf(queryClient.getQueryData<TripDetail>(['trip', tripId]))
   const form = useForm<ActivityValues>({
     mode: 'onTouched',
     resolver: zodResolver(activitySchema),
@@ -135,7 +147,12 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       {mutation.isError && !overlap && !isConflict && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
-      <ActivityFormFields form={form} initialPlace={activity?.place ?? null} suggestType={!activity} />
+      <ActivityFormFields
+        form={form}
+        initialPlace={activity?.place ?? null}
+        suggestType={!activity}
+        near={near}
+      />
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} disabled={mutation.isPending} onClick={onClose}>
           Huỷ

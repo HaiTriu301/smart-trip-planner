@@ -4,7 +4,7 @@ import { MapPin, Search } from 'lucide-react'
 import { searchPlaces } from '../../api/places'
 import { getErrorMessage } from '../../api/errors'
 import { controlClass } from '../../components/fieldStyles'
-import type { PlaceResult } from '../../types/place'
+import type { Coordinates, PlaceResult } from '../../types/place'
 import { ACTIVITY_ROUTE, ACTIVITY_TYPES } from '../itinerary/activityType'
 
 const SEARCH_DELAY_MS = 300
@@ -28,6 +28,8 @@ interface PlaceSearchFieldProps {
   disabled?: boolean
   /** Put the cursor in the input when it appears, e.g. after the chosen place was removed */
   focusOnMount?: boolean
+  /** Where the user is planning: suggestions around it come first. Null or left out: no preference */
+  near?: Coordinates | null
   onPick: (result: PlaceResult) => void
 }
 
@@ -51,6 +53,7 @@ export function PlaceSearchField({
   describedBy,
   disabled,
   focusOnMount = false,
+  near = null,
   onPick,
 }: PlaceSearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -80,8 +83,10 @@ export function PlaceSearchField({
   const longEnough = typed.length >= MIN_KEYWORD_LENGTH
   const search = useQuery({
     // Not under ['trip', id]: saving an activity must not refetch or cancel a search
-    queryKey: ['places', 'search', keyword, SEARCH_LIMIT],
-    queryFn: ({ signal }) => searchPlaces({ q: keyword, limit: SEARCH_LIMIT }, signal),
+    // The point is part of the question: the same keyword near another city gives another order
+    queryKey: ['places', 'search', keyword, SEARCH_LIMIT, near?.lat ?? null, near?.lng ?? null],
+    queryFn: ({ signal }) =>
+      searchPlaces({ q: keyword, limit: SEARCH_LIMIT, lat: near?.lat, lng: near?.lng }, signal),
     enabled: keyword.length >= MIN_KEYWORD_LENGTH,
     staleTime: STALE_TIME_MS,
   })
