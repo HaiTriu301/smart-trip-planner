@@ -33,9 +33,10 @@ public class RouteService {
     private final MapProvider mapProvider;
 
     /**
-     * One leg between every two consecutive activities of the day, in the order the day shows them, and the
-     * totals of the day. The activities are travelled as they are ordered; nothing is rearranged to shorten the
-     * way.
+     * One leg between every two consecutive activities of the day that have a place, in the order the day shows
+     * them, and the totals of the day. The activities are travelled as they are ordered; nothing is rearranged
+     * to shorten the way. Activities without a place are left out, so there is always one leg fewer than there
+     * are activities with a place; two activities at the same place keep their leg, of zero.
      * <p>
      * Not @Transactional on purpose. Each repository call is one short read, and the activities come with their
      * places already loaded; a surrounding transaction would keep a database connection busy for as long as the
@@ -54,7 +55,10 @@ public class RouteService {
         tripDayRepository.findByIdAndTripId(dayId, tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(TRIP_DAY, dayId));
 
-        List<Activity> stops = activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayId);
+        // An activity without a place is not a stop: the way goes on from the place before it to the place after it
+        List<Activity> stops = activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(dayId).stream()
+                .filter(activity -> activity.getPlace() != null)
+                .toList();
         List<Coordinate> points = stops.stream()
                 .map(stop -> new Coordinate(stop.getPlace().getLat(), stop.getPlace().getLng()))
                 .toList();

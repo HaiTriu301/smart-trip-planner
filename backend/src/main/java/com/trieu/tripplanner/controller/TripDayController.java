@@ -51,8 +51,9 @@ public class TripDayController {
     }
 
     @Operation(summary = "Quãng đường di chuyển trong một ngày",
-               description = "Mỗi chặng nối hai hoạt động liền nhau theo đúng thứ tự của ngày: quãng đường (mét) và "
-                       + "thời gian (giây), kèm tổng cả ngày. Con số là ước lượng cho một phương tiện. "
+               description = "Mỗi chặng nối hai hoạt động có địa điểm liền nhau theo đúng thứ tự của ngày: quãng đường "
+                       + "(mét) và thời gian (giây), kèm tổng cả ngày. Hoạt động không có địa điểm được bỏ qua, "
+                       + "chặng nối thẳng hai hoạt động có địa điểm ở hai bên. Con số là ước lượng cho một phương tiện. "
                        + "403 nếu không có quyền xem, 404 nếu chuyến đi không tồn tại hoặc ngày không thuộc chuyến đi.")
     @GetMapping("/{dayId}/route")
     @PreAuthorize("@tripPermission.canView(#tripId, principal)")

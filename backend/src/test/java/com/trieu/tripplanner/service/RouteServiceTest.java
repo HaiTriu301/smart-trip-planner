@@ -92,6 +92,50 @@ class RouteServiceTest {
     }
 
     @Test
+    void activityWithoutAPlaceBetweenTwoPlacesIsSkippedAndItsNeighboursAreJoined() {
+        dayHas(activity(101L, CHO_HAN), activity(102L, null), activity(103L, LINH_UNG));
+        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(LINH_UNG))))
+                .thenReturn(List.of(new RouteLeg(8900, 1068)));
+
+        DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
+
+        // The way is not cut at 102: one leg from the place before it to the place after it
+        assertThat(route.legs()).containsExactly(new RouteLegResponse(101L, 103L, 8900, 1068));
+        assertThat(route.totalDistanceMeters()).isEqualTo(8900);
+        assertThat(route.totalDurationSeconds()).isEqualTo(1068);
+    }
+
+    @Test
+    void activitiesWithoutAPlaceAtTheStartAndTheEndOfTheDayAreSkipped() {
+        dayHas(activity(100L, null), activity(101L, CHO_HAN), activity(102L, CAU_RONG), activity(103L, null),
+                activity(104L, LINH_UNG), activity(105L, null));
+        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(CAU_RONG), pointOf(LINH_UNG))))
+                .thenReturn(List.of(new RouteLeg(1150, 138), new RouteLeg(8400, 1008)));
+
+        DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
+
+        // One leg fewer than there are activities with a place, whatever stands around them
+        assertThat(route.legs()).containsExactly(
+                new RouteLegResponse(101L, 102L, 1150, 138),
+                new RouteLegResponse(102L, 104L, 8400, 1008));
+    }
+
+    @Test
+    void twoConsecutiveActivitiesAtTheSamePlaceKeepTheirLegOfZero() {
+        dayHas(activity(101L, CHO_HAN), activity(102L, CHO_HAN), activity(103L, CAU_RONG));
+        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(CHO_HAN), pointOf(CAU_RONG))))
+                .thenReturn(List.of(new RouteLeg(0, 0), new RouteLeg(1150, 138)));
+
+        DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
+
+        // Having a place is what counts, not moving: the UI hides a leg of zero if it wants to
+        assertThat(route.legs()).containsExactly(
+                new RouteLegResponse(101L, 102L, 0, 0),
+                new RouteLegResponse(102L, 103L, 1150, 138));
+        assertThat(route.totalDistanceMeters()).isEqualTo(1150);
+    }
+
+    @Test
     void missingTripIsNotFoundAndNothingIsRead() {
         when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
 
@@ -119,6 +163,7 @@ class RouteServiceTest {
         when(activityRepository.findByTripDayIdOrderByOrderIndexAscIdAsc(DAY_ID)).thenReturn(List.of(activities));
     }
 
+    /** @param place null: an activity that has no place */
     private static Activity activity(long id, Place place) {
         Activity activity = Activity.builder()
                 .title("Hoạt động " + id)
