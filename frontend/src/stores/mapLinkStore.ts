@@ -38,3 +38,17 @@ export const useMapLinkStore = create<MapLinkState>()((set, get) => ({
     }, REVEAL_MS)
   },
 }))
+
+/**
+ * Brings the card of an activity into view and marks it. The card goes to the middle of the screen: aiming at
+ * the top would put it under the pinned day header. The focus moves to the card, which also keeps its marker
+ * highlighted, so the eye can go back and forth between the two.
+ */
+export function revealActivity(activityId: number) {
+  const card = document.getElementById(activityCardId(activityId))
+  if (!card) return
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  card.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' })
+  card.focus({ preventScroll: true })
+  useMapLinkStore.getState().reveal(activityId)
+}

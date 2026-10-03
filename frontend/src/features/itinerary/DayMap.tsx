@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Map as MapIcon, Maximize2, X } from 'lucide-react'
 import { Skeleton } from '../../components/Skeleton'
-import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
+import { revealActivity } from '../../stores/mapLinkStore'
 import type { Activity, ActivityType } from '../../types/activity'
 import type { Coordinates } from '../../types/place'
 import type { RevealMode } from './DayMapCanvas'
@@ -33,25 +33,17 @@ function toStops(activities: Activity[]): DayStop[] {
     }))
 }
 
-/**
- * Brings the card of an activity into view and marks it. The card goes to the middle of the screen: aiming at
- * the top would put it under the pinned day header. The focus moves to the card, which also keeps its marker
- * highlighted, so the eye can go back and forth between the two.
- */
-function revealActivity(activityId: number) {
-  const card = document.getElementById(activityCardId(activityId))
-  if (!card) return
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  card.scrollIntoView({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' })
-  card.focus({ preventScroll: true })
-  useMapLinkStore.getState().reveal(activityId)
-}
-
 interface DayMapProps {
   /** Activities of the day being shown, in display order */
   activities: Activity[]
   /** Position of the trip's destination; null when the trip has none */
   destination: Coordinates | null
+  /**
+   * Narrow screens show either the list or the map: while the list is hidden its cards cannot be scrolled to.
+   * A marker then opens the name box, and "Xem trong lịch trình" asks the page to bring the list back first.
+   */
+  listHidden?: boolean
+  onShowInList?: (activityId: number) => void
 }
 
 /**
@@ -62,7 +54,7 @@ interface DayMapProps {
  * dialog, not this one stretched: the dialog lives in the browser's top layer, above the pinned headers of the
  * page whatever their z-index, and brings the focus trap and the Esc key with it.
  */
-export function DayMap({ activities, destination }: DayMapProps) {
+export function DayMap({ activities, destination, listHidden = false, onShowInList }: DayMapProps) {
   const stops = toStops(activities)
   const [expanded, setExpanded] = useState(false)
   const expandButtonRef = useRef<HTMLButtonElement>(null)
@@ -77,11 +69,22 @@ export function DayMap({ activities, destination }: DayMapProps) {
     expandButtonRef.current?.focus()
   }
 
+  /** To the card of the activity, through the page when the list has to be shown first. */
+  function goToCard(activityId: number) {
+    if (listHidden && onShowInList) onShowInList(activityId)
+    else revealActivity(activityId)
+  }
+
   // While the expanded map is open the page behind it cannot take the focus. This effect runs after the one
-  // of ExpandedMap (children first), which has closed the dialog by then
+  // of ExpandedMap (children first), which has closed the dialog by then. goToCard is read at that moment, not
+  // listed as a dependency: the effect must run when the dialog closes, not when the list is shown or hidden
+  const goToCardRef = useRef(goToCard)
+  useEffect(() => {
+    goToCardRef.current = goToCard
+  })
   useEffect(() => {
     if (expanded || revealAfterCollapse.current === null) return
-    revealActivity(revealAfterCollapse.current)
+    goToCardRef.current(revealAfterCollapse.current)
     revealAfterCollapse.current = null
   }, [expanded])
 
@@ -91,8 +94,8 @@ export function DayMap({ activities, destination }: DayMapProps) {
         stops={stops}
         destination={destination}
         className="h-full rounded-card border border-tide"
-        revealMode={touchScreen ? 'popup' : 'direct'}
-        onReveal={revealActivity}
+        revealMode={touchScreen || listHidden ? 'popup' : 'direct'}
+        onReveal={goToCard}
         action={
           <MapButton ref={expandButtonRef} label="Phóng to bản đồ" onClick={() => setExpanded(true)}>
             <Maximize2 aria-hidden className="size-4" />

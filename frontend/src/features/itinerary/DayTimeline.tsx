@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, List, Map as MapIcon } from 'lucide-react'
 import { BackToTopButton } from '../../components/BackToTopButton'
 import { LinkButton } from '../../components/LinkButton'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { formatDate } from '../../lib/format'
+import { revealActivity } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
 import type { TripDayDetail } from '../../types/trip'
 import { DayMap } from './DayMap'
@@ -22,10 +24,16 @@ interface DayTimelineProps {
 
 const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${dayIndex}`
 
+/** From this width the list and the map sit side by side (UI_GUIDE 11); below it, one of them at a time */
+const WIDE_SCREEN = '(min-width: 1024px)'
+
+type NarrowView = 'list' | 'map'
+
 /**
  * One day per page (UI_GUIDE 8.1): the list of days on the left (chips on narrow screens) links to each day,
  * the middle column shows only the chosen one. The whole grid sits inside the drag and drop area, so a card can
- * be dropped on another day of the list to move it there. From 1024px a third column holds the map of the day.
+ * be dropped on another day of the list to move it there. From 1024px a third column holds the map of the day;
+ * below that width the list and the map take turns, chosen with two buttons under the day chips.
  * <p>
  * Long days (UI_GUIDE 8.1 "Ngày dài"): on wide screens the day list and the day header both stay pinned at the
  * same height while the activities scroll; "Đầu ngày" sits in the day header and a small floating button in the
@@ -36,6 +44,20 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
   const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
+
+  const wide = useMediaQuery(WIDE_SCREEN)
+  // What a narrow screen shows; a wide one shows both and ignores it
+  const [narrowView, setNarrowView] = useState<NarrowView>('list')
+  const listShown = wide || narrowView === 'list'
+  const mapShown = wide || narrowView === 'map'
+
+  // "Xem trong lịch trình" on the map tab: the list comes back first, then its card can be scrolled to
+  const revealWhenListShown = useRef<number | null>(null)
+  useEffect(() => {
+    if (!listShown || revealWhenListShown.current === null) return
+    revealActivity(revealWhenListShown.current)
+    revealWhenListShown.current = null
+  }, [listShown])
 
   // Coming from "Ngày sau" at the bottom of a long day: bring the start of the new day back into view. When the
   // start of the day is still in sight (a click on the day list near the top), the page stays where it is.
@@ -61,6 +83,7 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
             <BackToTopButton placement="floating" screens="narrow" label="Về đầu ngày" targetId="day-start" />
             <BackToTopButton placement="floating" screens="wide" label="Lên đầu trang" />
             <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
+            <ViewSwitch view={narrowView} onChange={setNarrowView} />
             <nav aria-label="Các ngày" className="hidden lg:block">
               <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto p-1">
                 {days.map((day) => {
@@ -96,7 +119,8 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
                 })}
               </ol>
             </nav>
-            <div className="min-w-0 space-y-8">
+            {/* Hidden, not removed, on the map tab: an edit in progress in the day survives a look at the map */}
+            <div className={`min-w-0 space-y-8 ${listShown ? '' : 'hidden'}`}>
               <DaySection
                 key={shown.id}
                 tripId={tripId}
@@ -125,17 +149,66 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
                 </nav>
               )}
             </div>
-            {/* Third column, wide screens only: pinned like the day list, as tall as the screen allows. It shows
-                the working copy of the day, so the numbers follow a card while it is being dragged */}
-            <aside className="hidden lg:block">
-              <div className="sticky top-6 h-[calc(100vh-3rem)]">
-                <DayMap activities={shown.activities} destination={destination} />
-              </div>
-            </aside>
+            {/* Wide screens: third column, pinned like the day list, as tall as the screen allows. Narrow
+                screens: the "Bản đồ" tab. The map is created only while it is shown; it shows the working copy
+                of the day, so the numbers follow a card while it is being dragged */}
+            {mapShown && (
+              <aside>
+                <div className="h-[70dvh] min-h-[320px] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:min-h-0">
+                  <DayMap
+                    activities={shown.activities}
+                    destination={destination}
+                    listHidden={!listShown}
+                    onShowInList={(activityId) => {
+                      revealWhenListShown.current = activityId
+                      setNarrowView('list')
+                    }}
+                  />
+                </div>
+              </aside>
+            )}
           </div>
         )
       }}
     </DragDropContainer>
+  )
+}
+
+interface ViewSwitchProps {
+  view: NarrowView
+  onChange: (view: NarrowView) => void
+}
+
+const VIEWS = [
+  { view: 'list', label: 'Lịch trình', Icon: List },
+  { view: 'map', label: 'Bản đồ', Icon: MapIcon },
+] as const
+
+/**
+ * Phones and tablets: the day shows as a list or as a map, chosen with two buttons side by side under the
+ * day chips (UI_GUIDE 8.1). Toggle buttons, 44px tall for fingers; the chosen one is the white one.
+ */
+function ViewSwitch({ view, onChange }: ViewSwitchProps) {
+  return (
+    <div role="group" aria-label="Cách xem ngày" className="grid grid-cols-2 gap-1 rounded-control bg-gray-200 p-1 lg:hidden">
+      {VIEWS.map((option) => {
+        const chosen = option.view === view
+        return (
+          <button
+            key={option.view}
+            type="button"
+            aria-pressed={chosen}
+            onClick={() => onChange(option.view)}
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-control text-[15px] transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none ${
+              chosen ? 'bg-white font-semibold text-jade-dark shadow-sm' : 'text-gray-600'
+            }`}
+          >
+            <option.Icon aria-hidden className="size-4" />
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

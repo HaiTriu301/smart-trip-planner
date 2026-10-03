@@ -481,7 +481,7 @@ Loại
   - Bấm thì focus chuyển tới chỗ vừa cuộn về (phần ngày, hoặc tên chuyến đi).
   - Đích cuộn "đầu ngày" là **cả phần ngày** (`#day-start`), không phải tiêu đề: tiêu đề nằm trong khối dính nên trình duyệt coi như luôn hiện, cuộn tới nó không có tác dụng. Chuyển sang ngày khác từ cuối một ngày dài cũng cuộn về `#day-start`.
 
-**Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 360px (từ 1280px: 420px), dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px) và cao bằng màn hình trừ 48px. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px cột này ẩn; bản đồ chuyển vào tab ở commit sau. Dải thời tiết bên dưới bản đồ: Task 3.7.
+**Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 360px (từ 1280px: 420px), dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px) và cao bằng màn hình trừ 48px. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px bản đồ nằm ở tab "Bản đồ" (bảng "Màn hình hẹp" bên dưới). Dải thời tiết bên dưới bản đồ: Task 3.7.
 
 **Task 3.7 (chốt 2026-10-01, `design.md` rule 14.22) — chưa làm:**
 - Ngày đã qua hiện nhạt hơn và có nhãn "Đã qua"; ngày hôm nay có nhãn "Hôm nay". Mở một chuyến đi đang diễn ra thì vào thẳng ngày hôm nay thay vì Ngày 1. "Hôm nay" tính theo múi giờ của tài khoản (hiện là giờ Việt Nam).
@@ -493,7 +493,7 @@ Loại
 | Bề rộng | Bố cục |
 |---|---|
 | < 1024px | Cột trái thành **dải chip ngày** (link) cuộn ngang, dính ở mép trên khi cuộn; chip của ngày đang xem tô `ink` và tự cuộn vào tầm nhìn. **Đã làm** |
-| < 1024px, Phase 3 | Bản đồ chuyển thành tab ngang (Lịch trình / Bản đồ); thêm tab Chi phí ở Phase 7 |
+| < 1024px | Ngay dưới dải chip ngày có **hai nút gạt** "Lịch trình" / "Bản đồ" (`ViewSwitch`): khung nền `gray-200` bo 6px, mỗi nút cao 44px có icon và chữ; nút đang chọn nền trắng, chữ `jade-dark` đậm, `shadow-sm` (chốt 2026-10-03 theo mockup, thay cho kiểu chữ gạch chân). Mỗi lúc chỉ hiện một trong hai: danh sách của ngày, hoặc bản đồ rộng hết màn hình, cao 70% màn hình (ít nhất 320px). Phần danh sách chỉ bị ẩn, không bị huỷ, nên việc đang sửa dở trong ngày không mất khi sang xem bản đồ; bản đồ chỉ được tạo khi tab của nó đang mở. Ở tab "Bản đồ", chạm marker mở ô tên; "Xem trong lịch trình" chuyển về tab "Lịch trình" rồi cuộn tới thẻ. Đổi ngày giữ nguyên tab đang xem. **Đã làm** (Task 3.6). Tab Chi phí: Phase 7 |
 
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
@@ -592,7 +592,7 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 | < 1024px | Cột ngày thành dải chip ngang dính trên cùng; lưới chuyến đi 2 cột (≥ 640px) | **Đã làm** |
 | ≥ 1024px | Cột ngày 200px bên trái; lưới 3 cột | **Đã làm** |
 | ≥ 1024px | Thêm cột bản đồ 360px (≥ 1280px: 420px), khoảng cách cột 24px (≥ 1280px: 32px) | **Đã làm** (Task 3.6) |
-| < 1024px | Bản đồ ở tab "Bản đồ" | Task 3.6, commit sau |
+| < 1024px | Hai nút gạt "Lịch trình" / "Bản đồ" dưới dải chip ngày; mỗi lúc hiện một trong hai | **Đã làm** (Task 3.6) |
 
 **Cảm ứng hay chuột** quyết định theo loại con trỏ (`pointer-coarse`), không theo độ rộng: màn hình cảm ứng luôn hiện tay nắm / menu "⋮" và dùng nút ↑ / ↓ thay kéo thả.
 
