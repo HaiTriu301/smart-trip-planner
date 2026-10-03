@@ -24,6 +24,10 @@ spring:
       # REDIS_HOST / REDIS_PORT come from .env; the defaults are those of docker-compose.yml
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # How long a request waits for Redis before the cache step is skipped (CacheConfig.errorHandler). The
+      # client's own default is 60 s: with Redis unreachable every cached request would hang that long
+      connect-timeout: 1s
+      timeout: 1s
       repositories:
         enabled: false          # entities live in MySQL only: no Spring Data repository is backed by Redis
   flyway:
