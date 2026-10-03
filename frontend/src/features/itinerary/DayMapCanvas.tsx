@@ -12,35 +12,14 @@ import {
   useMap,
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
+import { CITY_ZOOM, LEAFLET_CREDIT, MAP_TILES, STREET_ZOOM, VIETNAM_VIEW } from '../../lib/mapTiles'
 import { useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
 import { ACTIVITY_ROUTE } from './activityType'
 import type { DayStop } from './DayMap'
 
-/**
- * Where the background of the map comes from (design.md 3.2). The standard OpenStreetMap tiles need no API
- * key, so the map works on a fresh clone; their terms ask for the credit line and forbid bulk downloads. The
- * browser fetches them directly, not through the backend. The colours are toned down so the markers stand out.
- */
-const TILES = {
-  url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom: 19,
-  className: 'grayscale-[0.85] brightness-105 contrast-90',
-}
-
-const LEAFLET_CREDIT = '<a href="https://leafletjs.com">Leaflet</a>'
-
-/** Viet Nam as a whole: what the map shows when neither the day nor the trip says where to look */
-const DEFAULT_CENTER: L.LatLngTuple = [16.2, 107.8]
-const DEFAULT_ZOOM = 5
-/** A city and its surroundings: the view of a day without places, centred on the trip's destination */
-const DESTINATION_ZOOM = 12
 /** Leaflet draws markers further south on top; this lifts the highlighted one above any neighbour */
 const HIGHLIGHT_Z_OFFSET = 1000
-
-/** Street level; also the closest the map goes by itself when a day has a single place */
-const MAX_FIT_ZOOM = 15
 
 interface MarkerShape {
   /** Box Leaflet reserves for the marker, and the point of that box that sits on the place (the tip) */
@@ -111,17 +90,17 @@ interface DayMapCanvasProps {
 export default function DayMapCanvas({ stops, destination, revealMode, onReveal }: DayMapCanvasProps) {
   return (
     <MapContainer
-      center={DEFAULT_CENTER}
-      zoom={DEFAULT_ZOOM}
+      center={VIETNAM_VIEW.center}
+      zoom={VIETNAM_VIEW.zoom}
       zoomControl={false}
       attributionControl={false}
       className="h-full w-full font-sans!"
     >
       <TileLayer
-        url={TILES.url}
-        attribution={TILES.attribution}
-        maxZoom={TILES.maxZoom}
-        className={TILES.className}
+        url={MAP_TILES.url}
+        attribution={MAP_TILES.attribution}
+        maxZoom={MAP_TILES.maxZoom}
+        className={MAP_TILES.className}
       />
       <AttributionControl position="bottomright" prefix={LEAFLET_CREDIT} />
       <ZoomControl position="bottomright" zoomInTitle="Phóng to" zoomOutTitle="Thu nhỏ" />
@@ -153,14 +132,14 @@ function FitToStops({ stops, destination }: Pick<DayMapCanvasProps, 'stops' | 'd
     if (placesKey === '') {
       // No place to frame: the destination of the trip if it has a position, the whole country otherwise
       if (destinationLat !== undefined && destinationLng !== undefined) {
-        map.setView([destinationLat, destinationLng], DESTINATION_ZOOM)
+        map.setView([destinationLat, destinationLng], CITY_ZOOM)
       } else {
-        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+        map.setView(VIETNAM_VIEW.center, VIETNAM_VIEW.zoom)
       }
       return
     }
     const points = placesKey.split('|').map((pair) => pair.split(',').map(Number) as L.LatLngTuple)
-    map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: MAX_FIT_ZOOM })
+    map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: STREET_ZOOM })
   }, [map, placesKey, destinationLat, destinationLng])
 
   return null

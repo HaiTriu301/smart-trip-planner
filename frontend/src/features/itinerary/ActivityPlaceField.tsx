@@ -7,6 +7,7 @@ import { FieldShell } from '../../components/FieldShell'
 import { describedBy } from '../../components/fieldStyles'
 import type { Coordinates, Place } from '../../types/place'
 import { PlaceSearchField } from '../places/PlaceSearchField'
+import { ManualPlaceForm } from './ManualPlaceForm'
 
 const HINT = 'Tìm theo tên hoặc địa chỉ, từ 2 ký tự.'
 
@@ -23,18 +24,21 @@ interface ActivityPlaceFieldProps {
 /**
  * "Địa điểm" of the activity form (UI_GUIDE 7.12). Without a place: the search box. Picking a suggestion stores
  * it on the server right away (POST /places), because an activity refers to a place by its id. With a place:
- * a box with its name and address, and "×" to go back to the search box.
+ * a box with its name and address, and "×" to go back to the search box. For a place the search does not
+ * know, a link under the search box opens ManualPlaceForm instead.
  */
 export function ActivityPlaceField({ place, error, near, onChange }: ActivityPlaceFieldProps) {
   const id = useId()
   // After "×" the search box takes the cursor; when the dialog opens, Modal places it by itself
   const [removedHere, setRemovedHere] = useState(false)
+  // "Không tìm thấy? Tự thêm địa điểm": the search box gives way to a name and a map to click
+  const [addingByHand, setAddingByHand] = useState(false)
   const pick = useMutation({ mutationFn: pickPlace, onSuccess: onChange })
   const shownError = error ?? (pick.isError ? getErrorMessage(pick.error) : undefined)
   const hint = pick.isPending ? 'Đang lưu địa điểm…' : HINT
 
   return (
-    <FieldShell id={id} label="Địa điểm" hint={place ? undefined : hint} error={shownError}>
+    <FieldShell id={id} label="Địa điểm" hint={place || addingByHand ? undefined : hint} error={shownError}>
       {place ? (
         <div id={id} className="flex items-start gap-2 rounded-control border border-tide bg-gray-50 py-2.5 pr-1.5 pl-3">
           <MapPin aria-hidden className="mt-0.5 size-4 shrink-0 text-jade" />
@@ -56,17 +60,41 @@ export function ActivityPlaceField({ place, error, near, onChange }: ActivityPla
             <X aria-hidden className="size-4" />
           </button>
         </div>
-      ) : (
-        <PlaceSearchField
-          id={id}
-          placeholder="Ví dụ: Chùa Linh Ứng"
-          invalid={Boolean(shownError)}
-          describedBy={describedBy(id, shownError, hint)}
-          disabled={pick.isPending}
-          focusOnMount={removedHere}
-          near={near}
-          onPick={(result) => pick.mutate(result)}
+      ) : addingByHand ? (
+        <ManualPlaceForm
+          around={near}
+          onAdded={(added) => {
+            setAddingByHand(false)
+            onChange(added)
+          }}
+          onCancel={() => {
+            setAddingByHand(false)
+            // Back in the search box, as after "×"
+            setRemovedHere(true)
+          }}
         />
+      ) : (
+        <>
+          <PlaceSearchField
+            id={id}
+            placeholder="Ví dụ: Chùa Linh Ứng"
+            invalid={Boolean(shownError)}
+            describedBy={describedBy(id, shownError, hint)}
+            disabled={pick.isPending}
+            focusOnMount={removedHere}
+            near={near}
+            onPick={(result) => pick.mutate(result)}
+          />
+          <button
+            type="button"
+            // Not where the dialog puts the cursor when it opens: the search box comes first
+            data-no-initial-focus
+            onClick={() => setAddingByHand(true)}
+            className="inline-flex items-center rounded-control text-[13px] leading-5 font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
+          >
+            Không tìm thấy? Tự thêm địa điểm
+          </button>
+        </>
       )}
     </FieldShell>
   )

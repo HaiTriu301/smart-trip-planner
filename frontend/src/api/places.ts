@@ -22,3 +22,19 @@ export async function pickPlace(result: Pick<PlaceResult, 'provider' | 'external
   })
   return data.data
 }
+
+/** Body of POST /places/manual; address and category are optional and this app does not ask for them yet. */
+export interface ManualPlaceRequest {
+  name: string
+  lat: number
+  lng: number
+}
+
+/**
+ * A place typed in by the user, for somewhere no source knows. Each call creates a new place (nothing is merged
+ * by name) that only its creator may attach to an activity (design rule 14.19).
+ */
+export async function addManualPlace(body: ManualPlaceRequest): Promise<Place> {
+  const { data } = await apiClient.post<ApiResponse<Place>>('/places/manual', body)
+  return data.data
+}
