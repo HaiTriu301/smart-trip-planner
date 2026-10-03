@@ -91,7 +91,7 @@ Sáu màu này phải phân biệt được khi đứng cạnh nhau trên bản 
 | `SHOPPING` | Mua sắm | `act-shopping` | `#BE3C79` | `ShoppingBag` |
 | `OTHER` | Khác | `act-other` | `#4F8A62` | `MapPin` |
 
-**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, viền trái 3px của thẻ hoạt động, marker trên bản đồ, cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
+**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, viền trái 3px của thẻ hoạt động, marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
 
 ### 3.5. Màu trạng thái chuyến đi
 
@@ -408,6 +408,23 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 - **Bỏ địa điểm:** bấm "×" rồi lưu mà không chọn địa điểm khác thì hoạt động **không còn địa điểm** (`clearPlace: true`); thẻ mất hàng địa điểm. Bấm "×" rồi chọn địa điểm khác là **đổi** (`placeId`). Bấm "×" rồi "Huỷ" thì không có gì thay đổi. Không cần hộp hỏi lại: địa điểm vẫn được lưu trong hệ thống và gắn lại được bằng một lần tìm.
 - Chọn địa điểm khi ô "Tên hoạt động" **còn trống** thì tên địa điểm được điền vào, vẫn sửa được; tên đã có chữ thì không bị đụng tới. Sau khi chọn, con trỏ sang ô tên.
 - Khi mở hộp sửa một hoạt động đã có địa điểm, con trỏ **không** nằm ở nút "×" của khung (nhấn Enter sẽ bỏ nhầm địa điểm) mà ở ô tên: nút đó mang `data-no-initial-focus` (mục 7.6).
+
+### 7.13. Chọn loại hoạt động — `ActivityTypeField`
+
+```
+Loại
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 🏛 Tham quan │ │ 🍴 Ăn uống    │ │ 🚌 Di chuyển  │   3 cột × 2 hàng (điện thoại: 2 cột × 3 hàng)
+└──────────────┘ └──────────────┘ └──────────────┘   cao 40px (điện thoại 44px), bo 6px, viền tide
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 🛏 Lưu trú   │ │ 🛍 Mua sắm    │ │ 📍 Khác       │
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+- Thay ô chọn thả xuống ở form hoạt động (Task 3.6): cả 6 loại hiện sẵn, một lần bấm là chọn.
+- Mỗi nút: icon của loại theo **màu tuyến** (mục 3.4) + nhãn `ink` 15px. Nút **đang chọn**: viền 2px màu tuyến, nền màu tuyến mờ 8%, nhãn đổi sang màu tuyến và đậm 500. Luôn có đúng một nút được chọn; hoạt động mới mặc định "Khác".
+- Rê chuột lên nút chưa chọn: viền `gray-300`. Tab tới nhóm: viền ngoài `jade` 2px quanh nút đang có con trỏ.
+- Bên dưới là các ô radio thật (ẩn sau nhãn): Tab vào nhóm một lần, **phím mũi tên** đổi loại, trình đọc màn hình đọc là nhóm "Loại" gồm 6 lựa chọn.
 
 ---
 

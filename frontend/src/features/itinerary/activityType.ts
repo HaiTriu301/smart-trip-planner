@@ -26,24 +26,63 @@ interface RouteStyle {
   dot: string
   /** icon and label colour */
   text: string
+  /** the chosen button of the type picker: 2px outline (border + inset ring), light tint, coloured label */
+  chosen: string
   Icon: LucideIcon
 }
 
 /**
- * Route colour of each type (UI_GUIDE 3.4): used only on the rail dot, the card's left edge and (Phase 3) the
- * map marker. Never as a card background. The icon + label keep the type readable without colour.
+ * Route colour of each type (UI_GUIDE 3.4): used only on the rail dot, the card's left edge, the chosen button
+ * of the type picker and (Phase 3) the map marker. Never as a card background. The icon + label keep the type readable without colour.
  * Class names are written out in full so Tailwind finds them.
  */
 export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
-  SIGHTSEEING: { edge: 'border-l-act-sightseeing', dot: 'border-act-sightseeing', text: 'text-act-sightseeing', Icon: Landmark },
-  FOOD: { edge: 'border-l-act-food', dot: 'border-act-food', text: 'text-act-food', Icon: Utensils },
-  TRANSPORT: { edge: 'border-l-act-transport', dot: 'border-act-transport', text: 'text-act-transport', Icon: Bus },
+  SIGHTSEEING: {
+    edge: 'border-l-act-sightseeing',
+    dot: 'border-act-sightseeing',
+    text: 'text-act-sightseeing',
+    chosen:
+      'peer-checked:border-act-sightseeing peer-checked:bg-act-sightseeing/8 peer-checked:font-medium peer-checked:text-act-sightseeing peer-checked:ring-1 peer-checked:ring-inset peer-checked:ring-act-sightseeing',
+    Icon: Landmark,
+  },
+  FOOD: {
+    edge: 'border-l-act-food',
+    dot: 'border-act-food',
+    text: 'text-act-food',
+    chosen:
+      'peer-checked:border-act-food peer-checked:bg-act-food/8 peer-checked:font-medium peer-checked:text-act-food peer-checked:ring-1 peer-checked:ring-inset peer-checked:ring-act-food',
+    Icon: Utensils,
+  },
+  TRANSPORT: {
+    edge: 'border-l-act-transport',
+    dot: 'border-act-transport',
+    text: 'text-act-transport',
+    chosen:
+      'peer-checked:border-act-transport peer-checked:bg-act-transport/8 peer-checked:font-medium peer-checked:text-act-transport peer-checked:ring-1 peer-checked:ring-inset peer-checked:ring-act-transport',
+    Icon: Bus,
+  },
   ACCOMMODATION: {
     edge: 'border-l-act-accommodation',
     dot: 'border-act-accommodation',
     text: 'text-act-accommodation',
+    chosen:
+      'peer-checked:border-act-accommodation peer-checked:bg-act-accommodation/8 peer-checked:font-medium peer-checked:text-act-accommodation peer-checked:ring-1 peer-checked:ring-inset peer-checked:ring-act-accommodation',
     Icon: BedDouble,
   },
-  SHOPPING: { edge: 'border-l-act-shopping', dot: 'border-act-shopping', text: 'text-act-shopping', Icon: ShoppingBag },
-  OTHER: { edge: 'border-l-act-other', dot: 'border-act-other', text: 'text-act-other', Icon: MapPin },
+  SHOPPING: {
+    edge: 'border-l-act-shopping',
+    dot: 'border-act-shopping',
+    text: 'text-act-shopping',
+    chosen:
+      'peer-checked:border-act-shopping peer-checked:bg-act-shopping/8 peer-checked:font-medium peer-checked:text-act-shopping peer-checked:ring-1 peer-checked:ring-inset peer-checked:ring-act-shopping',
+    Icon: ShoppingBag,
+  },
+  OTHER: {
+    edge: 'border-l-act-other',
+    dot: 'border-act-other',
+    text: 'text-act-other',
+    chosen:
+      'peer-checked:border-act-other peer-checked:bg-act-other/8 peer-checked:font-medium peer-checked:text-act-other peer-checked:ring-1 peer-checked:ring-inset peer-checked:ring-act-other',
+    Icon: MapPin,
+  },
 }

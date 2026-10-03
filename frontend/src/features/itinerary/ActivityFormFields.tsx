@@ -6,10 +6,8 @@ import { TextAreaField } from '../../components/TextAreaField'
 import { currencyOptions } from '../../lib/validation'
 import type { Place } from '../../types/place'
 import { ActivityPlaceField } from './ActivityPlaceField'
-import { ACTIVITY_TYPES, ACTIVITY_TYPE_LABELS } from './activityType'
+import { ActivityTypeField } from './ActivityTypeField'
 import { NOTE_MAX_LENGTH, type ActivityValues } from './schemas'
-
-const TYPE_OPTIONS = ACTIVITY_TYPES.map((type) => ({ value: type, label: ACTIVITY_TYPE_LABELS[type] }))
 
 interface ActivityFormFieldsProps {
   form: UseFormReturn<ActivityValues>
@@ -43,7 +41,7 @@ export function ActivityFormFields({ form, initialPlace }: ActivityFormFieldsPro
     <>
       <ActivityPlaceField place={place} error={errors.placeId?.message} onChange={changePlace} />
       <FormField label="Tên hoạt động" required error={errors.title?.message} {...register('title')} />
-      <SelectField label="Loại" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
+      <ActivityTypeField registration={register('type')} error={errors.type?.message} />
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Giờ bắt đầu" type="time" error={errors.startTime?.message} {...register('startTime')} />
         <FormField label="Giờ kết thúc" type="time" error={errors.endTime?.message} {...register('endTime')} />
