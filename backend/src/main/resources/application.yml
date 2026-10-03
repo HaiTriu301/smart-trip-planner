@@ -19,6 +19,17 @@ spring:
     web:
       pageable:
         max-page-size: 100      # ?size=500 is silently capped (design.md 10.2 "Quy ước Trip API")
+    redis:
+      # Redis holds temporary copies of answers from outside sources, never data of its own (design.md 8.1).
+      # REDIS_HOST / REDIS_PORT come from .env; the defaults are those of docker-compose.yml
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # How long a request waits for Redis before the cache step is skipped (CacheConfig.errorHandler). The
+      # client's own default is 60 s: with Redis unreachable every cached request would hang that long
+      connect-timeout: 1s
+      timeout: 1s
+      repositories:
+        enabled: false          # entities live in MySQL only: no Spring Data repository is backed by Redis
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -43,6 +54,11 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    redis:
+      # Redis only holds temporary copies (design.md 8.1): the application works without it, so a Redis that
+      # is down must not make /actuator/health answer DOWN and take the application out of service
+      enabled: false
 
 app:
   mail-from: no-reply@smart-trip-planner.local

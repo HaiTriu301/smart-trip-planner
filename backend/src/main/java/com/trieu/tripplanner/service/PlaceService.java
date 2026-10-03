@@ -35,13 +35,15 @@ public class PlaceService {
     private static final String PLACE = "Place";
 
     private final MapProvider mapProvider;
+    private final PlaceSearchCache placeSearchCache;
     private final PlaceRepository placeRepository;
     private final UserRepository userRepository;
     private final PlaceMapper placeMapper;
 
     /**
-     * Places matching a keyword. No database access: results come straight from the map source and are not
-     * stored until the user picks one.
+     * Places matching a keyword. No database access: results come from the map source, or from the copy Redis
+     * keeps of its earlier answer to the same question (design.md 8.1), and no place is stored in the database
+     * until the user picks one.
      *
      * @param query keyword as typed; spaces around it are dropped before it reaches the source
      * @param lat   with {@code lng}, the point around which matches are listed first (the destination of the
@@ -49,7 +51,7 @@ public class PlaceService {
      * @throws BusinessRuleException 400 VALIDATION_ERROR on the missing one when only one of lat / lng is sent
      */
     public List<PlaceResultResponse> search(String query, int limit, BigDecimal lat, BigDecimal lng) {
-        return placeMapper.toResultResponses(mapProvider.search(query.trim(), limit, toCoordinate(lat, lng)));
+        return placeMapper.toResultResponses(placeSearchCache.search(query.trim(), limit, toCoordinate(lat, lng)));
     }
 
     /**
