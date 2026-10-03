@@ -66,7 +66,7 @@ export function Modal({ open, title, onClose, size = 'md', children }: ModalProp
               aria-label="Đóng"
               data-modal-close
               onClick={onClose}
-              className="-mr-2 -mt-1 rounded-control p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+              className="-mr-2 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-control text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:size-11"
             >
               <X aria-hidden className="size-4" />
             </button>

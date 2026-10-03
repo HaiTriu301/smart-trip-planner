@@ -26,7 +26,8 @@ export function ActivityMenu({ title, onEdit, onDelete, onMoveToDay, className }
           <button
             type="button"
             aria-label={`Tác vụ cho ${title}`}
-            className="rounded-control p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none data-[state=open]:bg-gray-100"
+            // 28px with a mouse; a finger needs 44px (UI_GUIDE 12)
+            className="flex size-7 items-center justify-center rounded-control text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none data-[state=open]:bg-gray-100 pointer-coarse:size-11"
           >
             <EllipsisVertical aria-hidden className="size-4" />
           </button>

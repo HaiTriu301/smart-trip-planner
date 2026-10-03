@@ -51,7 +51,7 @@ export function ActivityPlaceField({ place, error, near, onChange }: ActivityPla
               setRemovedHere(true)
               onChange(null)
             }}
-            className="shrink-0 rounded-control p-1.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+            className="flex size-7 shrink-0 items-center justify-center rounded-control text-gray-500 hover:bg-gray-200 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:size-11"
           >
             <X aria-hidden className="size-4" />
           </button>

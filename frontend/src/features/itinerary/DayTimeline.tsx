@@ -241,7 +241,7 @@ function DayChips({ tripId, days, currentDayIndex }: DayChipsProps) {
                 ref={active ? activeRef : undefined}
                 to={dayPath(tripId, day.dayIndex)}
                 aria-current={active ? 'page' : undefined}
-                className={`tabular inline-flex h-9 items-center rounded-control px-3 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                className={`tabular inline-flex h-9 items-center rounded-control px-3 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                   active ? 'bg-ink text-white' : 'border border-tide bg-white text-gray-600'
                 }`}
               >

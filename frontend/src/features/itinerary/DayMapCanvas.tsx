@@ -42,11 +42,40 @@ const HIGHLIGHT_Z_OFFSET = 1000
 /** Street level; also the closest the map goes by itself when a day has a single place */
 const MAX_FIT_ZOOM = 15
 
-// Teardrop of 28px whose tip, 34px down, sits on the place
-const MARKER_SIZE: L.PointTuple = [28, 34]
-const MARKER_ANCHOR: L.PointTuple = [14, 34]
-// The name box opens above the teardrop, centred on it
-const POPUP_ANCHOR: L.PointTuple = [0, -32]
+interface MarkerShape {
+  /** Box Leaflet reserves for the marker, and the point of that box that sits on the place (the tip) */
+  size: L.PointTuple
+  anchor: L.PointTuple
+  /** Where the name box opens: above the teardrop, centred on it */
+  popupAnchor: L.PointTuple
+  /** Classes of the teardrop, of the icon inside it and of the number badge */
+  box: string
+  icon: string
+  badge: string
+}
+
+/**
+ * Teardrop of 28px with a mouse (UI_GUIDE 9); 36px on touch screens, where it is something to tap. The tip is
+ * a little further down than the box is wide, because the square is turned by 45 degrees.
+ */
+const MARKER_SHAPES: Record<'mouse' | 'touch', MarkerShape> = {
+  mouse: {
+    size: [28, 34],
+    anchor: [14, 34],
+    popupAnchor: [0, -32],
+    box: 'size-7',
+    icon: 'size-3.5',
+    badge: 'size-4 text-[10px]',
+  },
+  touch: {
+    size: [36, 44],
+    anchor: [18, 44],
+    popupAnchor: [0, -42],
+    box: 'size-9',
+    icon: 'size-[18px]',
+    badge: 'size-[18px] text-[11px]',
+  },
+}
 
 /**
  * The line that joins the places of the day in order (UI_GUIDE 9). Dashed on purpose: it is a straight line
@@ -152,16 +181,19 @@ interface StopMarkerProps {
 
 function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
   const [element] = useState(() => document.createElement('div'))
+  const [shape] = useState(() =>
+    window.matchMedia('(pointer: coarse)').matches ? MARKER_SHAPES.touch : MARKER_SHAPES.mouse,
+  )
   const icon = useMemo(
     () =>
       L.divIcon({
         html: element,
         className: '',
-        iconSize: MARKER_SIZE,
-        iconAnchor: MARKER_ANCHOR,
-        popupAnchor: POPUP_ANCHOR,
+        iconSize: shape.size,
+        iconAnchor: shape.anchor,
+        popupAnchor: shape.popupAnchor,
       }),
-    [element],
+    [element, shape],
   )
   const route = ACTIVITY_ROUTE[stop.type]
   const label = `${stop.number}. ${stop.title}`
@@ -181,18 +213,18 @@ function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
       {createPortal(
         // Grows from its tip, so the point of the teardrop stays on the place
         <div
-          className={`relative size-7 origin-[50%_121%] transition-transform duration-150 ${highlighted ? 'scale-115' : ''}`}
+          className={`relative origin-[50%_121%] transition-transform duration-150 ${shape.box} ${highlighted ? 'scale-115' : ''}`}
         >
           {/* A square with three round corners, turned so the sharp one points down */}
           <div
-            className={`flex size-7 -rotate-45 items-center justify-center rounded-[50%_50%_50%_0] border-2 border-white shadow-md transition-shadow duration-150 ${route.marker} ${
+            className={`flex -rotate-45 items-center justify-center rounded-[50%_50%_50%_0] border-2 border-white shadow-md transition-shadow duration-150 ${shape.box} ${route.marker} ${
               highlighted ? 'ring-4 ring-jade/35' : ''
             }`}
           >
-            <route.Icon aria-hidden className="size-3.5 rotate-45 text-white" strokeWidth={2.25} />
+            <route.Icon aria-hidden className={`rotate-45 text-white ${shape.icon}`} strokeWidth={2.25} />
           </div>
           <span
-            className={`tabular absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full border bg-white text-[10px] leading-none font-bold ${route.dot} ${route.text}`}
+            className={`tabular absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border bg-white leading-none font-bold ${shape.badge} ${route.dot} ${route.text}`}
           >
             {stop.number}
           </span>
@@ -206,7 +238,7 @@ function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
           <button
             type="button"
             onClick={() => onReveal(stop.activityId)}
-            className="mt-1 rounded-control text-[13px] leading-5 font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+            className="mt-1 inline-flex items-center rounded-control text-[13px] leading-5 font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
           >
             Xem trong lịch trình
           </button>
