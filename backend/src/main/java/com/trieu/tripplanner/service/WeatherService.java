@@ -7,7 +7,6 @@ import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.WeatherMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
-import com.trieu.tripplanner.provider.weather.WeatherProvider;
 import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
 import com.trieu.tripplanner.repository.TripDayRepository;
 import com.trieu.tripplanner.repository.TripRepository;
@@ -20,9 +19,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Weather of a trip (design.md 10.2 "Weather", rule 14.20). Talks to the weather source only through
- * {@link WeatherProvider}: switching from made-up numbers to a real service changes configuration, not this class
- * (CLAUDE.md rule 19). Simple enough to be a class without interface (CLAUDE.md rule 5).
+ * Weather of a trip (design.md 10.2 "Weather", rule 14.20). Reaches the weather source only through
+ * {@link ForecastCache}, which answers from Redis when it can and asks the source through its port otherwise:
+ * switching from made-up numbers to a real service changes configuration, not this class (CLAUDE.md rule 19).
+ * Simple enough to be a class without interface (CLAUDE.md rule 5).
  */
 @Service
 @RequiredArgsConstructor
@@ -35,7 +35,7 @@ public class WeatherService {
 
     private final TripRepository tripRepository;
     private final TripDayRepository tripDayRepository;
-    private final WeatherProvider weatherProvider;
+    private final ForecastCache forecastCache;
     private final WeatherMapper weatherMapper;
     private final UserService userService;
 
@@ -93,7 +93,7 @@ public class WeatherService {
         if (from.isAfter(to)) {
             return Map.of();
         }
-        return weatherProvider
+        return forecastCache
                 .forecast(trip.getDestinationLat(), trip.getDestinationLng(), from, to)
                 .stream()
                 // A source that answers more than it was asked must not widen the window

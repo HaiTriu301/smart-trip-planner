@@ -10,6 +10,9 @@ public final class CacheNames {
     /** Answers of the map source to a place search. */
     public static final String PLACE_SEARCH = "place:search";
 
+    /** Answers of the weather source for one point and one range of days. */
+    public static final String WEATHER_FORECAST = "weather:forecast";
+
     private CacheNames() {
     }
 

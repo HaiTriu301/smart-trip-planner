@@ -2,6 +2,7 @@ package com.trieu.tripplanner.config;
 
 import com.trieu.tripplanner.common.constant.CacheNames;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
+import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
 import java.time.Duration;
 import java.util.List;
 import java.util.function.Supplier;
@@ -43,12 +44,17 @@ public class CacheConfig implements CachingConfigurer {
     /** Places rarely move or change their name. */
     static final Duration PLACE_SEARCH_TTL = Duration.ofHours(24);
 
+    /** Forecasts are revised several times a day. */
+    static final Duration WEATHER_FORECAST_TTL = Duration.ofHours(3);
+
     @Bean
     RedisCacheManagerBuilderCustomizer declaredCaches(ObjectMapper objectMapper, RedisConnectionFactory connectionFactory) {
         return builder -> builder
                 .cacheWriter(RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites()))
                 .withCacheConfiguration(CacheNames.PLACE_SEARCH,
                         listCache(PLACE_SEARCH_TTL, PlaceResult.class, objectMapper))
+                .withCacheConfiguration(CacheNames.WEATHER_FORECAST,
+                        listCache(WEATHER_FORECAST_TTL, DailyForecast.class, objectMapper))
                 // A typo in a cache name must fail, not create a cache that never expires
                 .disableCreateOnMissingCache();
     }

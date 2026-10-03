@@ -2,12 +2,16 @@ package com.trieu.tripplanner.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.JwtTokenProvider;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +23,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
@@ -73,6 +79,7 @@ class RedisDownIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM users");
     }
 
@@ -99,6 +106,28 @@ class RedisDownIntegrationTest {
         assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
         // The failure is not swallowed in silence: the log says which cache failed and why (CLAUDE.md rule 12)
         assertThat(output.getOut()).contains("WARN").contains("Cache 'place:search' failed to get entry");
+    }
+
+    @Test
+    void tripWeatherStillAnswersWhileRedisIsOff(CapturedOutput output) {
+        // A trip that starts today for an account in Việt Nam (the default time zone), so today has a forecast
+        LocalDate today = LocalDate.now(ZoneId.of(User.DEFAULT_TIMEZONE));
+        var created = mvc.post().uri("/api/v1/trips").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        { "title": "Đà Nẵng", "startDate": "%s", "endDate": "%s", "currency": "VND",
+                          "destinationName": "Đà Nẵng", "destinationLat": 16.0678, "destinationLng": 108.2208 }
+                        """.formatted(today, today.plusDays(2))).exchange();
+        assertThat(created).hasStatus(HttpStatus.CREATED);
+        Number tripId = JsonPath.read(
+                new String(created.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8), "$.data.id");
+
+        Instant start = Instant.now();
+        assertThat(mvc.get().uri("/api/v1/weather/trips/" + tripId).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.days[0].forecast.condition").asString().isNotEmpty();
+
+        assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
+        assertThat(output.getOut()).contains("Cache 'weather:forecast' failed to get entry");
     }
 
 }

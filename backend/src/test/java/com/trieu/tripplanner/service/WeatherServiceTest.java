@@ -16,7 +16,6 @@ import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.WeatherMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
-import com.trieu.tripplanner.provider.weather.WeatherProvider;
 import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
 import com.trieu.tripplanner.provider.weather.dto.WeatherCondition;
 import com.trieu.tripplanner.repository.TripDayRepository;
@@ -36,7 +35,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * The weather source, the repositories and "today" are mocks; the MapStruct mapper is the real generated one.
+ * The forecast cache (which stands for the weather source here), the repositories and "today" are mocks; the
+ * MapStruct mapper is the real generated one.
  */
 @ExtendWith(MockitoExtension.class)
 class WeatherServiceTest {
@@ -58,7 +58,7 @@ class WeatherServiceTest {
     private TripDayRepository tripDayRepository;
 
     @Mock
-    private WeatherProvider weatherProvider;
+    private ForecastCache forecastCache;
 
     @Mock
     private UserService userService;
@@ -67,7 +67,7 @@ class WeatherServiceTest {
 
     @BeforeEach
     void setUp() {
-        weatherService = new WeatherService(tripRepository, tripDayRepository, weatherProvider,
+        weatherService = new WeatherService(tripRepository, tripDayRepository, forecastCache,
                 Mappers.getMapper(WeatherMapper.class), userService);
     }
 
@@ -75,7 +75,7 @@ class WeatherServiceTest {
     void givesEveryDayOfTheTripTheForecastAtItsDestination() {
         Trip trip = threeDayTrip(LAT, LNG);
         todayIs(OCT_5);
-        when(weatherProvider.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of(
+        when(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of(
                 new DailyForecast(OCT_5, WeatherCondition.CLEAR, 24.1, 31.5, 10),
                 new DailyForecast(OCT_6, WeatherCondition.RAIN, 23.0, 27.4, 70),
                 new DailyForecast(OCT_7, WeatherCondition.CLOUDY, 22.6, 29.0, 45)));
@@ -88,7 +88,7 @@ class WeatherServiceTest {
                 new TripWeatherDayResponse(12L, OCT_6, new ForecastResponse(WeatherCondition.RAIN, 23.0, 27.4, 70)),
                 new TripWeatherDayResponse(13L, OCT_7, new ForecastResponse(WeatherCondition.CLOUDY, 22.6, 29.0, 45)));
         // The whole trip in one question, at the destination of the trip
-        verify(weatherProvider).forecast(trip.getDestinationLat(), trip.getDestinationLng(), OCT_5, OCT_7);
+        verify(forecastCache).forecast(trip.getDestinationLat(), trip.getDestinationLng(), OCT_5, OCT_7);
     }
 
     @Test
@@ -96,7 +96,7 @@ class WeatherServiceTest {
         threeDayTrip(LAT, LNG);
         todayIs(OCT_5);
         // Latest day first, the middle day missing, and one day that is not part of the trip
-        when(weatherProvider.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of(
+        when(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of(
                 new DailyForecast(OCT_7, WeatherCondition.CLOUDY, 22.6, 29.0, 45),
                 new DailyForecast(OCT_7.plusDays(1), WeatherCondition.THUNDERSTORM, 22.0, 26.0, 95),
                 new DailyForecast(OCT_5, WeatherCondition.CLEAR, 24.1, 31.5, 10)));
@@ -113,7 +113,7 @@ class WeatherServiceTest {
     void sourceThatRepeatsADayDoesNotBreakTheAnswer() {
         threeDayTrip(LAT, LNG);
         todayIs(OCT_5);
-        when(weatherProvider.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of(
+        when(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of(
                 new DailyForecast(OCT_5, WeatherCondition.CLEAR, 24.1, 31.5, 10),
                 new DailyForecast(OCT_5, WeatherCondition.RAIN, 23.0, 27.4, 70)));
 
@@ -135,7 +135,7 @@ class WeatherServiceTest {
                 new TripWeatherDayResponse(12L, OCT_6, null),
                 new TripWeatherDayResponse(13L, OCT_7, null));
         // Not even "today" is looked up: there is nothing to compare it with
-        verifyNoInteractions(weatherProvider, userService);
+        verifyNoInteractions(forecastCache, userService);
     }
 
     @Test
@@ -146,14 +146,14 @@ class WeatherServiceTest {
         TripWeatherResponse response = weatherService.forTrip(TRIP_ID, USER_ID);
 
         assertThat(response.status()).isEqualTo(TripWeatherStatus.NO_DESTINATION);
-        verifyNoInteractions(weatherProvider);
+        verifyNoInteractions(forecastCache);
     }
 
     @Test
     void tripWithDestinationIsOkEvenWhenTheSourceHasNoForecastAtAll() {
         threeDayTrip(LAT, LNG);
         todayIs(OCT_5);
-        when(weatherProvider.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of());
+        when(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7)).thenReturn(List.of());
 
         TripWeatherResponse response = weatherService.forTrip(TRIP_ID, USER_ID);
 
@@ -168,7 +168,7 @@ class WeatherServiceTest {
 
         assertThatThrownBy(() -> weatherService.forTrip(TRIP_ID, USER_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
-        verifyNoInteractions(tripDayRepository, weatherProvider, userService);
+        verifyNoInteractions(tripDayRepository, forecastCache, userService);
     }
 
     @Test
@@ -184,7 +184,7 @@ class WeatherServiceTest {
                 new TripWeatherDayResponse(11L, OCT_5, null),
                 new TripWeatherDayResponse(12L, OCT_6, SOME_FORECAST),   // today still has one
                 new TripWeatherDayResponse(13L, OCT_7, SOME_FORECAST));
-        verify(weatherProvider).forecast(LAT, LNG, OCT_6, OCT_7);
+        verify(forecastCache).forecast(LAT, LNG, OCT_6, OCT_7);
     }
 
     @Test
@@ -203,7 +203,7 @@ class WeatherServiceTest {
                 new TripWeatherDayResponse(12L, oct20, SOME_FORECAST),             // day 16, counting today
                 new TripWeatherDayResponse(13L, oct20.plusDays(1), null),          // day 17
                 new TripWeatherDayResponse(14L, oct20.plusDays(2), null));
-        verify(weatherProvider).forecast(LAT, LNG, oct19, oct20);
+        verify(forecastCache).forecast(LAT, LNG, oct19, oct20);
     }
 
     @Test
@@ -216,7 +216,7 @@ class WeatherServiceTest {
         // Still OK: the trip has a destination, there is just nothing to forecast any more
         assertThat(response.status()).isEqualTo(TripWeatherStatus.OK);
         assertThat(response.days()).extracting(TripWeatherDayResponse::forecast).containsOnlyNulls().hasSize(3);
-        verifyNoInteractions(weatherProvider);
+        verifyNoInteractions(forecastCache);
     }
 
     @Test
@@ -228,7 +228,7 @@ class WeatherServiceTest {
         TripWeatherResponse response = weatherService.forTrip(TRIP_ID, USER_ID);
 
         assertThat(response.days()).extracting(TripWeatherDayResponse::forecast).containsOnlyNulls().hasSize(3);
-        verify(weatherProvider, never()).forecast(any(), any(), any(), any());
+        verify(forecastCache, never()).forecast(any(), any(), any(), any());
     }
 
     @Test
@@ -244,7 +244,7 @@ class WeatherServiceTest {
                 new TripWeatherDayResponse(11L, OCT_5, SOME_FORECAST),
                 new TripWeatherDayResponse(12L, OCT_6, null),
                 new TripWeatherDayResponse(13L, OCT_7, null));
-        verify(weatherProvider).forecast(LAT, LNG, OCT_5, OCT_5);
+        verify(forecastCache).forecast(LAT, LNG, OCT_5, OCT_5);
     }
 
     @Test
@@ -252,7 +252,7 @@ class WeatherServiceTest {
         threeDayTrip(LAT, LNG);
         todayIs(OCT_6);
         // Asked for 06/10 .. 07/10, answers for yesterday as well
-        when(weatherProvider.forecast(LAT, LNG, OCT_6, OCT_7)).thenReturn(List.of(
+        when(forecastCache.forecast(LAT, LNG, OCT_6, OCT_7)).thenReturn(List.of(
                 new DailyForecast(OCT_5, WeatherCondition.CLEAR, 24.0, 30.0, 10),
                 new DailyForecast(OCT_6, WeatherCondition.CLEAR, 24.0, 30.0, 10),
                 new DailyForecast(OCT_7, WeatherCondition.CLEAR, 24.0, 30.0, 10)));
@@ -269,7 +269,7 @@ class WeatherServiceTest {
 
     /** Like the mock source of the application: one forecast for each day of the range, whatever the range. */
     private void sourceAnswersEveryDayItIsAskedFor() {
-        when(weatherProvider.forecast(any(), any(), any(), any())).thenAnswer(call -> {
+        when(forecastCache.forecast(any(), any(), any(), any())).thenAnswer(call -> {
             LocalDate from = call.getArgument(2);
             LocalDate to = call.getArgument(3);
             return from.datesUntil(to.plusDays(1))
