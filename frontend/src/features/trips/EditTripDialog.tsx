@@ -20,6 +20,8 @@ const FORM_FIELDS = [
   'description',
   'coverImageUrl',
   'destinationName',
+  'destinationLat',
+  'destinationLng',
   'startDate',
   'endDate',
   'budgetAmount',

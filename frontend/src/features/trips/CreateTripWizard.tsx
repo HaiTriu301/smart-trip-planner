@@ -11,10 +11,10 @@ import { Button } from '../../components/Button'
 import { toCreateTripRequest, tripSchema, type TripValues } from './schemas'
 import { TripDateFields, TripDestinationFields, TripInfoFields } from './TripFormFields'
 
-// design.md 15: info → destination (map picker added in Task 3.4) → dates
+// design.md 15: info → destination (name typed, position picked from place search) → dates
 const STEPS = [
   { title: 'Thông tin', fields: ['title', 'description', 'coverImageUrl'] },
-  { title: 'Điểm đến', fields: ['destinationName'] },
+  { title: 'Điểm đến', fields: ['destinationName', 'destinationLat', 'destinationLng'] },
   { title: 'Ngày đi', fields: ['startDate', 'endDate', 'budgetAmount', 'currency'] },
 ] as const satisfies readonly { title: string; fields: readonly (keyof TripValues)[] }[]
 
@@ -78,6 +78,8 @@ export function CreateTripWizard() {
       description: '',
       coverImageUrl: '',
       destinationName: '',
+      destinationLat: null,
+      destinationLng: null,
       startDate: '',
       endDate: '',
       budgetAmount: '',

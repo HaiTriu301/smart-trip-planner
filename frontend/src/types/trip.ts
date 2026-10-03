@@ -70,12 +70,17 @@ export interface UpdateTripDayRequest {
   note?: string
 }
 
-/** Body of POST /trips. Coordinates come with the map picker (Task 3.4), visibility with sharing (Phase 4). */
+/**
+ * Body of POST /trips. The position of the destination is optional and always a pair: both numbers or neither
+ * (design.md 10.2). Visibility comes with sharing (Phase 4).
+ */
 export interface CreateTripRequest {
   title: string
   description?: string
   coverImageUrl?: string
   destinationName?: string
+  destinationLat?: number
+  destinationLng?: number
   startDate: string
   endDate: string
   budgetAmount?: number

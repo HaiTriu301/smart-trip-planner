@@ -524,7 +524,12 @@ Loại
 
 - Tiêu đề 32px + dòng phụ "Ba bước: thông tin chung, điểm đến và ngày đi."
 - Thanh bước là một tuyến ngắn: 3 "ga" đánh số nối bằng ray. Ga đã qua: nền `jade` có dấu ✓; ga hiện tại: viền `jade`, chữ đậm; ray đã đi qua chuyển `jade`.
-- Bước "Điểm đến": hiện chỉ nhập tên; chọn trên bản đồ ở **Phase 3** (Task 3.6).
+- Bước "Điểm đến" (Task 3.6, **Đã làm** phần tìm kiếm; bản đồ nhỏ ở commit sau của task), dùng chung với hộp "Sửa chuyến đi":
+  - **"Tên điểm đến":** ô chữ tự gõ như trước ("Ví dụ: Đà Lạt").
+  - **"Vị trí trên bản đồ":** ô tìm địa điểm (mục 7.12) với gợi ý "Tìm một địa điểm ở nơi bạn đến. Vị trí này dùng cho bản đồ và dự báo thời tiết." Chọn một gợi ý chỉ lấy **toạ độ** của nó; không địa điểm nào được lưu. Ô tìm luôn còn đó để đổi vị trí.
+  - Đã có vị trí: ngay dưới ô tìm là một dòng 13px gồm icon ghim `jade`, tên địa điểm vừa chọn (hoặc "Vị trí đã lưu" khi mở hộp sửa), và toạ độ 4 chữ số thập phân bằng số thẳng cột (`16.0612, 108.2279`).
+  - Chọn vị trí khi ô tên **còn trống** thì tên địa điểm được điền vào, vẫn sửa được.
+  - Nút chữ "Bỏ vị trí" chỉ có khi vị trí **chưa được lưu** (wizard, hoặc chuyến đi chưa có vị trí). Vị trí đã lưu chỉ đổi được, chưa bỏ được (máy chủ chưa hỗ trợ xoá trắng).
 
 ### 8.5. Trang chuyến đi công khai (share link) — **Phase 4**
 
