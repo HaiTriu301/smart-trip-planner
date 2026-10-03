@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react'
 import { Map as MapIcon, Maximize2, X } from 'lucide-react'
 import { Skeleton } from '../../components/Skeleton'
 import { revealActivity } from '../../stores/mapLinkStore'
@@ -58,10 +58,20 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
   const stops = toStops(activities)
   const [expanded, setExpanded] = useState(false)
   const expandButtonRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   // The card asked for from the expanded map, shown once that map is closed
   const revealAfterCollapse = useRef<number | null>(null)
   // A finger cannot hover: on touch screens a tap opens the name box instead of jumping to the card
   const [touchScreen] = useState(() => window.matchMedia('(pointer: coarse)').matches)
+
+  /**
+   * The dialog is shown here, before React mounts the map inside it: the map library measures its box once,
+   * when it is created, and inside a dialog that is still closed that box is 0 by 0 (BUG-UI-009).
+   */
+  function expand() {
+    dialogRef.current?.showModal()
+    setExpanded(true)
+  }
 
   function collapse() {
     setExpanded(false)
@@ -97,12 +107,12 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
         revealMode={touchScreen || listHidden ? 'popup' : 'direct'}
         onReveal={goToCard}
         action={
-          <MapButton ref={expandButtonRef} label="Phóng to bản đồ" onClick={() => setExpanded(true)}>
+          <MapButton ref={expandButtonRef} label="Phóng to bản đồ" onClick={expand}>
             <Maximize2 aria-hidden className="size-4" />
           </MapButton>
         }
       />
-      <ExpandedMap open={expanded} onClose={collapse}>
+      <ExpandedMap ref={dialogRef} open={expanded} onClose={collapse}>
         <MapFrame
           stops={stops}
           destination={destination}
@@ -190,6 +200,8 @@ function MapButton({ label, onClick, children, ref }: MapButtonProps) {
 }
 
 interface ExpandedMapProps {
+  /** The caller shows the dialog itself (showModal) before setting "open": see expand() */
+  ref: RefObject<HTMLDialogElement | null>
   open: boolean
   onClose: () => void
   children: ReactNode
@@ -197,17 +209,14 @@ interface ExpandedMapProps {
 
 /**
  * A dialog as large as the window, without the title bar and padding of Modal. The children mount only while
- * it is open: the map inside measures its box when it is created, and a closed dialog has none.
+ * it is open, and it is already on screen by then: opening it in an effect would be too late, because the
+ * effects and refs of the children (the map) run before those of this component.
  */
-function ExpandedMap({ open, onClose, children }: ExpandedMapProps) {
-  const ref = useRef<HTMLDialogElement>(null)
-
+function ExpandedMap({ ref, open, onClose, children }: ExpandedMapProps) {
   useEffect(() => {
     const dialog = ref.current
-    if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
-    if (!open && dialog.open) dialog.close()
-  }, [open])
+    if (!open && dialog?.open) dialog.close()
+  }, [ref, open])
 
   return (
     <dialog
