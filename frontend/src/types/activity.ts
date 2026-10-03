@@ -43,5 +43,6 @@ export interface CreateActivityRequest {
 /**
  * Body of PATCH /trips/{tripId}/activities/{activityId}: undefined keeps the value. note and bookingUrl
  * accept "" to clear; times, cost and currency cannot be cleared yet (design.md 10.2 "Quy ước Activity API").
+ * The place is a number and has no "": clearPlace true removes it. Sending it together with placeId is refused.
  */
-export type UpdateActivityRequest = Partial<CreateActivityRequest>
+export type UpdateActivityRequest = Partial<CreateActivityRequest> & { clearPlace?: boolean }

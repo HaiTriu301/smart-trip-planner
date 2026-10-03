@@ -77,27 +77,20 @@ export function toCreateActivityRequest(values: ActivityValues): CreateActivityR
 
 const UNCLEARABLE_FIELDS = ['startTime', 'endTime', 'costAmount'] as const
 
-/**
- * Times and cost that held a value and were emptied: PATCH cannot clear them yet (design.md 10.2). The place
- * is in the same situation for now: this form does not send clearPlace yet, so removing the place of a saved
- * activity without picking another one is reported here instead of being silently ignored.
- */
+/** Times and cost that held a value and were emptied: PATCH cannot clear them yet (design.md 10.2). */
 export function findClearedActivityFields(
   activity: Activity,
   values: ActivityValues,
-): ((typeof UNCLEARABLE_FIELDS)[number] | 'placeId')[] {
+): (typeof UNCLEARABLE_FIELDS)[number][] {
   const before = toActivityValues(activity, '')
-  const cleared: ((typeof UNCLEARABLE_FIELDS)[number] | 'placeId')[] = UNCLEARABLE_FIELDS.filter(
-    (field) => before[field] !== '' && values[field] === '',
-  )
-  if (before.placeId !== null && values.placeId === null) cleared.push('placeId')
-  return cleared
+  return UNCLEARABLE_FIELDS.filter((field) => before[field] !== '' && values[field] === '')
 }
 
 /**
  * Only the fields that differ from the stored activity; note and bookingUrl emptied are sent as "" to clear them.
  * placeId travels only when the place changed: sending back the place an activity already has is not needed,
  * and for a collaborator it could be refused (a place added by hand belongs to its creator, rule 14.19).
+ * A place that was removed and not replaced is sent as clearPlace; the two never travel together.
  */
 export function toUpdateActivityRequest(activity: Activity, values: ActivityValues): UpdateActivityRequest {
   const body: UpdateActivityRequest = {}
@@ -113,6 +106,10 @@ export function toUpdateActivityRequest(activity: Activity, values: ActivityValu
     if (cost !== activity.costAmount) body.costAmount = cost
     if (values.currency !== activity.currency) body.currency = values.currency
   }
-  if (values.placeId !== null && values.placeId !== activity.place?.id) body.placeId = values.placeId
+  if (values.placeId === null) {
+    if (activity.place) body.clearPlace = true
+  } else if (values.placeId !== activity.place?.id) {
+    body.placeId = values.placeId
+  }
   return body
 }

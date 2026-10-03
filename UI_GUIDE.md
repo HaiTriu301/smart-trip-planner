@@ -405,6 +405,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 - Trong lúc chờ: "Đang tìm địa điểm…". Không có kết quả: "Không tìm thấy địa điểm nào. Thử từ khoá khác." Máy chủ lỗi: câu của máy chủ.
 - **Bàn phím** (kiểu combobox): ↓ / ↑ di chuyển, Enter chọn dòng đang sáng, Esc **chỉ đóng danh sách** (không đóng hộp thoại). Enter trong ô tìm không bao giờ gửi form bên ngoài.
 - **`ActivityPlaceField`** (`features/itinerary`): ô "Địa điểm" của form hoạt động, đứng **đầu form**. Chọn một gợi ý thì địa điểm được lưu ngay (`POST /places`) và ô tìm đổi thành **khung địa điểm đã chọn**: nền `gray-50`, viền `tide`, icon ghim `jade`, tên 15px/500, địa chỉ 13px `gray-600`, nút "×" bên phải để quay lại ô tìm (con trỏ vào ô tìm).
+- **Bỏ địa điểm:** bấm "×" rồi lưu mà không chọn địa điểm khác thì hoạt động **không còn địa điểm** (`clearPlace: true`); thẻ mất hàng địa điểm. Bấm "×" rồi chọn địa điểm khác là **đổi** (`placeId`). Bấm "×" rồi "Huỷ" thì không có gì thay đổi. Không cần hộp hỏi lại: địa điểm vẫn được lưu trong hệ thống và gắn lại được bằng một lần tìm.
 - Chọn địa điểm khi ô "Tên hoạt động" **còn trống** thì tên địa điểm được điền vào, vẫn sửa được; tên đã có chữ thì không bị đụng tới. Sau khi chọn, con trỏ sang ô tên.
 - Khi mở hộp sửa một hoạt động đã có địa điểm, con trỏ **không** nằm ở nút "×" của khung (nhấn Enter sẽ bỏ nhầm địa điểm) mà ở ô tên: nút đó mang `data-no-initial-focus` (mục 7.6).
 
