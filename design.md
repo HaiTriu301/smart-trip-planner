@@ -1068,7 +1068,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | |
 | `/verify-email` | Xác thực email | |
 | `/trips` | Danh sách chuyến đi | Grid card, filter status, search |
-| `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến (map picker) → ngày. Task 2.5: bước điểm đến chỉ nhập tên, map picker thêm ở Task 3.6 |
+| `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến → ngày. Task 2.5: bước điểm đến chỉ nhập tên. Task 3.6 (chốt 2026-10-03): **tên điểm đến vẫn do người dùng tự gõ, vị trí chọn riêng** bằng tìm địa điểm hoặc bấm lên bản đồ nhỏ → `destinationLat` / `destinationLng` (đủ cả hai hoặc bỏ cả hai); chọn một gợi ý khi ô tên còn trống thì điền sẵn tên. Không lưu địa điểm nào vào bảng `places` cho việc này. Hộp sửa chuyến đi dùng cùng các ô; vị trí đã đặt chỉ đổi được, chưa bỏ được (PATCH chưa xoá trắng trường tuỳ chọn) |
 | `/trips/:id/days/:dayIndex` | **Màn hình chính** | Layout 3 cột: danh sách ngày ⟷ activity của **một ngày** (drag-drop) ⟷ bản đồ + weather của ngày đó. `dayIndex` là số thứ tự ngày 1..n; `/trips/:id` và `dayIndex` không tồn tại chuyển về ngày 1. Task 2.5 làm 2 cột với mọi ngày xếp dọc; Task 2.6 đổi sang một ngày một trang, chuyển ngày bằng thả lên tên ngày ở cột trái hoặc menu "⋮" (chi tiết bố cục: `UI_GUIDE.md` 8.1). Cột bản đồ thêm ở Task 3.6; thời tiết, quãng đường, nhãn ngày "Đã qua" / "Hôm nay" và hộp hỏi hoàn thành chuyến đi (rule 14.22) ở Task 3.7 |
 | `/trips/:id/expenses` | Chi phí | Chart + settlement |
 | `/trips/:id/members` | Chia sẻ | Mời, phân quyền, share link |

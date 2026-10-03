@@ -909,9 +909,12 @@ When a place is chosen, the field becomes a chip with the place name and a "×" 
 #### Phase 3 — Task 3.6: bước "Điểm đến" của wizard có bản đồ
 
 ```
-Wizard step 2 as today, with under the "Điểm đến" field a 320px tall light grey map
-(CartoDB Positron) showing one jade teardrop marker; a helper line "Tìm theo tên hoặc bấm
-lên bản đồ để chọn vị trí." and, after a choice, the coordinates in small tabular text.
+Wizard step 2 as today. Field "Tên điểm đến" stays a plain text input ("Đà Nẵng").
+Under it a second field "Vị trí trên bản đồ": a search input with a magnifier icon and the
+placeholder "Tìm một địa điểm ở nơi bạn đến", with a dropdown of 3 suggestions (name 15px/600,
+address 13px muted). Under the fields a 320px tall light grey map (CartoDB Positron) showing
+one jade teardrop marker; a helper line "Tìm theo tên hoặc bấm lên bản đồ để chọn vị trí."
+and, after a choice, the coordinates in small tabular text "16.0544, 108.2022".
 ```
 
 #### Phase 4 — Task 4.4: chia sẻ và thành viên

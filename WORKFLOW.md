@@ -1580,7 +1580,7 @@ Commit 5 — test(route): add day route flow integration test                   
 > **Việc cho Task 3.7 (Mốc 3):** chặng A→C bắc qua một hoạt động không có địa điểm thì hiện ở đâu (mốc đang ghi "giữa hai thẻ liền nhau cùng có địa điểm", khi đó chặng này không hiện mà vẫn nằm trong tổng): hỏi chủ dự án. Chặng 0 m thì ẩn. Endpoint tính theo từng ngày: quyết định chỉ tải ngày đang mở hay mọi ngày. Ghi rõ con số là ước lượng.
 > **Việc cho Task 3.8 (Mốc 3):** OSRM trả quãng đường theo đường thật, thời gian theo *profile* (vận tốc gán cho từng loại đường của OpenStreetMap, không có dữ liệu kẹt xe). Đọc lại tài liệu ở đầu task: máy chủ công cộng chạy profile nào (theo hiểu biết lúc lập kế hoạch: chỉ ô tô; không có profile xe máy), giới hạn số điểm mỗi lần gọi. OSRM lỗi → 503 hay 200 với `legs` rỗng: quyết định khi làm. Thêm `RouteCache` theo mẫu Task 3.4.
 
-> **Thực tế khi làm 3.5 (2026-10-03):** 5 commit code trên nhánh, đúng bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`e64b6b3`). Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.6.
+> **Thực tế khi làm 3.5 (2026-10-03):** 5 commit code trên nhánh, đúng bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`e64b6b3`). PR #21, merge commit `f5d379b`; commit docs đóng task `3a2c943`.
 >
 > | Commit | File | Nội dung |
 > |---|:--:|---|
@@ -1604,7 +1604,6 @@ Commit 5 — test(route): add day route flow integration test                   
 > 3. **Mô tả Swagger cũng là hành vi được hứa:** đổi quy tắc ở service (Commit 3) mà quên câu mô tả ở controller thì tài liệu API nói sai; vì vậy commit có 3 file thay vì 2.
 > 4. **`sed -i` của Git Bash đổi CRLF thành LF cho cả file:** dùng nó để sửa tạm một file `.java` (kiểm chứng ngược) làm Git báo cả file thay đổi. Sửa tạm bằng công cụ sửa file thường, hoặc trả lại CRLF sau khi dùng `sed`.
 >
-> **Việc cho Task 3.6 Mốc 0:** ghi số PR và merge commit của Task 3.5 vào dòng đầu của khối này.
 > **Việc cho Task 3.7 (Mốc 3), bổ sung:** các con số mẫu để dựng giao diện có trong `07-place.md` phần R (Chợ Hàn → Bún chả cá 109: 998 m / 120 giây). Sau khi kéo thả, đổi hoặc bỏ địa điểm, chuyển ngày: tải lại quãng đường của **cả ngày nguồn lẫn ngày đích**.
 > **Việc cho Task 3.8 (Mốc 3), bổ sung:** `RouteService.toResponse` ghép chặng theo vị trí; nếu OSRM trả số chặng khác n−1 thì phải xử lý ở `OsmMapProvider` (ném `PROVIDER_UNAVAILABLE`) chứ không để service ghép sai. Hai hoạt động cùng một địa điểm gửi hai toạ độ trùng nhau: kiểm OSRM trả chặng 0 hay báo lỗi.
 
@@ -1612,36 +1611,83 @@ Commit 5 — test(route): add day route flow integration test                   
 
 ### Task 3.6 — Giao diện: địa điểm và bản đồ
 
-Nhánh: `feat/T3.6-place-map-ui` · Trước khi code: chủ dự án dựng mockup Stitch theo UI_GUIDE 15.3 (ba cột, hộp thoại có tìm địa điểm, bước "Điểm đến" của wizard). Điều kiện mỗi commit: `npm run lint` + `npm run build` xanh, bài `MT-UI` mới trong `06-itinerary-ui.md`.
+Nhánh: `feat/T3.6-place-map-ui` · Chỉ frontend: mọi API đã có từ Task 2.1, 3.1, 3.2. Điều kiện mỗi commit: `npm run lint` + `npm run build` xanh, bài `MT-UI` mới (từ `MT-UI-45`) trong `06-itinerary-ui.md`. Commit đổi bố cục sửa `UI_GUIDE.md` trong chính commit đó (CLAUDE.md rule 38); số file trong ngoặc vuông đã tính file này.
+
+Kết quả của task: người dùng gắn địa điểm vào hoạt động, xem các địa điểm của một ngày trên bản đồ, và đặt vị trí cho điểm đến của chuyến đi. Dải thời tiết, đoạn "25 phút · 8,4 km", nhãn ngày đã qua: Task 3.7.
 
 ```
-Mốc 1 — feat(frontend): pick a place in the activity form
-        types/place.ts, api/places.ts, features/places/PlaceSearchField (ô tìm, danh sách gợi ý nằm TRONG hộp thoại,
-        chờ 300ms sau khi ngừng gõ), chọn → POST /places → placeId vào form; chip tên địa điểm + "×" (clearPlace);
-        ActivityCard thêm hàng địa chỉ; loại hoạt động gợi ý theo category của địa điểm
+Mốc 0 — docs (main): PR #21 của Task 3.5; design.md 15 (bước "Điểm đến": tên tự gõ, vị trí chọn riêng);
+        UI_GUIDE 15.3 (prompt Stitch của bước "Điểm đến"); bảng commit này
 
-Mốc 2 — feat(frontend): add the day map to the trip detail
-        dependency leaflet + react-leaflet (package.json trong commit này), components/map/TripMap.tsx (tải lười),
-        tile CartoDB Positron + dòng ghi nguồn, marker giọt nước theo màu loại hoạt động + số thứ tự,
-        đường nối theo thứ tự trong ngày, cột thứ ba dính khi cuộn (360px, từ 1280px là 420px), khung bản đồ `isolate`
-        (bẫy BUG-UI-002); ngày chưa có địa điểm nào → bản đồ ở điểm đến của chuyến đi + câu hướng dẫn
+Nhóm A — địa điểm của hoạt động
+Commit 1  — feat(frontend): show the place of an activity on its card                               [4 file]
+        types/place.ts (Place), types/activity.ts (place), ActivityCard: hàng địa chỉ có icon ghim; UI_GUIDE 7.3.
+        Chỉ hiển thị (điểm tách (d) của A.2): API đã trả place từ Task 3.2
+Commit 2  — refactor(frontend): move the activity form fields out of the dialog                     [2 file]
+        ActivityFormDialog (210 dòng) tách phần ô nhập sang file riêng; không đổi hành vi
+Commit 3  — feat(frontend): pick a place in the activity form                                       [6 file]
+        api/places.ts (search, pick), hook chờ 300ms sau khi ngừng gõ, features/places/PlaceSearchField (ô tìm,
+        danh sách gợi ý nằm TRONG hộp thoại, dùng được bằng bàn phím; chỉ trả về kết quả được chọn), form hoạt
+        động gọi POST /places rồi giữ placeId, chip tên địa điểm; schemas + types (placeId trong request)
+Commit 4  — feat(frontend): remove the place of an activity                                         [3 file]
+        nút "×" trên chip; sửa hoạt động → clearPlace: true (điểm tách (e): "đổi" tách khỏi "bỏ")
+Commit 5  — feat(frontend): choose the activity type with icon buttons                              [3 file]
+        ô chọn "Loại" thành 6 nút có icon và màu tuyến (UI_GUIDE 15.3); UI_GUIDE mục hộp thoại hoạt động
+Commit 6  — feat(frontend): suggest the activity type from the place                                [2 file]
+        chọn địa điểm → đặt "Loại" theo category, chỉ khi người dùng chưa tự chọn loại trong lần mở hộp thoại đó
 
-Mốc 3 — feat(frontend): link activity cards and map markers
-        store nhỏ (Zustand) giữ activity đang rê chuột; rê thẻ → marker phóng to; bấm marker → cuộn tới thẻ
-        (đích cuộn là phần tử không dính, có scroll-margin — bẫy Task 2.6)
+Nhóm B — điểm đến có toạ độ (phần tìm kiếm)
+Commit 7  — feat(frontend): set the trip destination position from place search                     [6 file]
+        types/trip.ts (destinationLat / Lng trong request), trips/schemas (đủ cả hai hoặc bỏ cả hai),
+        TripFormFields: tên điểm đến vẫn tự gõ, thêm ô tìm vị trí (PlaceSearchField, KHÔNG gọi POST /places),
+        chọn xong hiện toạ độ, tên còn trống thì điền sẵn; CreateTripWizard, EditTripDialog; UI_GUIDE 8.4
+Commit 8  — feat(frontend): rank place suggestions around the trip destination                      [3 file]
+        ô tìm địa điểm của hoạt động gửi lat / lng của điểm đến (chuyến đi chưa có toạ độ thì không gửi)
 
-Mốc 4 — feat(frontend): show the map in a tab on small screens
-        dưới 1024px: hai tab "Lịch trình" / "Bản đồ" dưới dải chip ngày; sửa vùng chạm < 44px (ghi nợ Task 2.7)
+Nhóm C — bản đồ của ngày
+Commit 9  — feat(frontend): add the day map to the trip detail                                      [7 file]
+        package.json + package-lock.json (leaflet, react-leaflet), components/map/TripMap (tải lười), tile CartoDB
+        Positron + dòng ghi nguồn, marker giọt nước theo màu loại + số thứ tự (HTML của ứng dụng, không dùng ảnh
+        marker của Leaflet), TripDetailPage: cột thứ ba dính khi cuộn (360px, từ 1280px là 420px), khung bản đồ
+        `isolate` (bẫy BUG-UI-002); UI_GUIDE 8.1, 9. Đầu commit: kiểm phiên bản react-leaflet cho React 19 và
+        điều khoản tile của CARTO trên trang chính thức
+Commit 10 — feat(frontend): join the places of a day with a line                                    [2 file]
+        đường jade 2px mờ 60% theo thứ tự trong ngày
+Commit 11 — feat(frontend): open the map at the destination when a day has no place                 [3 file]
+        ngày chưa có địa điểm → bản đồ ở điểm đến + câu hướng dẫn; chuyến đi chưa có toạ độ → câu mời đặt vị trí
+Commit 12 — feat(frontend): enlarge the marker of the hovered activity                              [4 file]
+        store nhỏ (Zustand) giữ hoạt động đang rê chuột; marker phóng to 1,15 lần + vòng sáng
+Commit 13 — feat(frontend): scroll to the activity of a clicked marker                              [3 file]
+        đích cuộn là phần tử không dính, có scroll-margin (bẫy Task 2.6)
+Commit 14 — feat(frontend): show the map in a tab on small screens                                  [3 file]
+        dưới 1024px: hai tab "Lịch trình" / "Bản đồ" dưới dải chip ngày; UI_GUIDE 8.1, 11
+Commit 15 — fix(frontend): enlarge touch targets under 44px                                         [3 file]
+        nút "⋮" 28px, chip ngày 36px trên điện thoại (ghi nợ Task 2.7)
 
-Mốc 5 — feat(frontend): add a place that is not in the search results
-        "Không tìm thấy? Tự thêm địa điểm": tên + bấm lên bản đồ lấy toạ độ → POST /places/manual
-
-Mốc 6 — feat(frontend): pick the trip destination from place search
-        bước "Điểm đến" của wizard và hộp sửa chuyến đi: tìm → destinationName + destinationLat / Lng, bản đồ nhỏ
-        có một marker; types/trip.ts, schemas (có đủ cả hai toạ độ hoặc bỏ cả hai)
+Nhóm D — bấm lên bản đồ
+Commit 16 — feat(frontend): add a place that is not in the search results                           [5 file]
+        "Không tìm thấy? Tự thêm địa điểm": tên + bấm lên bản đồ lấy toạ độ → POST /places/manual;
+        components/map (bản đồ chọn một điểm)
+Commit 17 — feat(frontend): show and set the trip destination on a small map                        [3 file]
+        dưới ô điểm đến: bản đồ nhỏ 320px có một marker; bấm lên bản đồ để đổi vị trí; UI_GUIDE 8.4
 ```
 
-**Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]` (mọi lần sửa activity sẽ kéo theo tải lại và kéo thả sẽ huỷ chúng). `ActivityFormDialog` (198 dòng) và `DragDropContainer` (476 dòng) tách bớt trước khi thêm, bằng commit `refactor` riêng nếu cần.
+> **Quyết định khi duyệt bảng commit 3.6 (2026-10-03):**
+> - **Thứ tự:** phần "đặt vị trí điểm đến bằng tìm kiếm" đưa lên ngay sau địa điểm của hoạt động (bản cũ để cuối), vì tìm địa điểm, bản đồ của ngày chưa có địa điểm và dự báo thời tiết (Task 3.7) đều cần toạ độ điểm đến. Phần "bản đồ nhỏ, bấm để chọn" để sau khi đã có bản đồ.
+> - **Tên điểm đến vẫn do người dùng tự gõ; vị trí chọn riêng** bằng tìm kiếm hoặc bấm lên bản đồ. Lý do: dữ liệu mock chỉ có địa điểm cụ thể, không có thành phố (tìm "da nang" ra bảo tàng, sân bay, nhà ga); lấy nguyên kết quả làm điểm đến thì chuyến đi mang tên "Sân bay quốc tế Đà Nẵng". Chọn một gợi ý khi ô tên còn trống thì điền sẵn tên. Không sửa dữ liệu backend trong task này.
+> - **Ô "Loại" thành 6 nút có icon** (UI_GUIDE 15.3 có, bảng mốc cũ không nhắc): làm trong task này, commit riêng.
+> - **Gợi ý loại theo địa điểm** chỉ khi người dùng chưa tự chọn loại trong lần mở hộp thoại đó; sửa hoạt động có sẵn thì không tự đổi loại.
+> - **Mockup Stitch:** chủ dự án không dựng trước; code theo mô tả của UI_GUIDE rồi xem trên trình duyệt và chỉnh. Prompt ở UI_GUIDE 15.3 vẫn được giữ đúng với thứ sẽ làm.
+> - Một ô tìm địa điểm (`PlaceSearchField`) dùng hai chỗ, chỉ trả về kết quả được chọn: form hoạt động gọi tiếp `POST /places` để có `placeId`; form chuyến đi chỉ lấy toạ độ, không lưu địa điểm nào.
+> - Chỉ gửi `placeId` khi người dùng **đổi** địa điểm (ghi chú của Task 3.2 cho cộng tác viên ở Task 4.2).
+>
+> **Giới hạn đã biết:**
+> - Đã đặt vị trí điểm đến thì chỉ đổi được, chưa bỏ được: `PATCH /trips/{id}` chưa hỗ trợ xoá trắng trường tuỳ chọn (design 10.2). Hộp sửa chuyến đi không có nút "bỏ vị trí".
+> - Không có test tự động cho giao diện (Vitest tới Task 8.3): bằng chứng là lint, build và bài `MT-UI`. Các bài `MT-UI` cũ của những màn này chưa chạy lúc bắt đầu task (chủ dự án chạy sau).
+> - Dữ liệu mock chỉ có 56 địa điểm ở 5 điểm đến; nơi khác dùng "Tự thêm địa điểm" (Commit 16) cho tới Task 3.8.
+> - Tile bản đồ do trình duyệt tải thẳng từ máy chủ của CARTO: không có mạng thì nền xám, marker vẫn hiện.
+
+**Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]` (mọi lần sửa activity sẽ kéo theo tải lại và kéo thả sẽ huỷ chúng); khoá tìm địa điểm là `['places', 'search', ...]`. `ActivityFormDialog` (210 dòng) tách ở Commit 2; `DragDropContainer` (479 dòng) tách bằng commit `refactor` riêng nếu Commit 12–13 phải thêm vào nó, nói trước khi làm.
 
 ---
 
