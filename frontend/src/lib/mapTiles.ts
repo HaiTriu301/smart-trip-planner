@@ -3,13 +3,15 @@
 /**
  * Where the background of the map comes from (design.md 3.2). The standard OpenStreetMap tiles need no API
  * key, so the map works on a fresh clone; their terms ask for the credit line and forbid bulk downloads. The
- * browser fetches them directly, not through the backend. The colours are toned down so the markers stand out.
+ * browser fetches them directly, not through the backend. The tiles keep their own colours: an earlier
+ * version greyed them out so the markers stood out, and the whole page looked dull (changed on 2026-10-04).
  */
 export const MAP_TILES = {
   url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   maxZoom: 19,
-  className: 'grayscale-[0.85] brightness-105 contrast-90',
+  // Filter classes for the tile layer; none: the colours of the source
+  className: '',
 }
 
 export const LEAFLET_CREDIT = '<a href="https://leafletjs.com">Leaflet</a>'
