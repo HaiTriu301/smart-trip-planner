@@ -1,6 +1,6 @@
 # Tài liệu kiểm thử — Smart Trip Planner
 
-> Cập nhật: 2026-10-03 · build backend xanh tại commit `957550e` (Task 3.4, 742 lượt test) · không còn lỗi đang mở, 6 lỗi đã sửa chờ chủ dự án kiểm lại sau rà soát Phase 1–2, sửa ở Task 2.7
+> Cập nhật: 2026-10-03 · build backend xanh tại commit `e75152c` (Task 3.5, 769 lượt test) · không còn lỗi đang mở, 6 lỗi đã sửa chờ chủ dự án kiểm lại sau rà soát Phase 1–2, sửa ở Task 2.7
 
 Thư mục này ghi lại **hệ thống phải làm gì, đã kiểm tra thế nào, kết quả ra sao**.
 Mỗi tính năng là một file. Người đọc không cần biết code.
@@ -16,7 +16,7 @@ Mỗi tính năng là một file. Người đọc không cần biết code.
 | [04-trip-day.md](04-trip-day.md) | Các ngày của chuyến đi | Đã ghi |
 | [05-activity.md](05-activity.md) | Hoạt động trong ngày, kể cả sắp xếp lại; gắn địa điểm (Task 3.2) | Đã ghi, chờ chạy thủ công `MT-ACT-13`, `MT-ACT-14` |
 | [06-itinerary-ui.md](06-itinerary-ui.md) | Giao diện lịch trình: danh sách, tạo, sửa chuyến đi và hoạt động | Đã ghi, chờ chạy thủ công |
-| [07-place.md](07-place.md) | Địa điểm: tìm theo tên (Task 3.1); chọn kết quả, tự thêm địa điểm (Task 3.2); giữ tạm kết quả tìm trong Redis (Task 3.4) | Đã ghi, chờ chạy thủ công |
+| [07-place.md](07-place.md) | Địa điểm: tìm theo tên (Task 3.1); chọn kết quả, tự thêm địa điểm (Task 3.2); giữ tạm kết quả tìm trong Redis (Task 3.4); quãng đường trong ngày (Task 3.5) | Đã ghi, chờ chạy thủ công |
 | [08-weather.md](08-weather.md) | Thời tiết của chuyến đi: dự báo từng ngày, giới hạn 16 ngày (Task 3.3); giữ tạm trong Redis (Task 3.4) | Đã ghi, chờ chạy thủ công `MT-WEATHER-01` |
 
 ## Cách đọc một test case
@@ -52,13 +52,13 @@ Mã `TC-` là test tự động, máy chạy mỗi lần build. Mã `MT-` là te
 | Các ngày của chuyến đi | 35 | 3 | 38 | 0 | 0 | 3 |
 | Hoạt động trong ngày | 202 | 14 | 214 | 0 | 2 | 4 |
 | Giao diện lịch trình | 0 | 44 | 0 | 0 | 44 | 3 |
-| Địa điểm | 106 | 4 | 106 | 0 | 4 | 3 |
+| Địa điểm | 133 | 5 | 133 | 0 | 5 | 3 |
 | Thời tiết | 42 | 1 | 42 | 0 | 1 | 0 |
-| **Tổng** | **549** | **85** | **579** | **0** | **55** | **24** |
+| **Tổng** | **576** | **86** | **606** | **0** | **56** | **24** |
 
 **Lỗi đang mở: 0.** Rà soát code Phase 1–2 ngày 2026-10-01 tìm ra 9 lỗi mà test không bắt được; cả 9 đã sửa ở Task 2.7 (một lỗi một commit). Ba lỗi đã được xác nhận: `BUG-PLAT-003` và `BUG-AUTH-006` bằng test tự động và chạy thử, `BUG-UI-003` do chủ dự án thử lại. Sáu lỗi giao diện còn lại **đã sửa trong code nhưng chưa ai chạy lại trên trình duyệt**: `BUG-UI-004` (`MT-UI-43`), `BUG-UI-005` (`MT-UI-44`), `BUG-UI-006` (`MT-UI-12`), `BUG-UI-007` (`MT-UI-02`), `BUG-UI-008` (`MT-UI-26`), `BUG-AUTH-007` (`MT-AUTH-08`). Trong lúc sửa phát sinh thêm `BUG-AUTH-008` (test sai), đã sửa.
 
-Dự án có 688 method test trong 60 file test, chạy thành 742 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
+Dự án có 715 method test trong 62 file test, chạy thành 769 lượt vì một số test lặp lại với nhiều bộ dữ liệu. Số kịch bản ít hơn vì một kịch bản thường được nhiều method ở các tầng khác nhau cùng kiểm. Một số method thuần kỹ thuật không được ghi thành kịch bản riêng.
 
 ## Chưa kiểm thử
 

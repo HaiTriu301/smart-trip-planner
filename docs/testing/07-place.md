@@ -1,6 +1,6 @@
 # 07 · Địa điểm
 
-> Cập nhật: 2026-10-03 · build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · kiểm tra thủ công `MT-PLACE-01` đến `MT-PLACE-04` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-03 · build xanh tại commit `e75152c` (Task 3.5, 769 lượt test) · kiểm tra thủ công `MT-PLACE-01` đến `MT-PLACE-05` chưa chạy · [Về trang chính](README.md)
 
 Địa điểm là một nơi có tên và toạ độ, ví dụ "Chùa Linh Ứng". Người dùng tìm địa điểm theo tên rồi gắn vào một hoạt động; từ đó hoạt động hiện được trên bản đồ. Tìm địa điểm làm ở Task 3.1, gắn vào hoạt động ở Task 3.2.
 
@@ -40,6 +40,16 @@ Task 3.4, giữ tạm kết quả tìm địa điểm trong Redis (kết nối R
 | 4 | Giữ tạm kết quả tìm địa điểm trong Redis 24 giờ | M | `a93a4b5` |
 | fix | Ghi vào Redis xong rồi mới trả về (BUG-PLACE-003, phát hiện khi làm Commit 6) | M (`TC-PLACE-106`), "Lỗi đã phát hiện" | `8b7c864` |
 
+Task 3.5, quãng đường di chuyển trong một ngày:
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 1 | Nguồn bản đồ ước lượng quãng đường và thời gian giữa các điểm liên tiếp | N | `eec39ad` |
+| 2 | API quãng đường của một ngày, cho ngày mà mọi hoạt động đều có địa điểm | O | `2d2c40e` |
+| 3 | Bỏ qua hoạt động không có địa điểm khi tính quãng đường | P | `727ae69` |
+| 4 | Ngày có 0 hoặc 1 địa điểm: trả lời rỗng ngay, không hỏi nguồn bản đồ | Q | `159df83` |
+| 5 | Kiểm toàn luồng quãng đường của một ngày qua mọi tầng | R | `e75152c` |
+
 Vài từ dùng trong file:
 
 | Từ | Nghĩa |
@@ -49,6 +59,7 @@ Vài từ dùng trong file:
 | Mã ở nguồn | Mã mà nguồn tự đặt cho địa điểm, ví dụ `da-nang-cho-han`. Kết quả tìm kiếm chỉ có mã này |
 | Bản lưu | Bản chép của địa điểm trong database của ứng dụng, có mã riêng (`id`). Hoạt động trỏ tới bản lưu, nên trang chuyến đi không phải hỏi lại nguồn |
 | Địa điểm tự thêm | Địa điểm do người dùng tự nhập tên và toạ độ, không lấy từ nguồn nào. Là của riêng người tạo |
+| Chặng | Đoạn di chuyển giữa hai điểm liền nhau của một ngày, gồm quãng đường (mét) và thời gian (giây) |
 
 ---
 
@@ -313,6 +324,94 @@ Kiểm chứng ngược (2026-10-03), mỗi lần sửa một chỗ rồi trả 
 
 **Điểm hở tạm thời sau Commit 4, đã đóng ở Commit 5:** Redis tắt thì tìm địa điểm báo lỗi 500. Xem [01-platform.md](01-platform.md) phần G (`TC-PLAT-038`, `MT-PLAT-06`).
 
+## N. Quãng đường giữa các điểm liên tiếp (nguồn có sẵn)
+
+> **Yêu cầu:** design.md 7.2 (`MapProvider.route`; mock: đường chim bay × 1,3, tốc độ 30 km/h), 10.2 "Quy ước Route" · **Kiểm bởi:** `MockMapProviderTest`
+
+Từ Task 3.5, nguồn bản đồ trả lời thêm một câu hỏi: đi lần lượt qua các điểm này thì mỗi chặng dài bao nhiêu và mất bao lâu. Nguồn có sẵn (mock) không có bản đồ đường thật, nên ước lượng: lấy đường chim bay giữa hai điểm, nhân 1,3 (đường đi không bao giờ thẳng), và coi như đi với vận tốc 30 km/h. Nguồn thật (Task 3.8) sẽ tính theo đường thật. Commit 1 chỉ thêm khả năng này cho nguồn; chưa có API nào dùng cho tới Commit 2.
+
+Ba điểm thử A, B, C nằm trên cùng một kinh tuyến, cách nhau 0,01 và 0,02 độ vĩ, để con số kiểm được bằng tay: 0,01 độ vĩ dài 1.111,95 m.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-107 | Hỏi quãng đường từ A tới B (đường chim bay 1.111,95 m) | Một chặng: 1.446 m (1.111,95 × 1,3, làm tròn tới mét) và 174 giây (1.446 m với vận tốc 30 km/h, làm tròn tới giây) | Đúng | Đạt |
+| TC-PLACE-108 | Hỏi A → B → C; rồi C → B → A; rồi A → C → B | Số chặng luôn bằng số điểm trừ 1, theo **đúng thứ tự đã gửi**: lần đầu 1.446 m rồi 2.891 m; lần hai ngược lại; lần ba 4.337 m rồi 2.891 m (đi quá B rồi quay lại). Nguồn không tự sắp lại điểm để đường ngắn hơn | Đúng | Đạt |
+| TC-PLACE-109 | Hỏi cùng các điểm nhiều lần, và hỏi một nguồn được nạp dữ liệu địa điểm khác | Luôn ra cùng các chặng. Kết quả chỉ phụ thuộc vào toạ độ được gửi | Đúng | Đạt |
+| TC-PLACE-110 | Hai điểm liền nhau có cùng toạ độ (A → A → B) | Chặng đầu là 0 m và 0 giây, chặng sau bình thường. Vẫn đủ 2 chặng | Biên | Đạt |
+| TC-PLACE-111 | Hỏi với danh sách rỗng, rồi với chỉ một điểm | Không có chặng nào, không báo lỗi | Biên | Đạt |
+
+Kiểm chứng ngược (2026-10-03): tạm đổi hệ số 1,3 thành 1,0 thì `TC-PLACE-107`, `108`, `110` đỏ (3 trong 5 test); trả lại thì xanh.
+
+## O. Quãng đường của một ngày qua API
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Route", 6.3 (quyền xem chuyến đi) · **Kiểm bởi:** `RouteServiceTest`, `TripDayControllerTest`
+
+`GET /api/v1/trips/{tripId}/days/{dayId}/route`. Ai xem được chuyến đi thì xem được quãng đường của các ngày trong đó. Câu trả lời gồm danh sách chặng (đi từ hoạt động nào tới hoạt động nào, bao nhiêu mét, bao nhiêu giây) và tổng của cả ngày. Hệ thống đi theo đúng thứ tự hoạt động đang hiển thị, không tự sắp lại.
+
+Ở tầng service, nguồn bản đồ được thay bằng bản giả trả các con số cho sẵn: các kịch bản kiểm việc **ghép chặng với hoạt động và cộng tổng**, không kiểm công thức ước lượng (đã kiểm ở phần N).
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-112 | Ngày có 3 hoạt động đều có địa điểm; nguồn trả 2 chặng 1.150 m / 138 giây và 8.400 m / 1.008 giây | 2 chặng: hoạt động 1 → 2 và 2 → 3, đúng con số của nguồn. Tổng 9.550 m và 1.146 giây, đúng bằng cộng tay hai chặng | Đúng | Đạt |
+| TC-PLACE-113 | Thứ tự hiển thị của ngày không trùng thứ tự tạo (hoạt động tạo sau đứng trước) | Toạ độ được gửi cho nguồn theo **thứ tự hiển thị**, và chặng nối đúng các hoạt động theo thứ tự đó. Cả ngày chỉ hỏi nguồn một lần | Đúng | Đạt |
+| TC-PLACE-114 | Chuyến đi không tồn tại hoặc đã xoá | Báo "không tìm thấy". Không đọc ngày, không đọc hoạt động, không hỏi nguồn | Sai | Đạt |
+| TC-PLACE-115 | Mã ngày là ngày của **một chuyến đi khác** | Báo "không tìm thấy". Hoạt động của ngày đó không được đọc và nguồn không bị hỏi: người xem được chuyến đi này không dò được lịch trình của chuyến đi khác | Bảo mật | Đạt |
+| TC-PLACE-116 | Người có quyền xem gọi API | 200. Mỗi chặng có `fromActivityId`, `toActivityId`, `distanceMeters`, `durationSeconds`; kèm `totalDistanceMeters`, `totalDurationSeconds` | Đúng | Đạt |
+| TC-PLACE-117 | Gọi khi chưa đăng nhập | 401 `UNAUTHORIZED`, không tính gì | Bảo mật | Đạt |
+| TC-PLACE-118 | Người đã đăng nhập nhưng không có quyền xem chuyến đi | 403 `FORBIDDEN`, không tính gì | Bảo mật | Đạt |
+| TC-PLACE-119 | Ngày không thuộc chuyến đi, gọi qua API | 404 `RESOURCE_NOT_FOUND` | Sai | Đạt |
+| TC-PLACE-120 | Mã ngày trên đường dẫn không phải là số (`/days/abc/route`) | 400 `VALIDATION_ERROR`, không phải lỗi 500; không tính gì | Sai | Đạt |
+
+Kiểm chứng ngược (2026-10-03): tạm bỏ bước "ngày phải thuộc chuyến đi" thì `TC-PLACE-115` đỏ; trả lại thì xanh.
+
+**Điểm hở tạm thời sau Commit 2, đã đóng ở Commit 3:** ngày có hoạt động **không có địa điểm** thì API báo lỗi 500. Xem phần P. Luồng trên ứng dụng thật (qua MySQL) được kiểm ở Commit 5.
+
+## P. Hoạt động không có địa điểm
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Route" (chỉ tính giữa các hoạt động có địa điểm; cùng địa điểm thì chặng 0) · **Kiểm bởi:** `RouteServiceTest`
+
+Không phải hoạt động nào cũng có địa điểm ("Nghỉ trưa", "Tự do mua sắm"). Hoạt động như vậy không phải một điểm dừng trên bản đồ, nên bị bỏ qua khi tính quãng đường; đường đi **không bị cắt** ở đó mà nối thẳng hai hoạt động có địa điểm ở hai bên. Số chặng luôn bằng số hoạt động có địa điểm trừ 1.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-121 | Ngày có: Chợ Hàn, một hoạt động không có địa điểm, Chùa Linh Ứng | Một chặng nối thẳng hoạt động thứ nhất với hoạt động thứ ba. Nguồn bản đồ chỉ nhận hai toạ độ. Tổng bằng đúng chặng đó | Đúng | Đạt |
+| TC-PLACE-122 | Hoạt động không có địa điểm đứng ở đầu ngày, giữa ngày và cuối ngày (6 hoạt động, 3 có địa điểm) | Đúng 2 chặng, nối 3 hoạt động có địa điểm theo thứ tự. Các hoạt động còn lại không xuất hiện trong chặng nào | Biên | Đạt |
+| TC-PLACE-123 | Hai hoạt động liền nhau ở **cùng một địa điểm**, rồi một hoạt động ở nơi khác | Vẫn đủ 2 chặng: chặng đầu 0 m và 0 giây, chặng sau bình thường. Có địa điểm là được tính, dù không phải di chuyển; giao diện tự ẩn chặng 0 | Biên | Đạt |
+
+Test viết trước, sửa sau (2026-10-03): trước khi sửa, `TC-PLACE-121` và `122` đỏ với lỗi `NullPointerException`, chính là lỗi 500 của điểm hở; `TC-PLACE-123` đã xanh sẵn vì không cần quy tắc mới. Sau khi thêm bước bỏ qua thì cả ba xanh.
+
+## Q. Ngày không có gì để đi
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Route" (ngày có 0 hoặc 1 địa điểm: `legs` rỗng, không hỏi nguồn bản đồ) · **Kiểm bởi:** `RouteServiceTest`
+
+Một chặng cần hai điểm dừng. Ngày chưa có hoạt động nào, hoặc chỉ có một hoạt động có địa điểm, thì không có gì để tính: câu trả lời là danh sách chặng rỗng và hai tổng bằng 0, **không phải lỗi**. Hệ thống trả lời ngay mà không hỏi nguồn bản đồ. Với nguồn có sẵn điều này không đổi kết quả; với nguồn thật (Task 3.8) nó tránh một lần gọi mạng vô ích, và tránh hỏi một câu mà dịch vụ tìm đường coi là sai.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-124 | Ngày chưa có hoạt động nào | Không có chặng, tổng 0 m và 0 giây. Nguồn bản đồ không bị hỏi | Biên | Đạt |
+| TC-PLACE-125 | Ngày có đúng một hoạt động, có địa điểm | Như trên | Biên | Đạt |
+| TC-PLACE-126 | Ngày có 4 hoạt động nhưng chỉ một hoạt động có địa điểm | Như trên. Thứ được đếm là số địa điểm, không phải số hoạt động | Biên | Đạt |
+| TC-PLACE-127 | Ngày có hoạt động nhưng không hoạt động nào có địa điểm | Như trên | Biên | Đạt |
+
+Test viết trước, sửa sau (2026-10-03): trước khi sửa, cả bốn test đỏ ở đúng một chỗ, "nguồn bản đồ vẫn bị hỏi" (câu trả lời thì đã rỗng sẵn). Sau khi thêm bước chặn thì cả bốn xanh.
+
+## R. Kiểm toàn luồng quãng đường qua mọi tầng
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Route", 6.3 · **Kiểm bởi:** `DayRouteFlowIntegrationTest`
+
+Chạy cả ứng dụng thật với MySQL, không giả lập tầng nào: bộ lọc đăng nhập, kiểm quyền, database, và nguồn bản đồ do chính ứng dụng tự chọn (nguồn có sẵn). Hoạt động và địa điểm được tạo qua chính các API của người dùng. Con số trong bảng là của ba địa điểm thật trong dữ liệu Đà Nẵng: Chợ Hàn → Bún chả cá 109 là 998 m / 120 giây; Bún chả cá 109 → Chùa Linh Ứng là 8.827 m / 1.059 giây; Chùa Linh Ứng ↔ Chợ Hàn là 8.812 m / 1.057 giây.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-128 | Ngày có Chợ Hàn, Bún chả cá, Chùa Linh Ứng. Xem quãng đường; rồi **kéo** Chùa Linh Ứng lên đầu ngày và xem lại | Lần đầu: 2 chặng 998 m và 8.827 m, tổng 9.825 m / 1.179 giây. Sau khi kéo: chặng đổi theo thứ tự mới (chùa → chợ 8.812 m, chợ → bún chả cá 998 m), tổng 9.810 m / 1.177 giây | Đúng | Đạt |
+| TC-PLACE-129 | Chuyển hoạt động ở giữa sang Ngày 2 | Ngày 1 còn một chặng nối thẳng hai hoạt động còn lại (8.812 m). Ngày 2 chỉ có một địa điểm: không có chặng, tổng 0 | Đúng | Đạt |
+| TC-PLACE-130 | Ngày có một hoạt động không có địa điểm ("Nghỉ trưa") nằm giữa; rồi bỏ địa điểm của một hoạt động; rồi bỏ thêm một cái nữa | Lần đầu: 200, "Nghỉ trưa" không nằm trong chặng nào, tổng vẫn 9.825 m (bằng chứng trên ứng dụng thật rằng điểm hở 500 của Commit 2 đã đóng). Bỏ một địa điểm: còn một chặng nối hai hoạt động còn địa điểm. Bỏ tiếp: không còn chặng, tổng 0, vẫn 200 | Biên | Đạt |
+| TC-PLACE-131 | Xem quãng đường của một ngày chưa có hoạt động nào | 200, không có chặng, hai tổng bằng 0 | Biên | Đạt |
+| TC-PLACE-132 | Không có token; người khác xem chuyến đi của chủ; người khác **mượn chuyến đi của chính mình** để hỏi ngày của chuyến đi kia; ngày không tồn tại; chuyến đi không tồn tại; mã ngày không phải số | Lần lượt 401, 403, **404** (và câu trả lời không chứa chặng nào: người có chuyến đi riêng không dò được lịch trình của người khác qua mã ngày), 404, 404, 400 | Bảo mật | Đạt |
+| TC-PLACE-133 | Đếm số câu lệnh database của một lần xem quãng đường: ngày trống, ngày có 2 hoạt động, ngày có 7 hoạt động (6 có địa điểm) | Luôn là **4 câu** (kiểm quyền, chuyến đi, ngày, các hoạt động kèm địa điểm), không tăng theo số hoạt động. Ngày 7 hoạt động vẫn trả đủ 5 chặng | Đúng | Đạt |
+
+Kiểm chứng ngược (2026-10-03): tạm gỡ bước "bỏ qua hoạt động không có địa điểm" thì `TC-PLACE-130` và `133` đỏ; trả lại thì xanh.
+
 ---
 
 ## Kiểm tra thủ công
@@ -389,6 +488,22 @@ docker exec tripplanner-redis redis-cli FLUSHALL
 docker exec tripplanner-redis redis-cli KEYS "place:search*"
 docker exec tripplanner-redis redis-cli TTL "place:search::8|-|cho han"
 ```
+
+**Kết quả:** Chưa chạy
+
+### MT-PLACE-05 · Xem quãng đường của một ngày trên Swagger
+
+Thêm ở Task 3.5 Commit 2. Cần backend chạy bản code mới nhất.
+
+- [ ] Đăng nhập và "Authorize" như `MT-PLACE-01`. Tạo một chuyến đi mới bằng `POST /api/v1/trips` (ghi lại `id` của chuyến đi), rồi gọi `GET /api/v1/trips/{tripId}/days` và ghi lại `id` của Ngày 1.
+- [ ] Gọi `POST /api/v1/places` ba lần với `{"provider": "MOCK", "externalId": "..."}`, lần lượt `da-nang-cho-han`, `da-nang-bun-cha-ca-109`, `da-nang-chua-linh-ung`. Ghi lại ba `id` địa điểm.
+- [ ] Gọi `POST /api/v1/trips/{tripId}/days/{dayId}/activities` ba lần, mỗi lần một địa điểm theo đúng thứ tự trên, ví dụ `{"title": "Chợ Hàn", "placeId": <id>}`. Ghi lại ba `id` hoạt động.
+- [ ] Gọi `GET /api/v1/trips/{tripId}/days/{dayId}/route`. Trả 200 với 2 chặng: chặng đầu `distanceMeters` = `998`, `durationSeconds` = `120`; chặng sau `8827` và `1059`. `fromActivityId` / `toActivityId` đúng là ba hoạt động vừa tạo, theo thứ tự. Tổng `9825` và `1179`.
+- [ ] Đổi `dayId` thành mã ngày của một chuyến đi khác (hoặc một số không tồn tại): 404.
+- [ ] Đổi `dayId` thành `abc`: 400.
+- [ ] Bấm "Authorize" → "Logout" rồi gọi lại: 401.
+- [ ] (Từ Commit 3) Thêm một hoạt động không có địa điểm vào ngày đó rồi gọi lại: vẫn 200 với đúng 2 chặng như trên.
+- [ ] (Từ Commit 4) Gọi với `dayId` của Ngày 2 (chưa có hoạt động nào): 200 với `"legs": []`, hai tổng bằng `0`.
 
 **Kết quả:** Chưa chạy
 

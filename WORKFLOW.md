@@ -1580,6 +1580,34 @@ Commit 5 — test(route): add day route flow integration test                   
 > **Việc cho Task 3.7 (Mốc 3):** chặng A→C bắc qua một hoạt động không có địa điểm thì hiện ở đâu (mốc đang ghi "giữa hai thẻ liền nhau cùng có địa điểm", khi đó chặng này không hiện mà vẫn nằm trong tổng): hỏi chủ dự án. Chặng 0 m thì ẩn. Endpoint tính theo từng ngày: quyết định chỉ tải ngày đang mở hay mọi ngày. Ghi rõ con số là ước lượng.
 > **Việc cho Task 3.8 (Mốc 3):** OSRM trả quãng đường theo đường thật, thời gian theo *profile* (vận tốc gán cho từng loại đường của OpenStreetMap, không có dữ liệu kẹt xe). Đọc lại tài liệu ở đầu task: máy chủ công cộng chạy profile nào (theo hiểu biết lúc lập kế hoạch: chỉ ô tô; không có profile xe máy), giới hạn số điểm mỗi lần gọi. OSRM lỗi → 503 hay 200 với `legs` rỗng: quyết định khi làm. Thêm `RouteCache` theo mẫu Task 3.4.
 
+> **Thực tế khi làm 3.5 (2026-10-03):** 5 commit code trên nhánh, đúng bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`e64b6b3`). Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.6.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `eec39ad` feat(route): add travel legs to the map provider | 4 | `RouteLeg`, `MapProvider.route`, bản mock (đường chim bay × 1,3; 30 km/h; làm tròn tới mét và giây), `MockMapProviderTest` |
+> | `2d2c40e` feat(route): add day route endpoint | 6 | `RouteLegResponse`, `DayRouteResponse`, `RouteService.forDay`, `GET /trips/{tripId}/days/{dayId}/route` trong `TripDayController`, test service và controller |
+> | `727ae69` feat(route): skip activities without a place | 3 | `RouteService` lọc hoạt động có địa điểm; bảng duyệt ghi 2, thêm mô tả Swagger trong `TripDayController` (câu cũ "hai hoạt động liền nhau" không còn đúng) |
+> | `159df83` feat(route): answer an empty route without asking the map | 2 | `RouteService.MIN_STOPS`: dưới 2 điểm dừng thì trả rỗng, không gọi provider |
+> | `e75152c` test(route): add day route flow integration test | 1 | `DayRouteFlowIntegrationTest`: kéo thả, chuyển ngày, bỏ địa điểm, quyền, đếm SQL |
+>
+> Endpoint mới: `GET /api/v1/trips/{tripId}/days/{dayId}/route` (`canView`). Không có migration, dependency, cấu hình hay key message mới. 27 lượt test mới, toàn dự án **769 lượt** (715 method, 62 file test); `07-place.md` +27 kịch bản (`TC-PLACE-107` đến `133`, phần N đến R) và 1 bài thủ công (`MT-PLACE-05`), **chưa chạy** lúc đóng task. Kiểm chứng ngược 3 lần; hai commit (3 và 4) viết test trước rồi mới sửa, test đỏ đúng như dự đoán (`NullPointerException` của điểm hở 500; "nguồn bản đồ vẫn bị hỏi"). Không có lỗi ngoài dự kiến, không có dòng `BUG` mới. Điểm hở tạm thời sau Commit 2 đã đóng ở Commit 3 và có bằng chứng trên ứng dụng thật (`TC-PLACE-130`).
+>
+> Quyết định khi làm (ngoài các quyết định lúc duyệt bảng commit):
+> - Thời gian của một chặng ở bản mock tính từ quãng đường **đã làm tròn**, để hai con số của một chặng luôn khớp khi kiểm bằng tay.
+> - Hợp đồng của `MapProvider.route`: dưới 2 điểm thì trả rỗng; nhưng `RouteService` vẫn tự chặn trước khi gọi, để quy tắc đúng với mọi nguồn (cùng cách với giới hạn 16 ngày của `WeatherService`).
+> - `RouteService` tin hợp đồng "n điểm → n−1 chặng" của provider, chưa tự vệ khi nguồn trả sai số chặng (xem việc cho Task 3.8).
+> - Test toàn luồng dùng đúng cấu hình của `ActivityPlaceFlowIntegrationTest` (bật thống kê Hibernate) nên không tốn thêm lần khởi động ứng dụng nào.
+>
+> **Bẫy đã gặp khi làm 3.5:**
+> 1. **Bản giả của Mockito trả danh sách rỗng khi chưa được dặn:** test "ngày có 1 địa điểm → `legs` rỗng" xanh sẵn dù chưa có bước chặn, vì `mapProvider.route(...)` giả trả `[]`. Chỉ dòng `verifyNoInteractions(mapProvider)` mới chứng minh được quy tắc "không hỏi nguồn"; viết test trước rồi xem nó đỏ ở đúng dòng đó.
+> 2. **Test toàn luồng xanh ngay lần đầu chưa nói lên gì:** phải kiểm chứng ngược (gỡ bước lọc → 2 test đỏ) mới biết test có bắt được lỗi.
+> 3. **Mô tả Swagger cũng là hành vi được hứa:** đổi quy tắc ở service (Commit 3) mà quên câu mô tả ở controller thì tài liệu API nói sai; vì vậy commit có 3 file thay vì 2.
+> 4. **`sed -i` của Git Bash đổi CRLF thành LF cho cả file:** dùng nó để sửa tạm một file `.java` (kiểm chứng ngược) làm Git báo cả file thay đổi. Sửa tạm bằng công cụ sửa file thường, hoặc trả lại CRLF sau khi dùng `sed`.
+>
+> **Việc cho Task 3.6 Mốc 0:** ghi số PR và merge commit của Task 3.5 vào dòng đầu của khối này.
+> **Việc cho Task 3.7 (Mốc 3), bổ sung:** các con số mẫu để dựng giao diện có trong `07-place.md` phần R (Chợ Hàn → Bún chả cá 109: 998 m / 120 giây). Sau khi kéo thả, đổi hoặc bỏ địa điểm, chuyển ngày: tải lại quãng đường của **cả ngày nguồn lẫn ngày đích**.
+> **Việc cho Task 3.8 (Mốc 3), bổ sung:** `RouteService.toResponse` ghép chặng theo vị trí; nếu OSRM trả số chặng khác n−1 thì phải xử lý ở `OsmMapProvider` (ném `PROVIDER_UNAVAILABLE`) chứ không để service ghép sai. Hai hoạt động cùng một địa điểm gửi hai toạ độ trùng nhau: kiểm OSRM trả chặng 0 hay báo lỗi.
+
 ---
 
 ### Task 3.6 — Giao diện: địa điểm và bản đồ
@@ -2096,7 +2124,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.2 Gắn địa điểm vào hoạt động | ☑ | 2026-10-02 |
 | 3 | 3.3 Thời tiết của chuyến đi | ☑ | 2026-10-03 |
 | 3 | 3.4 Redis cache | ☑ | 2026-10-03 |
-| 3 | 3.5 Quãng đường trong ngày | ☐ | |
+| 3 | 3.5 Quãng đường trong ngày | ☑ | 2026-10-03 |
 | 3 | 3.6 UI: địa điểm + bản đồ | ☐ | |
 | 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☐ | |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
