@@ -399,7 +399,8 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 └──────────────────────────────────────┘
 ```
 
-- **`PlaceSearchField`** (`features/places`): chỉ tìm và báo lại kết quả được chọn; dùng lại được ở form khác. Gửi yêu cầu sau khi ngừng gõ **300ms**, từ **2 ký tự**, tối đa 100 ký tự; hiện tối đa 5 gợi ý. Khoá truy vấn `['places', 'search', từ khoá, số gợi ý]`, không nằm dưới `['trip', id]`.
+- **`PlaceSearchField`** (`features/places`): chỉ tìm và báo lại kết quả được chọn; dùng lại được ở form khác. Gửi yêu cầu sau khi ngừng gõ **300ms**, từ **2 ký tự**, tối đa 100 ký tự. Khoá truy vấn `['places', 'search', từ khoá, 20]`, không nằm dưới `['trip', id]`.
+- **5 gợi ý đầu, rồi "Xem tất cả N kết quả":** một lần tìm lấy về tối đa 20 kết quả (giới hạn của máy chủ) nhưng chỉ hiện 5. Còn nữa thì cuối danh sách có dòng chữ `jade` "Xem tất cả 12 kết quả"; bấm (hoặc ↓ tới đó rồi Enter) thì danh sách hiện đủ, cao tối đa 320px và **có thanh cuộn riêng**, vẫn nổi tại chỗ. Đủ 20 kết quả thì có dòng nhắc "Chỉ hiện 20 kết quả đầu. Gõ từ khoá cụ thể hơn để thu hẹp." Gõ tiếp thì danh sách về lại 5 dòng.
 - Danh sách có viền `tide`, bo 6px, `shadow-md`. Icon của gợi ý theo nhóm địa điểm (cùng icon và màu với loại hoạt động, mục 3.4); nhóm lạ hoặc không có nhóm: ghim xám.
 - Trong lúc chờ: "Đang tìm địa điểm…". Không có kết quả: "Không tìm thấy địa điểm nào. Thử từ khoá khác." Máy chủ lỗi: câu của máy chủ.
 - **Bàn phím** (kiểu combobox): ↓ / ↑ di chuyển, Enter chọn dòng đang sáng, Esc **chỉ đóng danh sách** (không đóng hộp thoại). Enter trong ô tìm không bao giờ gửi form bên ngoài.

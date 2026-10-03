@@ -11,7 +11,10 @@ const SEARCH_DELAY_MS = 300
 // Same limits as the backend (design.md 10.2 "Quy ước Place API")
 const MIN_KEYWORD_LENGTH = 2
 const MAX_KEYWORD_LENGTH = 100
-const SUGGESTION_LIMIT = 5
+/** Rows shown at first; "Xem tất cả" opens the rest */
+const SHORT_LIST_SIZE = 5
+/** The most one search can return (the backend accepts 1 to 20) */
+const SEARCH_LIMIT = 20
 // The same keyword gives the same list for a long time (the server keeps it for 24 hours)
 const STALE_TIME_MS = 5 * 60_000
 
@@ -36,7 +39,8 @@ function categoryStyle(category: string | null) {
 
 /**
  * Search box with suggestions (UI_GUIDE 7.12). The request leaves 300ms after the last keystroke, from two
- * characters on. The list floats over what is below instead of pushing it down, and is driven by the keyboard
+ * characters on. The list floats over what is below instead of pushing it down: five rows at first, then
+ * "Xem tất cả" opens every result (at most 20) in a box that scrolls. It is driven by the keyboard
  * as a combobox: arrows move, Enter picks, Esc closes the list. Picking only reports the result; what to do
  * with it (store it as a place, or only read its position) is up to the form around.
  */
@@ -54,10 +58,17 @@ export function PlaceSearchField({
   const [keyword, setKeyword] = useState('')
   const [listOpen, setListOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [showAll, setShowAll] = useState(false)
+  const activeRowRef = useRef<HTMLLIElement>(null)
 
   useEffect(() => {
     if (focusOnMount) inputRef.current?.focus()
   }, [focusOnMount])
+
+  // The full list scrolls inside its own box: keep the row reached with the arrow keys in view
+  useEffect(() => {
+    if (showAll) activeRowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [showAll, activeIndex])
 
   // Wait until typing pauses so each keystroke does not fire a request
   const typed = text.trim()
@@ -69,17 +80,24 @@ export function PlaceSearchField({
   const longEnough = typed.length >= MIN_KEYWORD_LENGTH
   const search = useQuery({
     // Not under ['trip', id]: saving an activity must not refetch or cancel a search
-    queryKey: ['places', 'search', keyword, SUGGESTION_LIMIT],
-    queryFn: ({ signal }) => searchPlaces({ q: keyword, limit: SUGGESTION_LIMIT }, signal),
+    queryKey: ['places', 'search', keyword, SEARCH_LIMIT],
+    queryFn: ({ signal }) => searchPlaces({ q: keyword, limit: SEARCH_LIMIT }, signal),
     enabled: keyword.length >= MIN_KEYWORD_LENGTH,
     staleTime: STALE_TIME_MS,
   })
 
   // While the pause is running the list on screen belongs to an older keyword: show "searching" instead
   const waiting = typed !== keyword || search.isPending
-  const results = waiting || !search.data ? [] : search.data
+  const found = waiting || !search.data ? [] : search.data
+  // One request brings every result; the short list is only a shorter view of it, so "Xem tất cả" costs no
+  // second request
+  const hasMore = !showAll && found.length > SHORT_LIST_SIZE
+  const results = hasMore ? found.slice(0, SHORT_LIST_SIZE) : found
+  // The "Xem tất cả" row sits after the results and is reached with the arrow keys like one of them
+  const rowCount = results.length + (hasMore ? 1 : 0)
   const open = listOpen && longEnough
-  const active = Math.min(activeIndex, results.length - 1)
+  const active = Math.min(activeIndex, rowCount - 1)
+  const onShowAllRow = hasMore && active === results.length
   const listId = `${id}-suggestions`
 
   function pick(result: PlaceResult) {
@@ -91,7 +109,10 @@ export function PlaceSearchField({
     if (event.key === 'Enter') {
       // Enter in a search box never submits the form around it
       event.preventDefault()
-      if (open && results[active]) pick(results[active])
+      if (!open) return
+      // The row that takes its place is the sixth result: the highlight stays where it was
+      if (onShowAllRow) setShowAll(true)
+      else if (results[active]) pick(results[active])
       return
     }
     if (event.key === 'Escape' && open) {
@@ -107,9 +128,9 @@ export function PlaceSearchField({
         setListOpen(true)
         return
       }
-      if (results.length === 0) return
+      if (rowCount === 0) return
       const step = event.key === 'ArrowDown' ? 1 : -1
-      setActiveIndex((active + step + results.length) % results.length)
+      setActiveIndex((active + step + rowCount) % rowCount)
     }
   }
 
@@ -125,7 +146,7 @@ export function PlaceSearchField({
         aria-autocomplete="list"
         aria-expanded={open}
         aria-controls={listId}
-        aria-activedescendant={open && results[active] ? `${id}-option-${active}` : undefined}
+        aria-activedescendant={open && rowCount > 0 ? `${id}-option-${active}` : undefined}
         aria-invalid={invalid ? true : undefined}
         aria-describedby={describedBy}
         placeholder={placeholder}
@@ -135,6 +156,7 @@ export function PlaceSearchField({
         onChange={(event) => {
           setText(event.target.value)
           setActiveIndex(0)
+          setShowAll(false)
           setListOpen(true)
         }}
         onFocus={() => setListOpen(true)}
@@ -149,13 +171,19 @@ export function PlaceSearchField({
           onMouseDown={(event) => event.preventDefault()}
           className="absolute top-full right-0 left-0 z-20 mt-1 overflow-hidden rounded-control border border-tide bg-white shadow-md"
         >
-          <ul id={listId} role="listbox" aria-label="Gợi ý địa điểm">
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Gợi ý địa điểm"
+            className={showAll ? 'max-h-80 overflow-y-auto overscroll-contain' : undefined}
+          >
             {results.map((result, index) => {
               const style = categoryStyle(result.category)
               const isActive = index === active
               return (
                 <li
                   key={`${result.provider}:${result.externalId}`}
+                  ref={isActive ? activeRowRef : undefined}
                   id={`${id}-option-${index}`}
                   role="option"
                   aria-selected={isActive}
@@ -177,7 +205,26 @@ export function PlaceSearchField({
                 </li>
               )
             })}
+            {hasMore && (
+              <li
+                id={`${id}-option-${results.length}`}
+                role="option"
+                aria-selected={onShowAllRow}
+                onMouseEnter={() => setActiveIndex(results.length)}
+                onClick={() => setShowAll(true)}
+                className={`cursor-pointer border-t border-l-[3px] border-t-tide px-3 py-2.5 text-[13px] leading-5 font-medium text-jade ${
+                  onShowAllRow ? 'border-l-jade bg-jade-light' : 'border-l-transparent'
+                }`}
+              >
+                Xem tất cả {found.length} kết quả
+              </li>
+            )}
           </ul>
+          {showAll && found.length >= SEARCH_LIMIT && (
+            <p className="border-t border-tide px-3 py-2 text-xs leading-4 text-gray-500">
+              Chỉ hiện {SEARCH_LIMIT} kết quả đầu. Gõ từ khoá cụ thể hơn để thu hẹp.
+            </p>
+          )}
           {results.length === 0 && (
             <p role="status" className="px-3 py-3 text-[13px] leading-5 text-gray-600">
               {waiting
