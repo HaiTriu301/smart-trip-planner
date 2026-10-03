@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
+import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -177,6 +178,54 @@ class MockMapProviderTest {
         // Hội An is 25 km from Đà Nẵng: inside the 50 km circle, after the two markets of the city itself
         assertThat(provider.search("cho", 8, DA_NANG_CENTRE)).extracting(PlaceResult::name)
                 .startsWith("Chợ Cồn", "Chợ Hàn", "Chợ Hội An");
+    }
+
+    // ---------- travel legs between consecutive points ----------
+
+    /** Three points on one meridian: 0.01 degree of latitude is 1111.95 m, so the numbers can be checked by hand. */
+    private static final Coordinate STOP_A = point("16.00", "108.20");
+    private static final Coordinate STOP_B = point("16.01", "108.20");
+    private static final Coordinate STOP_C = point("16.03", "108.20");
+
+    @Test
+    void legIsTheStraightLineMadeLongerTravelledAtThirtyKilometresPerHour() {
+        // 1111.95 m x 1.3 = 1445.5 -> 1446 m; 1446 m at 30 km/h = 173.5 -> 174 s
+        assertThat(provider.route(List.of(STOP_A, STOP_B))).containsExactly(new RouteLeg(1446, 174));
+    }
+
+    @Test
+    void thereIsOneLegBetweenEveryTwoConsecutivePointsInTheOrderGiven() {
+        // B -> C is 0.02 degree: 2223.90 m x 1.3 = 2891 m, 347 s
+        assertThat(provider.route(List.of(STOP_A, STOP_B, STOP_C)))
+                .containsExactly(new RouteLeg(1446, 174), new RouteLeg(2891, 347));
+        // The order of the points is the order of the legs: nothing is rearranged to shorten the way
+        assertThat(provider.route(List.of(STOP_C, STOP_B, STOP_A)))
+                .containsExactly(new RouteLeg(2891, 347), new RouteLeg(1446, 174));
+        // A, C, B goes past B and comes back: A -> C is 0.03 degree = 4337 m, 520 s
+        assertThat(provider.route(List.of(STOP_A, STOP_C, STOP_B)))
+                .containsExactly(new RouteLeg(4337, 520), new RouteLeg(2891, 347));
+    }
+
+    @Test
+    void samePointsAlwaysGiveTheSameLegs() {
+        List<Coordinate> points = List.of(STOP_A, STOP_B, STOP_C);
+        List<RouteLeg> first = provider.route(points);
+
+        assertThat(provider.route(points)).isEqualTo(first);
+        // Legs depend on the points only, not on the places the provider was loaded with
+        assertThat(twoCities.route(points)).isEqualTo(first);
+    }
+
+    @Test
+    void twoStopsAtTheSamePointAreAZeroLeg() {
+        assertThat(provider.route(List.of(STOP_A, STOP_A, STOP_B)))
+                .containsExactly(new RouteLeg(0, 0), new RouteLeg(1446, 174));
+    }
+
+    @Test
+    void fewerThanTwoPointsHaveNoLeg() {
+        assertThat(provider.route(List.of())).isEmpty();
+        assertThat(provider.route(List.of(STOP_A))).isEmpty();
     }
 
     private static MockMapProvider.MockPlace place(String externalId, String name, String address, String lat, String lng) {

@@ -3,6 +3,7 @@ package com.trieu.tripplanner.provider.map;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
+import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,5 +40,15 @@ public interface MapProvider {
      * @return empty when the source knows no such place
      */
     Optional<PlaceResult> lookup(String externalId);
+
+    /**
+     * Travel along the points in the order given: one leg between every two consecutive points. The points are
+     * visited as they come; the source never reorders them to find a shorter way.
+     *
+     * @param points the stops of the route, first to last
+     * @return one leg fewer than there are points, leg {@code i} going from point {@code i} to point
+     *         {@code i + 1}; empty when there are fewer than two points. One means of travel for every leg
+     */
+    List<RouteLeg> route(List<Coordinate> points);
 
 }
