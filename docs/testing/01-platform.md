@@ -1,6 +1,6 @@
 # 01 · Nền tảng
 
-> Cập nhật: 2026-10-01 · build xanh tại commit `025799a` (Task 2.7, 532 lượt test) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-03 · build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · [Về trang chính](README.md)
 
 Nền tảng là phần mọi tính năng khác dựa vào: khung của phản hồi, cách báo lỗi, ai được gọi gì, và cấu hình.
 
@@ -77,6 +77,39 @@ Mặc định mọi endpoint đều bị khoá, trừ những endpoint được 
 | TC-PLAT-027 | Khởi động khi bỏ trống địa chỉ trang web | Ứng dụng **không khởi động**, nêu tên cấu hình thiếu | Sai | Đạt |
 | TC-PLAT-028 | Khởi động khi tên dịch vụ ngoài bị gõ sai | Ứng dụng **không khởi động**, nêu tên cấu hình sai | Sai | Đạt |
 
+## F. Kết nối Redis
+
+> **Yêu cầu:** design.md 8.1 (Redis là nơi giữ tạm, không phải nguồn dữ liệu) · **Kiểm bởi:** `RedisConnectionIntegrationTest`
+
+Redis là một kho chạy ở máy chủ, cạnh backend, dùng để giữ tạm câu trả lời của các nguồn bên ngoài (tìm địa điểm, dự báo thời tiết) trong một thời hạn. Task 3.4 Commit 1 mới chỉ nối ứng dụng với Redis; chưa có gì được giữ tạm. Test chạy với một Redis thật trong Docker, tự khởi động cùng test.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLAT-033 | Ghi một giá trị tiếng Việt vào Redis với thời hạn 5 phút rồi đọc lại | Đọc ra đúng giá trị đã ghi, kể cả dấu tiếng Việt; Redis cho biết giá trị còn hạn, không quá 5 phút | Đúng | Đạt |
+| TC-PLAT-034 | Ghi một giá trị với thời hạn 0,2 giây rồi chờ | Hết hạn thì Redis tự xoá: không còn đọc được nữa. Đây là cơ chế làm cho bản giữ tạm tự hết hạn | Biên | Đạt |
+| TC-PLAT-035 | Đọc một khoá chưa từng được ghi | Không ra gì, không báo lỗi | Biên | Đạt |
+| TC-PLAT-036 | Xem ứng dụng trong test đang nối tới Redis nào | Nối tới Redis của chính lần chạy test (cổng ngẫu nhiên), không nối tới Redis đang chạy sẵn trên máy lập trình viên. Nếu nối nhầm, test sẽ đạt hay lỗi tuỳ máy | Bảo mật | Đạt |
+
+Kiểm chứng ngược (2026-10-03): tạm bỏ phần nối Redis của test vào ứng dụng thì `TC-PLAT-036` đỏ, trong khi ba kịch bản còn lại **vẫn đạt** vì ứng dụng lặng lẽ dùng Redis đang chạy sẵn trên máy. Đó chính là tình huống kịch bản này được viết ra để bắt.
+
+## G. Ứng dụng khi Redis tắt
+
+> **Yêu cầu:** design.md 8.1 (Redis lỗi hoặc tắt thì ứng dụng vẫn chạy), 6.3 (Actuator chỉ mở `health`, `info`) · **Kiểm bởi:** `RedisDownIntegrationTest`
+
+`/actuator/health` là địa chỉ mà nền tảng triển khai gọi để hỏi "ứng dụng còn sống không"; nhận câu trả lời DOWN thì nó ngừng gửi người dùng tới ứng dụng. Redis chỉ giữ bản tạm, mất Redis thì ứng dụng vẫn làm được việc, nên Redis tắt **không được** làm health báo DOWN. Test dừng hẳn container Redis rồi mới gọi.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLAT-037 | Dừng Redis, rồi gọi `/actuator/health` | 200, `status` = `UP` | Biên | Đạt |
+| TC-PLAT-038 | Dừng Redis, rồi tìm địa điểm hai lần (lần đầu cũng là lần đầu ứng dụng chạm tới Redis đã chết) | Cả hai lần 200 với đủ kết quả, tổng thời gian dưới 10 giây (thực đo khoảng 1 giây). Log có dòng WARN nêu tên cache, khoá và lý do ("Unable to connect to Redis"), không in cả chồng lỗi | Biên | Đạt |
+| TC-PLAT-039 | Dừng Redis, tạo một chuyến đi có điểm đến bắt đầu từ hôm nay, rồi xem thời tiết | 200, ngày đầu có dự báo, trả lời trong vòng vài giây; log có WARN của cache `weather:forecast` | Biên | Đạt |
+
+Trước khi sửa (2026-10-03, viết test trước rồi mới sửa cấu hình): với Redis dừng, health trả `DOWN`, test đỏ. Nguyên nhân: từ Commit 1, thư viện Redis tự thêm một chỉ báo Redis vào health. Commit 2 tắt chỉ báo đó; test xanh. Đây là lỗi đã biết trước và là lý do của commit, nên không ghi thành dòng `BUG-`.
+
+`TC-PLAT-038` cũng được viết trước khi sửa (Commit 5): với Redis dừng, tìm địa điểm trả **500** sau khoảng 1,5 giây, đúng điểm hở đã ghi ở Commit 4. Commit 5 thêm bộ xử lý lỗi cache (ghi WARN rồi bỏ qua cache) và đặt thời gian chờ Redis 1 giây; test xanh.
+
+Giới hạn của test này: Redis dừng trên cùng máy thì bị từ chối kết nối **ngay lập tức**, nên thời gian chờ 1 giây chưa được test tự động chứng minh. Thời gian chờ chỉ phát huy khi máy chủ Redis không trả lời (mạng rớt): khi đó mặc định 60 giây của thư viện mới gây treo. Giá trị 1 giây được chốt theo thiết kế (design.md 8.1), chưa đo được bằng test.
+
 ---
 
 ## Kiểm tra thủ công
@@ -130,6 +163,19 @@ Cần có: đã chạy `npm install` trong `frontend/`.
 - [x] Chạy `npm run build`. Build thành công, có thư mục `dist/`.
 
 **Kết quả:** Đạt · **Ngày:** 2026-09-30 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-PLAT-06 · Tắt Redis giữa chừng
+
+Thêm ở Task 3.4 Commit 5. Backend đang chạy, đã đăng nhập trên Swagger.
+
+- [ ] Gọi `GET /api/v1/places/search?q=chợ hàn`: 200.
+- [ ] Chạy `docker stop tripplanner-redis`.
+- [ ] Gọi lại cùng địa chỉ: vẫn **200** với cùng kết quả, trả lời trong vòng vài giây. Trong log của backend có dòng `WARN ... Cache 'place:search' failed to get entry ...: Unable to connect to Redis`, không có chồng lỗi dài.
+- [ ] Gọi `GET /actuator/health`: `{"status":"UP"}`.
+- [ ] Gọi `GET /api/v1/weather/trips/{id}` với một chuyến đi có điểm đến: vẫn 200, có dự báo; log có thêm dòng WARN của cache `weather:forecast`.
+- [ ] Chạy `docker start tripplanner-redis`, chờ vài giây, gọi lại tìm kiếm: 200, không còn dòng WARN mới.
+
+**Kết quả:** Chưa chạy
 
 ---
 

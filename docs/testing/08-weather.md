@@ -1,6 +1,6 @@
 # 08 · Thời tiết
 
-> Cập nhật: 2026-10-03 · build xanh tại commit `2085c1e` (Task 3.3, 718 lượt test) · kiểm tra thủ công `MT-WEATHER-01` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-03 · build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · kiểm tra thủ công `MT-WEATHER-01` chưa chạy · [Về trang chính](README.md)
 
 Mỗi ngày của chuyến đi có một dự báo thời tiết: trời thế nào, nhiệt độ thấp nhất và cao nhất, khả năng mưa. Dự báo lấy theo điểm đến của chuyến đi. Phần backend làm ở Task 3.3; giao diện ở Task 3.7; nguồn dự báo thật (Open-Meteo) ở Task 3.8.
 
@@ -15,6 +15,12 @@ File này được ghi dần theo từng commit của Task 3.3:
 | 5 | "Hôm nay" là ngày nào đối với một tài khoản, tính theo múi giờ của tài khoản đó (chuẩn bị cho giới hạn 16 ngày) | E | `f7d0704` |
 | 6 | Chỉ có dự báo cho 16 ngày tính từ hôm nay; ngày đã qua hoặc xa hơn ghi "chưa có dự báo" | F | `6f58daf` |
 | 7 | Kiểm toàn luồng xem thời tiết qua mọi tầng, trên MySQL thật | G | `2085c1e` |
+
+Task 3.4, giữ tạm dự báo trong Redis (kết nối Redis, health và Redis tắt ghi ở [01-platform.md](01-platform.md) phần F, G):
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 6 | Giữ tạm dự báo thời tiết trong Redis 3 giờ | H | `957550e` |
 
 Vài từ dùng trong file:
 
@@ -148,6 +154,24 @@ Các phần trên kiểm từng mảnh riêng, với những mảnh xung quanh �
 | TC-WEATHER-037 | Đếm số câu SQL khi xem thời tiết của chuyến đi 3 ngày, 30 ngày, và 30 ngày chưa có điểm đến | 4 câu cho cả chuyến 3 ngày lẫn 30 ngày (quyền, chuyến đi, các ngày, múi giờ): số câu không tăng theo số ngày. 3 câu khi chưa có điểm đến (không cần tra múi giờ) | Biên | Đạt |
 
 Kiểm chứng ngược (2026-10-03): tạm cho "hôm nay" luôn tính theo giờ Việt Nam, bỏ qua múi giờ của tài khoản, thì `TC-WEATHER-035` đỏ (1 trong 5 test); trả lại code thì xanh.
+
+## H. Giữ tạm dự báo trong Redis
+
+> **Yêu cầu:** design.md 8.1 (`weather:forecast`, 3 giờ; khoá = toạ độ làm tròn 4 chữ số + ngày đầu + ngày cuối) · **Kiểm bởi:** `ForecastCacheIntegrationTest`, `WeatherServiceTest`
+
+Cùng cách làm với tìm địa điểm ([07-place.md](07-place.md) phần L, M): mỗi câu hỏi "dự báo ở điểm này, từ ngày này tới ngày này" là một khoá; câu trả lời được cất 3 giờ, vì dự báo được cập nhật vài lần mỗi ngày. Test chạy với Redis thật và chứng minh "lấy từ Redis" bằng cách đánh tráo câu trả lời đã cất.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-WEATHER-038 | Hỏi dự báo Đà Nẵng từ 05/10 đến 07/10 lần đầu, rồi nhìn vào Redis | Có ô mang khoá `weather:forecast::16.0678,108.2208:2026-10-05:2026-10-07`, còn hạn gần đủ 3 giờ. Nội dung là JSON đọc được với ngày dạng `2026-10-05`, không chứa tên class Java | Đúng | Đạt |
+| TC-WEATHER-039 | Đánh tráo câu trả lời trong Redis bằng "tuyết ở Đà Nẵng", rồi hỏi lại; hỏi với một điểm cách 8 m | Cả hai lần nhận "tuyết": câu trả lời lấy từ Redis, và hai điểm sát nhau là một điểm | Đúng | Đạt |
+| TC-WEATHER-040 | Sau khi đánh tráo, hỏi Hà Nội cùng khoảng ngày; hỏi Đà Nẵng nhưng ngắn hơn một ngày | Cả hai lần nhận dự báo thật từ nguồn. Khoảng ngày khác là câu hỏi khác, dù có trùng ngày với câu đã cất | Biên | Đạt |
+| TC-WEATHER-041 | Hỏi 16 ngày hai lần liên tiếp, lần hai lấy từ Redis | Hai danh sách bằng nhau hoàn toàn: ngày, tình trạng, nhiệt độ tới chữ số thập phân. Dữ liệu đọc lại vẫn đúng kiểu | Đúng | Đạt |
+| TC-WEATHER-042 | Xem danh sách cache đã khai báo | Đúng hai cache: tìm địa điểm và dự báo, không có cái nào khác | Biên | Đạt |
+
+`WeatherServiceTest` (phần B, F) từ commit này chạy với bản giả của lớp cache thay cho bản giả của nguồn: mọi kịch bản cũ giữ nguyên kết quả. Redis tắt mà xem thời tiết vẫn 200: [01-platform.md](01-platform.md) `TC-PLAT-039`.
+
+Kiểm chứng ngược (2026-10-03): bỏ dòng bật cache trên hàm hỏi dự báo thì `TC-WEATHER-038`, `039` đỏ (2 trong 5 test); trả lại thì xanh.
 
 ---
 

@@ -1,6 +1,6 @@
 # 07 · Địa điểm
 
-> Cập nhật: 2026-10-02 · build xanh tại commit `532bc80` (Task 3.2, 681 lượt test) · kiểm tra thủ công `MT-PLACE-01`, `MT-PLACE-02`, `MT-PLACE-03` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-03 · build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · kiểm tra thủ công `MT-PLACE-01` đến `MT-PLACE-04` chưa chạy · [Về trang chính](README.md)
 
 Địa điểm là một nơi có tên và toạ độ, ví dụ "Chùa Linh Ứng". Người dùng tìm địa điểm theo tên rồi gắn vào một hoạt động; từ đó hoạt động hiện được trên bản đồ. Tìm địa điểm làm ở Task 3.1, gắn vào hoạt động ở Task 3.2.
 
@@ -31,6 +31,14 @@ Task 3.2, gắn địa điểm vào hoạt động (phần của hoạt động 
 | 12 | Kiểm toàn luồng chọn và tự thêm địa điểm qua mọi tầng | K (và [05-activity.md](05-activity.md) phần T) | `532bc80` |
 
 Bốn commit trên vốn là một mốc 17 file (`e492ed3`), được tách lại ngày 2026-10-01 theo yêu cầu của chủ dự án trước khi push. Kịch bản và kết quả không đổi; chỉ cách chia commit đổi.
+
+Task 3.4, giữ tạm kết quả tìm địa điểm trong Redis (kết nối Redis và health ghi ở [01-platform.md](01-platform.md) phần F, G):
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 3 | Quy tắc "hai lần tìm nào là cùng một câu hỏi" (khoá của bản giữ tạm) | L | `26780ce` |
+| 4 | Giữ tạm kết quả tìm địa điểm trong Redis 24 giờ | M | `a93a4b5` |
+| fix | Ghi vào Redis xong rồi mới trả về (BUG-PLACE-003, phát hiện khi làm Commit 6) | M (`TC-PLACE-106`), "Lỗi đã phát hiện" | `8b7c864` |
 
 Vài từ dùng trong file:
 
@@ -263,6 +271,48 @@ Chạy cả ứng dụng thật với MySQL, không giả lập tầng nào. Cá
 
 Luồng tiếp theo, gắn địa điểm vào hoạt động trên ứng dụng thật, ghi ở [05-activity.md](05-activity.md) phần T.
 
+## L. Hai lần tìm nào là cùng một câu hỏi
+
+> **Yêu cầu:** design.md 8.1 (khoá của `place:search`: từ khoá đã chuẩn hoá + `limit` + toạ độ làm tròn) · **Kiểm bởi:** `PlaceSearchCacheTest`
+
+Từ Task 3.4, câu trả lời của một lần tìm địa điểm được giữ tạm 24 giờ để lần tìm giống hệt sau đó không phải hỏi lại nguồn. Muốn vậy phải định nghĩa "giống hệt": mỗi lần tìm được đổi thành một **khoá**, hai lần tìm ra cùng khoá thì dùng chung một câu trả lời. Khoá quá lỏng thì người dùng nhận câu trả lời của câu hỏi khác; quá chặt thì không ai dùng lại được gì. Commit 3 chỉ thêm quy tắc tạo khoá; việc giữ tạm bắt đầu từ Commit 4.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-095 | Tìm "Chợ Hàn", 8 kết quả, quanh Đà Nẵng; rồi cùng lần tìm đó nhưng không có toạ độ | Khoá đọc được bằng mắt: `8\|16.0678,108.2208\|cho han` và `8\|-\|cho han`. Người vận hành nhìn vào Redis là biết ô nào của câu hỏi nào | Đúng | Đạt |
+| TC-PLACE-096 | Gõ "chợ hàn", "cho han", "CHỢ HÀN", "  chợ   hàn "; rồi "Đà Nẵng" và "da nang" | Cùng một khoá: dấu, chữ hoa và khoảng trắng thừa không tạo ra câu hỏi mới | Đúng | Đạt |
+| TC-PLACE-097 | Đổi từ khoá, đổi số kết quả muốn lấy (8 thành 20), đổi toạ độ (Đà Nẵng thành Hà Nội), bỏ toạ độ | Mỗi thay đổi ra một khoá khác: cả ba thứ đều làm đổi câu trả lời | Biên | Đạt |
+| TC-PLACE-098 | Hai toạ độ cách nhau dưới khoảng 11 m; cùng một toạ độ viết với 4 và với 7 chữ số thập phân; một toạ độ lệch ở chữ số thứ tư | Hai trường hợp đầu cùng khoá; trường hợp cuối khác khoá | Biên | Đạt |
+| TC-PLACE-099 | Người dùng gõ từ khoá trông giống hệt một khoá, có cả ký tự ngăn cách (`8\|-\|cho han`) | Không trùng với khoá của lần tìm "cho han": từ khoá đứng cuối khoá nên không thể bị đọc thành số kết quả hay toạ độ của câu hỏi khác | Bảo mật | Đạt |
+
+Kiểm chứng ngược (2026-10-03), mỗi lần sửa một chỗ rồi trả lại: giữ nguyên dấu trong khoá thì `TC-PLACE-095`, `096` đỏ; bỏ số kết quả khỏi khoá thì `TC-PLACE-095`, `097` đỏ (2 trong 5 test mỗi lần).
+
+## M. Giữ tạm kết quả tìm địa điểm trong Redis
+
+> **Yêu cầu:** design.md 8.1 (`place:search`, 24 giờ; cache dùng chung, đặt ở bean riêng, lưu JSON có kiểu cố định) · **Kiểm bởi:** `PlaceSearchCacheIntegrationTest`, `PlaceServiceTest`
+
+Lần đầu một câu hỏi được hỏi, nguồn địa điểm trả lời và câu trả lời được cất vào Redis. Trong 24 giờ sau đó, ai hỏi đúng câu đó (theo quy tắc ở phần L) thì nhận câu trả lời từ Redis, nguồn không bị hỏi. Cache dùng chung cho mọi người dùng vì kết quả tìm địa điểm không phải dữ liệu riêng của ai. Test chạy với Redis thật.
+
+Cách chứng minh "câu trả lời đến từ Redis": sau lần tìm đầu, test **đánh tráo** câu trả lời đang cất trong Redis bằng một địa điểm bịa ra. Nếu lần tìm sau trả về địa điểm bịa đó, câu trả lời đúng là lấy từ Redis; nếu trả về địa điểm thật, tức là nguồn vẫn bị hỏi.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-100 | Tìm "chợ hàn" lần đầu, rồi nhìn vào Redis | Có một ô mang khoá `place:search::8\|-\|cho han`, còn hạn gần đủ 24 giờ. Nội dung là JSON đọc được, có "Chợ Hàn", không chứa tên class Java | Đúng | Đạt |
+| TC-PLACE-101 | Đánh tráo câu trả lời trong Redis, rồi tìm lại "chợ hàn", và "  CHO   HAN " | Cả hai lần đều nhận địa điểm đã đánh tráo: câu trả lời lấy từ Redis, và cách gõ khác nhau vẫn là một câu hỏi | Đúng | Đạt |
+| TC-PLACE-102 | Sau khi đánh tráo, tìm từ khoá khác ("chợ cồn"), số kết quả khác (20), toạ độ khác (quanh Đà Nẵng) | Cả ba lần đều nhận địa điểm thật từ nguồn, không lần nào nhận địa điểm đánh tráo | Biên | Đạt |
+| TC-PLACE-103 | Tìm "da nang" hai lần liên tiếp, lần hai lấy từ Redis | Hai danh sách bằng nhau hoàn toàn: cùng địa điểm, cùng thứ tự, toạ độ đúng tới chữ số cuối. Dữ liệu đọc lại vẫn đúng kiểu, không biến thành dạng thô | Đúng | Đạt |
+| TC-PLACE-104 | Tìm một từ khoá không có kết quả, hai lần | Câu trả lời rỗng cũng được cất (`[]`), lần sau không hỏi lại nguồn | Biên | Đạt · từng lỗi BUG-PLACE-003 |
+| TC-PLACE-106 | Tìm 40 từ khoá khác nhau liên tiếp, sau mỗi lần nhìn ngay vào Redis | Lần nào khoá cũng đã có mặt **ngay khi hàm tìm kiếm trả về**. Test này được thêm khi sửa BUG-PLACE-003 để ép lỗi "ghi ở nền" lộ ra chắc chắn, thay vì thỉnh thoảng | Biên | Đạt |
+| TC-PLACE-105 | Hỏi một cache có tên gõ sai (`place:serach`) | Không tồn tại. Chỉ cache đã khai báo mới dùng được, để một lỗi gõ tên không lặng lẽ tạo ra cache không có hạn | Sai | Đạt |
+
+`PlaceServiceTest` (phần B) từ commit này kiểm thêm: việc tìm kiếm luôn đi qua cache, không gọi thẳng nguồn.
+
+Kiểm chứng ngược (2026-10-03), mỗi lần sửa một chỗ rồi trả lại:
+- Bỏ dòng bật cache trên hàm tìm kiếm: `TC-PLACE-100`, `101`, `104` đỏ (3 trong 6 test).
+- Thay cách lưu "kiểu cố định" bằng cách lưu "tự ghi tên class": `TC-PLACE-101`, `103` đỏ. Đây là cái bẫy đã được nhắc trước trong WORKFLOW: dữ liệu đọc lại không còn đúng kiểu.
+
+**Điểm hở tạm thời sau Commit 4, đã đóng ở Commit 5:** Redis tắt thì tìm địa điểm báo lỗi 500. Xem [01-platform.md](01-platform.md) phần G (`TC-PLAT-038`, `MT-PLAT-06`).
+
 ---
 
 ## Kiểm tra thủ công
@@ -323,12 +373,32 @@ docker exec -it tripplanner-mysql mysql -u tripuser -p tripplanner -e "SELECT id
 
 **Kết quả:** Chưa chạy
 
+### MT-PLACE-04 · Xem kết quả tìm địa điểm được giữ trong Redis
+
+Thêm ở Task 3.4 Commit 4. Cần `docker compose up -d mysql redis mailhog` và backend đang chạy.
+
+- [ ] Chạy lệnh thứ nhất bên dưới để xoá sạch Redis của máy bạn (chỉ chứa bản tạm, xoá không mất gì).
+- [ ] Trên Swagger, đăng nhập rồi gọi `GET /api/v1/places/search?q=chợ hàn`. Trả 200, có "Chợ Hàn".
+- [ ] Chạy lệnh thứ hai. Có đúng một khoá: `place:search::8|-|cho han`.
+- [ ] Chạy lệnh thứ ba. Ra một số gần 86400 (số giây của 24 giờ) và đang giảm dần.
+- [ ] Gọi lại với `q=CHO HAN`. Chạy lại lệnh thứ hai: vẫn chỉ một khoá (hai cách gõ dùng chung một ô).
+- [ ] Gọi với `q=chợ hàn&limit=20`. Chạy lại lệnh thứ hai: có thêm khoá `place:search::20|-|cho han`.
+
+```powershell
+docker exec tripplanner-redis redis-cli FLUSHALL
+docker exec tripplanner-redis redis-cli KEYS "place:search*"
+docker exec tripplanner-redis redis-cli TTL "place:search::8|-|cho han"
+```
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
+| BUG-PLACE-003 | `TC-PLACE-104` (Task 3.4 Commit 6, test cũ của Commit 4) | 2026-10-03 | `PlaceSearchCacheIntegrationTest > emptyAnswerIsStoredToo` đỏ **lúc có lúc không**: 2 lần đỏ trong khoảng 10 lần chạy bộ 4 class (`ForecastCache`, `PlaceSearchCache`, `RedisDown`, `TripWeatherFlow`), chưa từng đỏ khi chạy một mình. Thông báo: `expected: "[]" but was: null` tại dòng đọc thẳng khoá `place:search::8\|-\|khong co dia diem nao ten nay` ngay sau khi tìm kiếm trả về danh sách rỗng. Không có dòng WARN nào của cache trong log; các test khác của class vẫn đạt; thứ tự class giống nhau ở lần đỏ và lần xanh | **Code sai**, test đúng. Bộ ghi cache mặc định của Spring Data Redis 4 **ghi vào Redis ở nền** khi dùng trình điều khiển Lettuce: hàm tìm kiếm trả về trước khi lệnh ghi tới Redis, nên đọc thẳng Redis ngay sau đó thỉnh thoảng chưa thấy khoá. Đã xác nhận bằng cách đọc bytecode của `DefaultRedisCacheWriter` (`writeAsynchronously`, cờ bật sẵn) và bằng một test ép lỗi lộ ra (`TC-PLACE-106`: 40 lần tìm liên tiếp, đỏ 2/2 lần khi chưa sửa). Ngoài test, cách ghi ở nền còn làm lỗi ghi không tới được bộ xử lý lỗi của Commit 5 | Cấu hình bộ ghi cache bằng `RedisCacheWriter.create(..., writer -> writer.immediateWrites())` trong `CacheConfig`: ghi xong rồi mới trả về. Giá phải trả là mỗi lần ghi cache chờ Redis khoảng một phần nghìn giây | Đã sửa, commit `8b7c864` |
 | BUG-PLACE-002 | Test mới của Task 3.2 Mốc 1: database từ chối toạ độ ngoài khoảng | 2026-10-01 | `PlaceMappingTest > coordinatesOutsideTheGlobeAreRejectedByTheDatabase` đỏ cả 4 lượt. Database **có** từ chối (`Check constraint 'chk_places_lat' is violated`), nhưng test mong đợi loại lỗi `DataIntegrityViolationException` còn thực tế nhận `UncategorizedSQLException`. 63 lượt còn lại của năm class đạt | **Test sai**, hệ thống đúng. Spring chỉ đổi một số mã lỗi của MySQL sang loại "vi phạm ràng buộc dữ liệu"; lỗi của ràng buộc `CHECK` (mã 3819) không nằm trong số đó nên ra loại lỗi chung | Test không còn dựa vào loại lỗi, mà kiểm đúng tên ràng buộc bị vi phạm (`chk_places_lat`, `chk_places_lng`). Kiểm như vậy còn chặt hơn bản đầu. Code không đổi | Đã sửa, commit `5b9088f` |
 | BUG-PLACE-001 | Test mới của Task 3.1 Mốc 4: mỗi điểm đến phải có đủ các loại địa điểm | 2026-10-01 | `MockPlacesDataTest > everyDestinationHasEnoughPlacesOfSeveralKinds() FAILED`: với Hội An, test mong đợi có đủ bốn loại tham quan, ăn uống, lưu trú, di chuyển; thực tế thiếu loại di chuyển (`could not find the following element(s): ["TRANSPORT"]`). 19 test còn lại của hai class đạt | **Dữ liệu thiếu**, test đúng. Khi soạn danh sách Hội An, lần tra "Bến xe Hội An" trên OpenStreetMap không ra kết quả dùng được nên điểm đến này bị bỏ trống loại di chuyển | Tra thêm và bổ sung "Cảng du lịch Cửa Đại" (bến tàu đi Cù Lao Chàm) vào Hội An | Đã sửa, commit `3ba2e85` |
 

@@ -264,7 +264,11 @@ Khi review code, kiểm tra lại các điểm này:
 - Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")
 - Code mới cần "hôm nay" / "bây giờ" mà tự gọi `LocalDate.now()` / `Instant.now()`: test phụ thuộc ngày chạy và múi giờ của máy. Lấy từ bean `Clock` (`config/ClockConfig`); "hôm nay" của người dùng lấy từ `UserService.today(userId)` (múi giờ tài khoản, design rule 14.22). Test dùng `Clock.fixed(...)`, test toàn luồng thay bean bằng `@TestBean` — Task 3.3
 - Bọc `@Transactional` quanh một lời gọi provider ra ngoài: kết nối database bị giữ suốt lúc chờ mạng. Đọc database xong mới gọi provider, như `WeatherService.forTrip` — Task 3.3
-- `@Cacheable` (hoặc annotation dựa trên proxy khác) đặt lên method `private` hay method được gọi từ chính bean đó: không chạy. Ghi ở WORKFLOW.md "Việc cho Task 3.4" — Task 3.3
+- `@Cacheable` (hoặc annotation dựa trên proxy khác) đặt lên method `private` hay method được gọi từ chính bean đó: không chạy. Cache đặt ở bean riêng giữa service và provider (`PlaceSearchCache`, `ForecastCache`) — Task 3.3, 3.4
+- Cache mới trong Redis phải khai báo ở `config/CacheConfig` (tên trong `CacheNames`, TTL, kiểu dữ liệu cố định bằng `JacksonJsonRedisSerializer`); tên chưa khai báo thì cache không tồn tại. Không dùng serializer tự ghi tên class: `record` đọc lại thành `Map` — Task 3.4
+- Bộ ghi cache mặc định của Spring Data Redis 4 ghi ở nền với Lettuce: test "ghi rồi đọc ngay" đỏ lúc có lúc không, lỗi ghi không tới `CacheErrorHandler`. Dự án đã bật `immediateWrites()`; đừng gỡ — BUG-PLACE-003
+- Test cần Redis tắt thật: dừng container trong `RedisDownIntegrationTest` (có `@DirtiesContext`), thêm kịch bản vào class đó, đừng tạo class mới (mỗi class như vậy tốn một lần khởi động ứng dụng) — Task 3.4
+- Lặp lại một lệnh `./gradlew test --tests ...` không đổi gì thì Gradle không chạy lại ("up-to-date"); muốn bắt test lúc có lúc không phải dùng `cleanTest test` — Task 3.4
 
 ---
 

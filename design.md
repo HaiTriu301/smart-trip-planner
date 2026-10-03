@@ -640,6 +640,12 @@ Chốt 2026-10-03 (bảng commit Task 3.4):
 - **Thời gian chờ Redis:** 1 giây cho kết nối và cho mỗi lệnh. Quá hạn hoặc lỗi → ghi log WARN, bỏ qua cache, gọi thẳng provider.
 - **Health:** tắt chỉ báo Redis của Actuator (`management.health.redis.enabled=false`); Redis tắt không làm `/actuator/health` báo DOWN.
 
+Chốt khi làm Task 3.4 (2026-10-03):
+- **Ghi cache đồng bộ:** bộ ghi cache dùng `immediateWrites()`. Mặc định của Spring Data Redis 4 với Lettuce là ghi ở nền (method trả về trước khi Redis nhận), làm "đọc ngay sau khi ghi" không chắc thấy và làm lỗi ghi không tới `CacheErrorHandler` (BUG-PLACE-003).
+- Khoá tìm địa điểm: `{limit}|{lat4},{lng4}|{từ khoá đã chuẩn hoá}` (hoặc `{limit}|-|{từ khoá}` khi không có toạ độ); từ khoá đứng cuối để không bị đọc nhầm. Khoá thời tiết: `{lat4},{lng4}:{from}:{to}`. Tên đầy đủ trong Redis có tiền tố tên cache: `place:search::...`, `weather:forecast::...`.
+- Chỉ cache đã khai báo trong `CacheConfig` mới tồn tại; câu trả lời rỗng cũng được cất; lỗi của provider là ngoại lệ nên không bị cất.
+- Bật cache bằng hai bean đứng giữa service và provider: `service/PlaceSearchCache`, `service/ForecastCache`. Service unit test dùng bản giả của hai bean này thay cho bản giả của provider.
+
 ### 8.2. Rate limit (Bucket4j + Redis)
 
 | Nhóm endpoint | FREE | PREMIUM | Guest/IP |

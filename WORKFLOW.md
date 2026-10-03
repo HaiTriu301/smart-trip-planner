@@ -1474,7 +1474,7 @@ Commit 5 — feat(cache): skip the cache when redis fails                       
         spring.data.redis.timeout và connect-timeout = 1s; RedisDownIntegrationTest: dừng container → tìm địa điểm
         vẫn 200 và đủ kết quả, trong vài giây
 
-Commit 6 — feat(cache): cache weather forecast in redis                                             [7 file]
+Commit 6 — feat(cache): cache weather forecast in redis                                             [8 file]
         CacheNames + CacheConfig (weather:forecast TTL 3h, List<DailyForecast>), service/ForecastCache
         (keyOf: toạ độ làm tròn 4 chữ số + from + to; forecast(...) @Cacheable gọi WeatherProvider.forecast),
         WeatherService gọi qua nó, WeatherServiceTest; ForecastCacheIntegrationTest như Commit 4;
@@ -1493,6 +1493,42 @@ Commit 6 — feat(cache): cache weather forecast in redis                       
 > **Hạn chế đã biết, xét lại ở Task 3.8:** khoá tìm địa điểm bỏ dấu nên "chợ hàn" và "cho han" chung một ô cache (với Photon thật hai cách gõ có thể cho kết quả khác nhau); khoá thời tiết gồm cả khoảng ngày nên hai chuyến đi cùng điểm đến nhưng lệch ngày không dùng chung cache.
 
 **Nhớ:** DTO được cache là `record`: kiểm serializer đọc lại đúng kiểu (không thành `Map`) ngay ở test của Commit 4. Tên class serializer Jackson 3 của Spring Data Redis 4, đã tra tài liệu chính thức ngày 2026-10-03: `JacksonJsonRedisSerializer` (một kiểu cố định) và `GenericJacksonJsonRedisSerializer`. Spring Boot 4.1.1 nối Redis trong test bằng `GenericContainer` + `@ServiceConnection(name = "redis")`, không cần thêm thư viện test.
+
+> **Thực tế khi làm 3.4 (2026-10-03):** 7 commit code trên nhánh = 6 commit của bảng đã duyệt + 1 commit `fix` chen vào trước Commit 6, sau commit docs Mốc 0 trên `main` (`531f9c1`). Số PR và merge commit ghi bổ sung ở Mốc 0 của Task 3.5.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `464cddf` feat(cache): connect the application to redis | 4 | starter data-redis, `spring.data.redis`, container Redis trong `TestcontainersConfiguration`, `RedisConnectionIntegrationTest` |
+> | `6a3430d` feat(cache): keep health up when redis is down | 2 | `management.health.redis.enabled=false`, `RedisDownIntegrationTest` (dừng hẳn container) |
+> | `26780ce` feat(cache): build the cache key of a place search | 2 | `PlaceSearchCache.keyOf`, dạng `8\|16.0678,108.2208\|cho han` |
+> | `a93a4b5` feat(cache): cache place search in redis | 7 | starter cache, `CacheConfig`, `CacheNames`, `PlaceSearchCache.search` `@Cacheable`, `PlaceService` gọi qua nó |
+> | `50acc15` feat(cache): skip the cache when redis fails | 3 | `CacheErrorHandler` ghi WARN rồi bỏ qua, `timeout` / `connect-timeout` 1s |
+> | `8b7c864` fix(cache): write cache entries before returning instead of in the background | 2 | `RedisCacheWriter.create(..., writer -> writer.immediateWrites())`; BUG-PLACE-003 |
+> | `957550e` feat(cache): cache weather forecast in redis | 8 | `ForecastCache`, `WeatherService` gọi qua nó; bảng duyệt ghi 7, thêm một dòng ở `PlaceSearchCacheIntegrationTest` (danh sách cache giờ có hai cái) |
+>
+> Không có endpoint mới, không có migration. Dependency mới: `spring-boot-starter-data-redis`, `spring-boot-starter-cache` (BOM quản version). Cấu hình mới trong `application.yml`: `spring.data.redis.*` (host, port, hai thời gian chờ 1s, tắt repository), `management.health.redis.enabled=false`. 24 lượt test mới, toàn dự án **742 lượt** (688 method, 60 file test); `07-place.md` +12 kịch bản, `08-weather.md` +5, `01-platform.md` +7 và 1 bài thủ công (`MT-PLAT-06`), `MT-PLACE-04` mới. Kiểm chứng ngược 8 lần; hai commit (2 và 5) viết test trước rồi mới sửa, test đỏ đúng như dự đoán (health `DOWN`; tìm địa điểm 500). Một lỗi code tìm ra khi làm: **BUG-PLACE-003** (xem bẫy 1). Bài thủ công `MT-PLACE-04`, `MT-PLAT-06` **chưa chạy** lúc đóng task. Build toàn bộ dài thêm khoảng 1 phút (container Redis cho mỗi context, một context riêng bị bỏ sau `RedisDownIntegrationTest`).
+>
+> Quyết định khi làm (đã ghi vào design.md 8.1):
+> - **Ghi cache đồng bộ** (`immediateWrites`): bộ ghi mặc định của Spring Data Redis 4 ghi ở nền khi dùng Lettuce, làm test đọc ngay sau khi ghi đỏ thỉnh thoảng và làm lỗi ghi không tới `CacheErrorHandler`. Giá: mỗi lần ghi chờ Redis khoảng 1 ms.
+> - Khoá: từ khoá đứng **cuối** khoá tìm địa điểm, để chuỗi người dùng gõ không bị đọc nhầm thành `limit` hay toạ độ; khoá đọc được bằng mắt khi nhìn vào Redis.
+> - Cache chưa khai báo trong `CacheConfig` thì không tồn tại (`disableCreateOnMissingCache`): gõ sai tên cache lỗi ngay, không lặng lẽ tạo cache không có hạn.
+> - Câu trả lời rỗng cũng được cất (`[]`), "không tìm thấy" không bị hỏi lại 24 giờ.
+> - `CacheErrorHandler` dựa trên `LoggingCacheErrorHandler` của Spring, ghi thêm lý do lỗi, không in chồng lỗi.
+> - Test "lấy từ Redis" chứng minh bằng **đánh tráo** câu trả lời đã cất rồi hỏi lại, không đếm số lần gọi provider: không cần spy bean, nên các class test cache dùng chung context với test toàn luồng và xoá cache trước / sau mỗi test.
+>
+> **Bẫy đã gặp khi làm 3.4:**
+> 1. **BUG-PLACE-003, bộ ghi cache ghi ở nền:** `DefaultRedisCacheWriter.put` giao việc ghi cho một tác vụ nền khi `supportsAsyncRetrieve()` (Lettuce) và cờ `asynchronousWrites` (bật sẵn ở đường khởi tạo mặc định). Test đỏ 2 lần trong ~10 lần chạy, chưa bao giờ đỏ khi chạy một mình, không phụ thuộc thứ tự class. Tìm ra bằng cách đọc bytecode (`javap -c`) vì tài liệu không nói rõ; ép lộ bằng test 40 lần tìm liên tiếp (`TC-PLACE-106`, đỏ 2/2 khi chưa sửa). Sửa bằng `RedisCacheWriterConfigurer.immediateWrites()`.
+> 2. **Tách commit sửa lỗi khỏi commit đang làm dở:** lỗi lộ ra giữa Commit 6, trong khi `CacheConfig` và một file test đã lẫn cả hai việc. Cách làm: tạm gỡ phần thời tiết khỏi hai file đó (giữ bản đầy đủ ở ngoài), chạy test của trạng thái "chỉ có sửa lỗi", đưa commit `fix`, rồi trả lại phần thời tiết và chạy build toàn bộ. Không dùng `git stash` vì Claude chỉ được chạy lệnh Git chỉ đọc.
+> 3. **Đoán chữ ký API theo trí nhớ:** `LoggingCacheErrorHandler` nhận `org.apache.commons.logging.Log` (không phải SLF4J) và `logCacheError(Supplier<String>, RuntimeException)`; đoán sai làm biên dịch đỏ một lần. `javap -p` trên jar trong `~/.gradle/caches` cho câu trả lời trong vài giây.
+> 4. **Test dừng container làm bẩn context dùng chung:** `@DirtiesContext(AFTER_CLASS)` là bắt buộc, và mỗi class như vậy tốn một lần khởi động ứng dụng. Gom mọi kịch bản "Redis tắt" vào một class.
+> 5. **Redis dừng trên cùng máy bị từ chối kết nối ngay**, nên test không chứng minh được thời gian chờ 1 giây; nó chỉ phát huy khi máy chủ Redis không trả lời. Ghi rõ trong `01-platform.md` phần G thay vì nói quá.
+> 6. **Thiếu `@ServiceConnection` thì test vẫn xanh trên máy có docker compose đang chạy:** ứng dụng lặng lẽ dùng Redis ở `localhost:6379`. `TC-PLAT-036` kiểm cổng của kết nối đúng là cổng ngẫu nhiên của container.
+> 7. **Gradle bỏ qua test đã xanh:** lặp lại một lệnh `test --tests` không đổi gì thì không chạy lại ("BUILD SUCCESSFUL in 1s"); muốn chạy lại để bắt lỗi lúc có lúc không phải dùng `cleanTest test`.
+>
+> **Việc cho Task 3.5 Mốc 0:** ghi số PR và merge commit của Task 3.4 vào dòng đầu của khối này.
+> **Việc cho Task 3.5:** quãng đường của một ngày hiện chưa cache (mock tính tức thì); khi Task 3.8 nối OSRM thì thêm `RouteCache` theo cùng mẫu (bean riêng, khoá = chuỗi toạ độ làm tròn).
+> **Việc cho Task 3.8:** provider thật không phải biết gì về cache; nhưng khoá tìm địa điểm bỏ dấu nên "chợ hàn" và "cho han" nhận cùng kết quả Photon trong 24 giờ, xét lại có cần giữ dấu trong khoá không. Lỗi của provider (timeout, 5xx) là ngoại lệ nên **không** bị cất vào cache; "stale-while-error" của design 7.3 cần đọc bản cũ đã hết hạn, Spring Cache không hỗ trợ sẵn, cần thiết kế riêng nếu làm.
+> **Việc cho Task 8.1:** rate limit của `/places/search` tính **trước** cache hay sau cache (lượt trúng cache có tính vào hạn mức không), quyết định khi làm.
 
 ---
 
@@ -2027,7 +2063,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.1 Tìm địa điểm | ☑ | 2026-10-01 |
 | 3 | 3.2 Gắn địa điểm vào hoạt động | ☑ | 2026-10-02 |
 | 3 | 3.3 Thời tiết của chuyến đi | ☑ | 2026-10-03 |
-| 3 | 3.4 Redis cache | ☐ | |
+| 3 | 3.4 Redis cache | ☑ | 2026-10-03 |
 | 3 | 3.5 Quãng đường trong ngày | ☐ | |
 | 3 | 3.6 UI: địa điểm + bản đồ | ☐ | |
 | 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☐ | |
