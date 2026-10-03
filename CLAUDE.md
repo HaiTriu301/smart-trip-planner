@@ -259,6 +259,7 @@ Khi review code, kiểm tra lại các điểm này:
 - Coi mọi token / phiên "đã thu hồi" như nhau: thu hồi phải kèm lý do, nếu không cookie cũ sau khi đặt lại mật khẩu làm đăng xuất cả thiết bị mới — BUG-AUTH-006
 - Test tự ghi thời gian vào DB bằng `JdbcTemplate` + `java.sql.Timestamp`: ghi theo múi giờ JVM trong khi Hibernate đọc theo UTC. Dùng `UTC_TIMESTAMP(6)` trong câu SQL — BUG-AUTH-008
 - `autoFocus` cho ô trong `Modal`: không có tác dụng (hộp còn đóng lúc React focus). `Modal` tự đặt con trỏ vào phần tử đầu tiên của nội dung — BUG-UI-003
+- Tạo bản đồ Leaflet bên trong một `<dialog>` còn đóng: thư viện đo khung đúng một lần lúc tạo, ra 0 × 0, bản đồ trắng. Ref và effect của phần tử con chạy **trước** effect `showModal()` của hộp. Gọi `showModal()` trong hàm xử lý bấm nút rồi mới mount bản đồ (`DayMap.expand`), hoặc đo lại bằng `ResizeObserver` + `invalidateSize()` (`PointPickerCanvas`) — BUG-UI-009, Task 3.6
 - Hộp thoại có form đóng được bằng Esc / "×" trong lúc đang lưu → câu trả lời của máy chủ không còn chỗ hiện. Vỏ hộp dùng `useIsMutating` với `mutationKey` của form — BUG-UI-004
 - Kiểm `error` trước `data` của `useQuery`: một lần tải lại ngầm lỗi thay cả trang (và form đang gõ) bằng ô báo lỗi. Còn dữ liệu thì giữ trang, báo lỗi kèm "Thử lại" — BUG-UI-005
 - Field `LocalTime` thiếu `@JdbcType(LocalTimeJdbcType.class)`, hoặc truyền `LocalTime` làm tham số `@Query`: `hibernate.jdbc.time_zone=UTC` dịch giờ theo múi giờ JVM. So giờ trong Java, không so trong SQL (WORKFLOW.md Task 2.3 "Bẫy đã gặp")

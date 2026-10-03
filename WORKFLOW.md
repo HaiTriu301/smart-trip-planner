@@ -1078,7 +1078,7 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 > - Hai lần sửa cùng lúc trả 500 thay vì 409 `STALE_VERSION` → Task 5.3, làm cho **cả Trip lẫn Activity** (dòng mốc của 5.3 hiện chỉ ghi Activity).
 > - Danh sách chuyến đi sắp theo cột có giá trị trùng (`startDate`, `title`) phân trang không ổn định: thêm `id` làm khoá phụ; `?page=` vượt quá số trang hiện "Chưa có chuyến đi nào" → Task 8.3.
 > - `PATCH /trips/{id}` gửi `description: ""` lưu chuỗi rỗng thay vì `NULL` (design 10.2 ghi "chưa hỗ trợ xoá trắng") → chốt cùng quy ước xoá field ở Task 3.2 (`clearPlace`).
-> - Vùng chạm dưới 44px trên điện thoại (nút "⋮" 28px, chip ngày 36px) → Task 3.6 khi sửa trang chi tiết.
+> - Vùng chạm dưới 44px trên điện thoại (nút "⋮" 28px, chip ngày 36px) → Task 3.6 khi sửa trang chi tiết. **Đã trả** ở Task 3.6 (`2977345`).
 > - Tài liệu lệch, **đã sửa** trong commit docs Mốc 0: `docs/testing/README.md` ghi 491 lượt (thật là 507); design 10.2 ghi danh sách "luôn 2 câu SQL" (trang đầy là 3: có thêm câu đếm); design 10.3 ghi `UNAUTHORIZED` là "thiếu/hết hạn" (hết hạn là `TOKEN_EXPIRED`); design 17.3 ghi local "tất cả mock" (mail là `smtp`).
 > - Tài liệu lệch, **chưa sửa**: Swagger của `POST` / `PATCH` activity còn ghi "nằm cuối ngày" / "không đổi thứ tự" (trước "Xếp theo giờ" của Task 2.6) → sửa trong code ở Task 3.2 khi đụng `ActivityController`. UI_GUIDE 7.0 "một nút chính mỗi màn" mâu thuẫn với màn rỗng của danh sách (15.2 D: nút ở đầu trang và nút trong khung rỗng đều là nút chính) → chờ chủ dự án chọn, rồi sửa UI_GUIDE và code ở Task 3.6.
 
@@ -1685,7 +1685,60 @@ Commit 17 — feat(frontend): show and set the trip destination on a small map  
 > - Đã đặt vị trí điểm đến thì chỉ đổi được, chưa bỏ được: `PATCH /trips/{id}` chưa hỗ trợ xoá trắng trường tuỳ chọn (design 10.2). Hộp sửa chuyến đi không có nút "bỏ vị trí".
 > - Không có test tự động cho giao diện (Vitest tới Task 8.3): bằng chứng là lint, build và bài `MT-UI`. Các bài `MT-UI` cũ của những màn này chưa chạy lúc bắt đầu task (chủ dự án chạy sau).
 > - Dữ liệu mock chỉ có 56 địa điểm ở 5 điểm đến; nơi khác dùng "Tự thêm địa điểm" (Commit 16) cho tới Task 3.8.
-> - Tile bản đồ do trình duyệt tải thẳng từ máy chủ của CARTO: không có mạng thì nền xám, marker vẫn hiện.
+> - Tile bản đồ do trình duyệt tải thẳng từ máy chủ của OpenStreetMap (bảng duyệt ghi CARTO, đổi ở Commit 10): không có mạng thì nền xám, marker vẫn hiện.
+
+> **Thực tế khi làm 3.6 (2026-10-03 → 2026-10-04):** 21 commit trên nhánh thay vì 17 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`c2e8e27`). Số PR và merge commit: ghi ở Mốc 0 của task sau.
+>
+> | # | Commit | File (duyệt → thật) | Ghi chú |
+> |:--:|---|:--:|---|
+> | 1 | `2810b64` show the place of an activity on its card | 4 → 4 | |
+> | 2 | `4d026f3` move the activity form fields out of the dialog | 2 → 2 | |
+> | 3 | `c7e52e1` pick a place in the activity form | 6 → 10 | thêm `ActivityPlaceField`, `Modal` (bỏ qua nút có `data-no-initial-focus`), UI_GUIDE; danh sách gợi ý **nổi** trên form, không đẩy các ô phía dưới |
+> | 4 | `23d4b60` show all place suggestions | mới · 2 | hỏi 20, hiện 5 + "Xem tất cả N kết quả" (chủ dự án yêu cầu sau khi xem mockup) |
+> | 5 | `311edac` remove the place of an activity | 3 → 3 | |
+> | 6 | `72fec35` choose the activity type with icon buttons | 3 → 4 | `ActivityTypeField` tách file riêng |
+> | 7 | `f7acd99` suggest the activity type from the place | 2 → 3 | |
+> | 8 | `b9448dd` set the trip destination position from place search | 6 → 6 | |
+> | 9 | `5c9033b` rank place suggestions around the trip destination | 3 → 6 | toạ độ điểm đến phải đi qua 3 tầng component |
+> | 10 | `11cc83d` add the day map to the trip detail | 7 → 8 | thêm `design.md` 3.2: nền đổi từ CARTO sang OpenStreetMap |
+> | 11 | `967f606` join the places of a day with a line | 2 → 2 | nét đứt (đường thẳng nối hai điểm, không phải đường đi thật) |
+> | 12 | `3e3404e` open the map at the destination when a day has no place | 3 → 5 | |
+> | 13 | `1bfd189` expand the day map to the full screen | mới · 2 | nút phóng bản đồ ra cả cửa sổ (chủ dự án yêu cầu) |
+> | 14 | `c04a0f9` enlarge the marker of the hovered activity | 4 → 4 | |
+> | 15 | `487d06f` scroll to the activity of a clicked marker | 3 → 5 | thêm ô tên có nút "Xem trong lịch trình" cho màn cảm ứng và bản đồ phóng to |
+> | 16 | `0d3e494` show the map in a tab on small screens | 3 → 5 | thêm `hooks/useMediaQuery` |
+> | 17 | `2977345` enlarge touch targets under 44px | 3 → 6 | thêm nút "×" của hộp thoại và của khung địa điểm, marker 36px trên màn cảm ứng |
+> | 18 | `67ab468` add a place that is not in the search results | 5 → 8 | `lib/mapTiles`, `PointPicker` + `PointPickerCanvas`, `ManualPlaceForm` |
+> | 19 | `72e97d5` show and set the trip destination on a small map | 3 → 3 | kèm sửa `KeepInView` (phóng vào mức thành phố) và `FollowBoxSize` (BUG-UI-009) |
+> | 20 | `c712093` fix: show the expanded day map | mới · 1 | `BUG-UI-009` |
+> | 21 | `e4bc2d0` keep the original colours of the map background | mới · 3 | bỏ bộ lọc xám của nền bản đồ |
+>
+> Không có endpoint, migration hay thay đổi backend. Dependency mới: `leaflet` 1.9.4, `react-leaflet` 5.0.0, `@types/leaflet`. 18 bài thủ công mới (`MT-UI-45` đến `MT-UI-62`). **Lúc đóng task các bài này chưa được chạy đủ**: chủ dự án đã xem bản đồ trên trình duyệt (tìm ra `BUG-UI-009`, xác nhận đã sửa, duyệt màu nền), các bước còn lại chưa có kết quả. Claude không mở được trình duyệt trong suốt task (tiện ích Chrome không kết nối); bằng chứng của từng commit là lint, build và một số lần gọi API qua proxy của Vite.
+>
+> Quyết định khi làm (ngoài các quyết định lúc duyệt bảng commit):
+> - **Dựng mockup Stitch trước khi code** (đảo quyết định lúc duyệt). 6 màn trong `trip-planner-screenshots/stitch_smart_trip_planner_3.6/`; lấy từ mockup: danh sách gợi ý nổi, "xem tất cả kết quả", nút phóng to bản đồ. `DESIGN.md` do Stitch sinh ra không dùng.
+> - **Nền bản đồ là tile chuẩn của OpenStreetMap**, không phải CartoDB Positron: kiểm đầu Commit 10 thì CARTO đã bắt buộc API key, trái rule 20 (chạy được khi chưa có key nào). CARTO thành tuỳ chọn ở Task 3.8. Bản đầu làm xám nền bằng CSS; chủ dự án thấy trang bị xám nên bỏ bộ lọc (Commit 21).
+> - Chọn một gợi ý thì tên hoạt động / tên điểm đến **còn trống** được điền sẵn, người dùng vẫn sửa được; tên đã gõ không bao giờ bị ghi đè.
+> - Bản đồ phóng to là một bản đồ thứ hai trong `<dialog>` gốc của trình duyệt (lớp trên cùng, có sẵn bẫy focus và Esc), không phải kéo giãn bản đồ nhỏ.
+> - Màn hẹp: danh sách bị ẩn chứ không gỡ khỏi trang (giữ vị trí cuộn và form đang mở); bản đồ chỉ được tạo khi tab "Bản đồ" đang hiện.
+> - "Tự thêm địa điểm" chỉ hỏi tên và vị trí; địa điểm tự thêm không có nhóm nên không gợi ý loại hoạt động.
+>
+> **Bẫy đã gặp khi làm 3.6:**
+> 1. **Bản đồ tạo trong hộp thoại còn đóng thì trắng** (`BUG-UI-009`): Leaflet đo khung một lần lúc tạo; effect `showModal()` của hộp chạy sau ref của phần tử con. Lint và build không thấy; chủ dự án tìm ra khi bấm nút. Thành phần tải lười che lỗi ở lần mở đầu (mount muộn hơn), lần thứ hai mới lộ. Đã ghi vào CLAUDE.md mục 8.
+> 2. **Tài liệu của bên thứ ba cũ đi:** design.md ghi CARTO "không cần API key"; phải thử tải một tile thật mới thấy ô chữ "API KEY REQUIRED".
+> 3. **Hai lớp Tailwind cùng độ ưu tiên** ở viền nút loại hoạt động (hover và đã chọn): phải viết `peer-[:not(:checked)]:hover:...` để hai trạng thái không tranh nhau.
+> 4. **`w-screen` tính cả thanh cuộn:** hộp phủ cả cửa sổ dùng `w-full h-full`, nếu không nút đóng nằm dưới thanh cuộn.
+> 5. **File component không được export thêm hàm thường** (quy tắc react-refresh của lint): `activityCardId`, `revealActivity` chuyển sang `stores/mapLinkStore.ts`.
+> 6. **Số file vượt bảng duyệt ở 9 commit:** dữ liệu mới (toạ độ điểm đến, chế độ bấm marker) phải đi qua nhiều tầng component hơn dự tính. Mỗi lần đều báo kèm lý do; bảng commit của task giao diện sau nên đếm cả các tầng trung gian.
+> 7. **Task toàn giao diện mà không ai nhìn giao diện:** 19 commit đầu chỉ có lint và build. Lỗi duy nhất tìm được nhờ chủ dự án bấm thử. Task 3.7 nên chạy bài `MT-UI` của mỗi nhóm commit ngay khi xong nhóm đó.
+>
+> **Còn nợ sau Task 3.6:**
+> - Chạy 18 bài `MT-UI-45` đến `MT-UI-62`; kiểm lại bản đồ nhỏ trong hộp "Sửa chuyến đi" ở lần mở thứ hai (phần còn lại của `BUG-UI-009`).
+> - UI_GUIDE 7.0 "một nút chính mỗi màn" mâu thuẫn với màn rỗng của danh sách (ghi ở Task 2.7, hẹn Task 3.6): **chưa làm**, vẫn chờ chủ dự án chọn.
+> - Nút + / − của Leaflet 30px trên màn cảm ứng (dưới 44px); chọn điểm trên bản đồ cần chuột hoặc ngón tay (người dùng bàn phím dùng ô tìm).
+> - **Bảng màu toàn web:** chủ dự án thấy màu tối và xám trên gần như toàn web (2026-10-04). Đã thử ngay trong task này phương án A "Biển nhiệt đới" (nền `#F1FBFA`, viền `#C9EBE6`, `jade #088071`, thanh trên cùng và chân trang nền trắng, chip đang chọn nền xanh nhạt): trên web thật, thẻ trắng, ô ngày và thanh điều hướng **lẫn vào nền**; làm đậm nền và viền một bậc vẫn chưa đạt. Chủ dự án cho trả về màu của `e4bc2d0`, **không commit gì**. → task riêng sau khi merge. Bài học cho task đó: độ tách giữa nền trang, thẻ và viền không được thấp hơn bảng hiện tại (nền so với trắng 1,09; viền so với trắng 1,31); thử trên web thật từng bước, bản vẽ xem trước không cho thấy lỗi này; các khối tối lớn (thanh trên cùng, chân trang, chip đang chọn dùng `ink`) là một phần của cảm giác tối, đổi chúng là sửa component chứ không chỉ token.
+>
+> **Việc cho Task 3.7:** dải thời tiết và đoạn quãng đường nằm trong cột lịch trình đã có cột bản đồ bên cạnh (lưới 3 cột `200px / 1fr / 360px`, từ 1280px là 420px); toạ độ điểm đến đã có trong `['trip', id]`; `useMediaQuery` và `mapLinkStore` dùng lại được. Đường nét đứt trên bản đồ là đường thẳng, khác con số quãng đường của `GET /days/{dayId}/route` (ước lượng theo đường bộ): ghi rõ ở giao diện.
 
 **Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]` (mọi lần sửa activity sẽ kéo theo tải lại và kéo thả sẽ huỷ chúng); khoá tìm địa điểm là `['places', 'search', ...]`. `ActivityFormDialog` (210 dòng) tách ở Commit 2; `DragDropContainer` (479 dòng) tách bằng commit `refactor` riêng nếu Commit 12–13 phải thêm vào nó, nói trước khi làm.
 
@@ -2171,7 +2224,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.3 Thời tiết của chuyến đi | ☑ | 2026-10-03 |
 | 3 | 3.4 Redis cache | ☑ | 2026-10-03 |
 | 3 | 3.5 Quãng đường trong ngày | ☑ | 2026-10-03 |
-| 3 | 3.6 UI: địa điểm + bản đồ | ☐ | |
+| 3 | 3.6 UI: địa điểm + bản đồ | ☑ | 2026-10-04 |
 | 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☐ | |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
 | 4 | 4.1 Trip members | ☐ | |

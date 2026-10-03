@@ -1,6 +1,6 @@
 # 06 · Giao diện lịch trình
 
-> Cập nhật: 2026-10-01 · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
+> Cập nhật: 2026-10-04 · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
 
 Giao diện web để người dùng xem danh sách chuyến đi, tạo chuyến đi, xem và sửa lịch trình từng ngày, thêm hoạt động và kéo thả để sắp xếp lại. Làm ở Task 2.5.
 
@@ -56,6 +56,32 @@ Task 2.7 (`fix/T2.7-review-fixes`): sửa các lỗi tìm ra khi rà soát code 
 | 7 | Ô tìm kiếm giữ dấu cách đang gõ khi ngừng tay giữa hai từ (`BUG-UI-007`) | MT-UI-02 (đã thêm một bước) | `e4f4520` |
 | 8 | Thả một hoạt động lên chính ngày đang xem ở cột trái thì không có gì thay đổi (`BUG-UI-008`) | MT-UI-26, bước 3 | `dcfcfbe` |
 | 9 | Phiên bị rớt thì dữ liệu đã tải bị xoá, người đăng nhập sau không thấy dữ liệu của người trước (`BUG-AUTH-007`, ghi ở [02-auth.md](02-auth.md)) | MT-AUTH-08 | `025799a` |
+
+Task 3.6 (`feat/T3.6-place-map-ui`): địa điểm của hoạt động và bản đồ. Mỗi commit một việc.
+
+| Commit | Nội dung | Kiểm tra thủ công | Mã commit |
+|---|---|---|---|
+| 1 | Thẻ hoạt động hiện địa điểm ngay dưới tên, có icon ghim | MT-UI-45 | `2810b64` |
+| 2 | Tách phần ô nhập của hộp thoại hoạt động ra file riêng, chuẩn bị thêm ô địa điểm. Không đổi hành vi, không có bài mới | dùng lại MT-UI-20, MT-UI-21, MT-UI-22 | `4d026f3` |
+| 3 | Tìm và chọn địa điểm trong hộp thoại hoạt động: gợi ý khi đang gõ, khung địa điểm đã chọn, tự điền tên hoạt động còn trống | MT-UI-46 | `c7e52e1` |
+| 4 | Ô tìm địa điểm hiện 5 gợi ý đầu, "Xem tất cả" mở đủ kết quả (tối đa 20) trong khung có thanh cuộn | MT-UI-47 | `23d4b60` |
+| 5 | Bỏ địa điểm của hoạt động: bấm "×" rồi lưu. Đóng điểm hở tạm thời của Commit 3 | MT-UI-48 | `311edac` |
+| 6 | Ô "Loại" của form hoạt động thành 6 nút có icon và màu của từng loại | MT-UI-49 | `72fec35` |
+| 7 | Thêm hoạt động: chọn địa điểm thì loại tự đổi theo nhóm của địa điểm, khi người dùng chưa tự chọn loại | MT-UI-50 | `f7acd99` |
+| 8 | Điểm đến của chuyến đi có vị trí: chọn bằng ô tìm địa điểm ở wizard và hộp sửa chuyến đi | MT-UI-51 | `b9448dd` |
+| 9 | Trong form hoạt động, gợi ý địa điểm quanh điểm đến của chuyến đi đứng trước | MT-UI-52 | `5c9033b` |
+| 10 | Cột bản đồ trên trang chi tiết: nền OpenStreetMap làm nhạt, marker giọt nước theo màu loại hoạt động kèm số thứ tự | MT-UI-53 | `11cc83d` |
+| 11 | Đường nét đứt nối các địa điểm của ngày theo thứ tự | MT-UI-54 | `967f606` |
+| 12 | Ngày chưa có địa điểm: bản đồ mở ở điểm đến của chuyến đi, kèm thẻ hướng dẫn | MT-UI-55 | `3e3404e` |
+| 13 | Nút phóng bản đồ của ngày ra cả cửa sổ; Esc hoặc "×" để thu lại | MT-UI-56 | `1bfd189` |
+| 14 | Rê chuột hoặc Tab vào một thẻ hoạt động thì marker của nó trên bản đồ to lên và có vòng sáng | MT-UI-57 | `c04a0f9` |
+| 15 | Bấm marker để tới thẻ hoạt động: cuộn thẳng tới thẻ khi dùng chuột; ô tên có nút "Xem trong lịch trình" trên màn cảm ứng và bản đồ phóng to | MT-UI-58 | `487d06f` |
+| 16 | Màn hình hẹp: hai nút "Lịch trình" / "Bản đồ" dưới dải chip ngày, mỗi lúc hiện một trong hai | MT-UI-59 | `0d3e494` |
+| 17 | Vùng chạm đủ 44px trên màn hình cảm ứng: nút "⋮", chip ngày, các nút "×"; marker 36px (nợ ghi từ Task 2.7) | MT-UI-60 | `2977345` |
+| 18 | "Không tìm thấy? Tự thêm địa điểm": nhập tên và bấm lên bản đồ nhỏ để đặt vị trí | MT-UI-61 | `67ab468` |
+| 19 | Bản đồ nhỏ ở ô điểm đến (wizard và hộp sửa chuyến đi): hiện vị trí, bấm để đặt hoặc dời | MT-UI-62 | `72e97d5` |
+| 20 | Bản đồ phóng to hiện đúng (`BUG-UI-009`) | MT-UI-56, bước 2 | `c712093` |
+| 21 | Nền bản đồ giữ màu gốc của OpenStreetMap, không còn bị làm xám | MT-UI-53 (bước về màu nền) | `e4bc2d0` |
 
 ---
 
@@ -658,6 +684,293 @@ Cần hai cửa sổ: trình duyệt và cửa sổ đang chạy backend.
 
 **Kết quả:** Chưa chạy
 
+### MT-UI-45 · Địa điểm trên thẻ hoạt động (Task 3.6 Commit 1)
+
+Ở commit này giao diện chưa có ô chọn địa điểm (tới Commit 3), nên địa điểm được gắn qua Swagger như bài `MT-PLACE-05` ở [07-place.md](07-place.md). Cần backend và frontend đang chạy.
+
+- [ ] Trên Swagger: đăng nhập, "Authorize". Gọi `POST /api/v1/places` với `{"provider": "MOCK", "externalId": "da-nang-cho-han"}`, ghi lại `id` của địa điểm.
+- [ ] Gọi `POST /api/v1/trips/{tripId}/days/{dayId}/activities` ba lần cho cùng một ngày: `{"title": "Mua đặc sản", "placeId": <id>}`, `{"title": "Chợ Hàn", "placeId": <id>}`, và `{"title": "Nghỉ trưa"}` (không có địa điểm).
+- [ ] Mở trang chi tiết chuyến đi trên giao diện, vào đúng ngày đó.
+- [ ] Thẻ "Mua đặc sản": dưới tên có icon ghim và dòng "Chợ Hàn · " kèm địa chỉ của chợ, chữ nhỏ màu xám.
+- [ ] Thẻ "Chợ Hàn": dòng địa điểm **chỉ có địa chỉ**, không lặp lại chữ "Chợ Hàn".
+- [ ] Thẻ "Nghỉ trưa": **không có** dòng địa điểm, không có khoảng trống thừa.
+- [ ] Thu hẹp cửa sổ trình duyệt xuống cỡ điện thoại: địa chỉ dài tự xuống dòng, không tràn ra ngoài thẻ, icon ghim vẫn ở đầu dòng thứ nhất.
+- [ ] Kéo thả thẻ "Mua đặc sản" sang vị trí khác: thẻ bay theo con trỏ vẫn có dòng địa điểm; thả xong dòng địa điểm vẫn còn.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-46 · Chọn địa điểm trong hộp thoại hoạt động (Task 3.6 Commit 3)
+
+Cần backend và frontend đang chạy bản code mới nhất, một chuyến đi có ít nhất một ngày.
+
+- [ ] Mở một ngày, bấm "+ Thêm hoạt động". Ô đầu tiên là "Địa điểm" và con trỏ đang nằm trong ô đó.
+- [ ] Gõ `c`: chưa có danh sách nào. Gõ thêm `h` rồi `ợ` (thành `chợ`): sau khoảng 0,3 giây hiện dòng "Đang tìm địa điểm…" rồi tối đa 5 gợi ý, đầu tiên là "Chợ Hàn". Mỗi gợi ý có icon trong vòng tròn xám, tên đậm, địa chỉ nhỏ bên dưới.
+- [ ] Danh sách **nổi đè lên** ô "Tên hoạt động" và ô "Loại"; các ô bên dưới **không bị đẩy xuống**.
+- [ ] Nhấn ↓ hai lần rồi ↑ một lần: dòng sáng (nền xanh nhạt, vạch xanh bên trái) di chuyển theo. Rê chuột lên một dòng: dòng đó sáng.
+- [ ] Nhấn Esc: danh sách đóng, **hộp thoại vẫn mở**, chữ `chợ` vẫn còn. Nhấn ↓: danh sách mở lại.
+- [ ] Nhấn Enter khi dòng "Chợ Hàn" đang sáng: ô tìm đổi thành khung có icon ghim, "Chợ Hàn", địa chỉ, và nút "×". Ô "Tên hoạt động" được điền sẵn "Chợ Hàn" và con trỏ nằm trong ô đó. Hoạt động **chưa** bị lưu (hộp thoại vẫn mở).
+- [ ] Sửa tên thành `Mua đặc sản`, bấm "Thêm hoạt động". Hộp đóng, thẻ mới có dòng "Chợ Hàn · " kèm địa chỉ.
+- [ ] Bấm "+ Thêm hoạt động", gõ tên `Ăn trưa` **trước**, rồi tìm `bun cha ca` và bấm chuột vào gợi ý: tên vẫn là `Ăn trưa`, không bị thay.
+- [ ] Trong khung địa điểm bấm "×": ô tìm hiện lại, trống, con trỏ nằm trong ô. Tìm `chợ cồn`, chọn, lưu: thẻ ghi "Chợ Cồn".
+- [ ] Gõ `khong co noi nay`: danh sách ghi "Không tìm thấy địa điểm nào. Thử từ khoá khác."
+- [ ] Mở menu "⋮" → "Sửa" của hoạt động "Mua đặc sản": khung địa điểm hiện "Chợ Hàn"; con trỏ nằm ở ô "Tên hoạt động", **không** nằm ở nút "×". Đổi tên rồi lưu: địa điểm giữ nguyên.
+- [ ] "Sửa" lần nữa, bấm "×", tìm và chọn "Chợ Cồn", lưu: thẻ đổi sang "Chợ Cồn".
+- [ ] (Chỉ đúng ở Commit 3 và 4; từ Commit 5 thay bằng bài `MT-UI-48`) "Sửa", bấm "×" rồi bấm "Lưu thay đổi" mà không chọn địa điểm khác: dưới ô "Địa điểm" hiện "Chưa hỗ trợ xoá thông tin này, hãy nhập giá trị mới", hoạt động không bị lưu sai.
+- [ ] Thu hẹp cửa sổ cỡ điện thoại, mở hộp thêm hoạt động, tìm `chợ`: danh sách vẫn nổi trong hộp, cuộn hộp thoại thì thấy đủ các gợi ý.
+- [ ] Tắt backend, gõ `chợ hàn`: sau một lúc danh sách ghi "Không kết nối được máy chủ, vui lòng thử lại".
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-47 · Xem tất cả gợi ý địa điểm (Task 3.6 Commit 4)
+
+Số kết quả dưới đây là của dữ liệu có sẵn (56 địa điểm). Cần backend và frontend đang chạy.
+
+- [ ] Mở hộp "Thêm hoạt động", gõ `chua` vào ô "Địa điểm": có 3 gợi ý, **không có** dòng "Xem tất cả".
+- [ ] Xoá và gõ `cho`: có 5 gợi ý, dòng cuối cùng là chữ xanh "Xem tất cả 7 kết quả".
+- [ ] Bấm vào dòng đó: danh sách hiện đủ 7 gợi ý, vẫn nổi tại chỗ, các ô bên dưới không bị đẩy xuống, hộp thoại không đóng, con trỏ vẫn trong ô tìm.
+- [ ] Xoá và gõ `da nang`: lại về 5 gợi ý và dòng "Xem tất cả 20 kết quả".
+- [ ] Nhấn ↓ sáu lần: dòng sáng đi qua 5 gợi ý rồi tới dòng "Xem tất cả". Nhấn Enter: danh sách mở đủ, dòng sáng nằm ở gợi ý thứ sáu; hoạt động **không** bị lưu.
+- [ ] Danh sách đầy đủ cao tối đa khoảng 5–6 dòng và có **thanh cuộn riêng**. Nhấn ↓ nhiều lần: danh sách tự cuộn theo dòng đang sáng. Cuộn chuột trong danh sách tới cuối: trang phía sau không cuộn theo.
+- [ ] Cuối danh sách có dòng nhỏ "Chỉ hiện 20 kết quả đầu. Gõ từ khoá cụ thể hơn để thu hẹp."
+- [ ] Gõ thêm ` cho` (thành `da nang cho`): danh sách thu về kết quả mới, không còn ở chế độ xem tất cả.
+- [ ] Mở đủ danh sách của `cho`, bấm chọn gợi ý thứ bảy: khung địa điểm hiện đúng địa điểm đó.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-48 · Bỏ địa điểm của hoạt động (Task 3.6 Commit 5)
+
+Cần một hoạt động đã có địa điểm (tạo theo `MT-UI-46`).
+
+- [ ] Mở "⋮" → "Sửa" của hoạt động đó. Bấm "×" trong khung địa điểm: ô tìm hiện lại, trống.
+- [ ] Bấm "Huỷ". Thẻ vẫn còn hàng địa điểm: chưa lưu thì chưa có gì thay đổi.
+- [ ] "Sửa" lại, bấm "×", rồi bấm "Lưu thay đổi". Hộp đóng, thông báo "Đã lưu thay đổi", thẻ **không còn** hàng địa điểm. Không còn câu "Chưa hỗ trợ xoá thông tin này" như ở Commit 3.
+- [ ] Tải lại trang (F5): thẻ vẫn không có hàng địa điểm.
+- [ ] "Sửa" lần nữa: ô "Địa điểm" là ô tìm trống. Bấm "Lưu thay đổi" mà không đổi gì: hộp đóng, không có lỗi.
+- [ ] Tìm và chọn lại đúng địa điểm cũ, lưu: hàng địa điểm trở lại.
+- [ ] "Sửa", bấm "×", đồng thời đổi tên hoạt động, rồi lưu: cả hai thay đổi đều được lưu (tên mới, không còn địa điểm).
+- [ ] "Sửa" một hoạt động có địa điểm, bấm "×", chọn một địa điểm **khác**, lưu: thẻ hiện địa điểm mới (đây là đổi, không phải bỏ).
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-49 · Chọn loại hoạt động bằng 6 nút (Task 3.6 Commit 6)
+
+- [ ] Mở hộp "Thêm hoạt động". Dưới ô "Tên hoạt động" là nhóm "Loại" gồm 6 nút xếp 3 cột × 2 hàng: Tham quan, Ăn uống, Di chuyển, Lưu trú, Mua sắm, Khác. Mỗi nút có icon màu riêng. Không còn ô chọn thả xuống.
+- [ ] Nút "Khác" đang được chọn sẵn: viền đậm và nền nhạt màu xanh lá, chữ cùng màu.
+- [ ] Bấm "Ăn uống": nút đó có viền và nền cam nhạt, "Khác" trở về viền xám. Chỉ một nút được chọn tại một thời điểm.
+- [ ] Rê chuột lên một nút chưa chọn: viền đậm hơn một chút. Rê lên nút đang chọn: viền vẫn giữ màu của loại, không đổi sang xám.
+- [ ] Nhấn Tab từ ô "Tên hoạt động": con trỏ vào nhóm "Loại", nút đang chọn có viền ngoài màu xanh. Nhấn → và ←: loại đổi theo. Nhấn Tab lần nữa: con trỏ sang ô "Giờ bắt đầu" (không phải đi qua từng nút).
+- [ ] Nhập tên, chọn "Mua sắm", bấm "Thêm hoạt động": thẻ mới có nhãn "Mua sắm" và viền trái màu hồng tím.
+- [ ] Mở "Sửa" hoạt động đó: nút "Mua sắm" đang được chọn. Đổi sang "Tham quan", lưu: thẻ đổi nhãn và màu viền.
+- [ ] Thu hẹp cửa sổ cỡ điện thoại: 6 nút xếp 2 cột × 3 hàng, nút cao hơn, chữ không bị cắt.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-50 · Loại hoạt động được gợi ý theo địa điểm (Task 3.6 Commit 7)
+
+Nhóm của các địa điểm dùng trong bài: Chợ Hàn là mua sắm, Bún chả cá 109 là ăn uống, Chùa Linh Ứng là tham quan.
+
+- [ ] Mở "Thêm hoạt động" ("Khác" đang được chọn). Tìm `chợ hàn` và chọn: nút "Mua sắm" tự sáng, "Khác" tắt.
+- [ ] Bấm "×" ở khung địa điểm, tìm `bun cha ca` và chọn: nút "Ăn uống" sáng thay cho "Mua sắm".
+- [ ] Bấm nút "Lưu trú" (tự chọn loại). Bấm "×", tìm `linh ung` và chọn: "Lưu trú" **vẫn** được chọn, không bị đổi sang "Tham quan".
+- [ ] Đóng hộp, mở lại "Thêm hoạt động". Bấm "Ăn uống" **trước**, rồi tìm và chọn `chợ hàn`: "Ăn uống" vẫn được chọn.
+- [ ] Đóng hộp, mở lại. Chọn `chợ hàn` (ra "Mua sắm"), nhập tên, lưu: thẻ có nhãn "Mua sắm".
+- [ ] Mở "Sửa" một hoạt động loại "Khác" chưa có địa điểm. Tìm và chọn `chợ hàn`: loại **vẫn là "Khác"** (sửa hoạt động có sẵn thì không tự đổi loại). Lưu: thẻ có địa điểm, loại không đổi.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-51 · Đặt vị trí cho điểm đến (Task 3.6 Commit 8)
+
+- [ ] Vào "Tạo chuyến đi", qua bước 1, tới bước "Điểm đến". Có hai ô: "Tên điểm đến" và "Vị trí trên bản đồ" (ô tìm có kính lúp).
+- [ ] Để trống tên, gõ `cau rong` vào ô vị trí và chọn "Cầu Rồng": dưới ô tìm hiện dòng có icon ghim, "Cầu Rồng", toạ độ `16.0612, 108.2279` và nút chữ "Bỏ vị trí". Ô "Tên điểm đến" được điền "Cầu Rồng".
+- [ ] Sửa tên thành `Đà Nẵng`. Tìm và chọn `cho han`: dòng vị trí đổi sang "Chợ Hàn" và toạ độ mới; tên vẫn là `Đà Nẵng`.
+- [ ] Nhấn Enter trong ô tìm khi không có gợi ý nào đang mở: wizard **không** nhảy sang bước 3.
+- [ ] Bấm "Bỏ vị trí": dòng vị trí biến mất. Chọn lại một vị trí.
+- [ ] Bấm "Tiếp", rồi "Quay lại": dòng vị trí vẫn còn (ghi "Đã chọn vị trí" kèm toạ độ).
+- [ ] Hoàn tất wizard. Mở hộp "Sửa" của chuyến đi vừa tạo: dưới ô tìm ghi "Vị trí đã lưu" kèm đúng toạ độ đã chọn, **không có** nút "Bỏ vị trí".
+- [ ] Trong hộp sửa, tìm và chọn một địa điểm khác, "Lưu thay đổi". Mở "Sửa" lại: toạ độ là của địa điểm mới.
+- [ ] Tạo một chuyến đi khác **không** đặt vị trí (chỉ gõ tên): tạo được bình thường. Mở "Sửa": không có dòng vị trí; chọn một vị trí rồi lưu được.
+- [ ] Mở "Sửa" và lưu mà không đổi gì: hộp đóng, không có lỗi.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-52 · Gợi ý địa điểm quanh điểm đến của chuyến đi (Task 3.6 Commit 9)
+
+Cần hai chuyến đi: một chuyến **chưa** đặt vị trí điểm đến, và một chuyến đặt vị trí ở TP. Hồ Chí Minh (trong hộp "Sửa", ô "Vị trí trên bản đồ", tìm `ben thanh` và chọn "Chợ Bến Thành").
+
+- [ ] Mở chuyến đi chưa có vị trí, "+ Thêm hoạt động", gõ `cho`: gợi ý đầu tiên là "Chợ Hàn", rồi "Chợ Cồn" (thứ tự chỉ theo tên).
+- [ ] Mở chuyến đi ở TP. Hồ Chí Minh, "+ Thêm hoạt động", gõ `cho`: gợi ý đầu tiên là "Chợ Bến Thành", rồi "Chợ Bình Tây"; các chợ ở thành phố khác xuống dưới.
+- [ ] Bấm "Xem tất cả 7 kết quả": vẫn đủ 7 chợ như ở chuyến đi kia, chỉ khác thứ tự.
+- [ ] Trong hộp "Sửa" của chuyến đi ở TP. Hồ Chí Minh, đổi vị trí sang Hà Nội (tìm `ho hoan kiem`, chọn), lưu. Mở "+ Thêm hoạt động", gõ `cho`: "Chợ Đồng Xuân" đứng đầu.
+- [ ] Ở bước "Điểm đến" của wizard (hoặc ô vị trí trong hộp sửa chuyến đi), gõ `cho`: thứ tự chỉ theo tên ("Chợ Hàn" đứng đầu), không phụ thuộc chuyến đi nào.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-53 · Bản đồ của ngày (Task 3.6 Commit 10)
+
+Cần máy có mạng (nền bản đồ tải từ OpenStreetMap), cửa sổ trình duyệt rộng từ 1280px, và một ngày có 3 hoạt động có địa điểm ở Đà Nẵng (Chợ Hàn, Bún chả cá 109, Chùa Linh Ứng) cùng 1 hoạt động không có địa điểm.
+
+- [ ] Mở ngày đó. Bên phải có cột bản đồ, bo góc, viền mảnh. Nền bản đồ là Đà Nẵng, **có màu** (biển xanh, công viên xanh lá; từ Commit 21 không còn bị làm xám); góc dưới phải có dòng "Leaflet | © OpenStreetMap contributors" và hai nút + / −.
+- [ ] Có đúng **3** marker hình giọt nước, mũi nhọn chỉ vào đúng vị trí. Mỗi marker có màu và icon của loại hoạt động, và số 1, 2, 3 ở góc trên phải. Hoạt động không có địa điểm không có marker. Cả 3 marker nằm gọn trong khung.
+- [ ] Rê chuột lên một marker: hiện chú thích "2. Bún chả cá" (số và tên hoạt động).
+- [ ] Bấm nút + và −, kéo bản đồ bằng chuột, lăn chuột trên bản đồ: bản đồ phóng to, thu nhỏ, di chuyển.
+- [ ] Cuộn trang xuống (ngày cần đủ dài, hoặc thu thấp cửa sổ): cột bản đồ **đứng yên**, ngang hàng với cột ngày bên trái. Bản đồ không đè lên khối tiêu đề ngày đang dính.
+- [ ] Kéo thả hoạt động thứ ba lên đầu ngày: số trên các marker đổi theo thứ tự mới; bản đồ **không** nhảy, mức phóng không đổi.
+- [ ] Mở hộp "Thêm hoạt động": lớp phủ tối che cả bản đồ; bản đồ không nổi lên trên hộp thoại. Thêm một hoạt động ở Sun World Bà Nà Hills (tìm `ba na`): bản đồ tự thu nhỏ để chứa cả 4 marker.
+- [ ] "Sửa" một hoạt động, bấm "×" bỏ địa điểm, lưu: marker của nó biến mất, các số còn lại dồn lên.
+- [ ] Sang một ngày chưa có địa điểm nào: không có marker (từ Commit 12 có thẻ hướng dẫn và bản đồ mở ở điểm đến, xem `MT-UI-55`).
+- [ ] Thu cửa sổ xuống khoảng 1100px: cột bản đồ hẹp lại (360px), cột giữa vẫn đọc được. Thu dưới 1024px: cột bản đồ biến mất, trang như trước Task 3.6.
+- [ ] Mở trang danh sách chuyến đi, bấm F12 → tab Network, tải lại: **không có** file `DayMapCanvas-….js` nào được tải. Mở một chuyến đi: lúc này file đó mới được tải.
+- [ ] Ngắt mạng (F12 → Network → Offline) rồi tải lại trang chi tiết đã mở trước đó: nền bản đồ xám, không vỡ bố cục; phần lịch trình vẫn dùng được.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-54 · Đường nối các địa điểm trong ngày (Task 3.6 Commit 11)
+
+Dùng ngày có 3 hoạt động có địa điểm của bài `MT-UI-53`.
+
+- [ ] Trên bản đồ có một đường **nét đứt** màu xanh ngọc, mảnh, nối marker 1 → 2 → 3 theo đúng thứ tự. Đường nằm **dưới** marker, không che số hay icon.
+- [ ] Đường là các đoạn thẳng giữa hai marker, không uốn theo phố; nhìn rõ trên nền bản đồ nhưng không lấn át marker.
+- [ ] Kéo thả hoạt động thứ ba lên đầu ngày: đường vẽ lại theo thứ tự mới (3 cũ → 1 cũ → 2 cũ), bản đồ không nhảy.
+- [ ] Rê chuột và bấm lên đường: không có gì xảy ra, con trỏ không đổi hình; kéo bản đồ qua chỗ có đường vẫn được.
+- [ ] "Sửa" một hoạt động và bỏ địa điểm của nó, còn 2 địa điểm: đường chỉ còn một đoạn. Bỏ tiếp, còn 1 địa điểm: **không còn đường**.
+- [ ] Sang ngày khác rồi quay lại: mỗi ngày chỉ có đường của riêng nó.
+- [ ] Phóng to và thu nhỏ bản đồ: độ dày và kiểu nét đứt của đường không đổi.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-55 · Bản đồ của ngày chưa có địa điểm (Task 3.6 Commit 12)
+
+Cần hai chuyến đi: chuyến A đã đặt vị trí điểm đến ở Đà Nẵng (bài `MT-UI-51`), chuyến B chưa đặt vị trí.
+
+- [ ] Chuyến A, mở một ngày chưa có hoạt động nào: bản đồ hiện khu vực **Đà Nẵng** ở mức thành phố, không có marker và không có đường nối.
+- [ ] Giữa bản đồ có một thẻ trắng nhỏ: icon bản đồ, dòng đậm "Ngày này chưa có địa điểm nào.", dòng nhỏ "Thêm địa điểm cho hoạt động để thấy trên bản đồ." Không có câu nào về việc đặt vị trí điểm đến.
+- [ ] Kéo bản đồ ở vùng quanh thẻ, bấm + / −: bản đồ vẫn di chuyển và phóng được.
+- [ ] Thêm một hoạt động **không** có địa điểm: thẻ vẫn còn. Thêm một hoạt động có địa điểm (Chợ Hàn): thẻ biến mất, có 1 marker, bản đồ phóng vào đó.
+- [ ] "Sửa" hoạt động đó và bỏ địa điểm: thẻ hiện lại, bản đồ trở về khu vực Đà Nẵng.
+- [ ] Chuyến B, mở một ngày chưa có địa điểm: bản đồ hiện **cả Việt Nam**; thẻ có thêm câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để bản đồ mở đúng nơi bạn đến.'
+- [ ] Ở chuyến B, bấm "Sửa", đặt vị trí điểm đến ở Hà Nội (tìm `ho hoan kiem`), lưu: không cần tải lại trang, bản đồ chuyển tới Hà Nội và câu về điểm đến biến mất.
+- [ ] Mở hộp "Thêm hoạt động" khi thẻ đang hiện: thẻ nằm dưới lớp phủ tối như phần còn lại của trang.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-56 · Phóng bản đồ ra cả cửa sổ (Task 3.6 Commit 13)
+
+> Trạng thái: Chạy một phần · từng lỗi BUG-UI-009 (bước 2 đạt sau khi sửa, chủ dự án xác nhận ngày 2026-10-04; các bước khác chưa có kết quả)
+
+Dùng ngày có 3 địa điểm của bài `MT-UI-53`, cửa sổ rộng từ 1024px.
+
+- [ ] Góc trên phải bản đồ có một nút vuông trắng nhỏ với icon hai mũi tên chéo. Rê chuột lên: chú thích "Phóng to bản đồ".
+- [ ] Bấm nút: bản đồ mở **phủ cả cửa sổ**, che thanh trên cùng và cột lịch trình. Có đủ 3 marker, đường nét đứt, dòng ghi nguồn và nút + / −. Cả 3 marker nằm gọn trong khung.
+- [ ] Góc trên phải giờ là nút "×" (chú thích "Thu nhỏ bản đồ"). Kéo, phóng to, thu nhỏ bản đồ được như thường.
+- [ ] Nhấn Tab vài lần: con trỏ chỉ đi quanh các nút của bản đồ, không chạy ra phần trang phía sau.
+- [ ] Nhấn Esc: bản đồ thu về cột bên phải, trang ở nguyên chỗ cũ, không bị cuộn. Con trỏ nằm ở nút "Phóng to bản đồ" (nhấn Enter là mở lại).
+- [ ] Mở lại, bấm "×": thu về như trên.
+- [ ] Cuộn trang xuống giữa một ngày dài rồi phóng to: bản đồ vẫn phủ cả cửa sổ, **không** bị khối tiêu đề ngày hay dải ngày đè lên. Thu nhỏ: trang vẫn ở vị trí đang cuộn.
+- [ ] Sang một ngày chưa có địa điểm, phóng to: bản đồ ở điểm đến, thẻ "Ngày này chưa có địa điểm nào." nằm giữa.
+- [ ] Thay đổi kích thước cửa sổ trong lúc đang phóng to: bản đồ luôn kín cửa sổ, không lộ khoảng trắng.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-57 · Rê thẻ hoạt động thì marker nổi bật (Task 3.6 Commit 14)
+
+Dùng ngày có 3 hoạt động có địa điểm và 1 hoạt động không có, cửa sổ rộng từ 1024px.
+
+- [ ] Rê chuột lên thẻ thứ hai: marker số 2 trên bản đồ **to hơn một chút** và có vòng sáng xanh quanh nó; mũi nhọn vẫn chỉ đúng vị trí cũ. Các marker khác không đổi.
+- [ ] Rê sang thẻ thứ ba: marker 2 trở lại bình thường, marker 3 nổi bật. Rê ra ngoài mọi thẻ: không marker nào nổi bật.
+- [ ] Rê lên thẻ của hoạt động **không có địa điểm**: không marker nào nổi bật, không có lỗi.
+- [ ] Tạo hai hoạt động ở cùng một địa điểm (hai marker chồng lên nhau). Rê lần lượt lên hai thẻ: marker của thẻ đang rê **nổi lên trên**, thấy đúng số của nó.
+- [ ] Không dùng chuột: nhấn Tab cho tới khi con trỏ vào trong một thẻ (tay nắm kéo hoặc nút "⋮"): marker của thẻ đó nổi bật. Tab ra khỏi thẻ: hết nổi bật.
+- [ ] Kéo thả một thẻ sang vị trí khác rồi thả: không có marker nào bị kẹt ở trạng thái nổi bật sau khi rê chuột ra ngoài.
+- [ ] Rê nhanh chuột qua lại nhiều thẻ: bản đồ không giật, không nhảy, mức phóng không đổi.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-58 · Bấm marker để tới thẻ hoạt động (Task 3.6 Commit 15)
+
+Dùng một ngày **dài** (từ 6 hoạt động, ít nhất 3 có địa điểm, trong đó hoạt động cuối ngày có địa điểm), cửa sổ rộng từ 1024px, dùng chuột.
+
+- [ ] Ở đầu trang, bấm marker của hoạt động **cuối ngày**: trang cuộn mượt xuống, thẻ của hoạt động đó dừng ở khoảng giữa màn hình, **không** bị khối tiêu đề ngày che. Thẻ có viền sáng xanh trong khoảng 2 giây rồi tắt.
+- [ ] Trong lúc đó marker vừa bấm đang ở trạng thái nổi bật (to hơn, có vòng sáng). Bấm vào chỗ trống của trang: marker trở lại bình thường.
+- [ ] Bấm marker số 1 khi đang ở cuối trang: trang cuộn ngược lên tới thẻ đầu tiên.
+- [ ] Bấm liên tiếp hai marker khác nhau: viền sáng chuyển sang thẻ thứ hai, thẻ thứ nhất không bị kẹt viền.
+- [ ] Bấm marker **không** mở ô tên nào (ở chế độ dùng chuột trên bản đồ nhỏ).
+- [ ] Bấm "Phóng to bản đồ", rồi bấm một marker: phía trên marker hiện ô nhỏ ghi "2. Bún chả cá" (số và tên) và chữ xanh "Xem trong lịch trình". Bấm "×" của ô hoặc bấm ra chỗ trống của bản đồ: ô đóng.
+- [ ] Mở lại ô tên, bấm "Xem trong lịch trình": bản đồ thu về cột bên phải, trang cuộn tới thẻ đó, thẻ có viền sáng.
+- [ ] Bàn phím: nhấn Tab cho tới khi một marker có viền focus, nhấn Enter: kết quả như bấm chuột.
+- [ ] Màn cảm ứng (hoặc F12 → chế độ giả lập thiết bị cảm ứng, bề rộng từ 1024px, tải lại trang): chạm marker trên bản đồ nhỏ mở **ô tên** thay vì cuộn ngay; chạm "Xem trong lịch trình" thì trang cuộn tới thẻ.
+- [ ] Trong lúc đang kéo thả một thẻ, bản đồ và các marker vẫn hoạt động bình thường sau khi thả.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-59 · Tab "Lịch trình" / "Bản đồ" trên màn hình hẹp (Task 3.6 Commit 16)
+
+Thu cửa sổ xuống dưới 1024px (hoặc F12 → giả lập điện thoại 390px). Dùng ngày có 3 địa điểm.
+
+- [ ] Ngay dưới dải chip ngày có hai nút cạnh nhau trong một khung xám: "Lịch trình" (đang chọn: nền trắng, chữ xanh đậm) và "Bản đồ". Phía dưới là danh sách hoạt động như trước.
+- [ ] Bấm "Bản đồ": danh sách biến mất, bản đồ hiện ra **rộng hết màn hình**, cao khoảng 2/3 màn hình, đủ 3 marker, đường nét đứt, dòng ghi nguồn, nút + / − và nút phóng to. Nút "Bản đồ" thành nút đang chọn.
+- [ ] Bấm "Lịch trình": danh sách trở lại đúng chỗ cũ.
+- [ ] Ở tab "Lịch trình", bấm "Sửa" ngày và gõ dở một tiêu đề (chưa lưu). Sang tab "Bản đồ" rồi quay lại: chữ đang gõ **vẫn còn**.
+- [ ] Ở tab "Bản đồ", chạm một marker: mở ô tên "2. …" với "Xem trong lịch trình". Chạm vào đó: màn hình chuyển về tab "Lịch trình" và cuộn tới thẻ của hoạt động, thẻ có viền sáng.
+- [ ] Ở tab "Bản đồ", chạm một chip ngày khác: vẫn ở tab "Bản đồ", bản đồ đổi sang địa điểm của ngày mới.
+- [ ] Ở tab "Bản đồ" của một ngày chưa có địa điểm: bản đồ ở điểm đến kèm thẻ "Ngày này chưa có địa điểm nào."
+- [ ] Bấm nút phóng to trên bản đồ: bản đồ kín màn hình; chạm marker → "Xem trong lịch trình": bản đồ thu lại, về tab "Lịch trình", cuộn tới thẻ.
+- [ ] F12 → Network: ở tab "Lịch trình" trên màn hẹp, **không có** yêu cầu nào tới `tile.openstreetmap.org`; chỉ khi mở tab "Bản đồ" mới có.
+- [ ] Kéo rộng cửa sổ quá 1024px: hai nút biến mất, danh sách và bản đồ hiện **cùng lúc** thành hai cột, dù trước đó đang ở tab nào. Thu hẹp lại: trở về tab đã chọn trước đó.
+- [ ] Hai nút đủ lớn để chạm bằng ngón tay (cao 44px); dùng Tab và Enter trên bàn phím chuyển được tab.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-60 · Vùng chạm trên màn hình cảm ứng (Task 3.6 Commit 17)
+
+Dùng điện thoại thật, hoặc F12 → giả lập thiết bị cảm ứng (ví dụ iPhone 12) rồi **tải lại trang**. Để so sánh, mở thêm một cửa sổ bình thường dùng chuột.
+
+- [ ] Trên màn cảm ứng, nút "⋮" ở góc thẻ hoạt động là một ô vuông lớn (44px), chạm bằng ngón cái trúng ngay; menu vẫn mở đúng chỗ. Trên cửa sổ dùng chuột, nút vẫn nhỏ như cũ (28px).
+- [ ] Dải chip ngày: mỗi chip cao hơn bản dùng chuột (44px so với 36px); dải vẫn cuộn ngang và dính ở mép trên.
+- [ ] Mở hộp "Thêm hoạt động": nút "×" ở góc hộp to hơn, chạm dễ; tiêu đề hộp không bị đẩy lệch.
+- [ ] Chọn một địa điểm rồi chạm "×" trong khung địa điểm: trúng ngay lần đầu, không chạm nhầm sang ô bên dưới.
+- [ ] Tab "Bản đồ": marker to hơn bản dùng chuột (36px), mũi nhọn vẫn chỉ đúng vị trí; số và icon vẫn đọc được. Chạm marker mở ô tên **ngay phía trên** marker, không đè lên nó.
+- [ ] Trong ô tên, dòng "Xem trong lịch trình" có vùng chạm cao (44px), chạm dễ.
+- [ ] Trên cửa sổ dùng chuột, kiểm lại nhanh: thẻ hoạt động, hộp thoại, bản đồ trông **y như trước** commit này.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-61 · Tự thêm một địa điểm không có trong kết quả tìm kiếm (Task 3.6 Commit 18)
+
+Cần máy có mạng (bản đồ nhỏ tải nền từ OpenStreetMap) và một chuyến đi đã đặt vị trí điểm đến ở Đà Nẵng.
+
+- [ ] Mở "Thêm hoạt động". Dưới ô tìm "Địa điểm" có dòng chữ xanh "Không tìm thấy? Tự thêm địa điểm". Con trỏ lúc mở hộp vẫn nằm trong ô tìm, không nằm ở dòng chữ này.
+- [ ] Gõ `nha ba ngoai`: danh sách ghi không tìm thấy. Bấm "Không tìm thấy? Tự thêm địa điểm": ô tìm được thay bằng một khung có ô "Tên địa điểm *" (con trỏ ở đây), nhãn "Vị trí *" và một bản đồ nhỏ đang ở khu vực **Đà Nẵng**, cùng hai nút "Quay lại tìm kiếm" và "Thêm địa điểm".
+- [ ] Bấm "Thêm địa điểm" khi chưa nhập gì: dưới ô tên báo "Tên địa điểm không được để trống", dưới bản đồ báo "Bấm lên bản đồ để đặt vị trí của địa điểm" (chữ đỏ). Hoạt động không bị lưu, hộp thoại vẫn mở.
+- [ ] Gõ tên `Nhà bà ngoại`. Phóng to bản đồ bằng nút + rồi bấm vào một điểm: hiện marker xanh ngọc hình giọt nước ngay chỗ bấm, và dòng "Đã đặt vị trí: …, …. Bấm chỗ khác để đổi." Bấm chỗ khác: marker dời theo, toạ độ đổi.
+- [ ] Nhấn Enter trong ô tên: địa điểm được thêm (không phải hoạt động). Khung chuyển thành khung địa điểm đã chọn ghi "Nhà bà ngoại" (không có địa chỉ), ô "Tên hoạt động" được điền "Nhà bà ngoại", "Loại" vẫn là "Khác".
+- [ ] Bấm "Thêm hoạt động": thẻ mới có dòng địa điểm "Nhà bà ngoại"; trên bản đồ của ngày có marker đúng chỗ đã bấm.
+- [ ] Mở "Thêm hoạt động" lần nữa, bấm "Không tìm thấy? Tự thêm địa điểm" rồi "Quay lại tìm kiếm": ô tìm hiện lại và nhận con trỏ.
+- [ ] Trong khung tự thêm, lăn chuột trên bản đồ nhỏ: bản đồ phóng; lăn chuột ở ngoài bản đồ: hộp thoại cuộn. Bản đồ nhỏ có dòng ghi nguồn.
+- [ ] Ở một chuyến đi **chưa** đặt vị trí điểm đến: bản đồ nhỏ mở ở cả Việt Nam.
+- [ ] Giả lập điện thoại: khung tự thêm vừa bề ngang hộp thoại; chạm lên bản đồ đặt được vị trí; hai nút đủ lớn để chạm.
+- [ ] Đăng nhập bằng một tài khoản khác: tìm `nha ba ngoai` **không** ra địa điểm vừa thêm (địa điểm tự thêm là của riêng người tạo).
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-62 · Bản đồ nhỏ ở điểm đến của chuyến đi (Task 3.6 Commit 19)
+
+Cần máy có mạng.
+
+- [ ] "Tạo chuyến đi", tới bước "Điểm đến": dưới ô "Vị trí trên bản đồ" có một bản đồ nhỏ đang hiện cả Việt Nam, có dòng ghi nguồn và nút + / −. Dòng gợi ý ghi "Tìm theo tên hoặc bấm lên bản đồ để chọn vị trí. …".
+- [ ] Tìm `cau rong` và chọn "Cầu Rồng": trên bản đồ có marker xanh ngọc và bản đồ **tự chuyển tới Đà Nẵng**. Dưới bản đồ: "Cầu Rồng" kèm toạ độ `16.0612, 108.2279`.
+- [ ] Phóng to rồi bấm vào một điểm khác trên bản đồ: marker dời tới đó, toạ độ đổi, nhãn đổi thành "Vị trí chọn trên bản đồ". Ô "Tên điểm đến" **không** bị đổi.
+- [ ] Tìm `ho hoan kiem` và chọn: marker nhảy ra Hà Nội, bản đồ chuyển theo, nhãn là "Hồ Hoàn Kiếm".
+- [ ] "Bỏ vị trí": marker và dòng toạ độ biến mất. Bấm lên bản đồ: có lại.
+- [ ] Ở một wizard mới (bản đồ đang hiện cả Việt Nam), bấm thẳng lên khu vực miền Trung: có marker và bản đồ **tự phóng vào** quanh điểm vừa bấm (mức thành phố) để bấm lại cho chính xác. Bấm lần nữa khi đã phóng: bản đồ đứng yên, chỉ marker dời.
+- [ ] Bấm "Tiếp" rồi "Quay lại": bản đồ mở ngay ở vị trí đã chọn, marker còn nguyên.
+- [ ] Hoàn tất wizard. Trang chi tiết: bản đồ của một ngày trống mở ở đúng vị trí vừa đặt.
+- [ ] Mở "Sửa chuyến đi": bản đồ nhỏ mở ở vị trí đã lưu (mức phố), nhãn "Vị trí đã lưu", không có "Bỏ vị trí". Bấm một điểm khác trên bản đồ, "Lưu thay đổi": bản đồ của ngày trống chuyển theo vị trí mới.
+- [ ] Đóng hộp "Sửa chuyến đi" rồi **mở lại lần thứ hai**: bản đồ nhỏ vẫn hiện đủ nền, marker nằm giữa khung (`BUG-UI-009`).
+- [ ] Trong hộp "Sửa chuyến đi", lớp phủ tối và nút "×" của hộp nằm **trên** bản đồ nhỏ; cuộn hộp thoại thì bản đồ cuộn theo, không đè lên phần khác.
+- [ ] Giả lập điện thoại: bản đồ nhỏ vừa bề ngang; chạm để đặt vị trí được; kéo bản đồ bằng một ngón không làm cuộn trang.
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
@@ -672,6 +985,7 @@ Cần hai cửa sổ: trình duyệt và cửa sổ đang chạy backend.
 | BUG-UI-006 | MT-UI-12 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Mở địa chỉ của một chuyến đi không tồn tại hoặc không có quyền xem: khung chờ hiện khoảng 7 giây rồi mới tới câu "Không tìm thấy chuyến đi". `MT-UI-12` kiểm đúng câu thông báo nhưng chưa nêu thời gian chờ | Yêu cầu bị máy chủ **từ chối** (404, 403) được tự gửi lại 3 lần, cách nhau 1, 2 và 4 giây, như thể đó là lỗi mạng tạm thời | Quy định chung cho mọi lần tải dữ liệu: máy chủ đã trả lời từ chối (mã 4xx) thì không gửi lại. Mất mạng, quá thời gian chờ và lỗi máy chủ (5xx) vẫn được thử lại 3 lần như cũ | Đã sửa trong commit `ae2af3b`, chờ chạy MT-UI-12 |
 | BUG-UI-007 | MT-UI-02 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Ở ô tìm kiếm của trang danh sách, gõ `đà` kèm một dấu cách rồi ngừng tay khoảng 0,3 giây: dấu cách biến mất. Gõ tiếp `nẵng` thì ô thành `đànẵng` và không tìm ra gì. `MT-UI-02` chỉ gõ liền một mạch nên không gặp | Khi ngừng gõ, từ khoá được cắt khoảng trắng thừa rồi ghi lên thanh địa chỉ. Ô tìm kiếm thấy thanh địa chỉ đổi liền chép ngược giá trị đã cắt vào chính nó | Ô tìm kiếm chỉ chép từ thanh địa chỉ khi thanh địa chỉ nói **khác** với ô (nút Back, "Xoá bộ lọc", rời trang danh sách). Khi thanh địa chỉ đã khớp với chữ trong ô thì giữ nguyên chữ đang gõ | Đã sửa trong commit `e4f4520`, chờ chạy MT-UI-02 |
 | BUG-UI-008 | MT-UI-26, bước 3 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Kéo một hoạt động rồi thả lên chính ngày đang xem ở cột trái: hoạt động nhảy xuống **cuối ngày**. `MT-UI-26` bước 3 mong đợi "không có gì thay đổi"; bài này chưa được chạy nên lỗi chưa lộ | Đường thả lên tên ngày luôn chuyển hoạt động xuống cuối ngày đích mà không kiểm ngày đích có phải ngày hiện tại hay không. Đường menu "⋮" có kiểm này | Thả lên đúng ngày mà hoạt động đang ở thì coi như người dùng đổi ý: không làm gì, không gọi máy chủ | Đã sửa trong commit `dcfcfbe`, chờ chạy MT-UI-26 |
+| BUG-UI-009 | MT-UI-56, bước 2 | 2026-10-04 | Task 3.6, sau Commit 19. Chủ dự án thử trên trình duyệt: bản đồ của ngày hiện bình thường ở cột bên phải, nhưng bấm "Phóng to bản đồ" thì khung phủ cả cửa sổ **không hiện bản đồ** | Thư viện bản đồ đo kích thước khung của nó đúng một lần, lúc bản đồ được tạo. Bản đồ phóng to nằm trong một hộp thoại, và hộp thoại chỉ được mở **sau khi** bản đồ bên trong đã được tạo: lúc đó khung còn ẩn, kích thước đo được là 0 × 0, nên bản đồ không tải ô nền nào. Hai lệnh kiểm tra mã nguồn không thấy được vì thứ tự này chỉ lộ ra khi chạy thật. Bản đồ nhỏ trong hộp "Sửa chuyến đi" (Commit 19, chưa commit) có cùng nguyên nhân từ lần mở thứ hai, tìm ra khi rà lại và sửa luôn trong Commit 19 | Bấm "Phóng to bản đồ" thì mở hộp thoại trước, rồi mới tạo bản đồ bên trong. Bản đồ chọn điểm tự đo lại mỗi khi khung của nó đổi kích thước | Đã sửa (`c712093`). Chủ dự án thử lại ngày 2026-10-04 và xác nhận bản đồ phóng to đã hiện. Phần của hộp "Sửa chuyến đi" (`72e97d5`) chưa được kiểm lại |
 
 BUG-UI-003 đến BUG-UI-008 được tìm ra bằng cách đọc lại code ngày 2026-10-01, trước khi vào Phase 3, vì 41 bài kiểm tra thủ công của file này chưa được chạy. Ít nhất hai lỗi (006, 008) nằm đúng ở bước mà một bài có sẵn sẽ kiểm. Cột "Kết quả" của các bài `MT-UI` vẫn là "Chưa chạy": chỉ người thật chạy mới được ghi kết quả.
 
