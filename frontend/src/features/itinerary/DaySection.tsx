@@ -68,6 +68,8 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
     onSuccess: async () => {
+      // The two neighbours of the deleted activity now follow each other: a leg the server has not sent yet
+      void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       setDeleting(null)
       toast.success('Đã xoá hoạt động')

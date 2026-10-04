@@ -156,6 +156,9 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
       setConflict(null)
       // The response carries the final orderIndex, including a backend renumbering
       setCachedDays((current) => current.map((day) => affected.find((d) => d.id === day.id) ?? day))
+      // Travel between the activities follows their order. The key covers every day of the trip, so the day
+      // the activity left and the day it went to are both asked again; only the days on screen reload now
+      void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
       if (movedTo) {
         toast.success(`Đã chuyển "${movedTo.title}" sang Ngày ${movedTo.dayIndex}`, {
           label: `Mở Ngày ${movedTo.dayIndex}`,
