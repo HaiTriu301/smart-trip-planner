@@ -23,6 +23,7 @@ import { ActivityFormDialog } from './ActivityFormDialog'
 import { MoveToDayDialog } from './MoveToDayDialog'
 import { SortableActivity, SortableDayList } from './DragDropContainer'
 import { daySchema, NOTE_MAX_LENGTH, type DayValues } from './schemas'
+import { DayWeatherLine } from '../weather/DayWeatherLine'
 
 interface DaySectionProps {
   tripId: number
@@ -83,6 +84,7 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
             ) : (
               <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
             )}
+            <DayWeatherLine tripId={tripId} dayId={day.id} />
             {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
           </div>
           <div className="flex shrink-0 items-center gap-2">

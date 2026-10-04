@@ -494,7 +494,7 @@ Loại
   - Thẻ hoạt động của ngày đã qua **không** nhạt đi: vẫn sửa được và phải dễ đọc.
   - Mở `/trips/:id` (không kèm số ngày) khi hôm nay nằm trong chuyến đi thì vào thẳng ngày hôm nay thay vì Ngày 1. Link có số ngày giữ nguyên.
 - **Hỏi hoàn thành:** mở một chuyến đi đã qua ngày cuối mà trạng thái còn là Nháp, Đã lên kế hoạch hoặc Đang diễn ra → `ConfirmDialog`: tiêu đề "Hoàn thành chuyến đi?", nội dung 'Chuyến đi "{tên}" đã kết thúc ngày {dd/mm/yyyy}. Lịch trình vẫn sửa được sau khi hoàn thành.', nút phụ "Để sau", nút chính "Hoàn thành chuyến đi". Xong: toast "Đã hoàn thành chuyến đi", ô trạng thái đổi theo. "Để sau": không hỏi lại về chuyến đi đó tới lần đăng nhập sau.
-- Trên màn hẹp, dưới tiêu đề ngày có **một dòng thời tiết của ngày đang xem** (13px, `gray-600`): icon, tên tình trạng ("Có mây"), "32° / 25°", icon giọt nước và "20%". Ngày không có dự báo thì không có dòng này. Từ 1024px không hiện (đã có dải dưới bản đồ).
+- (**Đã làm**) Trên màn hẹp, dưới tiêu đề của ngày và trên ghi chú có **một dòng thời tiết của ngày đang xem** (`features/weather/DayWeatherLine`; 13px, `gray-600`): icon có màu, tên tình trạng ("Có mây"), "32° / 25°", icon giọt nước và "20%", ngăn nhau bằng dấu "·" màu `gray-300`; thiếu chỗ thì tự xuống hàng. Ngày không có dự báo, đang tải hoặc tải lỗi thì không có dòng này (không chừa chỗ, không báo lỗi). Từ 1024px không hiện (đã có dải dưới bản đồ).
 
 **Màn hình hẹp:**
 

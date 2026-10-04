@@ -1,13 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { CloudAlert, CloudOff, Droplet, MapPinOff } from 'lucide-react'
-import { getTripWeather } from '../../api/weather'
 import { Skeleton } from '../../components/Skeleton'
 import { formatDate } from '../../lib/format'
 import type { TripDay } from '../../types/trip'
 import type { TripWeatherDay } from '../../types/weather'
 import { formatDegrees, WEATHER_CONDITIONS } from './weatherCondition'
+import { useTripWeather } from './useTripWeather'
 
 /** Same height while loading, with a forecast and without one (h-28 = 112px; DayTimeline counts on it) */
 const BOX_HEIGHT = 'h-28'
@@ -29,11 +28,7 @@ interface WeatherStripProps {
  * A forecast loaded earlier stays on screen when a later reload fails (same rule as the trip itself, BUG-UI-005).
  */
 export function WeatherStrip({ tripId, days, currentDayIndex }: WeatherStripProps) {
-  // Its own key, not under ['trip', id]: editing an activity must not ask for the forecast again
-  const { data: weather, isPending, isFetching, refetch } = useQuery({
-    queryKey: ['weather', tripId],
-    queryFn: () => getTripWeather(tripId),
-  })
+  const { data: weather, isPending, isFetching, refetch } = useTripWeather(tripId)
 
   const listRef = useRef<HTMLOListElement>(null)
   const currentRef = useRef<HTMLLIElement>(null)
