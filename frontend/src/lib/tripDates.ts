@@ -21,3 +21,18 @@ export function classifyDateChange(
   if (newEnd !== oldEnd) return 'resize'
   return 'none'
 }
+
+interface DatedDay {
+  dayIndex: number
+  /** "YYYY-MM-DD" */
+  date: string
+}
+
+/**
+ * The day to show when a trip is opened without naming one (/trips/:id): today's day while the trip is in
+ * progress, day 1 before it starts and after it is over (design.md rule 14.22). "In progress" goes by the
+ * dates, not by the status, which only changes when the user changes it.
+ */
+export function openingDayIndex(days: readonly DatedDay[], today: string): number {
+  return days.find((day) => day.date === today)?.dayIndex ?? 1
+}

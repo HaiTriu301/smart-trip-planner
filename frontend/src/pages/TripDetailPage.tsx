@@ -8,18 +8,22 @@ import { Button } from '../components/Button'
 import { ExpandableText } from '../components/ExpandableText'
 import { Skeleton } from '../components/Skeleton'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
+import { useToday } from '../hooks/useToday'
 import { TripActions } from '../features/trips/TripActions'
 import { TripStatusSelect } from '../features/trips/TripStatusSelect'
 import { countDays, formatDateRange, formatMoney } from '../lib/format'
+import { openingDayIndex } from '../lib/tripDates'
 
 /**
  * design.md 15 "màn hình chính": trip header + one day of the itinerary (/trips/:id/days/:dayIndex).
- * GET /trips/{id} returns every day at once; /trips/:id and an unknown day number go to day 1.
+ * GET /trips/{id} returns every day at once. /trips/:id, the address a trip card links to, opens today's day
+ * while the trip is in progress and day 1 otherwise (design rule 14.22); an unknown day number goes to day 1.
  */
 export function TripDetailPage() {
   const { id, dayIndex } = useParams()
   const tripId = Number(id)
   const isValidId = Number.isInteger(tripId) && tripId > 0
+  const today = useToday()
 
   const { data: trip, error, isPending, isFetching, refetch } = useQuery({
     queryKey: ['trip', tripId],
@@ -43,7 +47,10 @@ export function TripDetailPage() {
 
   const currentDayIndex = Number(dayIndex)
   if (!trip.days.some((d) => d.dayIndex === currentDayIndex)) {
-    return <Navigate to={`/trips/${trip.id}/days/1`} replace />
+    // No day in the address: the user asked for the trip, not for a day. A day number that does not exist
+    // (the trip was shortened, a mistyped link) is different: day 1, as before
+    const opening = dayIndex === undefined ? openingDayIndex(trip.days, today) : 1
+    return <Navigate to={`/trips/${trip.id}/days/${opening}`} replace />
   }
 
   return (
