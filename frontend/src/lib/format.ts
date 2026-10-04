@@ -31,6 +31,21 @@ export function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency }).format(amount)
 }
 
+/** 998 → "998 m", 8440 → "8,4 km": metres under one kilometre, then kilometres with one decimal. */
+export function formatDistance(meters: number): string {
+  if (meters < 1000) return `${meters} m`
+  return `${(meters / 1000).toFixed(1).replace('.', ',')} km`
+}
+
+/** 1500 → "25 phút", 3900 → "1 giờ 5 phút". Rounded up to the minute: nobody plans a day in seconds. */
+export function formatDuration(seconds: number): string {
+  const minutes = Math.max(1, Math.ceil(seconds / 60))
+  if (minutes < 60) return `${minutes} phút`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} giờ` : `${hours} giờ ${rest} phút`
+}
+
 function toUtcMillis(isoDate: string): number {
   const [year, month, day] = isoDate.split('-').map(Number)
   return Date.UTC(year, month - 1, day)

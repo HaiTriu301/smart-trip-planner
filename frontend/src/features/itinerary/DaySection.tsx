@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deleteActivity } from '../../api/activities'
+import { getDayRoute } from '../../api/routes'
 import { updateTripDay } from '../../api/trips'
 import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -15,12 +16,14 @@ import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { formatDate, formatWeekday } from '../../lib/format'
 import { findOverlaps } from '../../lib/timeOverlap'
+import { legsAfter } from '../../lib/travelLegs'
 import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFormDialog } from './ActivityFormDialog'
 import { MoveToDayDialog } from './MoveToDayDialog'
+import { TravelLeg } from './TravelLeg'
 import { SortableActivity, SortableDayList } from './DragDropContainer'
 import { daySchema, NOTE_MAX_LENGTH, type DayValues } from './schemas'
 import { DayWeatherLine } from '../weather/DayWeatherLine'
@@ -51,6 +54,16 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
   const [deleting, setDeleting] = useState<Activity | null>(null)
   const [moving, setMoving] = useState<Activity | null>(null)
   const overlaps = findOverlaps(day.activities)
+
+  // Travel between the activities that have a place. Its own key, not under ['trip', id]; a day with fewer
+  // than two places has no leg, so nothing is asked
+  const placeCount = day.activities.filter((activity) => activity.place).length
+  const { data: route } = useQuery({
+    queryKey: ['route', tripId, day.id],
+    queryFn: () => getDayRoute(tripId, day.id),
+    enabled: placeCount >= 2,
+  })
+  const legs = legsAfter(day.activities, route?.legs ?? [])
 
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
@@ -123,23 +136,26 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
             </Button>
           </li>
         ) : (
-          day.activities.map((activity) => (
-            <SortableActivity key={activity.id} activity={activity}>
-              {(dragHandle) => (
-                <ActivityCard
-                  activity={activity}
-                  dragHandle={dragHandle}
-                  overlapping={overlaps.has(activity.id)}
-                  onEdit={() => setEditing(activity)}
-                  onDelete={() => {
-                    deletion.reset()
-                    setDeleting(activity)
-                  }}
-                  onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
-                />
-              )}
-            </SortableActivity>
-          ))
+          day.activities.map((activity) => {
+            const leg = legs.get(activity.id)
+            return (
+              <SortableActivity key={activity.id} activity={activity} below={leg && <TravelLeg leg={leg} />}>
+                {(dragHandle) => (
+                  <ActivityCard
+                    activity={activity}
+                    dragHandle={dragHandle}
+                    overlapping={overlaps.has(activity.id)}
+                    onEdit={() => setEditing(activity)}
+                    onDelete={() => {
+                      deletion.reset()
+                      setDeleting(activity)
+                    }}
+                    onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
+                  />
+                )}
+              </SortableActivity>
+            )
+          })
         )}
       </SortableDayList>
 
