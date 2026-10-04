@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { openingDayIndex } from './tripDates'
+import { openingDayIndex, shouldAskToComplete } from './tripDates'
 
 const DAYS = [
   { dayIndex: 1, date: '2026-10-12' },
@@ -26,5 +26,29 @@ describe('openingDayIndex', () => {
     ['long after', '2027-06-30'],
   ])('opens day 1 on %s', (_name, today) => {
     expect(openingDayIndex(DAYS, today)).toBe(1)
+  })
+})
+
+describe('shouldAskToComplete', () => {
+  const today = '2026-10-16'
+
+  it.each(['DRAFT', 'PLANNED', 'ONGOING'] as const)('asks about a %s trip that ended yesterday', (status) => {
+    expect(shouldAskToComplete({ endDate: '2026-10-15', status }, today)).toBe(true)
+  })
+
+  it.each(['COMPLETED', 'ARCHIVED'] as const)('does not ask about a %s trip', (status) => {
+    expect(shouldAskToComplete({ endDate: '2026-10-15', status }, today)).toBe(false)
+  })
+
+  it('does not ask on the last day of the trip: the day is not over yet', () => {
+    expect(shouldAskToComplete({ endDate: today, status: 'ONGOING' }, today)).toBe(false)
+  })
+
+  it('does not ask about a trip still ahead', () => {
+    expect(shouldAskToComplete({ endDate: '2026-11-02', status: 'PLANNED' }, today)).toBe(false)
+  })
+
+  it('asks about a trip that ended long ago', () => {
+    expect(shouldAskToComplete({ endDate: '2025-12-31', status: 'DRAFT' }, today)).toBe(true)
   })
 })
