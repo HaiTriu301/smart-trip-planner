@@ -55,8 +55,9 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
   const [moving, setMoving] = useState<Activity | null>(null)
   const overlaps = findOverlaps(day.activities)
 
-  // Travel between the activities that have a place. Its own key, not under ['trip', id]; a day with fewer
-  // than two places has no leg, so nothing is asked
+  // Travel between the activities that have a place; one without a place is passed over, and the leg then
+  // names where it arrives. Its own key, not under ['trip', id]; a day with fewer than two places has no leg,
+  // so nothing is asked
   const placeCount = day.activities.filter((activity) => activity.place).length
   const { data: route } = useQuery({
     queryKey: ['route', tripId, day.id],
@@ -64,6 +65,7 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
     enabled: placeCount >= 2,
   })
   const legs = legsAfter(day.activities, route?.legs ?? [])
+  const titleOf = (activityId: number) => day.activities.find((a) => a.id === activityId)?.title
 
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
@@ -139,9 +141,12 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
           </li>
         ) : (
           day.activities.map((activity) => {
-            const leg = legs.get(activity.id)
+            const shown = legs.get(activity.id)
+            const travel = shown && (
+              <TravelLeg leg={shown.leg} destination={shown.direct ? undefined : titleOf(shown.leg.toActivityId)} />
+            )
             return (
-              <SortableActivity key={activity.id} activity={activity} below={leg && <TravelLeg leg={leg} />}>
+              <SortableActivity key={activity.id} activity={activity} below={travel}>
                 {(dragHandle) => (
                   <ActivityCard
                     activity={activity}
