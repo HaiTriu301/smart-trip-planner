@@ -8,6 +8,7 @@ import { formatDate } from '../../lib/format'
 import { revealActivity } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
 import type { TripDayDetail } from '../../types/trip'
+import { WeatherStrip } from '../weather/WeatherStrip'
 import { DayMap } from './DayMap'
 import { DaySection } from './DaySection'
 import { DayDropTarget, DragDropContainer } from './DragDropContainer'
@@ -151,19 +152,23 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
             </div>
             {/* Wide screens: third column, pinned like the day list, as tall as the screen allows. Narrow
                 screens: the "Bản đồ" tab. The map is created only while it is shown; it shows the working copy
-                of the day, so the numbers follow a card while it is being dragged */}
+                of the day, so the numbers follow a card while it is being dragged. The weather strip sits
+                under it; the map gives up exactly the strip's height (7rem) and the gap (0.75rem) */}
             {mapShown && (
               <aside>
-                <div className="h-[70dvh] min-h-[320px] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:min-h-0">
-                  <DayMap
-                    activities={shown.activities}
-                    destination={destination}
-                    listHidden={!listShown}
-                    onShowInList={(activityId) => {
-                      revealWhenListShown.current = activityId
-                      setNarrowView('list')
-                    }}
-                  />
+                <div className="space-y-3 lg:sticky lg:top-6">
+                  <div className="h-[70dvh] min-h-[320px] lg:h-[calc(100vh-3rem-7.75rem)] lg:min-h-0">
+                    <DayMap
+                      activities={shown.activities}
+                      destination={destination}
+                      listHidden={!listShown}
+                      onShowInList={(activityId) => {
+                        revealWhenListShown.current = activityId
+                        setNarrowView('list')
+                      }}
+                    />
+                  </div>
+                  <WeatherStrip tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
                 </div>
               </aside>
             )}
