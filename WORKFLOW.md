@@ -1687,7 +1687,7 @@ Commit 17 — feat(frontend): show and set the trip destination on a small map  
 > - Dữ liệu mock chỉ có 56 địa điểm ở 5 điểm đến; nơi khác dùng "Tự thêm địa điểm" (Commit 16) cho tới Task 3.8.
 > - Tile bản đồ do trình duyệt tải thẳng từ máy chủ của OpenStreetMap (bảng duyệt ghi CARTO, đổi ở Commit 10): không có mạng thì nền xám, marker vẫn hiện.
 
-> **Thực tế khi làm 3.6 (2026-10-03 → 2026-10-04):** 21 commit trên nhánh thay vì 17 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`c2e8e27`). Số PR và merge commit: ghi ở Mốc 0 của task sau.
+> **Thực tế khi làm 3.6 (2026-10-03 → 2026-10-04):** 21 commit trên nhánh thay vì 17 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`c2e8e27`). PR #22, merge commit `97bce06`; commit docs đóng task `7015bc2`.
 >
 > | # | Commit | File (duyệt → thật) | Ghi chú |
 > |:--:|---|:--:|---|
@@ -1746,32 +1746,46 @@ Commit 17 — feat(frontend): show and set the trip destination on a small map  
 
 ### Task 3.7 — Giao diện: thời tiết, quãng đường, ngày đã qua
 
-Nhánh: `feat/T3.7-weather-route-ui` · Điều kiện commit như 3.6.
+Nhánh: `feat/T3.7-weather-route-ui` · Chỉ frontend: mọi API đã có từ Task 2.1, 3.3, 3.5. Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh (từ Commit 1), bài `MT-UI` mới trong `06-itinerary-ui.md`. Commit đổi bố cục sửa `UI_GUIDE.md` trong chính commit đó (CLAUDE.md rule 38); số file trong bảng **chưa** tính file này.
 
-```
-Mốc 1 — feat(frontend): add the weather strip under the map
-        types/weather.ts, api/weather.ts, components/weather/WeatherStrip.tsx: mỗi ngày một ô (icon, cao / thấp,
-        xác suất mưa); chuyến đi chưa có điểm đến → câu mời chọn điểm đến; ngày ngoài 16 ngày tới → "Chưa có dự báo"
+Kết quả của task: người dùng thấy dự báo thời tiết của từng ngày (trang chuyến đi và thẻ ở trang danh sách), thời gian và quãng đường di chuyển giữa các hoạt động, ngày nào đã qua và ngày nào là hôm nay; chuyến đi đã qua ngày cuối được hỏi có đánh dấu hoàn thành không. Cảnh báo ngoài trời vẫn hoãn (design rule 14.21).
 
-Mốc 2 — HOÃN (2026-10-02, cùng cảnh báo ngoài trời của Task 3.3, design rule 14.21): viền `warning` ở ô ngày và
-        chip thời tiết trên thẻ hoạt động. Giữ số mốc để các chỗ dẫn tới Mốc 3, 4, 5 không lệch
+| # | Commit | File | Số file |
+|---|---|---|:--:|
+| 0 | `docs: plan task 3.7 weather, route and past days ui` (trên `main`) | `WORKFLOW.md`, `design.md`, `UI_GUIDE.md` | 3 |
+| 1 | `chore(frontend): add vitest` | `package.json`, `package-lock.json`, `vite.config.ts`, `lib/orderIndex.test.ts` | 4 |
+| 2 | `feat(frontend): show the weather forecast under the day map` | `types/weather.ts`, `api/weather.ts`, `features/weather/weatherCondition.ts`, `features/weather/WeatherStrip.tsx`, `features/itinerary/DayTimeline.tsx` | 5 |
+| 3 | `feat(frontend): invite to set the destination when there is no forecast` | `WeatherStrip.tsx`, `features/trips/EditTripDialog.tsx` | 2 |
+| 4 | `feat(frontend): keep the trip page usable when the forecast fails` | `WeatherStrip.tsx` | 1 |
+| 5 | `feat(frontend): show the weather of the day in the day heading on small screens` | `features/weather/useTripWeather.ts`, `features/weather/DayWeatherLine.tsx`, `WeatherStrip.tsx`, `features/itinerary/DaySection.tsx` | 4 |
+| 6 | `feat(frontend): show travel time and distance between activities` | `types/route.ts`, `api/routes.ts`, `lib/format.ts`, `lib/format.test.ts`, `lib/travelLegs.ts`, `lib/travelLegs.test.ts`, `features/itinerary/TravelLeg.tsx`, `DaySection.tsx`, `DragDropContainer.tsx` | 9 |
+| 7 | `feat(frontend): refresh travel legs after the day changes` | `ActivityFormDialog.tsx`, `DaySection.tsx`, `DragDropContainer.tsx` | 3 |
+| 8 | `feat(frontend): show a travel leg that passes activities without a place` | `lib/travelLegs.ts`, `lib/travelLegs.test.ts`, `TravelLeg.tsx` | 3 |
+| 9 | `feat(frontend): mark past days and today on the trip page` | `lib/today.ts`, `lib/today.test.ts`, `hooks/useToday.ts`, `DayTimeline.tsx`, `DaySection.tsx` | 5 |
+| 10 | `feat(frontend): open a trip in progress at today` | `lib/tripDates.ts`, `lib/tripDates.test.ts`, `pages/TripDetailPage.tsx` | 3 |
+| 11 | `feat(frontend): show the weather on the trip card` | `features/weather/cardForecast.ts`, `features/weather/cardForecast.test.ts`, `features/weather/TripCardWeather.tsx`, `features/trips/TripCard.tsx` | 4 |
+| 12 | `feat(frontend): ask to complete a trip after its last day` | `lib/tripDates.ts`, `lib/tripDates.test.ts`, `features/trips/CompleteTripPrompt.tsx`, `pages/TripDetailPage.tsx` | 4 |
+| 13 | `feat(frontend): do not ask to complete a trip again until the next sign-in` | `stores/completePromptStore.ts`, `stores/completePromptStore.test.ts`, `CompleteTripPrompt.tsx` | 3 |
 
-Mốc 3 — feat(frontend): show travel distance between activities
-        api/routes.ts, đoạn nối "25 phút · 8,4 km" giữa hai thẻ liền nhau cùng có địa điểm (nằm trong từng hàng,
-        ẩn khi đang kéo); tải lại sau khi kéo thả, đổi hoặc bỏ địa điểm
+Commit 6 có 9 file (quá mức 8 của A.2): bốn file là file mới rất nhỏ (type, api), hai file là test; tách nữa thì có commit chứa hàm chưa ai dùng. Commit 11 (thẻ ở danh sách) đứng sau Commit 9 vì cần hàm "hôm nay".
 
-Mốc 4 — feat(frontend): mark past days and today on the trip page
-        (design rule 14.22) lib tính "hôm nay" theo múi giờ của tài khoản; ngày đã qua nhạt hơn + nhãn "Đã qua",
-        ngày hôm nay có nhãn "Hôm nay"; mở chuyến đi đang diễn ra thì vào ngày hôm nay thay vì Ngày 1.
-        Vị trí và kiểu nhãn: hỏi chủ dự án trước khi code
+**Điểm hở tạm thời:** sau Commit 6, kéo thả xong thì đoạn di chuyển biến mất tới khi tải lại trang (không hiện số sai), Commit 7 đóng; sau Commit 12, "Để sau" bị hỏi lại ở lần mở sau, Commit 13 đóng.
 
-Mốc 5 — feat(frontend): ask to complete a trip after its last day
-        mở chuyến đi đã qua ngày cuối, trạng thái còn DRAFT / PLANNED / ONGOING → hộp xác nhận;
-        "Hoàn thành" → PATCH /trips/{id}/status sang COMPLETED; "Để sau" → không hỏi lại tới lần đăng nhập sau;
-        không khoá gì: lịch trình vẫn sửa được
-```
+**Dừng để xem trên trình duyệt** (chủ dự án chạy bài `MT-UI` của nhóm; bài học của Task 3.6): sau Commit 5 (thời tiết ở trang chuyến đi), 8 (quãng đường), 11 (ngày đã qua, thẻ danh sách), 13 (hoàn thành).
 
-> Mốc 4 và 5 thêm ngày 2026-10-01 khi thảo luận "hoạt động đã qua ngày thì xử lý thế nào". Không cần backend mới: dùng `timezone` trong `GET /users/me` và endpoint đổi trạng thái đã có.
+> **Quyết định khi duyệt bảng commit 3.7 (2026-10-05):**
+> - Bốn mốc kiểu cũ (mỗi mốc gộp 2–4 hành vi) chia lại thành 13 commit theo A.2. Mốc 2 cũ (viền và chip cảnh báo) vẫn hoãn.
+> - **Vitest thêm ngay ở task này** (không đợi Task 8.3): môi trường node, chỉ test hàm thuần (`lib/`, `features/weather/`, `stores/`). Test component (Testing Library) vẫn để Task 8.3. Lý do: "hôm nay" theo múi giờ, định dạng quãng đường và ghép chặng là logic dễ sai mà mắt khó bắt.
+> - **Thời tiết:** dải dưới bản đồ, mỗi ngày một ô là link tới ngày đó, ô của ngày đang xem tô nổi. Màn hẹp thêm một dòng thời tiết của ngày đang xem dưới tiêu đề ngày (ngoài dải ở tab "Bản đồ"). Chưa có điểm đến: một câu mời, không kèm nút. Lỗi tải: "Tạm thời không có dự báo." + "Thử lại", trang vẫn dùng được. Khoá truy vấn `['weather', tripId]`, làm mới sau "Sửa chuyến đi".
+> - **Thời tiết trên thẻ ở trang danh sách** (yêu cầu mới của chủ dự án): chuyến đang đi → dự báo hôm nay; chuyến sắp đi có ngày đầu trong 16 ngày tới → dự báo ngày khởi hành; còn lại không hiện. Mỗi thẻ đủ điều kiện tự gọi `GET /weather/trips/{id}` (dùng chung cache với trang chi tiết), không thêm endpoint. Đã cân nhắc và bỏ: "luôn là hôm nay ở điểm đến" (cần endpoint mới), nhét thời tiết vào câu trả lời của danh sách (danh sách phải chờ nguồn thời tiết).
+> - **Quãng đường:** chỉ tải ngày đang mở, khoá `['route', tripId, dayId]`; sau mỗi lần lưu làm mới `['route', tripId]` (phủ cả ngày nguồn và ngày đích). Chặng bắc qua hoạt động không có địa điểm: hiện **dưới thẻ xuất phát**, ghi kèm tên đích ("12 phút · 3,2 km tới Cầu Rồng"). Chặng 0 m ẩn. **Không** hiện tổng của ngày. Một chặng chỉ được vẽ khi cặp hoạt động của nó còn khớp thứ tự đang hiển thị.
+> - **Ngày đã qua:** nhãn ở cột trái, chip và tiêu đề ngày; chỉ mục ngày nhạt đi, thẻ hoạt động giữ nguyên. "Đang diễn ra" tính theo ngày (hôm nay nằm trong chuyến đi), không theo trạng thái. Chỉ `/trips/:id` không kèm số ngày mới chuyển tới hôm nay. Đánh dấu từng hoạt động đã qua giờ: ngoài phạm vi.
+> - **Hỏi hoàn thành:** tiêu đề "Hoàn thành chuyến đi?", nút "Hoàn thành chuyến đi" / "Để sau", toast "Đã hoàn thành chuyến đi". "Để sau" lưu id chuyến đi trong `localStorage`, xoá khi phiên đăng nhập kết thúc (rule 36 chỉ cấm để token ở đó).
+> - **Mockup Stitch trước khi code:** 4 màn trong `trip-planner-screenshots/stitch_smart_trip_planner_3.7/`. Lấy: dải thời tiết bốn ô, dòng thời tiết dưới tiêu đề ngày, nhãn ở cột trái, hộp xác nhận, **icon thời tiết có màu** (nắng `sun`, mưa `info`, mây xám). Sửa so với mockup: bỏ icon ô tô / người đi bộ ở đoạn di chuyển (backend chỉ tính một phương tiện); đoạn di chuyển dùng kiểu chữ nhẹ của bản điện thoại ở mọi màn; nhãn "Hôm nay" không ngắt dòng; ô "Chưa có dự báo" có icon; chip ngày đã qua dùng chữ xám đủ tương phản thay vì làm mờ; thời tiết trên thẻ danh sách xuống **hàng chân thẻ** với chữ "Hôm nay" / "Ngày đi". Chi tiết: UI_GUIDE 8.1, 8.2, 9, 15.3.
+>
+> **Để mở sau này: nhiều phương tiện.** Hiện API chỉ tính một phương tiện nên giao diện không có icon phương tiện. Muốn thêm: `MapProvider.route` và endpoint nhận tham số phương tiện, `RouteLegResponse` thêm trường `mode` (Task 3.8 kiểm OSRM công cộng có profile nào), rồi `TravelLeg` chọn icon theo `mode` bằng một bảng như `weatherCondition.ts`. Phần giao diện là việc nhỏ; phần quyết định là nguồn dữ liệu.
+
+**Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]`. `DragDropContainer` đã 479 dòng: Commit 6–7 chỉ thêm tín hiệu "đang kéo" và lời gọi làm mới; cần thêm nhiều hơn thì tách bằng commit `refactor` riêng, nói trước khi làm. "Hôm nay" chỉ lấy qua `lib/today.ts` + `hooks/useToday.ts`, không gọi `new Date()` rải rác trong component.
 
 ---
 

@@ -484,10 +484,17 @@ Loại
 
 **Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 360px (từ 1280px: 420px), dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px) và cao bằng màn hình trừ 48px. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px bản đồ nằm ở tab "Bản đồ" (bảng "Màn hình hẹp" bên dưới). Dải thời tiết bên dưới bản đồ: Task 3.7.
 
-**Task 3.7 (chốt 2026-10-01, `design.md` rule 14.22) — chưa làm:**
-- Ngày đã qua hiện nhạt hơn và có nhãn "Đã qua"; ngày hôm nay có nhãn "Hôm nay". Mở một chuyến đi đang diễn ra thì vào thẳng ngày hôm nay thay vì Ngày 1. "Hôm nay" tính theo múi giờ của tài khoản (hiện là giờ Việt Nam).
-- Mở một chuyến đi đã qua ngày cuối mà trạng thái còn là Nháp, Đã lên kế hoạch hoặc Đang diễn ra: hộp xác nhận hỏi đã hoàn thành chưa. "Hoàn thành" đổi trạng thái sang Hoàn thành; "Để sau" thì không hỏi lại tới lần đăng nhập sau. Lịch trình vẫn sửa được sau khi hoàn thành.
-- Vị trí và kiểu của nhãn, câu chữ của hộp xác nhận: chốt với chủ dự án ở đầu Task 3.7, trước khi code.
+**Task 3.7 (chốt 2026-10-05; `design.md` rule 14.20, 14.22) — chưa làm:**
+- **Dải thời tiết** nằm dưới bản đồ trong cột phải (bản đồ thấp đi đúng bằng chiều cao của dải); chi tiết ở mục 9.
+- **Đoạn di chuyển** giữa các thẻ hoạt động: nằm trong hàng của thẻ **xuất phát**, ngay dưới thẻ, cao khoảng 28px: ray nét đứt xám 2px và một dòng chữ 12px `gray-500` "12 phút · 3,2 km". Không viền, không nền, **không icon phương tiện** (API chỉ tính một phương tiện). Thẻ kế tiếp không phải đích (ở giữa có hoạt động không có địa điểm) thì ghi thêm tên đích: "12 phút · 3,2 km tới Cầu Rồng" (tên dài thì cắt bằng "…"). Rê chuột hiện "Ước tính theo đường bộ, chưa tính kẹt xe". Dưới 1 km ghi mét ("998 m"), từ 1 km ghi một chữ số thập phân ("8,4 km"); thời gian làm tròn lên phút, từ 60 phút ghi "1 giờ 5 phút". Chặng 0 m (hai hoạt động cùng một địa điểm) không hiện. Đang kéo thẻ thì mọi đoạn di chuyển ẩn; sau khi lưu, số mới hiện lại. Không hiện tổng di chuyển của ngày.
+- **Ngày đã qua và hôm nay** ("hôm nay" tính theo múi giờ của tài khoản, hiện là giờ Việt Nam):
+  - Cột trái: dưới dòng "Ngày N · ngày tháng" có một dòng nhỏ 12px: "Hôm nay" (`jade-dark`, đậm) hoặc "Đã qua" (`gray-500`). Mục của ngày đã qua nhạt đi (chữ `gray-500`), vẫn bấm được.
+  - Chip ngày (dưới 1024px): chip hôm nay có chấm `jade` 6px trước chữ; chip đã qua dùng chữ `gray-500` (không làm mờ cả chip: vẫn là link, phải đủ tương phản).
+  - Tiêu đề ngày: `Badge` "Hôm nay" (tông jade) hoặc "Đã qua" (tông xám) đi liền sau ngày tháng, **không ngắt dòng giữa nhãn**; thiếu chỗ thì cả nhãn xuống dòng dưới.
+  - Thẻ hoạt động của ngày đã qua **không** nhạt đi: vẫn sửa được và phải dễ đọc.
+  - Mở `/trips/:id` (không kèm số ngày) khi hôm nay nằm trong chuyến đi thì vào thẳng ngày hôm nay thay vì Ngày 1. Link có số ngày giữ nguyên.
+- **Hỏi hoàn thành:** mở một chuyến đi đã qua ngày cuối mà trạng thái còn là Nháp, Đã lên kế hoạch hoặc Đang diễn ra → `ConfirmDialog`: tiêu đề "Hoàn thành chuyến đi?", nội dung 'Chuyến đi "{tên}" đã kết thúc ngày {dd/mm/yyyy}. Lịch trình vẫn sửa được sau khi hoàn thành.', nút phụ "Để sau", nút chính "Hoàn thành chuyến đi". Xong: toast "Đã hoàn thành chuyến đi", ô trạng thái đổi theo. "Để sau": không hỏi lại về chuyến đi đó tới lần đăng nhập sau.
+- Trên màn hẹp, dưới tiêu đề ngày có **một dòng thời tiết của ngày đang xem** (13px, `gray-600`): icon, tên tình trạng ("Có mây"), "32° / 25°", icon giọt nước và "20%". Ngày không có dự báo thì không có dòng này. Từ 1024px không hiện (đã có dải dưới bản đồ).
 
 **Màn hình hẹp:**
 
@@ -512,6 +519,7 @@ Loại
   - Mọi bộ lọc lưu trên URL (`?q=&status=&sort=&page=`).
 - **Lưới** 3 cột (≥ 1024px) / 2 cột (≥ 640px) / 1 cột.
 - **Thẻ:** ảnh bìa 16:9 (chưa có ảnh thì là khối `gray-100` có icon ghim, không gradient), huy hiệu trạng thái `solid` ở góc trên phải ảnh, tên điểm đến ở góc dưới trái ảnh (nền `ink` 85%), tên chuyến 1 dòng, ngày đi có icon lịch, chân thẻ "5 ngày · 12 hoạt động". Rê chuột: viền và tên chuyển `jade`.
+- **Thời tiết trên thẻ** (Task 3.7, chưa làm; design rule 14.20): ở **hàng chân thẻ, căn phải**, 13px `gray-600`: chữ "Hôm nay" (chuyến đang đi) hoặc "Ngày đi" (chuyến sắp đi, ngày đầu trong 16 ngày tới), icon thời tiết, "32° / 25°". Không có xác suất mưa. Chuyến đi đã qua, còn xa hơn, chưa đặt vị trí điểm đến, hoặc dự báo không tải được: không hiện gì (không có chỗ trống, không có chữ báo lỗi). Thẻ hiện ngay, thời tiết hiện sau khi tải xong. Không đặt ở hàng ngày đi: không đủ chỗ khi thẻ hẹp (mockup Task 3.7).
 - **Không làm** (có trong mockup nhưng không có dữ liệu thật): ảnh thành viên (**Phase 4**), thanh "Phân bổ lịch trình" nhiều màu và chú thích màu (cần số hoạt động theo từng loại cho mỗi chuyến, có thể thêm sau), khối "Thống kê hành trình tổng quan".
 
 ### 8.3. Trang đăng nhập, đăng ký, quên / đặt lại mật khẩu, xác thực email — **Đã làm**
@@ -562,7 +570,8 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
   - *Qua ô tên*: trên **màn cảm ứng** (ngón tay không rê được để đọc chú thích) và trên **bản đồ đang phóng to** (thẻ bị che). Bấm marker mở một ô nhỏ phía trên marker: "số. tên hoạt động" (14px/600) và nút chữ `jade` **"Xem trong lịch trình"**. Bấm nút thì bản đồ phóng to tự thu lại (nếu đang mở) rồi làm như kiểu đi thẳng. Ô đóng bằng "×" của nó hoặc bấm ra ngoài.
   - Bàn phím: Tab tới marker, Enter có tác dụng như bấm chuột.
 - **Đường nối** (Task 3.6, **Đã làm**): đường **nét đứt** 2px `jade` mờ 70% (đoạn 6px, hở 6px), nối các marker theo đúng thứ tự trong ngày, nằm dưới marker. Nét đứt vì đây là đường thẳng từ điểm này tới điểm kế tiếp, không phải đường đi thật; nét liền dễ bị đọc nhầm thành một con phố của nền bản đồ (chốt 2026-10-03 khi duyệt mockup, bản đầu ghi nét liền mờ 60%). Ngày có dưới 2 địa điểm thì không có đường. Hai hoạt động cùng một địa điểm: marker chồng lên nhau, đường không đổi. Không vẽ đường giữa các ngày khác nhau. Kéo thả đổi thứ tự thì đường vẽ lại ngay.
-- **Thời tiết:** dải ngang dưới bản đồ, mỗi ngày một ô: icon + nhiệt độ cao/thấp + xác suất mưa. Ngày chưa có dự báo ghi "Chưa có dự báo". Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21). Icon nét đơn (lucide `CloudRain`, `Sun`, `CloudSun`).
+- **Thời tiết** (Task 3.7, chưa làm): dải ngang dưới bản đồ, khung trắng viền `tide` bo 10px, mỗi ngày một ô ngăn nhau bằng vạch `tide`. Các ô chia đều chiều ngang, rộng tối thiểu 96px; nhiều ngày hơn chỗ chứa thì dải cuộn ngang. Mỗi ô là **link tới ngày đó**: "N2 · 13/10" (12px, `gray-500`), icon 20px, "32° / 25°" (14px/600, làm tròn tới độ), icon giọt nước và "60%" (12px). Ô của ngày đang xem có nền `jade-light`, chữ đầu ô `jade-dark` đậm, và tự cuộn vào tầm nhìn. Ngày không có dự báo (đã qua, hoặc xa hơn 16 ngày): icon `CloudOff` màu `gray-400` và chữ "Chưa có" (cả ô có nhãn đọc "Chưa có dự báo"). Chuyến đi chưa đặt vị trí điểm đến: thay cả dải bằng câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.' Không tải được: "Tạm thời không có dự báo." kèm nút chữ "Thử lại"; đã có dữ liệu cũ thì giữ dữ liệu cũ. Đang tải: khung xương cùng chiều cao. Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21).
+- **Icon thời tiết** (lucide, nét đơn, **có màu**, chốt 2026-10-05 theo mockup): `CLEAR` → `Sun` (`sun`), `PARTLY_CLOUDY` → `CloudSun` (`sun`), `CLOUDY` → `Cloud` (`gray-500`), `FOG` → `CloudFog` (`gray-500`), `RAIN` → `CloudRain` (`info`), `THUNDERSTORM` → `CloudLightning` (`info`), `SNOW` → `CloudSnow` (`info`). Tên tiếng Việt (dùng cho nhãn đọc và dòng thời tiết trên màn hẹp): Trời nắng, Nắng nhẹ, Có mây, Sương mù, Có mưa, Mưa dông, Có tuyết. Bảng này nằm ở `features/weather/weatherCondition.ts`, dùng chung cho dải, dòng trên màn hẹp và thẻ ở danh sách.
 
 ---
 
@@ -671,13 +680,13 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 2.5 | Danh sách chuyến đi, wizard tạo chuyến, chi tiết chuyến đi (ray thời gian, chưa có bản đồ) | Đã làm, làm lại theo guide ở Task 2.6 |
 | 2.6 | Token, font, thành phần dùng chung, số đếm chip, số hoạt động trên thẻ, ô tìm trên thanh điều hướng, giao diện điện thoại | Đã làm (`feat/T2.6-ui-guide`) |
 | 3.6 | Ô tìm địa điểm trong hộp thoại hoạt động, cột bản đồ, tab bản đồ trên điện thoại, tự thêm địa điểm, chọn điểm đến trong wizard | Phase 3 |
-| 3.7 | Dải thời tiết, đoạn di chuyển giữa hai ga, ngày đã qua (cảnh báo ngoài trời: hoãn) | Phase 3 |
+| 3.7 | Dải thời tiết, thời tiết trên thẻ danh sách, đoạn di chuyển giữa hai ga, ngày đã qua, hỏi hoàn thành chuyến đi (cảnh báo ngoài trời: hoãn) | Phase 3 |
 | 4.4 | Panel chia sẻ, danh sách thành viên, trang công khai, bình luận, huy hiệu vai trò | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
 | 7.x | Trang chi phí (biểu đồ), màn gợi ý AI | Phase 7 |
 | 8.2 | Dashboard admin | Phase 8 |
-| 8.3 | Chế độ tối (nếu làm), Việt hoá lời đọc kéo thả, test giao diện (Vitest + Testing Library) | Phase 8 |
+| 8.3 | Chế độ tối (nếu làm), Việt hoá lời đọc kéo thả, test component (Testing Library; Vitest đã có từ Task 3.7 cho hàm thuần) | Phase 8 |
 | 8.5 | Landing page, ảnh chụp màn hình cho README | Phase 8 — làm cuối, dùng ảnh chụp sản phẩm thật |
 
 
@@ -953,6 +962,68 @@ The hovered activity card in the middle is linked to the enlarged marker on the 
 ```
 
 Màn hình hẹp (dựng riêng): dưới 1024px, dưới dải chip ngày có hai tab "Lịch trình" / "Bản đồ"; tab Bản đồ chiếm hết chiều ngang, dải thời tiết nằm dưới bản đồ.
+
+#### Phase 3 — Task 3.7: thời tiết, quãng đường, ngày đã qua (prompt đã dùng ngày 2026-10-05)
+
+Kết quả: 4 màn trong `trip-planner-screenshots/stitch_smart_trip_planner_3.7/` (`detail_trip`, `detail_trip_mobile`, `list_weather_card`, `complete_dialog`). Những gì lấy và không lấy từ mockup: mục 8.1 "Task 3.7", 8.2 và 9. Prompt bên dưới là bản đã dán vào Stitch; **đã biết lệch với quyết định sau khi xem ảnh** ở hai chỗ: đoạn di chuyển không có ô viền và không có icon phương tiện; thời tiết trên thẻ nằm ở hàng chân thẻ với chữ "Hôm nay" / "Ngày đi" chứ không ở hàng ngày đi.
+
+**Dữ liệu có thật:** như màn F + địa điểm của hoạt động, chặng di chuyển (phút, km), dự báo từng ngày (tình trạng, cao / thấp, xác suất mưa), nhãn ngày.
+**Không được thêm:** viền hoặc chip cảnh báo thời tiết, tổng quãng đường của ngày, icon phương tiện, gió / độ ẩm / dự báo theo giờ, ảnh thành viên, mục menu trên thanh điều hướng.
+
+```
+Trip detail page, desktop 1440px, three columns under the trip header (title "Đà Nẵng 4 ngày",
+status select, "Sửa", "Xoá", meta row with destination, dates, length, budget).
+Left column 200px: list of 4 days, each row "Ngày 1 12/10", a muted day title and the activity
+count at the right. Day 1 is faded (60% opacity) with a small grey caption "Đã qua" under the
+date. Day 2 is the selected one: light jade background, 3px jade bar at the left, and a small
+bold jade caption "Hôm nay". Days 3 and 4 are normal.
+Middle column: heading "Ngày 2 · Thứ ba, 13/10/2026" followed by a small jade badge "Hôm nay",
+ghost button "Sửa", jade primary button "+ Thêm hoạt động". Below, a vertical rail with 4
+activity cards (time at the left, a colored dot on the rail, white card with title, type icon
+and a pin row with the address): "Chợ Hàn" 08:00, "Nghỉ trưa, tự do" 10:00 (no address row),
+"Cầu Rồng" 14:00, "Bún chả cá 109" 15:30.
+Between cards, a travel segment: a 2px dashed grey vertical line with a centered 12px muted
+caption. Under "Chợ Hàn": "12 phút · 3,2 km tới Cầu Rồng". Under "Nghỉ trưa, tự do": nothing.
+Under "Cầu Rồng": "2 phút · 998 m".
+Right column 420px, sticky: a street map with colored teardrop markers numbered 1 to 3 joined
+by a dashed jade line, an expand button top-right. Directly under the map, a weather strip:
+a white box with 1px #D7E4E1 border and 10px radius holding 4 equal cells in a row, one per
+day. Each cell: "N1 · 12/10" in 12px muted text, a 20px line icon (sun, cloud-sun, cloud-rain),
+"32° / 25°" in 14px/600, and a small droplet icon with "60%". The cell of day 2 has a light
+jade background. The cell of day 1 shows only "N1 · 12/10" and the muted text "Chưa có dự báo".
+```
+
+Điện thoại:
+
+```
+Same trip on a 390px phone, tab "Lịch trình". Sticky row of day chips: "Ngày 1 · 12/10" with
+faded text, "Ngày 2 · 13/10" selected (dark #10242B, white text) with a small jade dot,
+"Ngày 3 · 14/10", "Ngày 4 · 15/10". Under it the two-button switch "Lịch trình" / "Bản đồ".
+Day heading "Ngày 2 · Thứ ba, 13/10/2026" with a small jade badge "Hôm nay"; under the day
+title one line of weather in 13px: a cloud-sun icon, "Có mây", "32° / 25°", a droplet icon
+"20%". Then the rail with the same cards and the same travel segments between them.
+```
+
+Danh sách chuyến đi có thời tiết trên thẻ. **Dữ liệu có thật:** như màn D + dự báo của hôm nay (chuyến đang đi) hoặc của ngày khởi hành (chuyến sắp đi trong 16 ngày). **Không được thêm:** thời tiết trên thẻ của chuyến đã qua hoặc còn xa, xác suất mưa, dự báo nhiều ngày, nền thẻ đổi theo thời tiết, thẻ không có ngày đi.
+
+```
+Trip list page as in the current version, 3-column grid of 6 cards. On each card the date
+row "13/10/2026 – 16/10/2026" has the calendar icon at the left. On three cards the same row
+also carries, right-aligned, a small weather group in 13px muted text:
+- card "Đang diễn ra": a cloud-sun line icon and "32° / 25°";
+- two cards "Đã lên kế hoạch" leaving soon: "18/10 ·", a cloud-rain icon and "29° / 24°".
+The other three cards (a completed trip, a draft far in the future, a trip with no
+destination) show no weather at all. Nothing else on the cards changes.
+```
+
+Hộp hỏi hoàn thành:
+
+```
+Trip detail page dimmed behind a centered confirm dialog, 440px, white, 10px radius.
+Title "Hoàn thành chuyến đi?". Body: "Chuyến đi "Đà Nẵng 4 ngày" đã kết thúc ngày
+15/10/2026. Lịch trình vẫn sửa được sau khi hoàn thành." Buttons right-aligned:
+secondary "Để sau", jade primary "Hoàn thành chuyến đi".
+```
 
 #### Phase 3 — Task 3.6: hộp thoại hoạt động có tìm địa điểm
 

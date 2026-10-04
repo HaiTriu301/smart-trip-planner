@@ -123,6 +123,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`). Component dùng chung **tự viết** trong `src/components/` (`Button`, `FormField`, `Modal`, `ConfirmDialog`...), **không dùng shadcn/ui** (chốt 2026-09-30, Task 2.5). Từ Task 2.6: màu, bo góc, bóng, font khai báo bằng `@theme` trong `src/styles/tokens.css` |
 | Giao diện | **`UI_GUIDE.md` ở thư mục gốc là nguồn sự thật về giao diện** (token, component, bố cục từng màn, prompt Stitch ở mục 15) — chốt 2026-10-01, Task 2.6. Mâu thuẫn giữa UI_GUIDE và mục 15 của file này về bố cục → theo UI_GUIDE; về route, API → theo file này |
 | Icon | lucide-react (Task 2.6) |
+| Test | Vitest (Task 3.7): `npm run test`, môi trường node, test hàm thuần trong `lib/`, `features/*/` và `stores/`. Test component bằng Testing Library: Task 8.3 |
 | Menu thả xuống | @radix-ui/react-dropdown-menu (menu "⋮" của activity, Task 2.6): có sẵn điều hướng bàn phím và focus |
 | Server state | TanStack Query v5 |
 | Client state | Zustand |
@@ -854,7 +855,8 @@ Lỗi (`ErrorResponse`):
 >   - Hoạt động không có địa điểm bị bỏ qua, không làm đứt đường đi: A (có) → B (không) → C (có) cho một chặng A→C. Số chặng luôn = số hoạt động có địa điểm − 1.
 >   - Hai hoạt động liền nhau ở cùng một địa điểm vẫn có chặng, `distanceMeters` = 0 và `durationSeconds` = 0; giao diện tự ẩn.
 >   - `distanceMeters` (mét) và `durationSeconds` (giây) là **số nguyên**. `totalDistanceMeters` / `totalDurationSeconds` = tổng các chặng đã làm tròn; `legs` rỗng → cả hai tổng bằng 0.
->   - **Một phương tiện**, không có tham số chọn phương tiện. Mock: 30 km/h. Nguồn thật (Task 3.8): ô tô theo vận tốc gán cho từng loại đường, không tính kẹt xe. Con số là ước lượng.
+>   - Giao diện (chốt 2026-10-05, Task 3.7): mỗi chặng hiện dưới thẻ của hoạt động xuất phát; chặng bắc qua hoạt động không có địa điểm ghi kèm tên đích; không hiện hai tổng của ngày; chỉ tải ngày đang mở.
+  - **Một phương tiện**, không có tham số chọn phương tiện. Mock: 30 km/h. Nguồn thật (Task 3.8): ô tô theo vận tốc gán cho từng loại đường, không tính kẹt xe. Con số là ước lượng.
 >   - Ngày có 0 hoặc 1 địa điểm: không hỏi nguồn bản đồ. `RouteService.forDay` không `@Transactional` (không giữ kết nối database trong lúc chờ nguồn).
 >   - Số câu SQL mỗi lần gọi: 4 (quyền, chuyến đi, ngày, các hoạt động kèm địa điểm), không tăng theo số hoạt động.
 
@@ -1048,7 +1050,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 17. **Gửi mail không chặn request**: mọi mail đi qua `MailService` (`@Async`), lỗi SMTP được log qua `AsyncUncaughtExceptionHandler`, không làm request thất bại. Đăng ký vẫn 201 dù mail lỗi; người dùng dùng `resend-verification` để nhận lại.
 18. **Địa điểm là bản lưu dùng chung** (chốt 2026-10-01): khi người dùng chọn một kết quả tìm kiếm, ứng dụng chép địa điểm vào bảng `places` và từ đó hiển thị từ bản chép, không hỏi lại dịch vụ ngoài. Thông tin để chép do **server tự tra từ nguồn** theo mã của kết quả; không tin tên hay toạ độ do client gửi, vì một bản chép sai sẽ sai cho mọi người chọn địa điểm đó về sau.
 19. **Địa điểm tự thêm là riêng tư** (chốt 2026-10-01): địa điểm `MANUAL` chỉ người tạo gắn được vào activity. Người khác chỉ thấy nó qua chuyến đi họ được xem. Không có endpoint nào liệt kê hay đọc địa điểm `MANUAL` theo id.
-20. **Dự báo thời tiết** (chốt 2026-10-01): lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau). Chỉ có dự báo cho **16 ngày tới** tính từ hôm nay: ngày đã qua hoặc xa hơn trả "chưa có dự báo". Quy tắc nằm ở `WeatherService`, nên provider mock cũng tuân theo. "Hôm nay" tính theo múi giờ của tài khoản đang đăng nhập (`users.timezone`, rule 14.22).
+20. **Dự báo thời tiết** (chốt 2026-10-01): lấy theo **toạ độ điểm đến của chuyến đi**, một nơi cho cả chuyến (chuyến đi qua nhiều nơi dùng chung dự báo của điểm đến; dự báo theo địa điểm của từng ngày để sau). Chỉ có dự báo cho **16 ngày tới** tính từ hôm nay: ngày đã qua hoặc xa hơn trả "chưa có dự báo". Quy tắc nằm ở `WeatherService`, nên provider mock cũng tuân theo. "Hôm nay" tính theo múi giờ của tài khoản đang đăng nhập (`users.timezone`, rule 14.22). **Thẻ ở trang danh sách** (chốt 2026-10-05, Task 3.7) cũng hiện dự báo, lấy từ cùng endpoint, không có API riêng: chuyến đi đang diễn ra (hôm nay nằm trong khoảng ngày đi) → dự báo của hôm nay; chuyến đi sắp tới có ngày đầu trong 16 ngày tới → dự báo của ngày khởi hành; chuyến đi đã qua, còn xa hơn hoặc chưa có toạ độ điểm đến → không hiện gì.
 21. **Cảnh báo hoạt động ngoài trời — HOÃN** (2026-10-02, bảng commit Task 3.3): chưa làm ở backend lẫn giao diện. Lý do: hiển thị tình trạng, nhiệt độ và xác suất mưa của từng ngày đã đủ để người dùng tự quyết, và quy tắc dưới đây còn thô. Xét lại khi làm quyền lợi Premium "Weather alert qua email" (mục 9). Quy tắc đã chốt 2026-10-01, giữ lại làm điểm bắt đầu: một ngày có xác suất mưa **≥ 60%** và có ít nhất một activity loại `SIGHTSEEING` → cảnh báo cho ngày đó, kèm danh sách activity bị ảnh hưởng. Hạn chế đã biết của bản đầu: tham quan trong nhà (bảo tàng) cũng bị cảnh báo; hoạt động ngoài trời được xếp loại khác thì không.
 22. **Chuyến đi, ngày và hoạt động đã qua** (chốt 2026-10-01):
     - **"Hôm nay" / "bây giờ"** tính theo múi giờ của tài khoản (`users.timezone`). Mặc định là `Asia/Ho_Chi_Minh` và chưa có màn hình đổi, nên hiện tại mọi người dùng theo giờ Việt Nam. Giao diện lấy múi giờ từ `GET /users/me`, không lấy giờ của trình duyệt, để trùng với backend. Backend tính bằng `UserService.today(userId)` trên bean `Clock` (Task 3.3).
@@ -1067,7 +1069,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | `/` | Landing | Hero, tính năng, bảng giá |
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth | |
 | `/verify-email` | Xác thực email | |
-| `/trips` | Danh sách chuyến đi | Grid card, filter status, search |
+| `/trips` | Danh sách chuyến đi | Grid card, filter status, search. Từ Task 3.7: thẻ của chuyến đi đang diễn ra hoặc sắp đi trong 16 ngày tới có dự báo thời tiết (rule 14.20), mỗi thẻ tự gọi `GET /weather/trips/{id}` |
 | `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến → ngày. Task 2.5: bước điểm đến chỉ nhập tên. Task 3.6 (chốt 2026-10-03): **tên điểm đến vẫn do người dùng tự gõ, vị trí chọn riêng** bằng tìm địa điểm hoặc bấm lên bản đồ nhỏ → `destinationLat` / `destinationLng` (đủ cả hai hoặc bỏ cả hai); chọn một gợi ý khi ô tên còn trống thì điền sẵn tên. Không lưu địa điểm nào vào bảng `places` cho việc này. Hộp sửa chuyến đi dùng cùng các ô; vị trí đã đặt chỉ đổi được, chưa bỏ được (PATCH chưa xoá trắng trường tuỳ chọn) |
 | `/trips/:id/days/:dayIndex` | **Màn hình chính** | Layout 3 cột: danh sách ngày ⟷ activity của **một ngày** (drag-drop) ⟷ bản đồ + weather của ngày đó. `dayIndex` là số thứ tự ngày 1..n; `/trips/:id` và `dayIndex` không tồn tại chuyển về ngày 1. Task 2.5 làm 2 cột với mọi ngày xếp dọc; Task 2.6 đổi sang một ngày một trang, chuyển ngày bằng thả lên tên ngày ở cột trái hoặc menu "⋮" (chi tiết bố cục: `UI_GUIDE.md` 8.1). Cột bản đồ thêm ở Task 3.6; thời tiết, quãng đường, nhãn ngày "Đã qua" / "Hôm nay" và hộp hỏi hoàn thành chuyến đi (rule 14.22) ở Task 3.7 |
 | `/trips/:id/expenses` | Chi phí | Chart + settlement |
@@ -1090,7 +1092,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | Slice | Repository (`@DataJpaTest`), Controller (`@WebMvcTest`) | Testcontainers MySQL | Query custom, validation, mã lỗi |
 | Integration | Luồng đầy đủ: đăng ký → tạo trip → thêm activity → share → checkout | `@SpringBootTest` + Testcontainers (MySQL + Redis) | Các happy path chính |
 | Webhook | Stripe event giả, gửi 2 lần cùng `event_id` | MockMvc | Kiểm chứng idempotency |
-| Frontend | Component + hook quan trọng | Vitest + Testing Library | |
+| Frontend | Hàm thuần (`lib/`, `stores/`): từ Task 3.7. Component + hook quan trọng: Task 8.3 | Vitest; Testing Library từ Task 8.3 | |
 | E2E (tuỳ chọn) | Luồng chính | Playwright | |
 
 Test case bắt buộc phải có (thường được hỏi khi phỏng vấn):
