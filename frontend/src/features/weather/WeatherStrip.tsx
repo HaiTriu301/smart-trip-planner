@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CloudOff, Droplet } from 'lucide-react'
+import { CloudOff, Droplet, MapPinOff } from 'lucide-react'
 import { getTripWeather } from '../../api/weather'
 import { Skeleton } from '../../components/Skeleton'
 import { formatDate } from '../../lib/format'
@@ -22,7 +22,8 @@ interface WeatherStripProps {
 
 /**
  * The forecast of every day of the trip, one cell per day, under the day map (UI_GUIDE 9). A cell is a link to
- * its day. The box keeps one height whatever it holds: the map above it measures its own box only once.
+ * its day. A trip without a destination position has no forecast at all: the strip says how to get one.
+ * The box keeps one height whatever it holds: the map above it measures its own box only once.
  */
 export function WeatherStrip({ tripId, days, currentDayIndex }: WeatherStripProps) {
   // Its own key, not under ['trip', id]: editing an activity must not ask for the forecast again
@@ -59,7 +60,16 @@ export function WeatherStrip({ tripId, days, currentDayIndex }: WeatherStripProp
       aria-label="Dự báo thời tiết"
       className={`${BOX_HEIGHT} overflow-hidden rounded-card border border-tide bg-white`}
     >
-      {weather && (
+      {weather?.status === 'NO_DESTINATION' && (
+        // Same wording as the note on the map of a trip without a destination (UI_GUIDE 9)
+        <div className="flex h-full items-center gap-3 px-4">
+          <MapPinOff aria-hidden className="size-5 shrink-0 text-gray-400" />
+          <p className="text-sm text-gray-600">
+            Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.
+          </p>
+        </div>
+      )}
+      {weather?.status === 'OK' && (
         <ol ref={listRef} className="relative flex h-full divide-x divide-tide overflow-x-auto">
           {weather.days.map((day) => {
             const dayIndex = dayIndexById.get(day.dayId)
