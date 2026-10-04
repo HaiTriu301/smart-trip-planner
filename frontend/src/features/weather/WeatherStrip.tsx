@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CloudOff, Droplet, MapPinOff } from 'lucide-react'
+import { CloudAlert, CloudOff, Droplet, MapPinOff } from 'lucide-react'
 import { getTripWeather } from '../../api/weather'
 import { Skeleton } from '../../components/Skeleton'
 import { formatDate } from '../../lib/format'
@@ -24,10 +24,13 @@ interface WeatherStripProps {
  * The forecast of every day of the trip, one cell per day, under the day map (UI_GUIDE 9). A cell is a link to
  * its day. A trip without a destination position has no forecast at all: the strip says how to get one.
  * The box keeps one height whatever it holds: the map above it measures its own box only once.
+ * <p>
+ * The forecast is an extra: when it cannot be loaded the strip says so and the rest of the page works as usual.
+ * A forecast loaded earlier stays on screen when a later reload fails (same rule as the trip itself, BUG-UI-005).
  */
 export function WeatherStrip({ tripId, days, currentDayIndex }: WeatherStripProps) {
   // Its own key, not under ['trip', id]: editing an activity must not ask for the forecast again
-  const { data: weather, isPending } = useQuery({
+  const { data: weather, isPending, isFetching, refetch } = useQuery({
     queryKey: ['weather', tripId],
     queryFn: () => getTripWeather(tripId),
   })
@@ -60,6 +63,22 @@ export function WeatherStrip({ tripId, days, currentDayIndex }: WeatherStripProp
       aria-label="Dự báo thời tiết"
       className={`${BOX_HEIGHT} overflow-hidden rounded-card border border-tide bg-white`}
     >
+      {!weather && (
+        <div className="flex h-full items-center gap-3 px-4">
+          <CloudAlert aria-hidden className="size-5 shrink-0 text-gray-400" />
+          <p className="text-sm text-gray-600">
+            Tạm thời không có dự báo.{' '}
+            <button
+              type="button"
+              disabled={isFetching}
+              onClick={() => refetch()}
+              className="rounded-control font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11"
+            >
+              {isFetching ? 'Đang thử lại…' : 'Thử lại'}
+            </button>
+          </p>
+        </div>
+      )}
       {weather?.status === 'NO_DESTINATION' && (
         // Same wording as the note on the map of a trip without a destination (UI_GUIDE 9)
         <div className="flex h-full items-center gap-3 px-4">
