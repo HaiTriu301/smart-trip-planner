@@ -10,12 +10,15 @@ import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { BackToTopButton } from '../../components/BackToTopButton'
+import { Badge } from '../../components/Badge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
+import { useToday } from '../../hooks/useToday'
 import { formatDate, formatWeekday } from '../../lib/format'
 import { findOverlaps } from '../../lib/timeOverlap'
+import { dayStatus } from '../../lib/today'
 import { legsAfter } from '../../lib/travelLegs'
 import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
@@ -54,6 +57,7 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
   const [deleting, setDeleting] = useState<Activity | null>(null)
   const [moving, setMoving] = useState<Activity | null>(null)
   const overlaps = findOverlaps(day.activities)
+  const status = dayStatus(day.date, useToday())
 
   // Travel between the activities that have a place; one without a place is passed over, and the leg then
   // names where it arrives. Its own key, not under ['trip', id]; a day with fewer than two places has no leg,
@@ -93,8 +97,16 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
       ) : (
         <header className="flex items-start justify-between gap-3 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
           <div className="min-w-0 space-y-1">
-            <h2 id="day-heading" className="text-lg leading-[26px] font-semibold text-ink">
-              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
+            {/* The badge never breaks in two: short of room, it goes to the next line as a whole */}
+            <h2
+              id="day-heading"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg leading-[26px] font-semibold text-ink"
+            >
+              <span>
+                Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
+              </span>
+              {status === 'today' && <Badge tone="brand">Hôm nay</Badge>}
+              {status === 'past' && <Badge tone="muted">Đã qua</Badge>}
             </h2>
             {day.title ? (
               <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>

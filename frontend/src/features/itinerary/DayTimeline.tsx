@@ -4,7 +4,9 @@ import { ChevronLeft, ChevronRight, List, Map as MapIcon } from 'lucide-react'
 import { BackToTopButton } from '../../components/BackToTopButton'
 import { LinkButton } from '../../components/LinkButton'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { useToday } from '../../hooks/useToday'
 import { formatDate } from '../../lib/format'
+import { dayStatus } from '../../lib/today'
 import { revealActivity } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
 import type { TripDayDetail } from '../../types/trip'
@@ -40,12 +42,16 @@ type NarrowView = 'list' | 'map'
  * same height while the activities scroll; "Đầu ngày" sits in the day header and a small floating button in the
  * bottom right corner goes back to the top of the page. On narrow screens the floating button goes back to the
  * start of the day instead.
+ * <p>
+ * Days already over and the day it is today are marked in the day list and on the chips (design rule 14.22).
+ * A past day is only shown fainter: it stays a link and its activities can still be edited.
  */
 export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, destination }: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
   const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
 
+  const today = useToday()
   const wide = useMediaQuery(WIDE_SCREEN)
   // What a narrow screen shows; a wide one shows both and ignores it
   const [narrowView, setNarrowView] = useState<NarrowView>('list')
@@ -83,12 +89,13 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
                 place that matters there. Wide screens: back to the top of the page ("Đầu ngày" is in the header) */}
             <BackToTopButton placement="floating" screens="narrow" label="Về đầu ngày" targetId="day-start" />
             <BackToTopButton placement="floating" screens="wide" label="Lên đầu trang" />
-            <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
+            <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} today={today} />
             <ViewSwitch view={narrowView} onChange={setNarrowView} />
             <nav aria-label="Các ngày" className="hidden lg:block">
               <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto p-1">
                 {days.map((day) => {
                   const active = day.dayIndex === currentDayIndex
+                  const status = dayStatus(day.date, today)
                   return (
                     <li key={day.id}>
                       <DayDropTarget dayId={day.id}>
@@ -98,12 +105,16 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
                           className={`relative flex items-start justify-between gap-2 rounded-control py-2 pr-2 pl-4 text-sm transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                             active
                               ? 'bg-jade-light text-jade-dark before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
-                              : 'text-gray-700 hover:bg-gray-100'
+                              : `hover:bg-gray-100 ${status === 'past' ? 'text-gray-500' : 'text-gray-700'}`
                           }`}
                         >
                           <span className="min-w-0">
                             <span className="font-semibold">Ngày {day.dayIndex}</span>{' '}
                             <span className="tabular text-gray-500">{formatDate(day.date).slice(0, 5)}</span>
+                            {status === 'today' && (
+                              <span className="block text-xs font-semibold text-jade-dark">Hôm nay</span>
+                            )}
+                            {status === 'past' && <span className="block text-xs text-gray-500">Đã qua</span>}
                             {day.title ? (
                               <span className="block truncate text-xs text-gray-500">{day.title}</span>
                             ) : (
@@ -221,10 +232,15 @@ interface DayChipsProps {
   tripId: number
   days: TripDayDetail[]
   currentDayIndex: number
+  /** "YYYY-MM-DD" in the account's time zone */
+  today: string
 }
 
-/** Phones and tablets: the day list as chips that scroll sideways, stuck to the top of the screen. */
-function DayChips({ tripId, days, currentDayIndex }: DayChipsProps) {
+/**
+ * Phones and tablets: the day list as chips that scroll sideways, stuck to the top of the screen. Today's chip
+ * carries a jade dot; a past day sits on a grey chip, with text that keeps its contrast (it is still a link).
+ */
+function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
   const activeRef = useRef<HTMLAnchorElement>(null)
 
   // Keep the chip of the current day visible in the row
@@ -240,17 +256,23 @@ function DayChips({ tripId, days, currentDayIndex }: DayChipsProps) {
       <ol className="flex gap-2 overflow-x-auto">
         {days.map((day) => {
           const active = day.dayIndex === currentDayIndex
+          const status = dayStatus(day.date, today)
           return (
             <li key={day.id} className="shrink-0">
               <Link
                 ref={active ? activeRef : undefined}
                 to={dayPath(tripId, day.dayIndex)}
                 aria-current={active ? 'page' : undefined}
-                className={`tabular inline-flex h-9 items-center rounded-control px-3 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
-                  active ? 'bg-ink text-white' : 'border border-tide bg-white text-gray-600'
+                className={`tabular inline-flex h-9 items-center gap-1.5 rounded-control px-3 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                  active
+                    ? 'bg-ink text-white'
+                    : `border border-tide text-gray-600 ${status === 'past' ? 'bg-gray-100' : 'bg-white'}`
                 }`}
               >
+                {status === 'today' && <span aria-hidden className="size-1.5 rounded-full bg-jade" />}
                 Ngày {day.dayIndex} · {formatDate(day.date).slice(0, 5)}
+                {status === 'today' && <span className="sr-only">, hôm nay</span>}
+                {status === 'past' && <span className="sr-only">, đã qua</span>}
               </Link>
             </li>
           )
