@@ -80,7 +80,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | API Docs | springdoc-openapi 3.1.x | Dòng 3.1 build trên Spring Boot 4.1. Không nằm trong BOM của Boot → khai báo version ở `libs.versions.toml`. Swagger UI tại `/swagger-ui.html` |
 | Payment | Stripe Java SDK | |
 | Mail | `spring-boot-starter-mail` (JavaMailSender/SMTP) + `spring-boot-starter-thymeleaf` (template HTML) | Nằm sau `provider/mail/MailProvider`: `smtp` (MailHog local, Brevo prod) hoặc `mock` (log + lưu bộ nhớ, dùng trong test). Gửi `@Async` trên virtual thread |
-| Resilience | Resilience4j | Circuit breaker + retry cho provider ngoài |
+| Resilience | Resilience4j 2.4.0 (`resilience4j-spring-boot4`, thêm ở Task 3.8) | Thử lại, ngắt mạch và giới hạn tần suất cho provider ngoài; giới hạn thời gian đặt ở `RestClient` (mục 7.3) |
 | Test | JUnit 5, Mockito, AssertJ, Testcontainers, Rest Assured | |
 | Coverage | JaCoCo (ngưỡng 70% line cho package `service`) | |
 | Build | Gradle 9 (Groovy DSL — `build.gradle`) | Spring Boot 4 hỗ trợ Gradle 8.14+, khuyến nghị Gradle 9 |
@@ -130,7 +130,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Client state | Zustand |
 | Routing | React Router v7 (package `react-router-dom`) |
 | Form | react-hook-form + zod |
-| Map | Leaflet 1.9 + react-leaflet 5 (Task 3.6), tải lười cùng trang chi tiết chuyến đi. **Hình nền mặc định là tile chuẩn của OpenStreetMap** (`tile.openstreetmap.org`): không cần API key, nên bản đồ chạy được ngay trên một bản clone mới (CLAUDE.md rule 20); điều khoản yêu cầu ghi "© OpenStreetMap contributors" ở góc bản đồ và cấm tải hàng loạt. Nền giữ màu gốc của nguồn (bản đầu làm nhạt bằng CSS, bỏ ngày 2026-10-04 vì trang bị xám; `UI_GUIDE.md` mục 9). Trình duyệt tự tải tile, không đi qua backend. **Đổi ngày 2026-10-04:** bản trước chọn CartoDB Positron và ghi "không cần API key"; kiểm lại điều khoản ngày 2026-10-04 thì CARTO đã bắt buộc API key (tile không kèm key bị thay bằng ô chữ "API KEY REQUIRED"; key miễn phí cho dự án phi thương mại, tối đa 5 triệu lượt tải mỗi tháng). CARTO Positron thành **tuỳ chọn**: bật bằng key qua biến môi trường, làm ở Task 3.8 cùng các provider thật |
+| Map | Leaflet 1.9 + react-leaflet 5 (Task 3.6), tải lười cùng trang chi tiết chuyến đi. **Hình nền mặc định là tile chuẩn của OpenStreetMap** (`tile.openstreetmap.org`): không cần API key, nên bản đồ chạy được ngay trên một bản clone mới (CLAUDE.md rule 20); điều khoản yêu cầu ghi "© OpenStreetMap contributors" ở góc bản đồ và cấm tải hàng loạt. Nền giữ màu gốc của nguồn (bản đầu làm nhạt bằng CSS, bỏ ngày 2026-10-04 vì trang bị xám; `UI_GUIDE.md` mục 9). Trình duyệt tự tải tile, không đi qua backend. **Đổi ngày 2026-10-04:** bản trước chọn CartoDB Positron và ghi "không cần API key"; kiểm lại điều khoản ngày 2026-10-04 thì CARTO đã bắt buộc API key (tile không kèm key bị thay bằng ô chữ "API KEY REQUIRED"; key miễn phí cho dự án phi thương mại, tối đa 5 triệu lượt tải mỗi tháng). **Chốt 2026-10-05 (Mốc 0 Task 3.8): không làm tuỳ chọn CARTO.** Nền OpenStreetMap đã được chủ dự án xem và giữ; key của CARTO phải đặt trong biến `VITE_*`, tức nằm trong bundle công khai. Muốn đổi nền sau này chỉ sửa `lib/mapTiles.ts` |
 | Realtime | @stomp/stompjs + sockjs-client |
 | HTTP | axios + interceptor tự refresh token |
 | Drag & drop | dnd-kit (core 6.3, sortable 10.0, utilities 3.2) |
@@ -604,13 +604,42 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 
 > **Chốt 2026-10-01 (rà soát Phase 3):** `MapProvider` chỉ có ba method có nơi dùng: `search` (Task 3.1), `lookup` (Task 3.2, để server tự tra lại địa điểm khi lưu snapshot) và `route` (Task 3.5, các chặng giữa hai điểm liên tiếp). `reverse` và `distanceMatrix` của bản cũ bỏ. Dữ liệu mock giảm từ ~200 xuống ~50 vì provider thật được làm ngay ở Task 3.8; mock chỉ còn phục vụ test (không gọi mạng, CLAUDE.md rule 24) và chạy khi không có mạng (rule 20). Port thiết kế theo hình dạng dữ liệu của API thật để tới Task 3.8 không phải sửa service.
 
+> **Chốt 2026-10-05 (Mốc 0 Task 3.8), sau khi đọc lại điều khoản của từng dịch vụ:**
+>
+> | Dịch vụ | Dùng cho | Điều khoản của máy chủ công cộng | Cách tuân thủ |
+> |---|---|---|---|
+> | Photon (`photon.komoot.io`) | `search`: gợi ý khi đang gõ | "Dùng hợp lý", dùng nhiều sẽ bị bóp; không cam kết luôn sẵn sàng | Ô tìm kiếm chờ 300ms; kết quả cất cache 24 giờ |
+> | Nominatim (`nominatim.openstreetmap.org`) | `lookup`: tra một địa điểm theo mã lúc người dùng chọn | Tối đa 1 lần gọi mỗi giây; có `User-Agent` định danh ứng dụng; **cấm** dùng cho gợi ý khi đang gõ; phải lưu lại kết quả | Chỉ gọi khi lưu địa điểm, kết quả nằm lâu dài trong bảng `places`; bộ giới hạn 1 lần / giây (mục 7.3) |
+> | OSRM (`router.project-osrm.org`) | `route`: cự ly và thời gian từng chặng | Không dùng quá mức; có `User-Agent`; ghi nguồn; có thể bị rút quyền bất cứ lúc nào | Mỗi ngày của chuyến đi một lần gọi, cất cache 24 giờ |
+> | Open-Meteo (`api.open-meteo.com`) | `forecast` | Miễn phí cho mục đích phi thương mại; ghi nguồn | Cất cache 3 giờ; dự án là portfolio, không thu tiền từ dữ liệu này |
+>
+> - Mọi lời gọi ra ngoài mang header `User-Agent` đọc từ cấu hình `app.providers.user-agent` (tên ứng dụng + cách liên hệ). Địa chỉ gốc của từng dịch vụ cũng nằm trong cấu hình (`app.providers.open-meteo.*`, `app.providers.osm.*`), để test trỏ sang máy chủ giả và để sau này đổi sang máy chủ tự dựng mà không sửa code.
+> - Gọi HTTP bằng `RestClient` của Spring. Lỗi 5xx, quá thời gian, mất kết nối, câu trả lời không đọc được → `ProviderUnavailableException` (`PROVIDER_UNAVAILABLE`, 503). Service không thấy ngoại lệ của thư viện HTTP.
+> - `OsmMapProvider.provider()` trả `OSM`. Địa điểm `MOCK` đã lưu vẫn hiển thị trong hoạt động nhưng không chọn mới được khi đang bật `osm`.
+> - `search`: Photon nhận toạ độ `near` để ưu tiên kết quả quanh điểm đến. `externalId` = loại đối tượng + mã của OpenStreetMap (ví dụ `N123456`), đúng dạng Nominatim nhận ở `lookup`.
+> - `route`: OSRM công cộng chỉ có ô tô. Nguồn trả số chặng khác n−1 → `PROVIDER_UNAVAILABLE`, không ghép sai.
+> - `forecast`: hỏi Open-Meteo với `timezone=auto`, nên "ngày" là ngày lịch **tại điểm đến**; khoảng 16 ngày vẫn tính theo "hôm nay" của tài khoản. Hai nơi khác múi giờ thì lệch tối đa một ngày ở hai đầu khoảng: **chấp nhận**, không xử lý. Mã WMO đổi về 7 giá trị `condition` (mưa phùn, mưa rào → `RAIN`).
+> - Giao diện ghi nguồn dữ liệu ở chân trang: OpenStreetMap, OSRM, Open-Meteo.
+> - JSON mẫu của test lấy từ câu trả lời thật của từng dịch vụ (gọi tay một lần lúc soạn), không viết theo trí nhớ. Test không gọi mạng (CLAUDE.md rule 24): `MockRestServiceServer` cho nội dung và mã lỗi, một máy chủ HTTP nhỏ của JDK cho trường hợp quá thời gian. Không dùng WireMock (bản 3.x xung đột với Jetty 12.1 của Spring Boot 4, bản 4 còn beta).
+
 ### 7.3. Resilience
 
-Áp dụng từ Task 3.8. Mọi real provider bọc trong Resilience4j:
-- `@CircuitBreaker` — mở khi tỉ lệ lỗi > 50% trong 20 lần gọi
-- `@Retry` — 2 lần, backoff 500ms, chỉ retry với lỗi 5xx/timeout
-- `@TimeLimiter` — 3 giây
-- Fallback: trả dữ liệu cache cũ (stale-while-error), hoặc trả `WeatherUnavailable` thay vì ném lỗi làm hỏng cả màn hình trip
+Áp dụng từ Task 3.8 cho mọi provider thật gọi qua mạng. Viết lại ngày 2026-10-05 (Mốc 0 Task 3.8).
+
+| Cơ chế | Giá trị | Đặt ở đâu | Để làm gì |
+|---|---|---|---|
+| Giới hạn thời gian | kết nối 2 giây, chờ trả lời 3 giây | Bộ gọi HTTP (`RestClient`) | Dịch vụ không trả lời thì bỏ cuộc, người dùng không nhìn trang quay mãi |
+| Thử lại | 2 lần sau lần đầu, cách 500ms; chỉ với 5xx, quá thời gian, mất kết nối | Resilience4j `@Retry` | Qua được lỗi thoáng qua. Lỗi 4xx là do ta gửi sai, gọi lại không đổi kết quả |
+| Ngắt mạch | mở khi hơn 50% trong 20 lần gọi gần nhất lỗi | Resilience4j `@CircuitBreaker`, mỗi dịch vụ một mạch | Dịch vụ đang sập thì báo lỗi ngay, không bắt mỗi người dùng chờ 3 giây × 3 lần |
+| Giới hạn tần suất | 1 lần / giây, chỉ Nominatim | Resilience4j `@RateLimiter` | Điều khoản của Nominatim |
+
+- **Không dùng `@TimeLimiter`:** nó đòi method chạy bất đồng bộ; giới hạn thời gian của bộ gọi HTTP cho cùng kết quả.
+- **Mạch đang mở** → `PROVIDER_UNAVAILABLE` như mọi lỗi khác của provider; người gọi không phân biệt.
+- **Khi provider lỗi sau mọi lần thử:**
+  - Thời tiết: `GET /weather/trips/{id}` vẫn 200 với `status = UNAVAILABLE` (mục 10.2); trang chuyến đi không hỏng vì thời tiết.
+  - Tìm địa điểm, lưu địa điểm, quãng đường: 503 `PROVIDER_UNAVAILABLE`. Quãng đường là dữ liệu tải kèm nên giao diện chỉ không vẽ chặng di chuyển.
+- **Không làm "stale-while-error"** (trả bản cache đã hết hạn khi nguồn lỗi; bản cũ của mục này có ghi). Redis xoá bản hết hạn nên không còn gì để trả; muốn có phải cất hai bản cho mỗi câu trả lời và báo cho người dùng biết dữ liệu đã cũ. Trong hạn cache (thời tiết 3 giờ, địa điểm và quãng đường 24 giờ) người dùng vẫn có dữ liệu khi nguồn sập.
+- **Frontend không tự gọi lại** một request bị trả `PROVIDER_UNAVAILABLE`: backend đã thử lại rồi; gọi lại 3 lần nữa (mặc định với 5xx) nhân số lần gọi ra dịch vụ công cộng lên 4.
 
 ---
 
@@ -620,7 +649,8 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 
 | Cache name | Key | TTL | Evict khi |
 |---|---|---|---|
-| `place:search` | từ khoá đã chuẩn hoá (bỏ dấu, chữ thường, trim) + `limit` + toạ độ làm tròn | 24h | — |
+| `place:search` | từ khoá đã chuẩn hoá (chữ thường, trim; **giữ dấu** từ Task 3.8) + `limit` + toạ độ làm tròn | 24h | — |
+| `route:legs` (Task 3.8) | chuỗi toạ độ làm tròn 5 chữ số, theo đúng thứ tự các điểm | 24h | — |
 | `weather:forecast` | `{lat4},{lng4}:{from}:{to}` | 3h | — |
 | `trip:permission` | `perm:{userId}:{tripId}` | 5 phút | thay đổi member/share |
 | `ai:suggestion` | `ai:sugg:{promptHash}` | 7 ngày | — |
@@ -647,6 +677,10 @@ Chốt khi làm Task 3.4 (2026-10-03):
 - Khoá tìm địa điểm: `{limit}|{lat4},{lng4}|{từ khoá đã chuẩn hoá}` (hoặc `{limit}|-|{từ khoá}` khi không có toạ độ); từ khoá đứng cuối để không bị đọc nhầm. Khoá thời tiết: `{lat4},{lng4}:{from}:{to}`. Tên đầy đủ trong Redis có tiền tố tên cache: `place:search::...`, `weather:forecast::...`.
 - Chỉ cache đã khai báo trong `CacheConfig` mới tồn tại; câu trả lời rỗng cũng được cất; lỗi của provider là ngoại lệ nên không bị cất.
 - Bật cache bằng hai bean đứng giữa service và provider: `service/PlaceSearchCache`, `service/ForecastCache`. Service unit test dùng bản giả của hai bean này thay cho bản giả của provider.
+
+Chốt 2026-10-05 (Mốc 0 Task 3.8):
+- **Khoá tìm địa điểm giữ dấu.** Bản cũ bỏ dấu nên "chợ hàn" và "cho han" chung một ô; với Photon hai cách gõ có thể cho kết quả khác nhau, người gõ sau nhận kết quả của người gõ trước trong 24 giờ. Từ khoá chỉ còn đổi chữ thường và cắt khoảng trắng.
+- **Cache quãng đường** `route:legs`: bean `service/RouteCache` đứng giữa `RouteService` và `MapProvider.route`, theo đúng mẫu hai cache trước. Khoá là chuỗi toạ độ theo thứ tự đi, nên đổi thứ tự hoạt động hay đổi địa điểm cho ra khoá khác và tự hỏi lại nguồn; hai ngày đi qua cùng các điểm theo cùng thứ tự dùng chung một ô. Lưu `List<RouteLeg>`.
 
 ### 8.2. Rate limit (Bucket4j + Redis)
 
@@ -835,7 +869,7 @@ Lỗi (`ErrorResponse`):
 | GET | `/trips/{tripId}` | Dự báo cho từng ngày của trip (Task 3.3) | canView |
 
 > **Quy ước Weather API** (chốt 2026-10-01, rà soát Phase 3; làm ở Task 3.3):
-> - `GET /weather/trips/{tripId}` trả `{ status, days }`. `status` = `OK`, hoặc `NO_DESTINATION` khi chuyến đi chưa có toạ độ điểm đến: vẫn 200, `days` không có dự báo, giao diện mời chọn điểm đến.
+> - `GET /weather/trips/{tripId}` trả `{ status, days }`. `status` = `OK`, hoặc `NO_DESTINATION` khi chuyến đi chưa có toạ độ điểm đến: vẫn 200, `days` không có dự báo, giao diện mời chọn điểm đến. Từ Task 3.8 có giá trị thứ ba `UNAVAILABLE`: nguồn dự báo không trả lời (xem dòng "Provider lỗi" bên dưới).
 > - `days` có **đúng một phần tử cho mỗi ngày** của chuyến đi: `{ dayId, date, forecast }`. `forecast` = `{ condition, tempMin, tempMax, precipitationProbability }` hoặc `null` ("chưa có dự báo").
 > - Ô `warning` = `{ type, activityIds }` của bản 2026-10-01 **hoãn** (2026-10-02, rule 14.21): response chưa có ô này; thêm lại sau không làm hỏng client cũ.
 > - Toạ độ và giới hạn 16 ngày: rule 14.20.
@@ -848,7 +882,7 @@ Lỗi (`ErrorResponse`):
 >   - Chuyến đi chỉ có một trong hai toạ độ được coi là chưa có điểm đến (`NO_DESTINATION`).
 >   - Số câu SQL mỗi lần gọi: 4 khi có điểm đến (quyền, chuyến đi, các ngày, múi giờ), 3 khi chưa có; không tăng theo số ngày.
 >   - `WeatherService.forTrip` không `@Transactional`: không giữ kết nối database trong lúc chờ nguồn dự báo.
-> - Provider lỗi (từ Task 3.8) → vẫn 200, các ngày không có dự báo; trang chuyến đi không hỏng vì thời tiết.
+> - Provider lỗi (chốt 2026-10-05, Task 3.8) → vẫn 200, `status = UNAVAILABLE`, `days` vẫn đủ mỗi ngày một phần tử với `forecast: null`; trang chuyến đi không hỏng vì thời tiết. Thẻ thời tiết ghi "Tạm thời không có dự báo"; thẻ ở danh sách chuyến đi không hiện gì. `WeatherService` chỉ bắt đúng lỗi `PROVIDER_UNAVAILABLE` và ghi log WARN; lỗi khác vẫn ném. Câu trả lời `UNAVAILABLE` không được cất cache, nên lần gọi sau hỏi lại nguồn.
 > - `GET /weather/forecast` của bản cũ **hoãn**: chưa màn nào dùng.
 >
 > **Quy ước Route** (chốt 2026-10-01; làm ở Task 3.5) — `GET /trips/{tripId}/days/{dayId}/route`: trả `{ legs, totalDistanceMeters, totalDurationSeconds }`, mỗi chặng = `{ fromActivityId, toActivityId, distanceMeters, durationSeconds }`. Chỉ tính giữa các activity **có địa điểm**, theo đúng thứ tự `orderIndex`; ngày có 0 hoặc 1 địa điểm → `legs` rỗng. `dayId` không thuộc `tripId` → 404.
@@ -857,7 +891,8 @@ Lỗi (`ErrorResponse`):
 >   - Hai hoạt động liền nhau ở cùng một địa điểm vẫn có chặng, `distanceMeters` = 0 và `durationSeconds` = 0; giao diện tự ẩn.
 >   - `distanceMeters` (mét) và `durationSeconds` (giây) là **số nguyên**. `totalDistanceMeters` / `totalDurationSeconds` = tổng các chặng đã làm tròn; `legs` rỗng → cả hai tổng bằng 0.
 >   - Giao diện (chốt 2026-10-05, Task 3.7): mỗi chặng hiện dưới thẻ của hoạt động xuất phát; chặng bắc qua hoạt động không có địa điểm ghi kèm tên đích; không hiện hai tổng của ngày; chỉ tải ngày đang mở.
-  - **Một phương tiện**, không có tham số chọn phương tiện. Mock: 30 km/h. Nguồn thật (Task 3.8): ô tô theo vận tốc gán cho từng loại đường, không tính kẹt xe. Con số là ước lượng.
+>   - **Một phương tiện**, không có tham số chọn phương tiện. Mock: 30 km/h. Nguồn thật (Task 3.8): ô tô theo vận tốc gán cho từng loại đường, không tính kẹt xe. Con số là ước lượng.
+>   - Nguồn bản đồ lỗi (chốt 2026-10-05, Task 3.8) → 503 `PROVIDER_UNAVAILABLE`. Giao diện không vẽ chặng di chuyển và không báo lỗi: đây là thông tin phụ, lịch trình vẫn dùng được. Kết quả được cất cache 24 giờ (mục 8.1).
 >   - Ngày có 0 hoặc 1 địa điểm: không hỏi nguồn bản đồ. `RouteService.forDay` không `@Transactional` (không giữ kết nối database trong lúc chờ nguồn).
 >   - Số câu SQL mỗi lần gọi: 4 (quyền, chuyến đi, ngày, các hoạt động kèm địa điểm), không tăng theo số hoạt động.
 

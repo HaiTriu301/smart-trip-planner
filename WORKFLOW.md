@@ -1895,7 +1895,7 @@ Màu của 6 loại hoạt động, `sun`, `info`, `success`, `warning`, `danger
 
 **Nhớ:** hành vi không đổi, nên các bài `MT-UI` cũ của trang chuyến đi vẫn là bài kiểm tra hồi quy; bài nào có vị trí hoặc nhãn đổi thì sửa ngay trong bài. `DragDropContainer` (khoảng 490 dòng): Commit 6 chỉ đổi hình học của hàng. Dải thời tiết phải giữ chiều cao cố định ở mọi trạng thái (CLAUDE.md mục 8). Không tự thêm nội dung của mockup ngoài danh sách đã chốt.
 
-> **Thực tế khi làm 3.9 (2026-10-05):** 12 commit trên nhánh thay vì 10 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`0d770f9`). Số PR và merge commit: ghi ở Mốc 0 của task sau.
+> **Thực tế khi làm 3.9 (2026-10-05):** 12 commit trên nhánh thay vì 10 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`0d770f9`). PR #24, merge commit `50d1c2e`; commit docs đóng task `4e9464b`.
 >
 > | # | Commit | File code (duyệt → thật) | Ghi chú |
 > |:--:|---|:--:|---|
@@ -1941,33 +1941,71 @@ Màu của 6 loại hoạt động, `sun`, `info`, `success`, `warning`, `danger
 
 ### Task 3.8 — Provider thật: OpenStreetMap và Open-Meteo
 
-Nhánh: `feat/T3.8-real-providers` · Chốt 2026-10-01: làm ngay sau 3.7 để tìm được mọi địa điểm và có dự báo thật, không đợi Phase 8. Các dịch vụ đều miễn phí, không cần API key, có giới hạn sử dụng hợp lý: **đọc lại điều khoản và tài liệu chính thức của từng dịch vụ ở đầu task** (thông tin dưới đây ghi theo hiểu biết lúc lập kế hoạch). Test không gọi mạng thật (CLAUDE.md rule 24): dùng máy chủ giả trả JSON mẫu. Test: `07-place.md`, `08-weather.md`.
+Nhánh: `feat/T3.8-real-providers` · Chốt 2026-10-01: làm ngay sau 3.7 để tìm được mọi địa điểm và có dự báo thật, không đợi Phase 8 (Task 3.9 chen vào trước, chốt 2026-10-05). Bảng commit dưới đây được chủ dự án duyệt ngày 2026-10-05, thay cho 5 mốc kiểu cũ. Điều kiện mỗi commit backend: `./gradlew build` xanh; mỗi commit frontend: `npm run lint` + `npm run build` + `npm run test` xanh. Test: `07-place.md`, `08-weather.md`, `01-platform.md`, `06-itinerary-ui.md`.
 
-```
-Mốc 1 — feat(weather): add open-meteo weather provider
-        provider/weather/OpenMeteoWeatherProvider (@ConditionalOnProperty app.providers.weather=open-meteo),
-        gọi HTTP qua RestClient, đổi mã thời tiết WMO → condition của DailyForecast;
-        test với máy chủ giả: JSON mẫu → đúng DailyForecast; 5xx / quá thời gian → PROVIDER_UNAVAILABLE
+Kết quả của task: đặt `app.providers.map=osm` và `app.providers.weather=open-meteo` thì ô tìm địa điểm tìm được mọi nơi có trên OpenStreetMap, quãng đường tính theo đường thật, dự báo là dự báo thật. Mặc định mọi profile vẫn là `mock` (CLAUDE.md rule 20); test không gọi mạng (rule 24).
 
-Mốc 2 — feat(place): add openstreetmap place search provider
-        provider/map/OsmMapProvider (app.providers.map=osm): search bằng Photon (cho phép gợi ý khi đang gõ;
-        Nominatim cấm dùng cho việc này), lookup theo externalId bằng Nominatim, header User-Agent định danh
-        ứng dụng; địa điểm lưu với provider OSM; test với máy chủ giả
+| # | Commit | File chính | Số file |
+|:--:|---|---|:--:|
+| 0 | `docs: plan task 3.8 real providers` (trên `main`) | `WORKFLOW.md`, `design.md` | 2 |
+| 1 | `feat(weather): add open-meteo weather provider` | `build.gradle`, `application.yml`, `config/ProviderProperties`, `exception/ProviderUnavailableException`, `provider/weather/OpenMeteoWeatherProvider`, `OpenMeteoWeatherProviderTest`, JSON mẫu, `support/StubHttpServer` | 8 |
+| 2 | `feat(weather): answer without a forecast when the source fails` | `TripWeatherStatus`, `WeatherService`, `WeatherServiceTest`, `TripWeatherFlowIntegrationTest` | 4 |
+| 3 | `feat(frontend): say when the forecast is temporarily unavailable` | `types/weather.ts`, `WeatherStrip.tsx`, `stripDays.ts` + test, `TripCardWeather.tsx`, `UI_GUIDE.md` | 6 |
+| 4 | `feat(place): tell accented keywords apart in the search cache` | `PlaceSearchCache`, `PlaceSearchCacheTest`, `PlaceSearchCacheIntegrationTest` | 3 |
+| 5 | `feat(place): search and pick places from openstreetmap` | `PlaceProvider` (+`OSM`), `provider/map/OsmMapProvider`, `provider/map/StraightLineRoute` (tách từ mock), `MockMapProvider`, `ProviderProperties`, `application.yml`, `OsmMapProviderTest`, 2 JSON mẫu | 9 |
+| 6 | `feat(route): get travel legs from osrm` | `OsmMapProvider`, `ProviderProperties`, `application.yml`, `OsmMapProviderTest`, JSON mẫu | 5 |
+| 7 | `feat(route): cache the travel legs of a day` | `CacheNames`, `CacheConfig`, `service/RouteCache`, `RouteService`, `RouteServiceTest`, `RouteCacheIntegrationTest` | 6 |
+| 8 | `feat(provider): retry and break the circuit of real providers` | `libs.versions.toml`, `build.gradle`, `application.yml`, hai provider thật, `GlobalExceptionHandler` (nếu cần), `RealProvidersResilienceIntegrationTest` | 7 |
+| 9 | `feat(frontend): do not repeat a request the provider could not answer` | `lib/queryClient.ts`, `api/errors.ts` + test | 3 |
+| 10 | `feat(frontend): credit the data sources` | `layouts/AppLayout.tsx`, `UI_GUIDE.md` | 2 |
+| 11 | `docs: close task 3.8` (trên `main`) | `README.md`, `.env.example`, `WORKFLOW.md`, `CLAUDE.md`, `design.md`, `docs/testing/*` | khoảng 8 |
 
-Mốc 3 — feat(route): add osrm routing to the osm provider
-        OsmMapProvider.route gọi OSRM (các chặng giữa hai điểm liên tiếp); test với máy chủ giả
+Số file là ước lượng theo code hiện tại và chưa tính `docs/testing/` (cập nhật sau mỗi mốc, commit một lần ở commit 11). Lệch thì báo kèm lý do ngay ở báo cáo của commit đó.
 
-Mốc 4 — feat(provider): add time limit, retry and circuit breaker to real providers
-        design.md 7.3: giới hạn 3 giây, thử lại 2 lần, ngắt mạch khi lỗi nhiều;
-        thời tiết lỗi → trang chuyến đi vẫn mở, ô thời tiết ghi "tạm thời không có dự báo";
-        tìm địa điểm lỗi → 503 PROVIDER_UNAVAILABLE; kiểm Resilience4j có bản chạy với Spring Boot 4 trước khi thêm
-        dependency (version ở libs.versions.toml)
+**Chức năng từng commit:**
+1. **Dự báo từ Open-Meteo.** Một lần gọi cho cả khoảng ngày, đổi mã WMO về 7 giá trị `condition`. Đã có giới hạn thời gian ngay từ commit này (một provider không có giới hạn thời gian thì không an toàn để bật). Lỗi 5xx, quá thời gian, JSON lạ → `PROVIDER_UNAVAILABLE`. Sau commit này, nguồn sập thì API thời tiết trả 503; commit 2 sửa.
+2. **Thời tiết lỗi không làm hỏng trang.** `WeatherService` bắt đúng lỗi "nguồn không trả lời", ghi log WARN, trả 200 `UNAVAILABLE`.
+3. **Thẻ thời tiết ghi "Tạm thời không có dự báo"**, giữ chiều cao cố định 212px; thẻ ở danh sách chuyến đi không hiện gì. Không có màn mới nên không có prompt Stitch.
+4. **Khoá cache phân biệt dấu.** Đứng trước commit 5 để Photon không bao giờ chạy với khoá gộp.
+5. **Tìm và chọn địa điểm từ OpenStreetMap.** `search` hỏi Photon (ưu tiên quanh điểm đến), `lookup` hỏi Nominatim theo mã, lưu với provider `OSM` (cột ENUM của V9 đã có, không cần migration). `route` ở commit này tính theo đường chim bay bằng công thức tách ra từ mock (`StraightLineRoute`): `MapProvider` có ba method nên lớp phải đủ cả ba ngay từ đầu; commit 6 thay bằng OSRM.
+6. **Quãng đường từ OSRM.** Một lần gọi cho cả ngày. Sai số chặng (khác n−1) → `PROVIDER_UNAVAILABLE`. Có test cho hai điểm trùng toạ độ.
+7. **Cache quãng đường** 24 giờ, khoá theo chuỗi toạ độ. Redis tắt thì bỏ qua cache như hai cache kia (thêm kịch bản vào `RedisDownIntegrationTest` nếu cần, không tạo class mới).
+8. **Thử lại, ngắt mạch, giới hạn 1 lần / giây cho Nominatim** bằng Resilience4j 2.4.0 (`resilience4j-spring-boot4`), mỗi dịch vụ một cấu hình. Test chạy với ngữ cảnh Spring thật vì annotation chỉ có tác dụng qua proxy.
+9. **Frontend không tự gọi lại** request bị trả `PROVIDER_UNAVAILABLE` (hiện gọi lại 3 lần với mọi 5xx).
+10. **Ghi nguồn dữ liệu** ở chân trang: OpenStreetMap, OSRM, Open-Meteo (điều khoản của OSRM và Open-Meteo).
+11. **Đóng task:** README và `.env.example` hướng dẫn bật provider thật; bài thủ công (tìm một địa điểm ngoài 56 điểm mock, xem dự báo thật của một chuyến đi trong 16 ngày tới); "Thực tế khi làm 3.8"; tick Phase 3.
 
-Mốc 5 — docs: README + .env.example hướng dẫn bật provider thật; bài kiểm tra thủ công: bật osm / open-meteo,
-        tìm một địa điểm không có trong dữ liệu mock, xem dự báo thật của một chuyến đi trong 16 ngày tới
-```
+> **Quyết định khi lập kế hoạch 3.8 (2026-10-05), chủ dự án duyệt cả:**
+>
+> | Làm | Cách làm |
+> |---|---|
+> | Thời tiết lỗi | 200 với `status = UNAVAILABLE`, giao diện ghi "Tạm thời không có dự báo" |
+> | Tìm / lưu địa điểm lỗi, quãng đường lỗi | 503 `PROVIDER_UNAVAILABLE`; quãng đường lỗi thì giao diện chỉ không vẽ chặng (đã kiểm `DaySection`: chỉ đọc `data`, không đọc lỗi) |
+> | Chịu lỗi | Giới hạn thời gian ở `RestClient`; thử lại + ngắt mạch + giới hạn tần suất bằng Resilience4j 2.4.0 |
+> | Khoá cache tìm địa điểm | Giữ dấu |
+> | Cache quãng đường | `RouteCache`, 24 giờ |
+> | Lệch ngày do múi giờ | Chấp nhận (ngày của dự báo là ngày tại điểm đến) |
+> | Phương tiện | Chỉ ô tô (OSRM công cộng); nhiều phương tiện vẫn để sau |
+> | Test | `MockRestServiceServer` + máy chủ HTTP của JDK cho quá thời gian; JSON mẫu lấy từ câu trả lời thật |
+> | Ghi nguồn dữ liệu, frontend không gọi lại khi provider lỗi | Phát sinh sau khi đọc điều khoản và `queryClient.ts`; commit 9 và 10 |
+>
+> | Không làm | Lý do |
+> |---|---|
+> | Stale-while-error | Spring Cache không hỗ trợ; lợi ích nhỏ so với công (design 7.3) |
+> | Tile CARTO theo key | Nền OpenStreetMap đang ổn; key sẽ nằm trong bundle công khai (design 3.2) |
+> | WireMock | Bản 3.x xung đột Jetty 12.1 của Boot 4, bản 4 còn beta |
+> | `@TimeLimiter` | Đòi method bất đồng bộ; giới hạn thời gian của `RestClient` cho cùng kết quả |
+> | Thông báo khi thiếu quãng đường | Thông tin phụ |
+>
+> Chi tiết điều khoản của bốn dịch vụ và cách tuân thủ: design.md 7.2.
 
-**Nhớ:** hạn mức gọi `/places/search` theo người dùng (design 8.2) tới Task 8.1 mới có; trước đó cache của Task 3.4 và độ trễ 300ms ở ô tìm kiếm là thứ giữ cho app không gọi dịch vụ công cộng quá nhiều. Không bật provider thật trên bản deploy công khai trước khi có rate limit.
+**Việc phải kiểm trước khi viết code của commit tương ứng** (tài liệu đọc ở Mốc 0 không nói đủ):
+- Commit 1: starter `RestClient` của Spring Boot 4 có đúng tên `spring-boot-starter-restclient` không (build thật); không có thì tự dựng `RestClient.builder()` và báo lại.
+- Commit 5: câu trả lời thật của Photon có các trường `osm_type`, `osm_id`, tên, đường, thành phố không; tham số ưu tiên theo toạ độ; ngôn ngữ của tên trả về cho địa điểm ở Việt Nam. Nominatim `lookup` nhận mã ở dạng nào.
+- Commit 6: OSRM công cộng có profile nào, giới hạn số điểm mỗi lần gọi, hai điểm trùng toạ độ trả chặng 0 hay lỗi.
+- Commit 8: `resilience4j-spring-boot4` 2.4.0 chạy được với Spring Boot 4.1.1 (build + một test thật), cần thêm starter AOP nào không.
+
+**Nhớ:** hạn mức gọi `/places/search` theo người dùng (design 8.2) tới Task 8.1 mới có; trước đó cache của Task 3.4 và độ trễ 300ms ở ô tìm kiếm là thứ giữ cho app không gọi dịch vụ công cộng quá nhiều. Không bật provider thật trên bản deploy công khai trước khi có rate limit. `@Retry` / `@CircuitBreaker` đặt trên method `public` của provider và được gọi từ bean khác (các bean cache), nếu không proxy không chạy (CLAUDE.md mục 8). Báo cáo sau mỗi commit: file đã sửa, chức năng từng file và method, luồng chạy theo thứ tự các method, lệnh `git add` ghi từng file.
 
 > ✅ Hết Phase 3 → tick `[x] Phase 3` trong CLAUDE.md. Trước khi sang Phase 4: rà lại Phase 4 theo quy ước A.2 "Rà soát theo phase".
 
