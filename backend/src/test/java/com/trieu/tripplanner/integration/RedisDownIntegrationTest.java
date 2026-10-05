@@ -30,6 +30,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.containers.GenericContainer;
 
 /**
@@ -79,7 +80,9 @@ class RedisDownIntegrationTest {
 
     @AfterEach
     void cleanUp() {
+        // Activities go with their trips (ON DELETE CASCADE); places only once no activity points to them
         jdbcTemplate.update("DELETE FROM trips");
+        jdbcTemplate.update("DELETE FROM places");
         jdbcTemplate.update("DELETE FROM users");
     }
 
@@ -128,6 +131,49 @@ class RedisDownIntegrationTest {
 
         assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
         assertThat(output.getOut()).contains("Cache 'weather:forecast' failed to get entry");
+    }
+
+    @Test
+    void routeOfADayStillAnswersWhileRedisIsOff(CapturedOutput output) {
+        long tripId = idOf(post("/api/v1/trips", """
+                { "title": "Đà Nẵng", "startDate": "2026-10-05", "endDate": "2026-10-07", "currency": "VND" }
+                """));
+        Number dayId = JsonPath.read(body(mvc.get().uri("/api/v1/trips/" + tripId + "/days")
+                .header(HttpHeaders.AUTHORIZATION, bearer).exchange()), "$.data[0].id");
+        // Two activities of day 1, each at a place picked from the bundled data
+        for (String externalId : new String[] {"da-nang-cho-han", "da-nang-bun-cha-ca-109"}) {
+            long placeId = idOf(post("/api/v1/places", """
+                    { "provider": "MOCK", "externalId": "%s" }
+                    """.formatted(externalId)));
+            post("/api/v1/trips/" + tripId + "/days/" + dayId + "/activities", """
+                    { "title": "%s", "placeId": %d }
+                    """.formatted(externalId, placeId));
+        }
+
+        Instant start = Instant.now();
+        assertThat(mvc.get().uri("/api/v1/trips/" + tripId + "/days/" + dayId + "/route")
+                .header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.legs[0].distanceMeters").isEqualTo(998);
+
+        assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
+        assertThat(output.getOut()).contains("Cache 'route:legs' failed to get entry");
+    }
+
+    private MvcTestResult post(String url, String json) {
+        MvcTestResult result = mvc.post().uri(url).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(json).exchange();
+        assertThat(result.getResponse().getStatus()).isBetween(200, 201);
+        return result;
+    }
+
+    private static long idOf(MvcTestResult result) {
+        return ((Number) JsonPath.read(body(result), "$.data.id")).longValue();
+    }
+
+    // Explicit UTF-8: MockHttpServletResponse otherwise decodes as ISO-8859-1 and mangles Vietnamese
+    private static String body(MvcTestResult result) {
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
 }

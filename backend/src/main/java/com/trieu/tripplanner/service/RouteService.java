@@ -4,7 +4,6 @@ import com.trieu.tripplanner.dto.response.DayRouteResponse;
 import com.trieu.tripplanner.dto.response.RouteLegResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.Activity;
-import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import com.trieu.tripplanner.repository.ActivityRepository;
@@ -17,8 +16,9 @@ import org.springframework.stereotype.Service;
 
 /**
  * Travel between the activities of a day (design.md 10.2 "Quy ước Route"). Reaches the map source only through
- * its port: switching from the made-up estimate to a real routing service changes configuration, not this class
- * (CLAUDE.md rule 19). Simple enough to be a class without interface (CLAUDE.md rule 5).
+ * {@link RouteCache}, which asks the port of the source: switching from the made-up estimate to a real routing
+ * service changes configuration, not this class (CLAUDE.md rule 19). Simple enough to be a class without
+ * interface (CLAUDE.md rule 5).
  */
 @Service
 @RequiredArgsConstructor
@@ -33,7 +33,7 @@ public class RouteService {
     private final TripRepository tripRepository;
     private final TripDayRepository tripDayRepository;
     private final ActivityRepository activityRepository;
-    private final MapProvider mapProvider;
+    private final RouteCache routeCache;
 
     /**
      * One leg between every two consecutive activities of the day that have a place, in the order the day shows
@@ -71,7 +71,7 @@ public class RouteService {
         List<Coordinate> points = stops.stream()
                 .map(stop -> new Coordinate(stop.getPlace().getLat(), stop.getPlace().getLng()))
                 .toList();
-        return toResponse(stops, mapProvider.route(points));
+        return toResponse(stops, routeCache.legs(points));
     }
 
     /** Leg i of the source goes from stop i to stop i + 1: the source knows points, the ids are put back here. */

@@ -13,7 +13,6 @@ import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Place;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
-import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import com.trieu.tripplanner.repository.ActivityRepository;
@@ -32,8 +31,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * The repositories and the map source are mocks: the legs the source answers are made up, so these tests check
- * what the service does with them, not how a distance is estimated (that is MockMapProviderTest).
+ * The repositories and the route cache (the way to the map source) are mocks: the legs it answers are made up,
+ * so these tests check what the service does with them, not how a distance is estimated (that is
+ * MockMapProviderTest) nor what is kept in Redis (that is RouteCacheIntegrationTest).
  */
 @ExtendWith(MockitoExtension.class)
 class RouteServiceTest {
@@ -55,7 +55,7 @@ class RouteServiceTest {
     private ActivityRepository activityRepository;
 
     @Mock
-    private MapProvider mapProvider;
+    private RouteCache routeCache;
 
     @InjectMocks
     private RouteService routeService;
@@ -63,7 +63,7 @@ class RouteServiceTest {
     @Test
     void givesOneLegBetweenEveryTwoConsecutiveActivitiesAndTheTotalsOfTheDay() {
         dayHas(activity(101L, CHO_HAN), activity(102L, CAU_RONG), activity(103L, LINH_UNG));
-        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(CAU_RONG), pointOf(LINH_UNG))))
+        when(routeCache.legs(List.of(pointOf(CHO_HAN), pointOf(CAU_RONG), pointOf(LINH_UNG))))
                 .thenReturn(List.of(new RouteLeg(1150, 138), new RouteLeg(8400, 1008)));
 
         DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
@@ -79,7 +79,7 @@ class RouteServiceTest {
     void asksTheMapForThePlacesInTheOrderTheDayShowsThem() {
         // The repository returns the display order (orderIndex, then id); ids are deliberately not ascending
         dayHas(activity(103L, LINH_UNG), activity(101L, CHO_HAN), activity(102L, CAU_RONG));
-        when(mapProvider.route(List.of(pointOf(LINH_UNG), pointOf(CHO_HAN), pointOf(CAU_RONG))))
+        when(routeCache.legs(List.of(pointOf(LINH_UNG), pointOf(CHO_HAN), pointOf(CAU_RONG))))
                 .thenReturn(List.of(new RouteLeg(8000, 960), new RouteLeg(1150, 138)));
 
         DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
@@ -88,13 +88,13 @@ class RouteServiceTest {
                 new RouteLegResponse(103L, 101L, 8000, 960),
                 new RouteLegResponse(101L, 102L, 1150, 138));
         // One question for the whole day, not one per leg
-        verify(mapProvider).route(List.of(pointOf(LINH_UNG), pointOf(CHO_HAN), pointOf(CAU_RONG)));
+        verify(routeCache).legs(List.of(pointOf(LINH_UNG), pointOf(CHO_HAN), pointOf(CAU_RONG)));
     }
 
     @Test
     void activityWithoutAPlaceBetweenTwoPlacesIsSkippedAndItsNeighboursAreJoined() {
         dayHas(activity(101L, CHO_HAN), activity(102L, null), activity(103L, LINH_UNG));
-        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(LINH_UNG))))
+        when(routeCache.legs(List.of(pointOf(CHO_HAN), pointOf(LINH_UNG))))
                 .thenReturn(List.of(new RouteLeg(8900, 1068)));
 
         DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
@@ -109,7 +109,7 @@ class RouteServiceTest {
     void activitiesWithoutAPlaceAtTheStartAndTheEndOfTheDayAreSkipped() {
         dayHas(activity(100L, null), activity(101L, CHO_HAN), activity(102L, CAU_RONG), activity(103L, null),
                 activity(104L, LINH_UNG), activity(105L, null));
-        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(CAU_RONG), pointOf(LINH_UNG))))
+        when(routeCache.legs(List.of(pointOf(CHO_HAN), pointOf(CAU_RONG), pointOf(LINH_UNG))))
                 .thenReturn(List.of(new RouteLeg(1150, 138), new RouteLeg(8400, 1008)));
 
         DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
@@ -123,7 +123,7 @@ class RouteServiceTest {
     @Test
     void twoConsecutiveActivitiesAtTheSamePlaceKeepTheirLegOfZero() {
         dayHas(activity(101L, CHO_HAN), activity(102L, CHO_HAN), activity(103L, CAU_RONG));
-        when(mapProvider.route(List.of(pointOf(CHO_HAN), pointOf(CHO_HAN), pointOf(CAU_RONG))))
+        when(routeCache.legs(List.of(pointOf(CHO_HAN), pointOf(CHO_HAN), pointOf(CAU_RONG))))
                 .thenReturn(List.of(new RouteLeg(0, 0), new RouteLeg(1150, 138)));
 
         DayRouteResponse route = routeService.forDay(TRIP_ID, DAY_ID);
@@ -140,7 +140,7 @@ class RouteServiceTest {
         dayHas();
 
         assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
-        verifyNoInteractions(mapProvider);
+        verifyNoInteractions(routeCache);
     }
 
     @Test
@@ -149,7 +149,7 @@ class RouteServiceTest {
 
         // One stop is nowhere to travel to: a real routing service would answer an error to such a question
         assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
-        verifyNoInteractions(mapProvider);
+        verifyNoInteractions(routeCache);
     }
 
     @Test
@@ -158,7 +158,7 @@ class RouteServiceTest {
 
         // What counts is the number of places, not the number of activities
         assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
-        verifyNoInteractions(mapProvider);
+        verifyNoInteractions(routeCache);
     }
 
     @Test
@@ -166,7 +166,7 @@ class RouteServiceTest {
         dayHas(activity(101L, null), activity(102L, null));
 
         assertThat(routeService.forDay(TRIP_ID, DAY_ID)).isEqualTo(new DayRouteResponse(List.of(), 0, 0));
-        verifyNoInteractions(mapProvider);
+        verifyNoInteractions(routeCache);
     }
 
     @Test
@@ -175,7 +175,7 @@ class RouteServiceTest {
 
         assertThatThrownBy(() -> routeService.forDay(TRIP_ID, DAY_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
-        verifyNoInteractions(tripDayRepository, activityRepository, mapProvider);
+        verifyNoInteractions(tripDayRepository, activityRepository, routeCache);
     }
 
     @Test
@@ -186,7 +186,7 @@ class RouteServiceTest {
         assertThatThrownBy(() -> routeService.forDay(TRIP_ID, DAY_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
         // Permission was checked on the trip of the URL only: the day of another trip must stay unread
-        verifyNoInteractions(activityRepository, mapProvider);
+        verifyNoInteractions(activityRepository, routeCache);
     }
 
     /** An existing trip whose day DAY_ID holds these activities, in display order. */

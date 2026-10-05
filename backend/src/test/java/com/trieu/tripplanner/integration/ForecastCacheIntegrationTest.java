@@ -110,9 +110,9 @@ class ForecastCacheIntegrationTest {
     }
 
     @Test
-    void bothCachesAreDeclaredAndNothingElse() {
+    void theDeclaredCachesExistAndNothingElse() {
         assertThat(cacheManager.getCacheNames())
-                .containsExactlyInAnyOrder(CacheNames.PLACE_SEARCH, CacheNames.WEATHER_FORECAST);
+                .containsExactlyInAnyOrder(CacheNames.PLACE_SEARCH, CacheNames.ROUTE_LEGS, CacheNames.WEATHER_FORECAST);
     }
 
     private Cache cache() {
