@@ -30,6 +30,12 @@ spring:
       timeout: 1s
       repositories:
         enabled: false          # entities live in MySQL only: no Spring Data repository is backed by Redis
+  http:
+    clients:
+      # Every call to an outside service gives up after these limits instead of keeping the user waiting
+      # (design.md 7.3). They apply to the RestClient.Builder the real providers are built from
+      connect-timeout: 2s
+      read-timeout: 3s
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -77,3 +83,8 @@ app:
     ai: mock         # mock | claude
     storage: local   # local | cloudinary
     mail: mock       # mock | smtp  (local profile switches to smtp → MailHog; smtp needs spring.mail.host)
+    # Sent as User-Agent with every call to an outside service: the public OpenStreetMap services and
+    # Open-Meteo ask applications to say who they are (design.md 7.2). Not a secret
+    user-agent: smart-trip-planner/0.1 (+https://github.com/HaiTriu301/smart-trip-planner)
+    open-meteo:
+      base-url: https://api.open-meteo.com   # weather forecast, used when weather = open-meteo
