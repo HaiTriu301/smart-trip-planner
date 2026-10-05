@@ -1,17 +1,18 @@
 # 06 · Giao diện lịch trình
 
-> Cập nhật: 2026-10-04 · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
+> Cập nhật: 2026-10-05 · **Task 3.7 xong: 16 commit (`8ba6710` đến `6955238`), lint, build và 108 test tự động xanh; 15 bài `MT-UI-63` đến `MT-UI-77` chưa chạy đủ; `BUG-UI-010` đã sửa, chờ kiểm lại.** Diễn biến: Commit 1 (`8ba6710`) thêm công cụ test tự động cho giao diện (Vitest), 7 test xanh; Commit 2 (`847cda9`) thêm dải thời tiết dưới bản đồ, Commit 3 (`d32e248`) thêm câu mời đặt vị trí điểm đến, Commit 4 (`a7f818c`) thêm báo lỗi khi dự báo không tải được, Commit 5 (`f1e9f04`) thêm dòng thời tiết ở tiêu đề ngày trên màn hẹp, Commit 6 (`f9ff894`) thêm thời gian và quãng đường giữa các hoạt động (33 test tự động xanh), Commit 7 (`8408ac0`) tính lại quãng đường sau khi ngày thay đổi, Commit 8 (`e8511be`) hiện chặng đi qua hoạt động không có địa điểm, Commit 9 (`51abea7`) thêm nhãn "Đã qua" / "Hôm nay", Commit 10 (`e767e62`) mở chuyến đi đang diễn ra ở ngày hôm nay, Commit 11 (`584df0f`) thêm thời tiết trên thẻ ở trang danh sách, Commit 12 (`d221461`) hỏi hoàn thành chuyến đi đã qua ngày cuối, Commit 13 (`d8ba1ee`) nhớ câu trả lời "Để sau". Chủ dự án xem dải thời tiết trên trình duyệt ngày 2026-10-05 và yêu cầu hai thay đổi (Commit 14, 15); Commit 14 (`4a736be`) bỏ khỏi dải các ngày không có dự báo, Commit 15 (`40bdd35`) thay cuộn ngang bằng nút chuyển trang (108 test tự động xanh). Chủ dự án tìm ra `BUG-UI-010` (tên ngày ở cột giữa bị xuống dòng), sửa ở Commit 16, chờ kiểm lại; các bài `MT-UI-63` đến `MT-UI-77` chưa có kết quả đầy đủ · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
 
 Giao diện web để người dùng xem danh sách chuyến đi, tạo chuyến đi, xem và sửa lịch trình từng ngày, thêm hoạt động và kéo thả để sắp xếp lại. Làm ở Task 2.5.
 
-Phần giao diện chưa có test tự động (công cụ sẽ thêm ở task frontend sau). Mỗi mốc chỉ được commit khi hai lệnh kiểm tra mã nguồn chạy xanh:
+Tới hết Task 3.6, phần giao diện chưa có test tự động. Từ Task 3.7 có `npm run test` cho các **hàm tính toán** (không vẽ gì lên màn hình); phần nhìn thấy được vẫn do các bài kiểm tra thủ công đảm nhận. Mỗi mốc chỉ được commit khi các lệnh sau chạy xanh:
 
 | Lệnh | Kiểm tra gì |
 |---|---|
 | `npm run lint` | Mã nguồn viết đúng quy tắc, ví dụ không có biến thừa, không gọi hook React sai chỗ |
 | `npm run build` | Đúng kiểu dữ liệu trên toàn bộ mã nguồn, và đóng gói được thành bản chạy thật |
+| `npm run test` (từ Task 3.7) | Các hàm tính toán của giao diện cho đúng kết quả: xem mục "Test tự động của giao diện" |
 
-Hai lệnh này không kiểm tra giao diện có làm đúng nghiệp vụ hay không. Việc đó do các bài kiểm tra thủ công bên dưới đảm nhận.
+Hai lệnh đầu không kiểm tra giao diện có làm đúng nghiệp vụ hay không; lệnh thứ ba chỉ kiểm phần tính toán. Phần còn lại do các bài kiểm tra thủ công bên dưới đảm nhận.
 
 File này được ghi dần theo từng mốc của task. Mỗi mốc là một commit:
 
@@ -82,6 +83,184 @@ Task 3.6 (`feat/T3.6-place-map-ui`): địa điểm của hoạt động và b�
 | 19 | Bản đồ nhỏ ở ô điểm đến (wizard và hộp sửa chuyến đi): hiện vị trí, bấm để đặt hoặc dời | MT-UI-62 | `72e97d5` |
 | 20 | Bản đồ phóng to hiện đúng (`BUG-UI-009`) | MT-UI-56, bước 2 | `c712093` |
 | 21 | Nền bản đồ giữ màu gốc của OpenStreetMap, không còn bị làm xám | MT-UI-53 (bước về màu nền) | `e4bc2d0` |
+
+Task 3.7 (`feat/T3.7-weather-route-ui`): thời tiết, quãng đường di chuyển, ngày đã qua. Mỗi commit một việc.
+
+| Commit | Nội dung | Kiểm tra | Mã commit |
+|---|---|---|---|
+| 1 | Thêm công cụ test tự động cho giao diện (Vitest, lệnh `npm run test`). Người dùng chưa thấy gì mới. Bài test đầu tiên kiểm cách tính vị trí của một hoạt động vừa được kéo thả, phần đã có từ Task 2.5 | TC-UI-001 đến TC-UI-007 | `8ba6710` |
+| 2 | Dải thời tiết dưới bản đồ của trang chi tiết: mỗi ngày một ô (icon có màu, nhiệt độ cao / thấp, khả năng mưa), bấm một ô để sang ngày đó; ngày không có dự báo ghi "Chưa có" | MT-UI-63 | `847cda9` |
+| 3 | Chuyến đi chưa đặt vị trí điểm đến: khung thời tiết mời đặt vị trí. Sửa chuyến đi (điểm đến, ngày đi) xong thì dự báo tự cập nhật | MT-UI-64 | `d32e248` |
+| 4 | Dự báo không tải được: khung thời tiết ghi "Tạm thời không có dự báo." kèm "Thử lại"; phần còn lại của trang vẫn dùng được; dự báo đã tải trước đó được giữ lại | MT-UI-65 | `a7f818c` |
+| 5 | Dưới 1024px: dưới tiêu đề ngày có một dòng thời tiết của ngày đang xem (tình trạng, nhiệt độ, khả năng mưa); ngày không có dự báo thì không có dòng này | MT-UI-66 | `f1e9f04` |
+| 6 | Giữa hai thẻ hoạt động liền nhau cùng có địa điểm có dòng "25 phút · 8,4 km"; ẩn khi đang kéo | TC-UI-008 đến TC-UI-019, MT-UI-67 | `f9ff894` |
+| 7 | Sau khi kéo thả, chuyển ngày, thêm, sửa, xoá hoạt động hoặc đổi địa điểm, quãng đường được tính lại cho cả ngày đi lẫn ngày đến. Đóng điểm hở tạm thời của Commit 6 | MT-UI-68 | `8408ac0` |
+| 8 | Chặng đi qua một hoạt động không có địa điểm hiện dưới thẻ xuất phát, ghi kèm tên đích: "12 phút · 3,2 km tới Cầu Rồng" | TC-UI-020 đến TC-UI-022, MT-UI-69 | `e8511be` |
+| 9 | Ngày đã qua và ngày hôm nay được đánh dấu ở cột ngày, chip ngày và tiêu đề ngày; "hôm nay" tính theo múi giờ của tài khoản | TC-UI-023 đến TC-UI-029, MT-UI-70 | `51abea7` |
+| 10 | Mở một chuyến đi đang diễn ra (từ thẻ ở trang danh sách) thì vào thẳng ngày hôm nay thay vì Ngày 1 | TC-UI-030 đến TC-UI-033, MT-UI-71 | `e767e62` |
+| 11 | Thẻ ở trang danh sách có thời tiết ở chân thẻ: "Hôm nay" cho chuyến đi đang diễn ra, "Ngày đi" cho chuyến đi sắp bắt đầu trong 16 ngày tới | TC-UI-034 đến TC-UI-040, MT-UI-72 | `584df0f` |
+| 12 | Mở một chuyến đi đã qua ngày cuối mà trạng thái chưa đóng: hộp hỏi "Hoàn thành chuyến đi?"; đồng ý thì trạng thái thành "Đã hoàn thành", lịch trình vẫn sửa được | TC-UI-041 đến TC-UI-045, MT-UI-73 | `d221461` |
+| 13 | Bấm "Để sau" thì không bị hỏi lại về chuyến đi đó cho tới lần đăng nhập sau, kể cả khi tải lại trang. Đóng điểm hở tạm thời của Commit 12 | TC-UI-046 đến TC-UI-055, MT-UI-74 | `d8ba1ee` |
+| 14 | Dải thời tiết chỉ còn các ngày có dự báo: ngày đã qua và ngày xa hơn 16 ngày không có ô; không còn ngày nào thì khung ghi một câu giải thích (yêu cầu của chủ dự án sau khi xem trên trình duyệt) | TC-UI-056 đến TC-UI-062, MT-UI-75; MT-UI-63 sửa theo | `4a736be` |
+| 15 | Dải thời tiết không còn cuộn ngang: nhiều ngày hơn chỗ chứa thì chia trang, hai nút ở hai đầu lật mỗi lần một trang; mở một ngày thì dải tự lật tới trang có ngày đó (yêu cầu của chủ dự án) | TC-UI-063 đến TC-UI-069, MT-UI-76; MT-UI-63 sửa theo | `40bdd35` |
+| 16 | Tên ngày ở cột giữa đứng riêng một hàng, không còn bị các nút ép xuống dòng (`BUG-UI-010`) | MT-UI-77; MT-UI-70 chạy lại | `6955238` |
+
+---
+
+## Test tự động của giao diện
+
+Chạy bằng `npm run test` trong thư mục `frontend`. Chỉ kiểm các hàm tính toán: đưa dữ liệu vào, so kết quả trả về. Không mở trình duyệt, không gọi máy chủ.
+
+### A. Vị trí của hoạt động sau khi kéo thả
+
+> **Yêu cầu:** design.md rule 14.5, 10.2 "Quy ước Reorder" · **Kiểm bởi:** `lib/orderIndex.test.ts`
+
+Mỗi hoạt động trong ngày có một số thứ tự, các số cách nhau 1000. Khi thả một hoạt động vào giữa hai hoạt động khác, giao diện chọn số nằm giữa và chỉ gửi đúng hoạt động vừa thả. Hết số trống thì đánh số lại cả ngày.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-001 | Thả một hoạt động vào giữa hai hoạt động có số 1000 và 2000 | Chỉ hoạt động vừa thả được gửi đi, với số 1500 | Đúng | Đạt |
+| TC-UI-002 | Thả một hoạt động xuống cuối ngày, sau hoạt động có số 2000 | Số mới là 3000 (cách hoạt động cuối một bước) | Đúng | Đạt |
+| TC-UI-003 | Thả một hoạt động lên đầu ngày, trước hoạt động có số 1000 | Số mới là 500 | Đúng | Đạt |
+| TC-UI-004 | Thả một hoạt động vào một ngày chưa có hoạt động nào | Số mới là 1000 | Biên | Đạt |
+| TC-UI-005 | Thả vào giữa hai hoạt động có số liền nhau (5 và 6), không còn số trống | Cả ngày được đánh số lại: 1000, 2000, 3000 theo thứ tự mới | Biên | Đạt |
+| TC-UI-006 | Thả lên đầu ngày khi hoạt động đầu tiên đã mang số nhỏ nhất (1) | Cả ngày được đánh số lại | Biên | Đạt |
+| TC-UI-007 | Thả xuống cuối ngày khi hoạt động cuối đã mang số lớn nhất cho phép (1 tỉ) | Cả ngày được đánh số lại | Biên | Đạt |
+
+### B. Cách ghi quãng đường và thời gian di chuyển
+
+> **Yêu cầu:** UI_GUIDE 8.1 "Đoạn di chuyển"; design.md 10.2 "Quy ước Route" (máy chủ trả mét và giây, số nguyên) · **Kiểm bởi:** `lib/format.test.ts`
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-008 | Quãng đường dưới 1 km: 1 m, 998 m, 999 m | Ghi bằng mét: "1 m", "998 m", "999 m" | Đúng | Đạt |
+| TC-UI-009 | Quãng đường từ 1 km: 1000 m, 3200 m, 125.300 m | Ghi bằng km, một chữ số thập phân, dấu phẩy: "1,0 km", "3,2 km", "125,3 km" | Biên | Đạt |
+| TC-UI-010 | Quãng đường cần làm tròn: 8440 m và 8460 m | "8,4 km" và "8,5 km" | Đúng | Đạt |
+| TC-UI-011 | Thời gian dưới một giờ: 1, 59, 60, 61, 120, 1500 giây | Làm tròn **lên** phút: "1 phút", "1 phút", "1 phút", "2 phút", "2 phút", "25 phút" | Biên | Đạt |
+| TC-UI-012 | Thời gian từ một giờ: 3540, 3541, 3600, 3900, 7260 giây | "59 phút", "1 giờ", "1 giờ", "1 giờ 5 phút", "2 giờ 1 phút" | Biên | Đạt |
+| TC-UI-013 | Một chặng có quãng đường nhưng máy chủ trả 0 giây | Ghi "1 phút", không bao giờ ghi "0 phút" | Biên | Đạt |
+
+### C. Chặng di chuyển nào được hiện, và hiện dưới thẻ nào
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Route", UI_GUIDE 8.1 "Đoạn di chuyển" · **Kiểm bởi:** `lib/travelLegs.test.ts`
+
+Máy chủ trả các chặng của một ngày theo thứ tự lúc được hỏi. Màn hình có thể đã đi trước: người dùng vừa kéo một thẻ, hoặc vừa bỏ địa điểm của một hoạt động. Giao diện chỉ vẽ một chặng khi nó còn đúng với những gì đang hiện, để không có con số cũ nằm sai chỗ.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-014 | Ngày có 3 hoạt động đều có địa điểm, máy chủ trả 2 chặng | Mỗi chặng nằm dưới thẻ của hoạt động xuất phát: dưới thẻ 1 và dưới thẻ 2 | Đúng | Đạt |
+| TC-UI-015 | Ngày không có chặng nào (một địa điểm) | Không vẽ gì | Biên | Đạt |
+| TC-UI-016 | Hai hoạt động liền nhau ở cùng một địa điểm, chặng dài 0 m | Chặng không được vẽ | Biên | Đạt |
+| TC-UI-017 | Các chặng được tải cho thứ tự 1 → 2 → 3, rồi thẻ 3 bị kéo lên đầu (3 → 1 → 2) | Chặng 1 → 2 vẫn hiện (vẫn đúng); chặng 2 → 3 biến mất (giờ nó chỉ ngược lên trên); chưa có chặng 3 → 1 | Đúng | Đạt |
+| TC-UI-018 | Một hoạt động vừa bị xoá hoặc chuyển sang ngày khác | Các chặng nối với hoạt động đó biến mất | Đúng | Đạt |
+| TC-UI-019 | Một hoạt động vừa bị bỏ địa điểm | Chặng nối với nó biến mất | Đúng | Đạt |
+| TC-UI-020 | Ngày có 4 hoạt động, hoạt động thứ hai không có địa điểm; máy chủ trả chặng 1 → 3 và 3 → 4 | Chặng 1 → 3 nằm dưới thẻ 1 và được đánh dấu "đích không phải thẻ kế tiếp" (giao diện ghi thêm tên đích); chặng 3 → 4 hiện bình thường | Đúng | Đạt |
+| TC-UI-021 | Giữa hai đầu của một chặng có hai hoạt động không có địa điểm | Chặng vẫn hiện dưới thẻ xuất phát, có ghi tên đích | Biên | Đạt |
+| TC-UI-022 | Chặng được tải là 1 → 3, rồi hoạt động 2 ở giữa được gắn địa điểm (hoặc một hoạt động có địa điểm được kéo vào giữa) | Chặng 1 → 3 biến mất: nó không còn đúng với ngày đang hiện | Đúng | Đạt |
+
+### D. "Hôm nay" là ngày nào, và một ngày đã qua hay chưa
+
+> **Yêu cầu:** design.md rule 14.22 ("hôm nay" tính theo múi giờ của tài khoản; một ngày đã qua khi hết ngày đó) · **Kiểm bởi:** `lib/today.test.ts`
+
+"Hôm nay" không lấy theo giờ của máy đang mở trình duyệt mà theo múi giờ ghi trong tài khoản (hiện mọi tài khoản là giờ Việt Nam), để giao diện và máy chủ luôn nói cùng một ngày.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-023 | Lúc 18:30 ngày 12/10 theo giờ quốc tế (01:30 ngày 13/10 ở Việt Nam), tài khoản giờ Việt Nam | Hôm nay là 13/10; cùng lúc đó tài khoản giờ quốc tế vẫn là 12/10 | Đúng | Đạt |
+| TC-UI-024 | Một giây trước và đúng nửa đêm giờ Việt Nam | 23:59:59 còn là 12/10; 00:00:00 đã là 13/10 | Biên | Đạt |
+| TC-UI-025 | Tài khoản ở múi giờ chậm hơn giờ quốc tế (Los Angeles), lúc 03:00 ngày 01/01 giờ quốc tế | Hôm nay còn là 31/12 của năm trước | Biên | Đạt |
+| TC-UI-026 | Ngày và tháng có một chữ số (05/03) | Viết đủ hai chữ số: `2026-03-05` | Đúng | Đạt |
+| TC-UI-027 | Tài khoản mang tên múi giờ mà trình duyệt không biết | Dùng giờ Việt Nam, trang không lỗi | Sai | Đạt |
+| TC-UI-028 | So một ngày với hôm nay (13/10): 12/10, 13/10, 14/10 | Lần lượt: đã qua, hôm nay, sắp tới | Biên | Đạt |
+| TC-UI-029 | So qua ranh giới tháng và năm: 30/09, 31/12 năm trước, 01/11, 01/01 năm sau | Hai ngày đầu đã qua, hai ngày sau sắp tới | Biên | Đạt |
+
+### E. Mở một chuyến đi thì vào ngày nào
+
+> **Yêu cầu:** design.md rule 14.22 (mở chuyến đi đang diễn ra thì vào ngày hôm nay) · **Kiểm bởi:** `lib/tripDates.test.ts`
+
+Áp dụng khi mở chuyến đi mà không nói rõ ngày nào (bấm một thẻ ở trang danh sách). "Đang diễn ra" tính theo ngày: hôm nay nằm trong khoảng ngày đi, bất kể trạng thái đang ghi là gì.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-030 | Chuyến đi 12–14/10, hôm nay là 13/10 | Mở Ngày 2 | Đúng | Đạt |
+| TC-UI-031 | Hôm nay là ngày đầu (12/10) hoặc ngày cuối (14/10) của chuyến đi | Mở Ngày 1 hoặc Ngày 3: ngày đầu và ngày cuối đều tính là đang diễn ra | Biên | Đạt |
+| TC-UI-032 | Hôm nay là 11/10 (một ngày trước khi đi) hoặc 15/10 (một ngày sau khi về) | Mở Ngày 1 | Biên | Đạt |
+| TC-UI-033 | Chuyến đi còn rất xa hoặc đã qua rất lâu | Mở Ngày 1 | Đúng | Đạt |
+
+### F. Thẻ chuyến đi hiện thời tiết của ngày nào
+
+> **Yêu cầu:** design.md rule 14.20 (thẻ ở trang danh sách; dự báo chỉ có cho 16 ngày tính từ hôm nay) · **Kiểm bởi:** `features/weather/cardForecast.test.ts`
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-034 | Chuyến đi 12–15/10, hôm nay 13/10 | Thẻ hiện thời tiết của **hôm nay** (13/10) | Đúng | Đạt |
+| TC-UI-035 | Chuyến đi bắt đầu đúng hôm nay; kết thúc đúng hôm nay; chỉ dài một ngày là hôm nay | Cả ba đều tính là đang diễn ra: hiện thời tiết hôm nay | Biên | Đạt |
+| TC-UI-036 | Chuyến đi bắt đầu ngày mai | Thẻ hiện thời tiết của **ngày khởi hành** | Đúng | Đạt |
+| TC-UI-037 | Chuyến đi bắt đầu đúng ngày thứ 16 tính từ hôm nay (28/10 khi hôm nay là 13/10) | Vẫn hiện thời tiết ngày khởi hành: đó là ngày cuối cùng còn có dự báo | Biên | Đạt |
+| TC-UI-038 | Chuyến đi bắt đầu ngày thứ 17 (29/10) | Thẻ không hiện thời tiết, không gọi máy chủ | Biên | Đạt |
+| TC-UI-039 | Chuyến đi kết thúc hôm qua | Thẻ không hiện thời tiết, không gọi máy chủ | Biên | Đạt |
+| TC-UI-040 | Khoảng 16 ngày bắc qua năm mới: hôm nay 20/12, chuyến đi bắt đầu 04/01 và 05/01 | 04/01 còn trong khoảng (hiện ngày khởi hành); 05/01 thì không | Biên | Đạt |
+
+### G. Khi nào hỏi "Hoàn thành chuyến đi?"
+
+> **Yêu cầu:** design.md rule 14.22 (không tự đổi trạng thái; hỏi khi chuyến đi đã qua ngày cuối mà trạng thái còn Nháp, Đã lên kế hoạch hoặc Đang diễn ra) · **Kiểm bởi:** `lib/tripDates.test.ts`
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-041 | Chuyến đi kết thúc hôm qua, trạng thái Nháp / Đã lên kế hoạch / Đang diễn ra | Hỏi, với cả ba trạng thái | Đúng | Đạt |
+| TC-UI-042 | Chuyến đi kết thúc hôm qua, trạng thái Đã hoàn thành hoặc Đã lưu trữ | Không hỏi | Đúng | Đạt |
+| TC-UI-043 | Hôm nay là ngày cuối của chuyến đi | Không hỏi: ngày cuối chưa hết | Biên | Đạt |
+| TC-UI-044 | Chuyến đi còn ở phía trước | Không hỏi | Đúng | Đạt |
+| TC-UI-045 | Chuyến đi kết thúc từ năm trước, vẫn là Nháp | Hỏi | Biên | Đạt |
+
+### H. Nhớ câu trả lời "Để sau"
+
+> **Yêu cầu:** design.md rule 14.22 ("Để sau" → không hỏi lại về chuyến đi đó cho tới lần đăng nhập sau) · **Kiểm bởi:** `stores/completePromptStore.test.ts`
+
+Danh sách chuyến đi đã trả lời "Để sau" được giữ trong bộ nhớ của trình duyệt (chỉ có mã số chuyến đi), nên tải lại trang không bị hỏi lại. Danh sách bị xoá khi phiên đăng nhập kết thúc.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-046 | Đọc lại danh sách đã lưu; chưa lưu gì | Đúng các mã đã lưu; danh sách rỗng khi chưa có gì | Đúng | Đạt |
+| TC-UI-047 | Dữ liệu trong trình duyệt bị hỏng: không phải JSON, không phải danh sách, chuỗi rỗng | Coi như danh sách rỗng, không lỗi | Sai | Đạt |
+| TC-UI-048 | Danh sách bị sửa tay, lẫn chữ, số lẻ và giá trị trống | Chỉ giữ các mã là số nguyên | Sai | Đạt |
+| TC-UI-049 | Trình duyệt không cho đọc hoặc không có bộ nhớ (chế độ riêng tư, chặn dữ liệu trang) | Danh sách rỗng, không lỗi | Sai | Đạt |
+| TC-UI-050 | Lưu danh sách rồi đọc lại; lưu danh sách rỗng | Đọc lại đúng; danh sách rỗng thì mục lưu bị xoá hẳn | Đúng | Đạt |
+| TC-UI-051 | Trình duyệt từ chối ghi (hết chỗ, bị chặn) | Không lỗi; trang vẫn dùng được | Sai | Đạt |
+| TC-UI-052 | Bấm "Để sau" cho chuyến đi 3, chuyến đi 12, rồi lại chuyến đi 3 | Danh sách có 3 và 12, mỗi mã một lần | Đúng | Đạt |
+| TC-UI-053 | Đang đăng nhập, đã "Để sau" một chuyến đi, rồi đăng xuất | Danh sách bị xoá | Đúng | Đạt |
+| TC-UI-054 | Mở lại trang sau nhiều ngày, phiên cũ đã hết hạn (chưa kịp đăng nhập lại) | Danh sách bị xoá, nên sau khi đăng nhập sẽ được hỏi lại | Biên | Đạt |
+| TC-UI-055 | Tải lại trang khi phiên còn hiệu lực | Danh sách **được giữ**: đây vẫn là lần đăng nhập đó | Biên | Đạt |
+
+### I. Dải thời tiết hiện những ngày nào
+
+> **Yêu cầu:** UI_GUIDE 9 "Thời tiết" (chốt 2026-10-05 sau khi chủ dự án xem trên trình duyệt: chỉ hiện ngày có dự báo); design.md rule 14.20 · **Kiểm bởi:** `features/weather/stripDays.test.ts`
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-056 | Chuyến đi 12–14/10, hôm nay 13/10 (máy chủ không trả dự báo cho ngày 12) | Dải chỉ có Ngày 2 và Ngày 3, đúng thứ tự; Ngày 1 đã qua không có ô | Đúng | Đạt |
+| TC-UI-057 | Chuyến đi có ngày cuối nằm ngoài 16 ngày tới | Ngày đó không có ô; các ngày trước nó vẫn hiện | Biên | Đạt |
+| TC-UI-058 | Mọi ngày của chuyến đi đều có dự báo | Hiện đủ mọi ngày | Đúng | Đạt |
+| TC-UI-059 | Không ngày nào có dự báo | Dải không có ô nào (thay bằng một câu giải thích) | Biên | Đạt |
+| TC-UI-060 | Không có dự báo, ngày cuối của chuyến đi là hôm qua | Lý do: chuyến đi đã qua | Biên | Đạt |
+| TC-UI-061 | Không có dự báo, chuyến đi bắt đầu tháng sau | Lý do: chuyến đi còn ở ngoài khoảng có dự báo | Đúng | Đạt |
+| TC-UI-062 | Không có dự báo dù hôm nay còn là một ngày của chuyến đi (nguồn dự báo trả thiếu) | Không coi là "đã qua" | Biên | Đạt |
+
+### J. Dải thời tiết chia trang thế nào
+
+> **Yêu cầu:** UI_GUIDE 9 "Thời tiết" (chốt 2026-10-05: không cuộn ngang, chuyển trang bằng nút, mỗi lần một trang) · **Kiểm bởi:** `features/weather/stripDays.test.ts`
+
+Mỗi ô cần ít nhất 88px; hai nút chuyển trang chiếm 64px. Cột bản đồ rộng 420px (418px bên trong viền) hoặc 360px (358px).
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-063 | Cột 420px, chuyến đi có 4 ngày (hoặc 2 ngày) có dự báo | Hiện đủ, không có nút; các ô chia đều bề ngang | Đúng | Đạt |
+| TC-UI-064 | Cột 420px, có 5 ngày hoặc 16 ngày có dự báo | Chia trang, **4 ngày một trang**, có hai nút | Biên | Đạt |
+| TC-UI-065 | Cột 360px: 4 ngày; 7 ngày | 4 ngày: hiện đủ, không nút. 7 ngày: chia trang, 3 ngày một trang | Biên | Đạt |
+| TC-UI-066 | Dải rộng 900px (tab "Bản đồ" trên máy tính bảng), 16 ngày | 9 ngày một trang | Đúng | Đạt |
+| TC-UI-067 | Dải rất hẹp (120px), hoặc chưa đo được bề rộng | Vẫn có 1 ô mỗi trang, không bao giờ 0 | Biên | Đạt |
+| TC-UI-068 | Số trang: 7 ô chia 3; 6 ô chia 3; 16 ô chia 4; 1 ô; 0 ô | 3, 2, 4, 1, 1 trang | Biên | Đạt |
+| TC-UI-069 | Ô thứ mấy nằm ở trang nào (3 ô một trang): ô đầu, ô thứ 3, ô thứ 4, ô thứ 7 | Trang 1, trang 1, trang 2, trang 3 | Biên | Đạt |
 
 ---
 
@@ -973,6 +1152,279 @@ Cần máy có mạng.
 
 ---
 
+### MT-UI-63 · Dải thời tiết dưới bản đồ (Task 3.7 Commit 2)
+
+Cần: một chuyến đi **đã đặt vị trí điểm đến**, bắt đầu từ hôm qua và dài ít nhất 4 ngày (để có ngày đã qua, hôm nay và ngày sắp tới); một chuyến đi khác dài 20 ngày bắt đầu từ hôm nay. Máy chủ chạy với nguồn thời tiết giả (mặc định).
+
+- [ ] Mở chuyến đi 4 ngày trên màn hình rộng (từ 1024px): dưới bản đồ có một khung trắng viền mảnh, chia thành các ô, mỗi ngày một ô. Bản đồ thấp hơn trước đúng bằng phần dải chiếm, không có vùng xám trong bản đồ.
+- [ ] Mỗi ô có: dòng "N2 · ngày/tháng", một icon thời tiết, nhiệt độ dạng "32° / 25°" (cao trước, thấp sau, không có số lẻ), icon giọt nước và phần trăm mưa.
+- [ ] Icon có màu: nắng màu vàng cam, mưa màu xanh dương, mây màu xám.
+- [ ] Ngày **hôm qua** không có ô trong dải (từ Commit 14; chi tiết ở `MT-UI-75`).
+- [ ] Ô của ngày đang xem có nền xanh nhạt và dòng đầu in đậm.
+- [ ] Bấm ô của một ngày khác: trang chuyển sang ngày đó (URL đổi số ngày), ô vừa bấm thành ô được tô.
+- [ ] Trong lúc dự báo đang tải (làm mới trang, hoặc giả lập mạng chậm trong DevTools): chỗ của dải là một khối xám nhấp nháy **cùng chiều cao**, bản đồ không bị nhảy khi dải hiện ra.
+- [ ] Mở chuyến đi 20 ngày: dải chia trang, chuyển bằng nút (chi tiết ở `MT-UI-76`). Mở Ngày 15: dải tự lật tới trang có Ngày 15, **trang không tự cuộn dọc**.
+- [ ] Thêm, sửa, kéo thả một hoạt động: trong tab Network của DevTools **không** có lần gọi `/weather/trips/…` mới.
+- [ ] Dưới 1024px, tab "Bản đồ": dải nằm ngay dưới bản đồ, rộng hết màn hình. Tab "Lịch trình": xem `MT-UI-66`.
+- [ ] Bàn phím: Tab đi qua từng ô, có vòng focus; Enter mở ngày đó. Trình đọc màn hình đọc đủ "Ngày 2, 13/10: Có mây, cao nhất 32°, thấp nhất 25°, khả năng mưa 20%".
+
+Chuyến đi chưa đặt vị trí điểm đến: xem `MT-UI-64`. Dự báo không tải được: xem `MT-UI-65`.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-64 · Chuyến đi chưa đặt vị trí điểm đến thì được mời đặt (Task 3.7 Commit 3)
+
+Cần: một chuyến đi **chưa đặt vị trí điểm đến** (tạo mới, bỏ qua ô "Vị trí trên bản đồ"), có ngày nằm trong 16 ngày tới.
+
+- [ ] Mở chuyến đi đó: khung thời tiết dưới bản đồ không có ô ngày nào, chỉ có icon ghim gạch chéo và câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.' Khung cao bằng dải thời tiết của các chuyến đi khác.
+- [ ] Bấm "Sửa" chuyến đi, tìm `cau rong`, chọn "Cầu Rồng", "Lưu thay đổi": **không cần tải lại trang**, khung đổi thành các ô ngày có dự báo; bản đồ của ngày trống cũng chuyển về Đà Nẵng.
+- [ ] "Sửa" lần nữa, dời ngày đi lùi lại 1 ngày, "Lưu thay đổi": ngày tháng trong các ô đổi theo, dự báo là của ngày mới.
+- [ ] "Sửa", kéo dài chuyến đi thêm 2 ngày, "Lưu thay đổi": dải có thêm 2 ô.
+- [ ] "Sửa", rút ngắn chuyến đi 2 ngày (các ngày bị bỏ không có hoạt động): dải bớt 2 ô, không có ô nào mang số ngày sai.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-65 · Dự báo không tải được thì trang vẫn dùng được (Task 3.7 Commit 4)
+
+Cần: một chuyến đi đã đặt vị trí điểm đến. Dùng DevTools → Network → chuột phải vào một lần gọi `/weather/trips/…` → "Block request URL" để chặn riêng lời gọi thời tiết (máy chủ vẫn chạy).
+
+- [ ] Chặn lời gọi thời tiết rồi tải lại trang: chuyến đi, các ngày, hoạt động và bản đồ hiện bình thường. Chỗ của dải là khối xám nhấp nháy trong vài giây (ứng dụng tự thử lại 3 lần), sau đó là icon mây có dấu chấm than và câu "Tạm thời không có dự báo." kèm chữ "Thử lại" màu xanh ngọc. Khung cao bằng dải bình thường, bản đồ không có vùng xám.
+- [ ] Trong lúc khung đang báo lỗi: thêm một hoạt động, kéo thả, đổi ngày đều làm được như thường; không có thông báo lỗi nào khác trên trang.
+- [ ] Bấm "Thử lại" khi còn chặn: chữ đổi thành "Đang thử lại…" và không bấm được, vài giây sau trở lại "Thử lại".
+- [ ] Bỏ chặn, bấm "Thử lại": các ô ngày hiện ra với dự báo.
+- [ ] Khi dải đang có dự báo, chặn lại rồi chuyển sang cửa sổ khác và quay lại (ứng dụng tự tải lại ngầm): dải **vẫn giữ dự báo đã tải**, không đổi thành câu báo lỗi.
+- [ ] Bàn phím: Tab tới được "Thử lại", Enter có tác dụng như bấm chuột.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-66 · Thời tiết của ngày ở tiêu đề ngày trên màn hình hẹp (Task 3.7 Commit 5)
+
+Cần: chuyến đi của `MT-UI-63` (đã đặt vị trí điểm đến, bắt đầu từ hôm qua, dài ít nhất 4 ngày) và chuyến đi chưa đặt vị trí điểm đến của `MT-UI-64`. Giả lập điện thoại trong DevTools (hoặc thu cửa sổ dưới 1024px).
+
+- [ ] Mở Ngày 2 (hôm nay), tab "Lịch trình": dưới tên ngày và tiêu đề của ngày có **một dòng** chữ nhỏ: icon thời tiết có màu, tên tình trạng ("Có mây", "Có mưa"…), nhiệt độ "32° / 25°", icon giọt nước và phần trăm mưa. Các phần ngăn nhau bằng dấu chấm giữa.
+- [ ] Con số trên dòng này trùng với ô của Ngày 2 trong dải ở tab "Bản đồ".
+- [ ] Chuyển sang Ngày 3: dòng đổi theo dự báo của Ngày 3.
+- [ ] Mở Ngày 1 (hôm qua, không có dự báo): **không có dòng thời tiết**, cũng không có khoảng trống thừa.
+- [ ] Chuyến đi chưa đặt vị trí điểm đến: không có dòng thời tiết ở ngày nào.
+- [ ] Chặn lời gọi thời tiết (như `MT-UI-65`) rồi tải lại: không có dòng thời tiết, không có thông báo lỗi ở tiêu đề ngày; tab "Bản đồ" vẫn có câu "Tạm thời không có dự báo."
+- [ ] Màn rất hẹp (320px): dòng tự xuống hàng gọn, không tràn ngang.
+- [ ] Bấm "Sửa" của ngày: form sửa hiện ra, dòng thời tiết ẩn; "Huỷ" thì hiện lại.
+- [ ] Kéo cửa sổ rộng ra từ 1024px: dòng biến mất (đã có dải dưới bản đồ). Trong tab Network chỉ có **một** lần gọi `/weather/trips/…` cho cả dải và dòng này.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-67 · Thời gian và quãng đường giữa các hoạt động (Task 3.7 Commit 6)
+
+Cần: một ngày có 3 hoạt động **liền nhau đều có địa điểm**, ví dụ ở Đà Nẵng: "Chợ Hàn", "Bún chả cá 109", "Cầu Rồng" (tìm bằng ô địa điểm). Nguồn bản đồ giả (mặc định).
+
+- [ ] Dưới thẻ thứ nhất và thẻ thứ hai có một dòng chữ nhỏ màu xám dạng "2 phút · 998 m" (Chợ Hàn → Bún chả cá 109 là 998 m, 2 phút). Dưới thẻ cuối cùng không có gì.
+- [ ] Bên trái dòng chữ, đoạn ray giữa hai thẻ là **nét đứt**; các đoạn ray khác vẫn nét liền. Không có icon ô tô hay người đi bộ.
+- [ ] Rê chuột lên dòng chữ: hiện chú thích "Ước tính theo đường bộ, chưa tính kẹt xe".
+- [ ] Con số trùng với `GET /api/v1/trips/{tripId}/days/{dayId}/route` trên Swagger: mét đổi sang "m" hoặc "km" một chữ số thập phân với dấu phẩy, giây làm tròn lên phút.
+- [ ] Thêm hai hoạt động cùng một địa điểm đứng liền nhau: giữa chúng **không có** dòng di chuyển.
+- [ ] Ngày chỉ có một hoạt động có địa điểm, hoặc không có: không có dòng nào, và trong tab Network **không có** lần gọi `/route` cho ngày đó.
+- [ ] Bắt đầu kéo một thẻ: mọi dòng di chuyển ẩn đi, các thẻ **không nhảy vị trí** lúc bắt đầu kéo. Thả về chỗ cũ: các dòng hiện lại.
+- [ ] Thêm, sửa một hoạt động **không đổi địa điểm**: trong tab Network không có lần gọi `/route` mới.
+- [ ] Giả lập điện thoại: dòng di chuyển nằm gọn dưới thẻ, không tràn ngang.
+
+Tính lại sau khi kéo thả hoặc đổi địa điểm: xem `MT-UI-68`. Chặng đi qua một hoạt động không có địa điểm: xem `MT-UI-69`.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-68 · Quãng đường được tính lại sau khi ngày thay đổi (Task 3.7 Commit 7)
+
+Cần: ngày của `MT-UI-67` (3 hoạt động liền nhau đều có địa điểm) và một ngày khác có 2 hoạt động có địa điểm. Mở tab Network của DevTools, lọc theo `route`.
+
+- [ ] Kéo thẻ thứ ba lên đầu ngày: sau khi thả, có **một** lần gọi `/route` mới; các dòng di chuyển hiện theo thứ tự mới (hai dòng, con số khác trước nếu các cặp đã đổi).
+- [ ] Trên màn cảm ứng (giả lập điện thoại), bấm nút ↑ / ↓ của một thẻ: kết quả như kéo thả.
+- [ ] Menu "⋮" → "Chuyển sang ngày…" đưa một hoạt động có địa điểm sang ngày kia: ngày đang xem mất dòng di chuyển liên quan và hai thẻ còn lại có dòng mới nối chúng. Bấm "Mở Ngày N" trong thông báo: ngày đó có thêm dòng di chuyển tới hoạt động vừa chuyển sang.
+- [ ] Kéo một thẻ thả lên tên ngày ở cột trái: kết quả như bước trên.
+- [ ] Thêm một hoạt động có địa điểm, có giờ bắt đầu nằm giữa hai hoạt động sẵn có: hoạt động vào giữa, và có hai dòng di chuyển mới nối nó với hai thẻ bên cạnh.
+- [ ] Sửa một hoạt động, **đổi sang địa điểm khác**, lưu: dòng di chuyển của thẻ đó và của thẻ đứng trước **biến mất ngay** rồi hiện lại với con số mới; không có lúc nào con số cũ nằm cạnh địa điểm mới.
+- [ ] Sửa một hoạt động, bấm "×" bỏ địa điểm, lưu: thẻ đó không còn dòng di chuyển (chặng đi qua nó: `MT-UI-69`).
+- [ ] Xoá hoạt động ở giữa: hai thẻ còn lại có một dòng di chuyển nối thẳng chúng.
+- [ ] Sửa chỉ tên của một hoạt động: các dòng di chuyển giữ nguyên, không nhấp nháy.
+- [ ] Kéo thả sang ngày khác mà bị hỏi "Trùng giờ ở ngày mới", chọn "Huỷ": hoạt động về chỗ cũ, các dòng di chuyển như trước khi kéo.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-69 · Chặng di chuyển đi qua một hoạt động không có địa điểm (Task 3.7 Commit 8)
+
+Cần: một ngày có 4 hoạt động theo thứ tự: "Chợ Hàn" (có địa điểm), "Nghỉ trưa, tự do" (**không** có địa điểm), "Cầu Rồng" (có), "Bún chả cá 109" (có).
+
+- [ ] Dưới thẻ "Chợ Hàn" có dòng dạng "… phút · … km **tới Cầu Rồng**". Dưới thẻ "Nghỉ trưa, tự do" không có dòng nào. Dưới thẻ "Cầu Rồng" có dòng thường, không ghi tên đích.
+- [ ] Số dòng di chuyển của ngày bằng số chặng mà `GET /api/v1/trips/{tripId}/days/{dayId}/route` trả về (2), và con số của từng dòng trùng với từng chặng.
+- [ ] Đổi tên "Cầu Rồng" thành một tên rất dài (80 ký tự): dòng dưới "Chợ Hàn" cắt tên bằng "…", phần "phút · km" vẫn đủ, không tràn ngang (thử cả trên điện thoại giả lập).
+- [ ] Sửa "Nghỉ trưa, tự do", gắn một địa điểm, lưu: dòng dưới "Chợ Hàn" đổi thành dòng thường tới thẻ kế tiếp (không còn "tới …"), và "Nghỉ trưa, tự do" có dòng riêng của nó.
+- [ ] Bỏ địa điểm đó đi, lưu: trở lại như bước đầu.
+- [ ] Thêm một hoạt động không có địa điểm nữa vào giữa "Chợ Hàn" và "Cầu Rồng": vẫn một dòng "… tới Cầu Rồng" dưới "Chợ Hàn".
+- [ ] Trình đọc màn hình đọc dòng có tên đích là "Di chuyển, ước tính: … phút · … km tới Cầu Rồng".
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-70 · Nhãn "Đã qua" và "Hôm nay" trên trang chuyến đi (Task 3.7 Commit 9)
+
+Cần: một chuyến đi bắt đầu từ **hôm qua**, dài ít nhất 3 ngày (Ngày 1 đã qua, Ngày 2 là hôm nay, Ngày 3 sắp tới); một chuyến đi đã kết thúc từ tuần trước; một chuyến đi tháng sau.
+
+- [ ] Màn hình rộng, cột trái: dưới "Ngày 1 · ngày/tháng" có dòng nhỏ "Đã qua" màu xám và cả mục nhạt hơn các mục khác; dưới "Ngày 2" có dòng "Hôm nay" màu xanh ngọc, in đậm; "Ngày 3" không có nhãn.
+- [ ] Bấm vào Ngày 1 (đã qua): mở được như thường; khi đang được chọn, mục có nền xanh nhạt như mọi ngày đang xem và vẫn có dòng "Đã qua".
+- [ ] Tiêu đề ngày ở cột giữa: sau "Ngày 1 · thứ, ngày/tháng/năm" có nhãn xám "Đã qua"; ở Ngày 2 là nhãn xanh "Hôm nay"; Ngày 3 không có nhãn.
+- [ ] Thu hẹp cửa sổ dần: nhãn ở tiêu đề **không bị ngắt đôi** ("Hôm" một dòng, "nay" một dòng); thiếu chỗ thì cả nhãn xuống dòng dưới. Nút "Thêm hoạt động" vẫn trên một dòng.
+- [ ] Các thẻ hoạt động của Ngày 1 **không** bị nhạt đi; thêm, sửa, xoá, kéo thả ở ngày đã qua vẫn làm được.
+- [ ] Dưới 1024px: chip "Ngày 2 · …" có chấm xanh nhỏ phía trước; chip "Ngày 1 · …" có nền xám, chữ vẫn đọc rõ; chip đang chọn vẫn nền tối chữ trắng.
+- [ ] Chuyến đi đã kết thúc: mọi ngày đều "Đã qua". Chuyến đi tháng sau: không ngày nào có nhãn.
+- [ ] Đổi giờ của máy tính sang một múi giờ khác (ví dụ lùi 12 tiếng), tải lại trang: nhãn **không đổi** (tính theo giờ Việt Nam của tài khoản, không theo giờ máy). Trả giờ máy về như cũ.
+- [ ] Ô của Ngày 1 trong dải thời tiết ghi "Chưa có" khớp với nhãn "Đã qua" (máy chủ và giao diện cùng coi đó là ngày đã qua).
+
+**Kết quả:** Chưa chạy lại · từng lỗi BUG-UI-010 (chủ dự án thấy tên ngày bị xuống dòng ngày 2026-10-05; đã sửa ở Commit 16, kiểm lại bằng `MT-UI-77`)
+
+---
+
+### MT-UI-71 · Mở chuyến đi đang diễn ra thì vào ngày hôm nay (Task 3.7 Commit 10)
+
+Cần: chuyến đi của `MT-UI-70` (bắt đầu từ hôm qua, dài ít nhất 3 ngày, nên hôm nay là Ngày 2); một chuyến đi tháng sau; một chuyến đi đã kết thúc.
+
+- [ ] Ở trang danh sách, bấm thẻ của chuyến đi đang diễn ra: trang mở ở **Ngày 2**, URL là `/trips/{id}/days/2`, mục Ngày 2 ở cột trái được tô và có dòng "Hôm nay".
+- [ ] Bấm nút Back của trình duyệt **một lần**: về trang danh sách (không bị kẹt ở một địa chỉ trung gian).
+- [ ] Gõ thẳng `/trips/{id}` vào thanh địa chỉ: cũng mở Ngày 2.
+- [ ] Gõ `/trips/{id}/days/1`: mở đúng Ngày 1, **không** bị chuyển sang hôm nay. F5 ở Ngày 3 vẫn ở Ngày 3.
+- [ ] Gõ `/trips/{id}/days/99` (ngày không tồn tại): về Ngày 1 như trước.
+- [ ] Bấm thẻ của chuyến đi tháng sau, rồi của chuyến đi đã kết thúc: cả hai mở Ngày 1.
+- [ ] Đổi trạng thái của chuyến đi đang diễn ra sang "Nháp", mở lại từ danh sách: vẫn vào Ngày 2 (tính theo ngày, không theo trạng thái).
+- [ ] Tạo một chuyến đi mới bắt đầu từ hôm qua: hoàn tất wizard thì trang mở ở Ngày 2.
+- [ ] Chuyển một hoạt động sang ngày khác rồi bấm "Mở Ngày N" trong thông báo: mở đúng Ngày N.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-72 · Thời tiết trên thẻ ở trang danh sách (Task 3.7 Commit 11)
+
+Cần 5 chuyến đi, đều **đã đặt vị trí điểm đến** trừ chuyến cuối: (a) đang diễn ra (bắt đầu hôm qua, 4 ngày); (b) bắt đầu sau 5 ngày nữa; (c) bắt đầu sau 2 tháng; (d) đã kết thúc tuần trước; (e) bắt đầu ngày mai nhưng **chưa đặt vị trí điểm đến**.
+
+- [ ] Trang danh sách: ở hàng chân thẻ (a), bên phải "4 ngày · … hoạt động", có chữ "Hôm nay", một icon thời tiết có màu và nhiệt độ dạng "32° / 25°". Không có phần trăm mưa.
+- [ ] Thẻ (b): cùng vị trí, chữ là "Ngày đi".
+- [ ] Thẻ (c), (d), (e): hàng chân thẻ chỉ có "… ngày · … hoạt động", không có khoảng trống hay chữ báo lỗi.
+- [ ] Con số trên thẻ (a) trùng với ô của ngày hôm nay trong dải thời tiết khi mở chuyến đi đó; trên thẻ (b) trùng với ô của Ngày 1.
+- [ ] Tab Network, lọc `weather`: tải trang danh sách chỉ gọi `/weather/trips/…` cho (a), (b) và (e), **không** gọi cho (c) và (d).
+- [ ] Bấm thẻ (a): trang chuyến đi mở ra và dải thời tiết hiện **ngay**, không có khối xám chờ tải.
+- [ ] Thu cửa sổ về khoảng 1024px (3 cột hẹp) và về bề ngang điện thoại: thời tiết không đè lên "… ngày · … hoạt động"; thiếu chỗ thì xuống dòng thứ hai, vẫn sát mép phải; thẻ không bị vỡ.
+- [ ] Chặn lời gọi thời tiết (như `MT-UI-65`) rồi tải lại trang danh sách: mọi thẻ hiện bình thường, chỉ không có thời tiết; không có thông báo lỗi.
+- [ ] Giả lập mạng chậm: các thẻ hiện ngay, thời tiết hiện sau; tiêu đề và ngày đi của thẻ không bị xô lệch khi thời tiết hiện ra.
+- [ ] Lọc theo trạng thái, tìm kiếm, sang trang 2 rồi quay lại: thời tiết của các thẻ vẫn đúng.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-73 · Hỏi hoàn thành chuyến đi đã qua ngày cuối (Task 3.7 Commit 12)
+
+Cần: hai chuyến đi **đã kết thúc từ hôm qua trở về trước**, một chuyến trạng thái "Đã lên kế hoạch", một chuyến "Nháp" (tạo với ngày trong quá khứ); một chuyến đi kết thúc **hôm nay**; một chuyến đi đã qua có trạng thái "Đã hoàn thành".
+
+- [ ] Mở chuyến đi đã qua, "Đã lên kế hoạch": hộp thoại hiện ngay, tiêu đề "Hoàn thành chuyến đi?", nội dung 'Chuyến đi **{tên}** đã kết thúc ngày dd/mm/yyyy. Lịch trình vẫn sửa được sau khi hoàn thành.', nút phụ "Để sau" bên trái, nút chính xanh "Hoàn thành chuyến đi" bên phải. Ngày trong câu đúng là ngày cuối của chuyến đi.
+- [ ] Bấm "Hoàn thành chuyến đi": nút hiện trạng thái đang lưu, rồi hộp đóng; thông báo "Đã hoàn thành chuyến đi"; ô trạng thái ở đầu trang đổi thành "Đã hoàn thành" mà không cần tải lại. Về trang danh sách: huy hiệu của thẻ và số ở chip "Đã hoàn thành" đã đổi.
+- [ ] Sau khi hoàn thành: thêm, sửa, xoá, kéo thả hoạt động vẫn làm được. Tải lại trang: **không** hỏi lại.
+- [ ] Mở chuyến đi đã qua còn "Nháp": cũng được hỏi. Bấm "Để sau": hộp đóng, trạng thái giữ nguyên "Nháp", không có thông báo.
+- [ ] Lần khác, đóng hộp bằng phím Esc và bằng nút "×": như "Để sau".
+- [ ] Chuyến đi kết thúc **hôm nay**: không hỏi. Chuyến đi đã qua và "Đã hoàn thành": không hỏi. Chuyến đi tháng sau: không hỏi.
+- [ ] Sau khi hoàn thành, tự đổi trạng thái về "Đang diễn ra" bằng ô trạng thái: hộp hỏi **hiện lại** (chuyến đi đã qua ngày cuối mà trạng thái lại chưa đóng).
+- [ ] Tắt máy chủ rồi bấm "Hoàn thành chuyến đi": hộp **không đóng**, trong hộp có khung lỗi; bật máy chủ lại và bấm lần nữa thì thành công.
+- [ ] Tên chuyến đi rất dài (200 ký tự): câu trong hộp tự xuống dòng, không tràn khỏi hộp.
+- [ ] Điện thoại giả lập: hộp vừa màn hình, hai nút bấm được bằng ngón tay.
+
+Sau khi bấm "Để sau": xem `MT-UI-74`.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-74 · "Để sau" thì không hỏi lại tới lần đăng nhập sau (Task 3.7 Commit 13)
+
+Cần: hai chuyến đi đã qua ngày cuối, trạng thái chưa đóng (gọi là A và B).
+
+- [ ] Mở A, bấm "Để sau". Tải lại trang (F5): **không** bị hỏi lại. Về danh sách rồi mở lại A: không hỏi.
+- [ ] Mở B: vẫn được hỏi (mỗi chuyến đi nhớ riêng).
+- [ ] Mở A trong một tab khác của cùng trình duyệt: không hỏi.
+- [ ] Đóng hộp của B bằng Esc, tải lại trang: không hỏi lại B.
+- [ ] DevTools → Application → Local Storage: có mục `trip-planner.complete-later` chứa mã số của A và B; **không có** token hay thông tin tài khoản nào.
+- [ ] Đăng xuất: mục đó biến mất khỏi Local Storage. Đăng nhập lại, mở A: **được hỏi lại**.
+- [ ] Bấm "Để sau" cho A, rồi tự đổi trạng thái của A sang "Đã hoàn thành" và lại về "Đang diễn ra": không hỏi (vẫn trong lần đăng nhập này).
+- [ ] Sửa tay mục trong Local Storage thành `abc`, tải lại trang: trang không lỗi, A và B được hỏi lại.
+- [ ] Mở cửa sổ ẩn danh, đăng nhập, mở A, "Để sau", tải lại: không hỏi lại (hoặc hỏi lại nếu trình duyệt chặn bộ nhớ), trang không lỗi trong cả hai trường hợp.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-75 · Dải thời tiết chỉ hiện ngày có dự báo (Task 3.7 Commit 14)
+
+Cần: (a) chuyến đi đã đặt vị trí điểm đến, bắt đầu từ hôm qua, dài 4 ngày; (b) chuyến đi đã đặt vị trí, dài 20 ngày bắt đầu từ hôm nay; (c) chuyến đi đã đặt vị trí, đã kết thúc tuần trước; (d) chuyến đi đã đặt vị trí, bắt đầu sau 2 tháng.
+
+- [ ] Chuyến (a): dải có 3 ô, bắt đầu từ ô của **hôm nay** (Ngày 2). **Không có ô** cho Ngày 1 đã qua, không có chữ "Chưa có" ở đâu.
+- [ ] Vẫn ở chuyến (a), mở Ngày 1 (đã qua) từ cột trái: dải giữ nguyên 3 ô, không ô nào được tô nền xanh.
+- [ ] Chuyến (b): dải có đúng 16 ô (Ngày 1 đến Ngày 16); Ngày 17 đến 20 không có ô.
+- [ ] Chuyến (c): khung thời tiết có icon lịch và câu "Chuyến đi đã qua, không còn dự báo thời tiết." Khung cao như dải bình thường.
+- [ ] Chuyến (d): khung có câu "Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới, chuyến đi này bắt đầu sau đó."
+- [ ] Chuyến chưa đặt vị trí điểm đến: vẫn là câu mời đặt vị trí của `MT-UI-64` (không phải hai câu trên).
+- [ ] Bản đồ phía trên không có vùng xám ở cả bốn trường hợp.
+- [ ] Dòng thời tiết ở tiêu đề ngày (màn hẹp) và thời tiết trên thẻ ở trang danh sách không đổi so với trước.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-76 · Chuyển trang dải thời tiết bằng nút (Task 3.7 Commit 15)
+
+Cần: chuyến đi (b) của `MT-UI-75` (20 ngày bắt đầu từ hôm nay, 16 ngày có dự báo) và chuyến đi (a) (3 ngày có dự báo). Màn hình rộng từ 1280px (cột bản đồ 420px).
+
+- [ ] Chuyến (b), Ngày 1: dải có **4 ô** (Ngày 1 đến 4), một nút "‹" ở đầu trái và một nút "›" ở đầu phải. **Không có thanh cuộn ngang**, kéo chuột hay lăn bánh xe ngang trên dải không làm gì.
+- [ ] Nút "‹" đang mờ và không bấm được (đang ở trang đầu). Bấm "›": dải đổi sang Ngày 5 đến 8, cả 4 ô cùng đổi. Trang chuyến đi **không** đổi ngày (URL giữ nguyên).
+- [ ] Bấm "›" tới trang cuối (Ngày 13 đến 16): nút "›" mờ đi. Bấm "‹" quay lại được.
+- [ ] Đang ở trang Ngày 13–16, bấm ô "N14": trang chuyển sang Ngày 14, dải vẫn ở trang đó và ô N14 được tô.
+- [ ] Ở cột trái bấm Ngày 6: dải **tự lật** về trang Ngày 5–8, ô N6 được tô.
+- [ ] Ở cột trái bấm Ngày 18 (không có dự báo): dải giữ nguyên trang đang xem, không ô nào được tô.
+- [ ] Chuyến (a) (3 ngày có dự báo): không có nút nào, 3 ô chia đều bề ngang.
+- [ ] Tạo chuyến đi có đúng 4 ngày có dự báo: 4 ô, không nút. Có 5 ngày: có nút, trang 1 có 4 ô, trang 2 có **1 ô rộng bằng các ô ở trang 1** (phần còn lại để trống, ô không bị kéo giãn).
+- [ ] Thu cửa sổ xuống khoảng 1100px (cột bản đồ 360px): mỗi trang còn 3 ô; ngày đang xem vẫn nằm trong trang đang hiện. Nới rộng lại: trở về 4 ô.
+- [ ] Trong mỗi ô, "32° / 25°" nằm trên một dòng, không bị cắt chữ.
+- [ ] Dưới 1024px, tab "Bản đồ": dải rộng hết màn hình, số ô mỗi trang nhiều hơn; trên điện thoại (390px) còn 3 ô mỗi trang và hai nút đủ lớn để chạm.
+- [ ] Bàn phím: Tab đi qua nút "‹", các ô, nút "›"; Enter trên nút chuyển trang. Trình đọc màn hình đọc nút là "Các ngày trước" / "Các ngày sau".
+- [ ] Bản đồ phía trên không có vùng xám; chiều cao dải không đổi khi chuyển trang.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-77 · Tên ngày ở cột giữa không bị xuống dòng (Task 3.7 Commit 16, BUG-UI-010)
+
+Cần: một chuyến đi dài ít nhất 12 ngày có ngày rơi vào Chủ nhật và Thứ năm (tên thứ dài), trong đó có ngày hôm nay và ngày đã qua; một ngày có tiêu đề dài và ghi chú dài; một ngày có hơn 8 hoạt động để cuộn được.
+
+- [ ] Màn hình 1366px và 1920px: dòng "Ngày 12 · Chủ nhật, dd/mm/yyyy" nằm trên **một dòng**, nhãn "Hôm nay" / "Đã qua" đứng ngay sau nó. Hàng thứ hai: tiêu đề của ngày ở bên trái, các nút "Sửa" và "+ Thêm hoạt động" ở bên phải.
+- [ ] Thu cửa sổ về 1024px (ba cột hẹp nhất): tên ngày vẫn trên một dòng; nếu thiếu chỗ thì **cả nhãn** xuống dòng dưới, chữ của tên ngày không bị bẻ. Nút chính ghi "Thêm" (ngắn); từ 1280px trở lên ghi "Thêm hoạt động".
+- [ ] Cuộn xuống quá một màn hình ở ngày dài: nút "↑ Đầu ngày" hiện ra cạnh "Sửa"; tên ngày **không đổi vị trí và không xuống dòng**. Khối tiêu đề vẫn dính ở trên, ngang hàng với cột ngày bên trái, các thẻ cuộn bên dưới không lộ ra phía trên khối.
+- [ ] Ngày có tiêu đề dài và ghi chú dài: tiêu đề tự xuống dòng trong phần của nó, không đẩy các nút ra khỏi màn hình; "Đọc thêm" của ghi chú vẫn bấm được.
+- [ ] Điện thoại giả lập 390px và 320px: tên ngày trên một dòng (ở 320px được phép xuống dòng nếu thật sự không vừa), dưới đó là tiêu đề của ngày, dòng thời tiết, và các nút "Sửa", "Thêm" ở bên phải.
+- [ ] Bấm "Sửa" của ngày: form sửa hiện ra như trước; "Huỷ" trả lại khối tiêu đề hai hàng.
+- [ ] Trình đọc màn hình vẫn đọc tên vùng của ngày theo dòng tiêu đề ("Ngày 2 · Thứ ba, …").
+
+**Kết quả:** Chưa chạy
+
+---
+
 ## Lỗi đã phát hiện
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
@@ -986,6 +1438,7 @@ Cần máy có mạng.
 | BUG-UI-007 | MT-UI-02 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Ở ô tìm kiếm của trang danh sách, gõ `đà` kèm một dấu cách rồi ngừng tay khoảng 0,3 giây: dấu cách biến mất. Gõ tiếp `nẵng` thì ô thành `đànẵng` và không tìm ra gì. `MT-UI-02` chỉ gõ liền một mạch nên không gặp | Khi ngừng gõ, từ khoá được cắt khoảng trắng thừa rồi ghi lên thanh địa chỉ. Ô tìm kiếm thấy thanh địa chỉ đổi liền chép ngược giá trị đã cắt vào chính nó | Ô tìm kiếm chỉ chép từ thanh địa chỉ khi thanh địa chỉ nói **khác** với ô (nút Back, "Xoá bộ lọc", rời trang danh sách). Khi thanh địa chỉ đã khớp với chữ trong ô thì giữ nguyên chữ đang gõ | Đã sửa trong commit `e4f4520`, chờ chạy MT-UI-02 |
 | BUG-UI-008 | MT-UI-26, bước 3 | 2026-10-01 | Rà soát code, chưa chạy trên trình duyệt. Kéo một hoạt động rồi thả lên chính ngày đang xem ở cột trái: hoạt động nhảy xuống **cuối ngày**. `MT-UI-26` bước 3 mong đợi "không có gì thay đổi"; bài này chưa được chạy nên lỗi chưa lộ | Đường thả lên tên ngày luôn chuyển hoạt động xuống cuối ngày đích mà không kiểm ngày đích có phải ngày hiện tại hay không. Đường menu "⋮" có kiểm này | Thả lên đúng ngày mà hoạt động đang ở thì coi như người dùng đổi ý: không làm gì, không gọi máy chủ | Đã sửa trong commit `dcfcfbe`, chờ chạy MT-UI-26 |
 | BUG-UI-009 | MT-UI-56, bước 2 | 2026-10-04 | Task 3.6, sau Commit 19. Chủ dự án thử trên trình duyệt: bản đồ của ngày hiện bình thường ở cột bên phải, nhưng bấm "Phóng to bản đồ" thì khung phủ cả cửa sổ **không hiện bản đồ** | Thư viện bản đồ đo kích thước khung của nó đúng một lần, lúc bản đồ được tạo. Bản đồ phóng to nằm trong một hộp thoại, và hộp thoại chỉ được mở **sau khi** bản đồ bên trong đã được tạo: lúc đó khung còn ẩn, kích thước đo được là 0 × 0, nên bản đồ không tải ô nền nào. Hai lệnh kiểm tra mã nguồn không thấy được vì thứ tự này chỉ lộ ra khi chạy thật. Bản đồ nhỏ trong hộp "Sửa chuyến đi" (Commit 19, chưa commit) có cùng nguyên nhân từ lần mở thứ hai, tìm ra khi rà lại và sửa luôn trong Commit 19 | Bấm "Phóng to bản đồ" thì mở hộp thoại trước, rồi mới tạo bản đồ bên trong. Bản đồ chọn điểm tự đo lại mỗi khi khung của nó đổi kích thước | Đã sửa (`c712093`). Chủ dự án thử lại ngày 2026-10-04 và xác nhận bản đồ phóng to đã hiện. Phần của hộp "Sửa chuyến đi" (`72e97d5`) chưa được kiểm lại |
+| BUG-UI-010 | MT-UI-70 (bước nhãn ở tiêu đề ngày), MT-UI-37 | 2026-10-05 | Task 3.7, sau Commit 15. Chủ dự án xem trên trình duyệt: ở cột giữa của trang chuyến đi, dòng "Ngày N · thứ, ngày/tháng/năm" bị xuống dòng với những ngày có tên thứ và ngày dài (ví dụ "Chủ nhật", "Thứ năm", ngày có hai chữ số) | Tên ngày nằm chung một hàng với các nút "Sửa" và "+ Thêm hoạt động" (và "↑ Đầu ngày" khi đã cuộn). Các nút không co lại, nên tên ngày chỉ được phần còn thừa. Từ khi có cột bản đồ (Task 3.6), cột giữa chỉ còn rộng 368px đến khoảng 530px: trừ các nút đi, tên ngày còn chừng 120 đến 280px trong khi nó cần khoảng 290px. Nhãn "Hôm nay" / "Đã qua" thêm ở Commit 9 của task này lấy thêm 70px nữa và làm lỗi lộ rõ. Lint, build và test tự động không thấy vì đây là kết quả hiển thị | Khối tiêu đề của ngày chia thành hai hàng: tên ngày và nhãn đứng riêng một hàng, rộng hết cột; hàng dưới là tiêu đề của ngày (bên trái) và các nút (bên phải). Ở bố cục ba cột dưới 1280px, nút chính dùng chữ ngắn "Thêm" như trên điện thoại | Đã sửa ở Commit 16 (`6955238`), chờ chủ dự án kiểm lại bằng `MT-UI-77` |
 
 BUG-UI-003 đến BUG-UI-008 được tìm ra bằng cách đọc lại code ngày 2026-10-01, trước khi vào Phase 3, vì 41 bài kiểm tra thủ công của file này chưa được chạy. Ít nhất hai lỗi (006, 008) nằm đúng ở bước mà một bài có sẵn sẽ kiểm. Cột "Kết quả" của các bài `MT-UI` vẫn là "Chưa chạy": chỉ người thật chạy mới được ghi kết quả.
 

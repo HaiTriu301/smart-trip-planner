@@ -46,7 +46,8 @@ npm install
 npm run dev        # http://localhost:5173, proxy /api → localhost:8080, strictPort (5173 bận thì báo lỗi, không tự nhảy port)
 npm run build      # tsc -b && vite build → dist/
 npm run lint       # eslint .
-npm run test       # vitest — CHƯA CÓ, thêm ở task frontend sau
+npm run test       # vitest run: test hàm thuần (lib/, features/*/, stores/), môi trường node, không cần Docker (từ Task 3.7)
+#   Test component (Testing Library) CHƯA CÓ, thêm ở Task 8.3. Chạy 1 file: npx vitest run src/lib/today.test.ts
 npm run gen:api    # sinh type TS từ OpenAPI schema của backend — CHƯA CÓ, thêm ở task frontend sau
 
 # Toàn hệ thống — CHƯA CÓ: compose hiện chỉ có mysql/redis/mailhog; service backend + frontend (Dockerfile) thêm ở Phase 8
@@ -128,7 +129,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 32. `baseURL` là đường dẫn **tương đối** (`VITE_API_URL`, mặc định `/api/v1`) để đi qua proxy Vite (dev) / nginx (prod). Không hardcode `http://localhost:8080` trong `frontend/src`.
 33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand. `QueryClient` duy nhất nằm ở `src/lib/queryClient.ts`: lỗi 4xx không tự gửi lại, và cache bị xoá mỗi khi phiên đăng nhập kết thúc (Task 2.7) — không tạo `QueryClient` thứ hai, không tự `queryClient.clear()` ở nơi khác.
 34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
-35. Trước khi commit frontend: `npm run lint` và `npm run build` phải xanh.
+35. Trước khi commit frontend: `npm run lint`, `npm run build` và `npm run test` phải xanh. Logic thuần mới (tính ngày, định dạng, lọc, chia trang) viết thành hàm trong `lib/` hoặc cạnh feature, kèm file `*.test.ts` trong cùng commit (Task 3.7).
 36. Auth phía client (chốt Task 1.5): access token chỉ ở `stores/authStore` (memory), không `localStorage`. Chỉ `refreshAccessToken()` trong `api/client.ts` được gọi `/auth/refresh` (single-flight + Web Lock giữa các tab) — không tự gọi refresh ở nơi khác, hai lần refresh song song bị backend coi là trộm token và thu hồi mọi phiên. Lỗi API hiển thị qua `api/errors.ts` (`getErrorMessage`, `applyFieldErrors`), không tự đọc `error.response`.
 37. Route cần đăng nhập đặt trong `ProtectedRoute`; trang login/register/forgot trong `GuestRoute`. Trang mở từ link trong mail (`/verify-email`, `/reset-password`) không guard.
 38. Giao diện theo `UI_GUIDE.md`: màu / bo góc / bóng dùng token trong `src/styles/tokens.css` (`bg-jade`, `text-ink`, `rounded-card`...), không dùng màu Tailwind thô (`sky-600`); icon lấy từ `lucide-react`. Mỗi màn chỉ một nút chính (`variant="primary"`). Màn mới hoặc đổi bố cục → cập nhật mục tương ứng trong UI_GUIDE trong cùng commit.
@@ -206,7 +207,7 @@ smart-trip-planner/
         ├── vite-env.d.ts                 ← type cho import.meta.env.VITE_*
         ├── api/                          ← client.ts (axios instance) + 1 file mỗi module (health.ts, auth.ts...)
         ├── types/                        ← api.ts (ApiResponse/ErrorResponse viết tay, sau thay bằng gen:api)
-        └── components/ features/ hooks/ layouts/ pages/ stores/ lib/   (tạo dần theo task)
+        └── components/ features/ hooks/ layouts/ pages/ stores/ lib/   (tạo dần theo task); test nằm cạnh file được test: *.test.ts
 ```
 
 ---
@@ -270,6 +271,10 @@ Khi review code, kiểm tra lại các điểm này:
 - Bộ ghi cache mặc định của Spring Data Redis 4 ghi ở nền với Lettuce: test "ghi rồi đọc ngay" đỏ lúc có lúc không, lỗi ghi không tới `CacheErrorHandler`. Dự án đã bật `immediateWrites()`; đừng gỡ — BUG-PLACE-003
 - Test cần Redis tắt thật: dừng container trong `RedisDownIntegrationTest` (có `@DirtiesContext`), thêm kịch bản vào class đó, đừng tạo class mới (mỗi class như vậy tốn một lần khởi động ứng dụng) — Task 3.4
 - Lặp lại một lệnh `./gradlew test --tests ...` không đổi gì thì Gradle không chạy lại ("up-to-date"); muốn bắt test lúc có lúc không phải dùng `cleanTest test` — Task 3.4
+- Đặt một dòng chữ dài chung hàng với các nút không co (`shrink-0`): chữ chỉ được phần còn thừa và vỡ dòng. Cột giữa của trang chuyến đi chỉ rộng 368px ở 1024px; tên ngày đứng riêng một hàng — BUG-UI-010, Task 3.7
+- Vẽ dữ liệu tải kèm (chặng di chuyển, dự báo) mà không kiểm nó còn khớp với thứ đang hiển thị: sau kéo thả, con số cũ nằm sai chỗ. Lọc qua hàm thuần (`lib/travelLegs.legsAfter`); khi thay đổi làm con số **sai** chứ không chỉ cũ (đổi địa điểm) thì `resetQueries`, không `invalidateQueries` — Task 3.7
+- Component cần "hôm nay" tự gọi `new Date()`: lệch với backend khi máy người dùng khác múi giờ tài khoản. Lấy qua `hooks/useToday` (`lib/today.todayIn`), so ngày bằng chuỗi `YYYY-MM-DD` — Task 3.7
+- Thứ nằm cùng cột với bản đồ Leaflet (dải thời tiết) đổi chiều cao giữa các trạng thái: bản đồ đo khung một lần nên có vùng xám. Giữ chiều cao cố định ở mọi trạng thái — Task 3.7
 
 ---
 

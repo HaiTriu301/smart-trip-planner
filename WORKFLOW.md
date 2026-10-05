@@ -1787,6 +1787,53 @@ Commit 6 có 9 file (quá mức 8 của A.2): bốn file là file mới rất nh
 
 **Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]`. `DragDropContainer` đã 479 dòng: Commit 6–7 chỉ thêm tín hiệu "đang kéo" và lời gọi làm mới; cần thêm nhiều hơn thì tách bằng commit `refactor` riêng, nói trước khi làm. "Hôm nay" chỉ lấy qua `lib/today.ts` + `hooks/useToday.ts`, không gọi `new Date()` rải rác trong component.
 
+> **Thực tế khi làm 3.7 (2026-10-05):** 16 commit trên nhánh thay vì 13 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`737b9e0`). Số PR và merge commit: ghi ở Mốc 0 của task sau.
+>
+> | # | Commit | File code (duyệt → thật) | Ghi chú |
+> |:--:|---|:--:|---|
+> | 1 | `8ba6710` chore: add vitest | 4 → 4 | Vitest 5.0.3, môi trường node |
+> | 2 | `847cda9` show the weather forecast under the day map | 5 → 5 | dải cao cố định 112px (bản đồ chỉ đo khung một lần) |
+> | 3 | `d32e248` invite to set the destination when there is no forecast | 2 → 2 | |
+> | 4 | `a7f818c` keep the trip page usable when the forecast fails | 1 → 1 | |
+> | 5 | `f1e9f04` show the weather of the day in the day heading on small screens | 4 → 4 | |
+> | 6 | `f9ff894` show travel time and distance between activities | 9 → 9 | đoạn di chuyển ẩn nhưng giữ chỗ khi đang kéo |
+> | 7 | `8408ac0` refresh travel legs after the day changes | 3 → 3 | đổi địa điểm thì xoá hẳn số cũ (`resetQueries`) |
+> | 8 | `e8511be` show a travel leg that passes activities without a place | 3 → 4 | thêm `DaySection` (tra tên hoạt động đích) |
+> | 9 | `51abea7` mark past days and today on the trip page | 5 → 5 | chip ngày đã qua dùng nền xám thay vì hạ màu chữ |
+> | 10 | `e767e62` open a trip in progress at today | 3 → 3 | |
+> | 11 | `584df0f` show the weather on the trip card | 4 → 4 | |
+> | 12 | `d221461` ask to complete a trip after its last day | 4 → 5 | thêm `ConfirmDialog` (prop `cancelLabel`) |
+> | 13 | `d8ba1ee` do not ask to complete a trip again until the next sign-in | 3 → 3 | |
+> | 14 | `4a736be` leave days without a forecast out of the weather strip | mới · 3 | chủ dự án yêu cầu sau khi xem trên trình duyệt |
+> | 15 | `40bdd35` page the weather strip with buttons instead of scrolling | mới · 3 | chủ dự án yêu cầu; ô tối thiểu 88px để cột 420px lật 4 ngày một trang |
+> | 16 | `6955238` fix: keep the day name on one line in the day header | mới · 1 | `BUG-UI-010` |
+>
+> Không có endpoint, migration hay thay đổi backend. Dependency dev mới: `vitest` 5.0.3. Thay đổi so với nhánh `main`: 39 file. Test tự động của giao diện: **108 test trong 8 file** (`npm run test`), ghi thành 69 kịch bản `TC-UI-001` đến `TC-UI-069`. 15 bài thủ công mới (`MT-UI-63` đến `MT-UI-77`). **Lúc đóng task các bài thủ công chưa được chạy đủ**: chủ dự án đã xem dải thời tiết, khối tiêu đề ngày và việc mở chuyến đi trên trình duyệt (dẫn tới Commit 14, 15, 16); các bước còn lại chưa có kết quả. Claude không mở được trình duyệt trong suốt task (tiện ích Chrome không kết nối); bằng chứng của từng commit là lint, build, test tự động và ba lần kiểm chứng ngược (`legsAfter`, quy tắc xoá "Để sau" theo phiên, và test đỏ đúng chỗ khi gỡ điều kiện).
+>
+> Quyết định khi làm (ngoài các quyết định lúc duyệt bảng commit):
+> - **Dải thời tiết chỉ hiện ngày có dự báo và chia trang bằng nút** (Commit 14, 15), thay cho bản đầu "mỗi ngày một ô, ngày không có dự báo ghi Chưa có, cuộn ngang". Không còn ngày nào có dự báo thì khung ghi một câu (chuyến đi đã qua / còn xa).
+> - **Mở chuyến đi đang diễn ra ở ngày hôm nay** được chủ dự án hỏi lại như một lỗi ("mở chuyến đi không còn về Ngày 1") rồi quyết định **giữ nguyên** sau khi xem bảng đối chiếu từng chuyến đi.
+> - Thời tiết trên thẻ danh sách: mọi thẻ đủ điều kiện theo ngày đều gọi API, kể cả thẻ chưa đặt vị trí điểm đến (danh sách không trả toạ độ nên thẻ không biết trước).
+> - "Để sau" lưu ở `localStorage` dưới khoá `trip-planner.complete-later`; bị xoá khi phiên chuyển sang chưa đăng nhập từ bất kỳ trạng thái nào (kể cả lần mở trang thấy phiên cũ đã hết hạn).
+> - Dòng `design.md` mục 15 về `/trips/:id` sửa trong commit docs đóng task, không đi cùng Commit 10.
+>
+> **Bẫy đã gặp khi làm 3.7:**
+> 1. **Chữ dài chung hàng với nút không co** (`BUG-UI-010`): từ khi có cột bản đồ, cột giữa chỉ rộng 368px đến khoảng 530px; tên ngày cần khoảng 290px nhưng chỉ còn 120 đến 280px sau khi trừ các nút. Thêm một nhãn 70px (Commit 9) là đủ làm vỡ dòng. Lint, build, test không thấy. Đã ghi vào CLAUDE.md mục 8.
+> 2. **Dữ liệu tải kèm có thể đi sau màn hình:** các chặng di chuyển được tải cho một thứ tự, màn hình thì đã đổi sau khi kéo thả. Chỉ vẽ một chặng khi nó còn khớp với thứ đang hiện (`lib/travelLegs`). Đổi địa điểm là trường hợp riêng: hai thẻ vẫn liền nhau nên phép kiểm đó không biết số đã sai, phải xoá hẳn dữ liệu cũ. Ở báo cáo Commit 6 Claude đã viết thiếu trường hợp này, sửa lại ở chính báo cáo đó. Đã ghi vào CLAUDE.md mục 8.
+> 3. **Thứ gì nằm cạnh bản đồ cũng phải giữ nguyên chiều cao:** bản đồ Leaflet đo khung một lần lúc tạo; dải thời tiết đổi chiều cao giữa các trạng thái (đang tải, lỗi, có dữ liệu) thì bản đồ có vùng xám. Cùng gốc với `BUG-UI-009`.
+> 4. **Hai lần đoán sai số file của bảng commit** (Commit 8, 12): dữ liệu mới phải đi qua một tầng trung gian, hoặc component dùng chung thiếu một tuỳ chọn. Mỗi lần đều báo kèm lý do.
+> 5. **Đoán số test và mã commit trong tài liệu trước khi chạy:** ba lần phải sửa lại con số trong `docs/testing` (48, 64, 72 thay cho số đã viết). Viết tài liệu sau khi có kết quả chạy, và lấy mã commit từ `git log`.
+> 6. **Heredoc dài trong Bash vỡ vì dấu nháy của mã nguồn:** từ Commit 6 mọi lần sửa nhiều file đều qua một file `.py` ở thư mục tạm.
+> 7. **Giao diện vẫn chưa có ai nhìn cho tới gần cuối task:** bốn điểm dừng xem trình duyệt đã lên kế hoạch đều trôi qua mà không có kết quả; ba thay đổi lớn nhất (Commit 14, 15, 16) chỉ xuất hiện khi chủ dự án mở trang ở cuối. Dừng thật ở điểm dừng đầu tiên thì Commit 2 đến 5 đã không phải làm lại một phần.
+>
+> **Còn nợ sau Task 3.7:**
+> - Chạy 15 bài `MT-UI-63` đến `MT-UI-77`, trước hết `MT-UI-77` (kiểm lại `BUG-UI-010`) và `MT-UI-76` (chuyển trang dải thời tiết).
+> - Câu "Đặt vị trí điểm đến trong "Sửa" chuyến đi…" gây hiểu nhầm khi chuyến đi đã có **tên** điểm đến: đề xuất đổi câu và thêm nút mở hộp "Sửa chuyến đi", chủ dự án chưa trả lời.
+> - Mục ngày đã qua ở cột trái dùng chữ `gray-500` (tương phản khoảng 4,2:1, hơi dưới 4,5:1).
+> - Nợ cũ của Task 3.6 chưa đổi: 18 bài `MT-UI-45` đến `MT-UI-62`, UI_GUIDE 7.0 "một nút chính mỗi màn".
+>
+> **Việc cho task sau (chốt 2026-10-05): Task 3.9, làm lại trang chuyến đi và bảng màu theo mockup "Teal Voyage"**, làm **trước Task 3.8**, nhánh riêng `feat/T3.9-trip-page-redesign` sau khi Task 3.7 merge. Mockup: `trip-planner-screenshots/stitch_action_button_ui_redesign/` (`screen.png`, `DESIGN.md`). Đã chốt: màu áp cho **toàn web** qua token (nền `#F8F9FF`, thẻ trắng không viền có bóng mềm, màu chính `#0F766E` / `#005C55`, chữ `#0B1C30`, thanh trên cùng nền trắng), các trang khác chỉ đổi màu, giữ bố cục; giữ font Be Vietnam Pro; viên di chuyển **không** có icon phương tiện; bản đồ **không** có dòng tổng cự ly; giữ nút chuyển trang của thời tiết (đưa lên tiêu đề thẻ), giữ tay nắm kéo thả và nút ↑ / ↓; bỏ nhãn "Đã qua" ở cột trái (còn ở tiêu đề ngày). Không làm vì không có dữ liệu: ảnh của hoạt động, "Hoạt động N ·" trước tên, "Đã thanh toán", tên đường, "Thêm ngày mới", gộp "Ngày 10 – 13", hộp "Khuyến nghị", menu / chia sẻ / mời bạn / chuông / ảnh thành viên / tổng chi tiêu. Bảng nháp 10 commit (token màu; thanh trên cùng; cột ngày; tiêu đề ngày; thẻ hoạt động; nút trên trục thời gian; viên di chuyển; thẻ bản đồ; thẻ thời tiết; màn hẹp), viết chính thức ở Mốc 0 của task đó. Điểm dừng xem trình duyệt: sau commit màu (mọi trang), sau cột giữa, sau màn hẹp; lần này dừng thật.
+
 ---
 
 ### Task 3.8 — Provider thật: OpenStreetMap và Open-Meteo
@@ -2239,7 +2286,8 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.4 Redis cache | ☑ | 2026-10-03 |
 | 3 | 3.5 Quãng đường trong ngày | ☑ | 2026-10-03 |
 | 3 | 3.6 UI: địa điểm + bản đồ | ☑ | 2026-10-04 |
-| 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☐ | |
+| 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☑ | 2026-10-05 |
+| 3 | 3.9 UI: làm lại trang chuyến đi + bảng màu theo mockup (làm trước 3.8) | ☐ | |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
 | 4 | 4.1 Trip members | ☐ | |
 | 4 | 4.2 Permission evaluator | ☐ | |
