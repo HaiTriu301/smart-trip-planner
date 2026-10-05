@@ -681,6 +681,7 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 2.6 | Token, font, thành phần dùng chung, số đếm chip, số hoạt động trên thẻ, ô tìm trên thanh điều hướng, giao diện điện thoại | Đã làm (`feat/T2.6-ui-guide`) |
 | 3.6 | Ô tìm địa điểm trong hộp thoại hoạt động, cột bản đồ, tab bản đồ trên điện thoại, tự thêm địa điểm, chọn điểm đến trong wizard | Phase 3 |
 | 3.7 | Dải thời tiết, thời tiết trên thẻ danh sách, đoạn di chuyển giữa hai ga, ngày đã qua, hỏi hoàn thành chuyến đi (cảnh báo ngoài trời: hoãn) | Phase 3 |
+| 3.9 | Bảng màu mới cho toàn web và trang chuyến đi dạng thẻ theo mockup "Teal Voyage" (`trip-planner-screenshots/stitch_action_button_ui_redesign/`); kế hoạch và các quyết định ở `WORKFLOW.md` Task 3.9. Các mục 3, 5, 6, 8.1, 9 của file này được sửa dần theo từng commit của task | Phase 3 |
 | 4.4 | Panel chia sẻ, danh sách thành viên, trang công khai, bình luận, huy hiệu vai trò | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |

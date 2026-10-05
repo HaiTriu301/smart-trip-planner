@@ -1787,7 +1787,7 @@ Commit 6 có 9 file (quá mức 8 của A.2): bốn file là file mới rất nh
 
 **Nhớ:** khoá truy vấn mới không lồng dưới `['trip', id]`. `DragDropContainer` đã 479 dòng: Commit 6–7 chỉ thêm tín hiệu "đang kéo" và lời gọi làm mới; cần thêm nhiều hơn thì tách bằng commit `refactor` riêng, nói trước khi làm. "Hôm nay" chỉ lấy qua `lib/today.ts` + `hooks/useToday.ts`, không gọi `new Date()` rải rác trong component.
 
-> **Thực tế khi làm 3.7 (2026-10-05):** 16 commit trên nhánh thay vì 13 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`737b9e0`). Số PR và merge commit: ghi ở Mốc 0 của task sau.
+> **Thực tế khi làm 3.7 (2026-10-05):** 16 commit trên nhánh thay vì 13 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`737b9e0`). PR #23, merge commit `b977e0c`; commit docs đóng task `9e59df0`.
 >
 > | # | Commit | File code (duyệt → thật) | Ghi chú |
 > |:--:|---|:--:|---|
@@ -1833,6 +1833,67 @@ Commit 6 có 9 file (quá mức 8 của A.2): bốn file là file mới rất nh
 > - Nợ cũ của Task 3.6 chưa đổi: 18 bài `MT-UI-45` đến `MT-UI-62`, UI_GUIDE 7.0 "một nút chính mỗi màn".
 >
 > **Việc cho task sau (chốt 2026-10-05): Task 3.9, làm lại trang chuyến đi và bảng màu theo mockup "Teal Voyage"**, làm **trước Task 3.8**, nhánh riêng `feat/T3.9-trip-page-redesign` sau khi Task 3.7 merge. Mockup: `trip-planner-screenshots/stitch_action_button_ui_redesign/` (`screen.png`, `DESIGN.md`). Đã chốt: màu áp cho **toàn web** qua token (nền `#F8F9FF`, thẻ trắng không viền có bóng mềm, màu chính `#0F766E` / `#005C55`, chữ `#0B1C30`, thanh trên cùng nền trắng), các trang khác chỉ đổi màu, giữ bố cục; giữ font Be Vietnam Pro; viên di chuyển **không** có icon phương tiện; bản đồ **không** có dòng tổng cự ly; giữ nút chuyển trang của thời tiết (đưa lên tiêu đề thẻ), giữ tay nắm kéo thả và nút ↑ / ↓; bỏ nhãn "Đã qua" ở cột trái (còn ở tiêu đề ngày). Không làm vì không có dữ liệu: ảnh của hoạt động, "Hoạt động N ·" trước tên, "Đã thanh toán", tên đường, "Thêm ngày mới", gộp "Ngày 10 – 13", hộp "Khuyến nghị", menu / chia sẻ / mời bạn / chuông / ảnh thành viên / tổng chi tiêu. Bảng nháp 10 commit (token màu; thanh trên cùng; cột ngày; tiêu đề ngày; thẻ hoạt động; nút trên trục thời gian; viên di chuyển; thẻ bản đồ; thẻ thời tiết; màn hẹp), viết chính thức ở Mốc 0 của task đó. Điểm dừng xem trình duyệt: sau commit màu (mọi trang), sau cột giữa, sau màn hẹp; lần này dừng thật.
+
+---
+
+### Task 3.9 — Giao diện: làm lại trang chuyến đi và bảng màu theo mockup "Teal Voyage"
+
+Nhánh: `feat/T3.9-trip-page-redesign` · Chỉ frontend, không đổi API, không dependency mới. Làm **trước Task 3.8** (chốt 2026-10-05). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh, bài `MT-UI` mới (từ `MT-UI-78`) trong `06-itinerary-ui.md`, `UI_GUIDE.md` sửa trong chính commit đó (rule 38; số file trong bảng **chưa** tính file này).
+
+Nguồn: `trip-planner-screenshots/stitch_action_button_ui_redesign/` (`screen.png`, `DESIGN.md`, `code.html`). Chủ dự án yêu cầu ngày 2026-10-05: ba cột của trang chuyến đi làm giống ảnh, tone màu của cả màn áp cho toàn web.
+
+Kết quả của task: mọi trang dùng bảng màu mới (nền trắng ngả xanh dương, thẻ trắng có bóng mềm, thanh trên cùng nền trắng); trang chuyến đi có cột ngày, khối tiêu đề ngày, thẻ hoạt động, bản đồ và thời tiết ở dạng thẻ như mockup. Không có tính năng mới: mọi hành vi của Task 2.5 đến 3.7 giữ nguyên.
+
+| # | Commit | File | Số file |
+|---|---|---|:--:|
+| 0 | `docs: plan task 3.9 trip page redesign` (trên `main`) | `WORKFLOW.md`, `UI_GUIDE.md` | 2 |
+| 1 | `feat(frontend): apply the teal voyage colour tokens` | `styles/tokens.css` | 1 |
+| 2 | `feat(frontend): use a white top bar and a light footer` | `layouts/AppLayout.tsx`, `features/trips/TripSearchBox.tsx`, `components/Logo.tsx`, `components/buttonStyles.ts` | 4 |
+| 3 | `feat(frontend): show the day list as a card` | `features/itinerary/DayTimeline.tsx` | 1 |
+| 4 | `feat(frontend): show the day header as a card` | `features/itinerary/DaySection.tsx`, `components/BackToTopButton.tsx` | 2 |
+| 5 | `feat(frontend): restyle the activity card` | `features/itinerary/ActivityCard.tsx`, `features/itinerary/activityType.ts` | 2 |
+| 6 | `feat(frontend): replace the time column with timeline nodes` | `features/itinerary/DragDropContainer.tsx`, `features/itinerary/activityType.ts` | 2 |
+| 7 | `feat(frontend): show the travel leg as a pill` | `features/itinerary/TravelLeg.tsx` | 1 |
+| 8 | `feat(frontend): put the day map in a titled card` | `features/itinerary/DayMap.tsx`, `features/itinerary/DayTimeline.tsx` | 2 |
+| 9 | `feat(frontend): show the forecast as a card of day tiles` | `features/weather/WeatherStrip.tsx`, `features/weather/stripDays.ts`, `features/weather/stripDays.test.ts`, `features/itinerary/DayTimeline.tsx`, `pages/TripDetailPage.tsx` | 5 |
+| 10 | `feat(frontend): fit the redesigned trip page to small screens` | `features/itinerary/DayTimeline.tsx`, `features/itinerary/DaySection.tsx` | 2 |
+
+Số file là ước lượng theo code hiện tại; bài học của Task 3.6 và 3.7 là dữ liệu mới thường phải đi qua thêm một tầng, lệch thì báo kèm lý do ngay ở báo cáo của commit đó.
+
+**Dừng để xem trên trình duyệt, lần này dừng thật** (bài học số 7 của Task 3.7): sau Commit 1 (màu trên **mọi** trang: danh sách, đăng nhập, tạo chuyến đi, chi tiết), sau Commit 2, sau Commit 7 (cột trái và cột giữa), sau Commit 9 (cột phải), sau Commit 10. Claude không sang commit kế tiếp của một nhóm mới khi chủ dự án chưa nói đã xem.
+
+**Bảng màu mới** (giá trị đưa vào `tokens.css` ở Commit 1; tên token giữ nguyên để không phải sửa component):
+
+| Token | Hiện tại | Mới | Dùng cho |
+|---|---|---|---|
+| `paper` | `#F4F6F5` | `#F8F9FF` | Nền trang |
+| `ink` | `#10242B` | `#0B1C30` | Chữ chính, chip đang chọn |
+| `jade` | `#0B7A6B` | `#0F766E` | Màu chính, nút chính |
+| `jade-dark` | `#095E52` | `#005C55` | Chữ trên nền nhạt, hover của nút chính |
+| `jade-light` | `#E6F2EF` | `#E3F5F2` | Nền của mục đang chọn |
+| `tide` | `#D7E4E1` | `#DFE6F3` | Viền và vạch kẻ |
+| `gray-50` … `gray-900` | Xám ngả xanh lá | Xám ngả xanh dương (`#F6F8FC`, `#EFF4FF`, `#E1E8F4`, `#C7D1E0`, `#94A3B8`, `#64748B`, `#475569`, `#334155`, `#1E293B`, `#0B1C30`) | Chữ phụ, nền phụ |
+| `radius-card` | 10px | 12px | Thẻ |
+| `radius-panel` | 14px | 16px | Hộp thoại |
+| `shadow-sm / md / lg` | Bóng theo `ink` cũ | `0 1px 2px` 5%, `0 1px 8px` 6%, `0 8px 24px` 12% của `#0B1C30` | Thẻ của trang chuyến đi dùng `shadow-md` thay cho viền |
+
+Màu của 6 loại hoạt động, `sun`, `info`, `success`, `warning`, `danger`: giữ nguyên. Font: giữ Be Vietnam Pro.
+
+> **Quyết định khi lập kế hoạch 3.9 (2026-10-05):**
+> - **Màu áp cho toàn web** qua token; các trang ngoài trang chuyến đi chỉ đổi màu, giữ bố cục và giữ viền `tide` của thẻ. Thanh trên cùng nền trắng ở mọi trang.
+> - **Lưới ba cột** theo tỉ lệ của mockup (3 / 5 / 4): từ 1024px `220px / 1fr / 340px`, từ 1280px `280px / 1fr / 400px`. Cột giữa hẹp nhất vẫn là 368px.
+> - **Cột ngày:** thẻ trắng, tiêu đề "Kế hoạch các ngày", dòng phụ "13 ngày · 02/10 – 14/10"; mỗi mục: "Ngày N", bên dưới "Thứ sáu, 02/10", số hoạt động trong vòng tròn; nhãn "Hôm nay" cạnh tên. **Bỏ** dòng tiêu đề của ngày và nhãn "Đã qua" ở cột này (nhãn "Đã qua" còn ở khối tiêu đề ngày). Vẫn là nơi thả để chuyển hoạt động sang ngày khác.
+> - **Khối tiêu đề ngày:** thẻ trắng: "Ngày N" cỡ lớn + nhãn, dòng dưới "Thứ sáu, 02/10/2026"; bên phải "Sửa" (nút có viền) và nút chính "+ Thêm hoạt động"; dưới vạch kẻ là tiêu đề của ngày (icon lá cờ), số địa điểm của ngày, ghi chú có "Đọc thêm". Vẫn dính ở trên khi cuộn trên màn rộng.
+> - **Thẻ hoạt động:** bỏ viền trái 3px theo màu loại; dòng đầu là giờ (đậm) và chip loại có màu, menu "⋯" bên phải; tên; dòng địa điểm; ghi chú; chân thẻ: chi phí bên trái, link bên phải. Giữ tay nắm kéo thả (chuột) và nút ↑ / ↓ (cảm ứng), cảnh báo trùng giờ, viền sáng khi bấm marker.
+> - **Trục thời gian:** bỏ cột giờ bên trái; mỗi hoạt động một nút tròn 24px trên ray, viền theo màu loại. Giờ chỉ còn trong thẻ.
+> - **Đoạn di chuyển:** viên bo tròn nền `gray-100` nằm giữa hai thẻ, "29 phút · 14,1 km", **không** icon phương tiện, không tên đường; chặng đi qua hoạt động không có địa điểm vẫn ghi "tới …".
+> - **Thẻ bản đồ:** tiêu đề "Bản đồ lộ trình", chip "N điểm dừng", nút "Mở rộng" có chữ ở góc trên trái bản đồ. **Không** có dòng tổng cự ly. Marker giữ kiểu giọt nước hiện tại (nhãn tên luôn hiện như mockup: không làm, dễ che nhau khi nhiều điểm).
+> - **Thẻ thời tiết:** tiêu đề "Thời tiết dự báo", tên điểm đến bên phải; mỗi ngày một ô bo góc nền `gray-100`: "N4 · 05/10", icon, nhiệt độ cao cỡ lớn, nhiệt độ thấp nhỏ bên dưới, phần trăm mưa. **Giữ** chia trang; hai nút ‹ › chuyển lên tiêu đề thẻ. Giữ ba câu thông báo (chưa đặt vị trí, đã qua, còn xa) và trạng thái lỗi.
+> - **Không làm vì không có dữ liệu:** ảnh của hoạt động, "Hoạt động N ·" trước tên, "Đã thanh toán", "Xe buýt đoàn", tên đường, "Thêm ngày mới", gộp "Ngày 10 – 13", hộp "Khuyến nghị", menu / "Chia sẻ" / "Mời bạn" / chuông / ảnh thành viên / "Tổng chi tiêu", dải đường dẫn phía trên ba cột. Phần đầu trang (tên chuyến đi, trạng thái, "Sửa", "Xoá", hàng thông tin) giữ bố cục, chỉ đổi màu.
+>
+> **Rủi ro đã biết:** nền `#F8F9FF` so với thẻ trắng có độ tách thấp hơn bảng cũ (khoảng 1,05 so với 1,09); mockup bù bằng bóng. Các trang chưa chuyển sang thẻ có bóng (danh sách, form) dựa vào viền `tide`. Lần thử ở Task 3.6 hỏng đúng ở điểm này, vì vậy Commit 1 đứng riêng và có điểm dừng: không đạt thì chỉnh giá trị token trong chính commit đó trước khi làm tiếp.
+
+**Nhớ:** hành vi không đổi, nên các bài `MT-UI` cũ của trang chuyến đi vẫn là bài kiểm tra hồi quy; bài nào có vị trí hoặc nhãn đổi thì sửa ngay trong bài. `DragDropContainer` (khoảng 490 dòng): Commit 6 chỉ đổi hình học của hàng. Dải thời tiết phải giữ chiều cao cố định ở mọi trạng thái (CLAUDE.md mục 8). Không tự thêm nội dung của mockup ngoài danh sách đã chốt.
 
 ---
 
