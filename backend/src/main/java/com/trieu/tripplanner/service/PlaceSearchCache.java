@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.constant.CacheNames;
+import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
@@ -45,6 +46,11 @@ public class PlaceSearchCache {
         return mapProvider.search(query, limit, near);
     }
 
+    /** The key of this search for the map source in use. */
+    public String keyOf(String query, int limit, Coordinate near) {
+        return keyOf(mapProvider.provider(), query, limit, near);
+    }
+
     /**
      * Which searches are the same question, and therefore share one stored answer. "Chợ  Hàn" and " CHỢ HÀN "
      * are one question: capitals and extra spaces are dropped. Accents are kept (design.md 8.1, Task 3.8): to a
@@ -53,16 +59,20 @@ public class PlaceSearchCache {
      * marks (as some keyboards send it) is the same letter. The number of results wanted and the reference
      * point are part of the question, because both change the answer.
      * <p>
+     * The source is part of the question too: its results carry ids that mean nothing to another source. Without
+     * it, a search stored while {@code app.providers.map} had one value was served for a day after a switch to
+     * the other, and picking such a result was refused (BUG-PLACE-004).
+     * <p>
      * The keyword comes last: whatever the user types, it cannot be read as another limit or another point.
      *
      * @param near the point results are ranked around, or null when there is none
-     * @return for example {@code 8|16.0678,108.2208|chợ hàn}, or {@code 8|-|chợ hàn} without a point
+     * @return for example {@code OSM|8|16.0678,108.2208|chợ hàn}, or {@code OSM|8|-|chợ hàn} without a point
      */
-    public static String keyOf(String query, int limit, Coordinate near) {
+    public static String keyOf(PlaceProvider source, String query, int limit, Coordinate near) {
         String keyword = Normalizer.normalize(query, Normalizer.Form.NFC)
                 .toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", " ");
         String point = (near == null) ? NO_COORDINATE : rounded(near.lat()) + "," + rounded(near.lng());
-        return limit + "|" + point + "|" + keyword;
+        return source + "|" + limit + "|" + point + "|" + keyword;
     }
 
     private static String rounded(BigDecimal degrees) {
