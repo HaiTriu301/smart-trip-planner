@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, List, Map as MapIcon } from 'lucide-react'
 import { BackToTopButton } from '../../components/BackToTopButton'
+import { Badge } from '../../components/Badge'
 import { LinkButton } from '../../components/LinkButton'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useToday } from '../../hooks/useToday'
-import { formatDate } from '../../lib/format'
+import { formatDate, formatWeekday } from '../../lib/format'
 import { dayStatus } from '../../lib/today'
 import { revealActivity } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
@@ -23,9 +24,14 @@ interface DayTimelineProps {
   tripCurrency: string
   /** Position of the trip's destination, where the map opens for a day without places; null when not set */
   destination: Coordinates | null
+  /** Its name, shown on the weather card; null when the trip has none */
+  destinationName: string | null
 }
 
 const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${dayIndex}`
+
+/** "2026-10-02" → "02/10": the year is on the trip header */
+const shortDate = (isoDate: string) => formatDate(isoDate).slice(0, 5)
 
 /** From this width the list and the map sit side by side (UI_GUIDE 11); below it, one of them at a time */
 const WIDE_SCREEN = '(min-width: 1024px)'
@@ -43,10 +49,18 @@ type NarrowView = 'list' | 'map'
  * bottom right corner goes back to the top of the page. On narrow screens the floating button goes back to the
  * start of the day instead.
  * <p>
- * Days already over and the day it is today are marked in the day list and on the chips (design rule 14.22).
- * A past day is only shown fainter: it stays a link and its activities can still be edited.
+ * The day it is today is marked in the day list and on the chips; a day already over is marked on the chips
+ * and in the day header only, the list stays plain (design rule 14.22, Task 3.9). A past day stays a link and
+ * its activities can still be edited.
  */
-export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, destination }: DayTimelineProps) {
+export function DayTimeline({
+  tripId,
+  days,
+  currentDayIndex,
+  tripCurrency,
+  destination,
+  destinationName,
+}: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
   const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
@@ -84,52 +98,72 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
         // While dragging inside the day, the working copy is shown; pick the current day from it
         const shown = shownDays.find((d) => d.id === current.id) ?? current
         return (
-          <div className="grid gap-x-6 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)_360px] xl:grid-cols-[200px_minmax(0,1fr)_420px] xl:gap-x-8">
+          <div className="grid gap-x-6 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)_340px] xl:grid-cols-[240px_minmax(0,1fr)_380px] xl:gap-x-8">
             {/* Fixed position, so they take no room in the grid. Narrow screens: back to the start of the day, the
                 place that matters there. Wide screens: back to the top of the page ("Đầu ngày" is in the header) */}
             <BackToTopButton placement="floating" screens="narrow" label="Về đầu ngày" targetId="day-start" />
             <BackToTopButton placement="floating" screens="wide" label="Lên đầu trang" />
             <DayChips tripId={tripId} days={days} currentDayIndex={currentDayIndex} today={today} />
             <ViewSwitch view={narrowView} onChange={setNarrowView} />
+            {/* The day list, a card pinned beside the day (UI_GUIDE 8.1): heading, then one entry per day. A long
+                trip scrolls inside the card, so the card itself never grows past the screen */}
             <nav aria-label="Các ngày" className="hidden lg:block">
-              <ol className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-0.5 overflow-y-auto p-1">
-                {days.map((day) => {
-                  const active = day.dayIndex === currentDayIndex
-                  const status = dayStatus(day.date, today)
-                  return (
-                    <li key={day.id}>
-                      <DayDropTarget dayId={day.id}>
-                        <Link
-                          to={dayPath(tripId, day.dayIndex)}
-                          aria-current={active ? 'page' : undefined}
-                          className={`relative flex items-start justify-between gap-2 rounded-control py-2 pr-2 pl-4 text-sm transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
-                            active
-                              ? 'bg-jade-light text-jade-dark before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
-                              : `hover:bg-gray-100 ${status === 'past' ? 'text-gray-500' : 'text-gray-700'}`
-                          }`}
-                        >
-                          <span className="min-w-0">
-                            <span className="font-semibold">Ngày {day.dayIndex}</span>{' '}
-                            <span className="tabular text-gray-500">{formatDate(day.date).slice(0, 5)}</span>
-                            {status === 'today' && (
-                              <span className="block text-xs font-semibold text-jade-dark">Hôm nay</span>
-                            )}
-                            {status === 'past' && <span className="block text-xs text-gray-500">Đã qua</span>}
-                            {day.title ? (
-                              <span className="block truncate text-xs text-gray-500">{day.title}</span>
-                            ) : (
-                              <span className="block text-xs text-gray-400 italic">Chưa có tiêu đề</span>
-                            )}
-                          </span>
-                          <span className="tabular mt-0.5 shrink-0 rounded-control bg-white/70 px-1.5 text-xs text-gray-600">
-                            {day.activities.length}
-                          </span>
-                        </Link>
-                      </DayDropTarget>
-                    </li>
-                  )
-                })}
-              </ol>
+              <div className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col rounded-card bg-white shadow-md">
+                <div className="px-3 pt-3 pb-2">
+                  <p className="text-base leading-6 font-semibold text-ink">Kế hoạch các ngày</p>
+                  <p className="tabular text-[11px] leading-4 tracking-[0.02em] text-gray-500 uppercase">
+                    {days.length} ngày · {shortDate(days[0].date)} – {shortDate(days[days.length - 1].date)}
+                  </p>
+                </div>
+                <ol className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-1.5">
+                  {days.map((day) => {
+                    const active = day.dayIndex === currentDayIndex
+                    const isToday = dayStatus(day.date, today) === 'today'
+                    return (
+                      <li key={day.id}>
+                        <DayDropTarget dayId={day.id}>
+                          <Link
+                            to={dayPath(tripId, day.dayIndex)}
+                            aria-current={active ? 'page' : undefined}
+                            className={`relative flex items-center justify-between gap-2 rounded-control py-1.5 pr-2 pl-3 transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                              active
+                                ? 'bg-jade-light before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="min-w-0">
+                              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span
+                                  className={`text-sm leading-5 font-semibold ${active ? 'text-jade-dark' : 'text-gray-800'}`}
+                                >
+                                  Ngày {day.dayIndex}
+                                </span>
+                                {isToday && <Badge tone="brand">Hôm nay</Badge>}
+                              </span>
+                              <span className="tabular block text-xs leading-4 text-gray-500">
+                                {formatWeekday(day.date)}, {shortDate(day.date)}
+                              </span>
+                            </span>
+                            {/* Number of activities: filled for the day on screen, tinted for today */}
+                            <span
+                              className={`tabular flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-medium ${
+                                active
+                                  ? 'bg-jade-dark text-white'
+                                  : isToday
+                                    ? 'bg-jade-light text-jade-dark'
+                                    : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {day.activities.length}
+                              <span className="sr-only"> hoạt động</span>
+                            </span>
+                          </Link>
+                        </DayDropTarget>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
             </nav>
             {/* Hidden, not removed, on the map tab: an edit in progress in the day survives a look at the map */}
             <div className={`min-w-0 space-y-8 ${listShown ? '' : 'hidden'}`}>
@@ -163,12 +197,13 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
             </div>
             {/* Wide screens: third column, pinned like the day list, as tall as the screen allows. Narrow
                 screens: the "Bản đồ" tab. The map is created only while it is shown; it shows the working copy
-                of the day, so the numbers follow a card while it is being dragged. The weather strip sits
-                under it; the map gives up exactly the strip's height (7rem) and the gap (0.75rem) */}
+                of the day, so the numbers follow a card while it is being dragged. The map card is a
+                compact 420px, as in the mockup, not as tall as the screen; on a short screen it gives up
+                room so that the weather card under it (212px, 16px lower) still fits */}
             {mapShown && (
               <aside>
-                <div className="space-y-3 lg:sticky lg:top-6">
-                  <div className="h-[70dvh] min-h-[320px] lg:h-[calc(100vh-3rem-7.75rem)] lg:min-h-0">
+                <div className="space-y-4 lg:sticky lg:top-6">
+                  <div className="h-[60dvh] min-h-[320px] lg:h-[min(420px,calc(100vh-3rem-228px))] lg:min-h-[240px]">
                     <DayMap
                       activities={shown.activities}
                       destination={destination}
@@ -179,7 +214,12 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
                       }}
                     />
                   </div>
-                  <WeatherStrip tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
+                  <WeatherStrip
+                    tripId={tripId}
+                    days={days}
+                    currentDayIndex={currentDayIndex}
+                    destinationName={destinationName}
+                  />
                 </div>
               </aside>
             )}
@@ -206,7 +246,7 @@ const VIEWS = [
  */
 function ViewSwitch({ view, onChange }: ViewSwitchProps) {
   return (
-    <div role="group" aria-label="Cách xem ngày" className="grid grid-cols-2 gap-1 rounded-control bg-gray-200 p-1 lg:hidden">
+    <div role="group" aria-label="Cách xem ngày" className="grid grid-cols-2 gap-1 rounded-card bg-gray-200 p-1 lg:hidden">
       {VIEWS.map((option) => {
         const chosen = option.view === view
         return (
@@ -215,7 +255,7 @@ function ViewSwitch({ view, onChange }: ViewSwitchProps) {
             type="button"
             aria-pressed={chosen}
             onClick={() => onChange(option.view)}
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-control text-[15px] transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none ${
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-[8px] text-[15px] transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none ${
               chosen ? 'bg-white font-semibold text-jade-dark shadow-sm' : 'text-gray-600'
             }`}
           >
@@ -237,8 +277,9 @@ interface DayChipsProps {
 }
 
 /**
- * Phones and tablets: the day list as chips that scroll sideways, stuck to the top of the screen. Today's chip
- * carries a jade dot; a past day sits on a grey chip, with text that keeps its contrast (it is still a link).
+ * Phones and tablets: the day list as pills that scroll sideways, stuck to the top of the screen. The pill of
+ * the day on screen is filled like the entry of the day list on wide screens; today's pill carries a jade dot;
+ * a past day sits on a grey pill, with text that keeps its contrast (it is still a link).
  */
 function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
   const activeRef = useRef<HTMLAnchorElement>(null)
@@ -251,9 +292,9 @@ function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
   return (
     <nav
       aria-label="Các ngày"
-      className="sticky top-0 z-20 -mx-4 border-b border-tide bg-paper px-4 py-2 sm:-mx-6 sm:px-6 lg:hidden"
+      className="sticky top-0 z-20 -mx-4 border-b border-tide bg-paper px-4 py-1.5 sm:-mx-6 sm:px-6 lg:hidden"
     >
-      <ol className="flex gap-2 overflow-x-auto">
+      <ol className="flex gap-2 overflow-x-auto px-0.5 py-1">
         {days.map((day) => {
           const active = day.dayIndex === currentDayIndex
           const status = dayStatus(day.date, today)
@@ -263,14 +304,16 @@ function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
                 ref={active ? activeRef : undefined}
                 to={dayPath(tripId, day.dayIndex)}
                 aria-current={active ? 'page' : undefined}
-                className={`tabular inline-flex h-9 items-center gap-1.5 rounded-control px-3 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                className={`tabular inline-flex h-9 items-center gap-1.5 rounded-full px-4 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                   active
-                    ? 'bg-ink text-white'
-                    : `border border-tide text-gray-600 ${status === 'past' ? 'bg-gray-100' : 'bg-white'}`
+                    ? 'bg-jade-dark text-white'
+                    : `text-gray-600 shadow-sm ${status === 'past' ? 'bg-gray-100' : 'bg-white'}`
                 }`}
               >
-                {status === 'today' && <span aria-hidden className="size-1.5 rounded-full bg-jade" />}
-                Ngày {day.dayIndex} · {formatDate(day.date).slice(0, 5)}
+                {status === 'today' && (
+                  <span aria-hidden className={`size-1.5 rounded-full ${active ? 'bg-white' : 'bg-jade'}`} />
+                )}
+                Ngày {day.dayIndex} · {shortDate(day.date)}
                 {status === 'today' && <span className="sr-only">, hôm nay</span>}
                 {status === 'past' && <span className="sr-only">, đã qua</span>}
               </Link>

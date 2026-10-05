@@ -20,8 +20,8 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
 }
 
 interface RouteStyle {
-  /** 3px left edge of the card */
-  edge: string
+  /** the type chip on the activity card: light tint of the colour, label in the colour */
+  chip: string
   /** ring of the 10px dot on the rail */
   dot: string
   /** icon and label colour */
@@ -34,13 +34,14 @@ interface RouteStyle {
 }
 
 /**
- * Route colour of each type (UI_GUIDE 3.4): used only on the rail dot, the card's left edge, the chosen button
- * of the type picker and the map marker. Never as a card background. The icon + label keep the type readable without colour.
+ * Route colour of each type (UI_GUIDE 3.4): used only on the rail dot, the type chip of the card, the chosen
+ * button of the type picker and the map marker. Never as a card background. The icon + label keep the type
+ * readable without colour.
  * Class names are written out in full so Tailwind finds them.
  */
 export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
   SIGHTSEEING: {
-    edge: 'border-l-act-sightseeing',
+    chip: 'bg-act-sightseeing/12 text-act-sightseeing',
     dot: 'border-act-sightseeing',
     text: 'text-act-sightseeing',
     marker: 'bg-act-sightseeing',
@@ -49,7 +50,7 @@ export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
     Icon: Landmark,
   },
   FOOD: {
-    edge: 'border-l-act-food',
+    chip: 'bg-act-food/12 text-act-food',
     dot: 'border-act-food',
     text: 'text-act-food',
     marker: 'bg-act-food',
@@ -58,7 +59,7 @@ export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
     Icon: Utensils,
   },
   TRANSPORT: {
-    edge: 'border-l-act-transport',
+    chip: 'bg-act-transport/12 text-act-transport',
     dot: 'border-act-transport',
     text: 'text-act-transport',
     marker: 'bg-act-transport',
@@ -67,7 +68,7 @@ export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
     Icon: Bus,
   },
   ACCOMMODATION: {
-    edge: 'border-l-act-accommodation',
+    chip: 'bg-act-accommodation/12 text-act-accommodation',
     dot: 'border-act-accommodation',
     text: 'text-act-accommodation',
     marker: 'bg-act-accommodation',
@@ -76,7 +77,7 @@ export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
     Icon: BedDouble,
   },
   SHOPPING: {
-    edge: 'border-l-act-shopping',
+    chip: 'bg-act-shopping/12 text-act-shopping',
     dot: 'border-act-shopping',
     text: 'text-act-shopping',
     marker: 'bg-act-shopping',
@@ -85,7 +86,7 @@ export const ACTIVITY_ROUTE: Record<ActivityType, RouteStyle> = {
     Icon: ShoppingBag,
   },
   OTHER: {
-    edge: 'border-l-act-other',
+    chip: 'bg-act-other/12 text-act-other',
     dot: 'border-act-other',
     text: 'text-act-other',
     marker: 'bg-act-other',

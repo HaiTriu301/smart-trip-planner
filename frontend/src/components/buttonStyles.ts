@@ -4,7 +4,6 @@ export type ButtonVariant =
   | 'primary'
   | 'secondary'
   | 'ghost'
-  | 'ghost-inverse'
   | 'danger'
   | 'danger-solid'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -15,8 +14,6 @@ const VARIANTS: Record<ButtonVariant, string> = {
   secondary: 'border border-tide bg-white text-gray-800 hover:bg-gray-50',
   // Low-key action repeated on many rows (edit a day, an activity)
   ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-  // Ghost for the dark ink bars (top navigation)
-  'ghost-inverse': 'text-gray-300 hover:bg-white/10 hover:text-white',
   // Delete outside a confirmation: outlined; only the confirm button of a dialog is filled red
   danger: 'border border-danger bg-white text-danger hover:bg-danger/8',
   'danger-solid': 'bg-danger text-white hover:bg-danger/90',

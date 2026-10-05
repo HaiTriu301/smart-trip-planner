@@ -15,7 +15,7 @@
 - Mỗi ngày trong chuyến đi là một **thanh ray dọc**. **Đã làm**
 - Mỗi hoạt động là một **"ga"** gắn vào ray, có chấm màu theo loại hoạt động. **Đã làm**
 - Khoảng giữa hai ga là **đoạn nét đứt** ghi thời gian và quãng đường di chuyển. **Phase 3** (cần API lộ trình)
-- Màu của loại hoạt động dùng nhất quán ở **ba nơi**: chấm trên ray, viền trái của thẻ, marker trên bản đồ. Hai nơi đầu **Đã làm**, marker **Phase 3**.
+- Màu của loại hoạt động dùng nhất quán ở **ba nơi**: nút trên ray, chip loại trong thẻ (trước Task 3.9: viền trái của thẻ), marker trên bản đồ. **Đã làm**.
 - Thanh bước của wizard tạo chuyến đi cũng là một tuyến tàu ngắn (các bước là "ga"). **Đã làm**
 
 **Điểm bạo nhất chỉ ở một chỗ:** thanh ray thời gian. Mọi thứ còn lại giữ im lặng: nền phẳng, viền mảnh, bóng rất nhẹ, không gradient trang trí.
@@ -45,27 +45,29 @@ Mọi màu nằm trong `frontend/src/styles/tokens.css` (mục 6). **Không dùn
 
 ### 3.1. Màu nền tảng
 
+Bảng màu **"Teal Voyage"**, áp dụng từ Task 3.9 (2026-10-05) theo mockup `trip-planner-screenshots/stitch_action_button_ui_redesign/`. Bảng trước đó (Task 2.6): `ink #10242B`, `paper #F4F6F5`, `jade #0B7A6B`, `jade-dark #095E52`, `jade-light #E6F2EF`, `tide #D7E4E1`, thang xám ngả xanh lá. Tên token không đổi, chỉ đổi giá trị. Độ tương phản đã kiểm bằng công thức WCAG: chữ trắng trên `jade` 5,5:1; `jade` trên trắng 5,5:1; `jade-dark` trên `jade-light` 7,0:1; `gray-600` trên `paper` 7,2:1; `gray-500` trên trắng 4,8:1. Nền `paper` so với thẻ trắng chỉ tách nhau 1,05:1 (bảng cũ: 1,09:1), nên thẻ trắng luôn cần **viền `tide` hoặc bóng `shadow-md`**, không bao giờ để trơn. Viền `tide` được chọn đậm hơn bảng cũ để bù: 1,35:1 so với trắng (cũ 1,31:1) và 1,29:1 so với `paper` (cũ 1,20:1); giá trị nháp `#DFE6F3` trong kế hoạch chỉ đạt 1,25:1 nên không dùng.
+
 | Token | Hex | Dùng ở đâu |
 |---|---|---|
-| `ink` | `#10242B` | Chữ chính, thanh điều hướng, chân trang, chip đang chọn |
-| `paper` | `#F4F6F5` | Nền trang (hơi lạnh, không phải kem) |
-| `white` | `#FFFFFF` | Nền thẻ, ô nhập, hộp thoại |
-| `jade` | `#0B7A6B` | Màu thương hiệu: nút chính, link, vòng focus, trạng thái đang chọn |
-| `jade-dark` | `#095E52` | Nút chính khi rê chuột, chữ trên nền `jade-light` |
-| `jade-light` | `#E6F2EF` | Nền nhạt của mục đang chọn (ngày trong cột trái) |
-| `tide` | `#D7E4E1` | Viền, đường kẻ, đường ray |
+| `ink` | `#0B1C30` | Chữ chính (xanh navy), chip đang chọn |
+| `paper` | `#F8F9FF` | Nền trang (trắng ngả xanh dương) |
+| `white` | `#FFFFFF` | Nền thẻ, ô nhập, hộp thoại, thanh điều hướng |
+| `jade` | `#0F766E` | Màu thương hiệu: nút chính, link, vòng focus, trạng thái đang chọn |
+| `jade-dark` | `#005C55` | Nút chính khi rê chuột, chữ trên nền `jade-light` |
+| `jade-light` | `#E3F5F2` | Nền nhạt của mục đang chọn (ngày trong cột trái) |
+| `tide` | `#D5DEEE` | Viền, đường kẻ, đường ray |
 | `sun` | `#E0A33C` | Thời tiết, huy hiệu Premium |
 
-### 3.2. Thang xám (dẫn xuất từ `ink`, hơi ngả xanh)
+### 3.2. Thang xám (ngả xanh dương theo `ink`)
 
 Thay thế hẳn thang `gray-*` của Tailwind.
 
 ```
-gray-50   #F7F9F8      gray-500  #6B8085
-gray-100  #EDF1F0      gray-600  #52666B   ← chữ phụ
-gray-200  #DCE4E2      gray-700  #3C4F55   ← nhãn ô nhập
-gray-300  #C3CFCD      gray-800  #24383E
-gray-400  #94A6A7      gray-900  #10242B
+gray-50   #F6F8FC      gray-500  #64748B
+gray-100  #EFF4FF      gray-600  #475569   ← chữ phụ
+gray-200  #E1E8F4      gray-700  #334155   ← nhãn ô nhập
+gray-300  #C7D1E0      gray-800  #1E293B
+gray-400  #94A3B8      gray-900  #0B1C30
 ```
 
 ### 3.3. Màu ngữ nghĩa
@@ -91,7 +93,7 @@ Sáu màu này phải phân biệt được khi đứng cạnh nhau trên bản 
 | `SHOPPING` | Mua sắm | `act-shopping` | `#BE3C79` | `ShoppingBag` |
 | `OTHER` | Khác | `act-other` | `#4F8A62` | `MapPin` |
 
-**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, viền trái 3px của thẻ hoạt động, marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
+**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, chip loại của thẻ hoạt động (nền mờ 12%, chữ và icon theo màu; từ Task 3.9, thay cho viền trái 3px của thẻ), marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
 
 ### 3.5. Màu trạng thái chuyến đi
 
@@ -124,11 +126,11 @@ Biến `--bg`, `--surface`, `--text`, `--text-muted`, `--border`, `--brand` đã
 
 ### 4.1. Font
 
-**Một họ chữ duy nhất: Be Vietnam Pro** (Google Fonts, weight 300–800), nạp bằng thẻ `<link>` trong `frontend/index.html`.
+**Một họ chữ duy nhất: Inter** (Google Fonts, weight 300–800), nạp bằng thẻ `<link>` trong `frontend/index.html`. Đổi từ Be Vietnam Pro ở Task 3.9 (2026-10-05).
 
-Lý do: được thiết kế riêng cho tiếng Việt, dấu thanh đặt đúng vị trí và không va vào chữ hoa ("Ế", "Ợ", "Ỡ"). Sản phẩm hiển thị tên địa điểm tiếng Việt ở khắp nơi, nên đây là lựa chọn kỹ thuật.
+Lý do: chủ dự án muốn chữ gần với mockup "Teal Voyage" hơn. Font của mockup là Plus Jakarta Sans; đã thử trên trang thật và chủ dự án thấy **nét quá mỏng**, nên chọn Inter: cùng kiểu chữ không chân hiện đại, nét dày và rõ hơn ở cỡ 12–14px (cỡ của phần lớn chữ trên trang chuyến đi), bề ngang hẹp hơn nên ít làm vỡ dòng ở các ô chật. Bản trên Google Fonts có bộ chữ tiếng Việt (đã kiểm: có khối `vietnamese`). Cần nhìn lại dấu thanh trên chữ hoa ("Ế", "Ợ", "Ỡ") ở tiêu đề lớn, bài `MT-UI-89`.
 
-Không dùng font thứ hai. Phân cấp bằng **độ đậm và kích thước**. Fallback: `"Be Vietnam Pro", ui-sans-serif, system-ui, "Segoe UI", sans-serif`.
+Không dùng font thứ hai. Phân cấp bằng **độ đậm và kích thước**. Fallback: `"Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif`.
 
 ### 4.2. Thang cỡ chữ
 
@@ -162,19 +164,19 @@ Thang 4px của Tailwind (`1` = 4px): `space-1` 4px, `2` 8px, `3` 12px, `4` 16px
 | Thành phần | Token | Giá trị |
 |---|---|---|
 | Ô nhập, nút, chip, huy hiệu, menu | `rounded-control` | 6px |
-| Thẻ hoạt động, thẻ chuyến đi, khung trang đăng nhập, khung báo | `rounded-card` | 10px |
-| Hộp thoại | `rounded-panel` | 14px (trên điện thoại chỉ bo hai góc trên) |
+| Thẻ hoạt động, thẻ chuyến đi, khung trang đăng nhập, khung báo | `rounded-card` | 12px (10px trước Task 3.9) |
+| Hộp thoại | `rounded-panel` | 16px (trên điện thoại chỉ bo hai góc trên) |
 | Ảnh đại diện, chấm trên ray, ô số đếm | `rounded-full` | 9999px |
 
 ### 5.3. Đổ bóng — rất nhẹ, ngả xanh theo `ink`
 
 ```css
---shadow-sm: 0 1px 2px rgba(16, 36, 43, .06);
---shadow-md: 0 2px 8px rgba(16, 36, 43, .08);   /* menu thả xuống, thông báo */
---shadow-lg: 0 8px 24px rgba(16, 36, 43, .12);  /* hộp thoại, thẻ đang được kéo */
+--shadow-sm: 0 1px 2px rgba(11, 28, 48, .05);
+--shadow-md: 0 1px 8px rgba(11, 28, 48, .06);   /* thẻ không viền của trang chuyến đi, menu thả xuống, thông báo */
+--shadow-lg: 0 8px 24px rgba(11, 28, 48, .12);  /* hộp thoại, thẻ đang được kéo */
 ```
 
-Thẻ ở trạng thái nghỉ dùng **viền `1px tide`**, không dùng bóng. Bóng chỉ xuất hiện khi phần tử nổi lên trên mặt phẳng khác.
+Từ Task 3.9 có hai kiểu thẻ ở trạng thái nghỉ: thẻ của **trang chuyến đi** (cột ngày, tiêu đề ngày, hoạt động, bản đồ, thời tiết) không viền, dùng `shadow-md`; thẻ ở **các trang khác** (danh sách chuyến đi, form) giữ **viền `1px tide`**, không bóng. Không để thẻ trắng trơn trên nền `paper` (mục 3.1).
 
 ### 5.4. Khung trang
 
@@ -191,12 +193,12 @@ Thẻ ở trạng thái nghỉ dùng **viền `1px tide`**, không dùng bóng. 
 ```css
 @theme {
   /* Nền tảng */
-  --color-ink: #10242B;  --color-paper: #F4F6F5;
-  --color-jade: #0B7A6B; --color-jade-dark: #095E52; --color-jade-light: #E6F2EF;
-  --color-tide: #D7E4E1; --color-sun: #E0A33C;
+  --color-ink: #0B1C30;  --color-paper: #F8F9FF;
+  --color-jade: #0F766E; --color-jade-dark: #005C55; --color-jade-light: #E3F5F2;
+  --color-tide: #D5DEEE; --color-sun: #E0A33C;
 
   /* Xám (thay thang gray của Tailwind) */
-  --color-gray-50: #F7F9F8;  /* … tới */ --color-gray-900: #10242B;
+  --color-gray-50: #F6F8FC;  /* … tới */ --color-gray-900: #0B1C30;
 
   /* Ngữ nghĩa */
   --color-success: #1D7A4C; --color-warning: #E0A33C; --color-danger: #C2453B; --color-info: #2D6FA8;
@@ -205,7 +207,7 @@ Thẻ ở trạng thái nghỉ dùng **viền `1px tide`**, không dùng bóng. 
   --color-act-sightseeing: #2D7DD2; --color-act-food: #E0662F; --color-act-transport: #64797F;
   --color-act-accommodation: #7A5BA6; --color-act-shopping: #BE3C79; --color-act-other: #4F8A62;
 
-  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --radius-control: 6px; --radius-card: 10px; --radius-panel: 14px;
   --shadow-sm: …; --shadow-md: …; --shadow-lg: …;
 
@@ -253,7 +255,6 @@ Tất cả **tự viết** trong `frontend/src/components/`, không dùng shadcn
 | `primary` | nền `jade`, chữ trắng | Hành động chính của màn hình |
 | `secondary` | nền trắng, viền `tide`, chữ `gray-800` | Hành động phụ, "Huỷ" |
 | `ghost` | trong suốt, chữ `gray-600` | Hành động thứ yếu lặp lại nhiều lần ("Sửa" ngày) |
-| `ghost-inverse` | trong suốt, chữ `gray-300` | Trên thanh điều hướng tối ("Đăng xuất") |
 | `danger` | nền trắng, viền + chữ `danger` | Nút "Xoá" bên ngoài hộp xác nhận |
 | `danger-solid` | nền `danger`, chữ trắng | **Chỉ** nút xác nhận trong hộp xoá (`ConfirmDialog variant="danger"` tự chọn) |
 
@@ -289,20 +290,21 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 ### 7.3. Thẻ hoạt động — thành phần quan trọng nhất ⭐ `ActivityCard`
 
 ```
-┌─┬───────────────────────────────────────────────────────┐
-│ │ ⠿  09:00 – 11:30   🏛 Tham quan                    ⋮   │ ← viền trái 3px màu tuyến
-│ │    Chùa Linh Ứng                                      │ ← 16px / 600
-│ │    📍 Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng         │ ← địa điểm 13px, khi có
-│ │    Đi sớm tránh nắng… Đọc thêm                        │ ← ghi chú 13px, tối đa 2 dòng
-│ │    👛 350.000 ₫    Link đặt chỗ ↗                     │ ← 12px, hàng meta
-└─┴───────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ ⠿  09:00 – 11:30  (🏛 Tham quan)                     ⋮   │ ← giờ 15px/600, chip loại bo tròn
+│    Chùa Linh Ứng                                        │ ← 18px / 600
+│    📍 Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng           │ ← địa điểm 13px, khi có
+│    Đi sớm tránh nắng… Đọc thêm                          │ ← ghi chú 13px, tối đa 2 dòng
+│    ─────────────────────────────────────────────────    │ ← vạch tide, chỉ khi có chân thẻ
+│    Chi phí dự kiến: 350.000 ₫          Link đặt chỗ ↗   │ ← 13px
+└─────────────────────────────────────────────────────────┘
 ```
 
-- **Nghỉ:** nền trắng, viền `tide` 1px ở ba cạnh, viền trái 3px màu tuyến.
-- **Rê chuột hoặc Tab tới thẻ:** nền `gray-50`; hiện tay nắm kéo (`GripVertical`) ở mép trái và menu "⋮" ở mép phải. **Màn hình cảm ứng:** hai nút này luôn hiện.
+- **Nghỉ** (Task 3.9, theo mockup "Teal Voyage"): nền trắng, **không viền**, `shadow-md`, bo 12px. Loại hoạt động là một **chip** bo tròn cao 20px cạnh giờ: icon 12px và tên loại, nền màu tuyến mờ 12%, chữ màu tuyến. Chân thẻ (khi có chi phí hoặc link): vạch `tide` phía trên, "Chi phí dự kiến:" `gray-500` kèm số tiền `jade-dark` đậm ở bên trái, link `jade-dark` ở bên phải. Trước Task 3.9: viền `tide` 1px ở ba cạnh, viền trái 3px màu tuyến, loại là chữ có màu, hàng meta 12px có icon ví.
+- **Rê chuột hoặc Tab tới thẻ:** (từ Task 3.9 nền không đổi) hiện tay nắm kéo (`GripVertical`) ở mép trái và menu "⋮" ở mép phải. **Màn hình cảm ứng:** hai nút này luôn hiện.
 - **Menu "⋮"** (`ActivityMenu`, Radix): "Sửa", "Chuyển sang ngày…" (không có khi chuyến đi chỉ có 1 ngày), "Xoá" (chữ đỏ). Dùng được bằng bàn phím: Enter mở, mũi tên chọn, Esc đóng.
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
-- **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền `warning` mờ 8% và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
+- **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền là `warning` pha 10% vào trắng (nền đặc, không trong suốt: thẻ có bóng phải che được phần bên dưới) và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
 - **Hàng địa điểm** (Task 3.6, **Đã làm**): ngay dưới tên, icon ghim `MapPin` xám + chữ 13px `gray-600`, được xuống dòng. Nội dung: "Tên địa điểm · địa chỉ". Tên hoạt động trùng tên địa điểm (không phân biệt hoa thường) thì chỉ ghi địa chỉ, để không lặp chữ; địa điểm không có địa chỉ thì ghi tên. Hoạt động chưa gắn địa điểm: **không có hàng này**, không ghi "Chưa gắn địa điểm" (mockup Stitch có, đã bỏ vì lặp trên mọi thẻ).
 - Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).
@@ -311,19 +313,19 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 ### 7.4. Thanh ray thời gian ⭐
 
 ```
- 08:00 ─●── [Thẻ: Chùa Linh Ứng]
-         │
-         ┊ 25 phút · 8,4 km        ← Phase 3
-         │
- 12:00 ─●── [Thẻ: Bún chả cá 109]
-         │
-     — ─●── [Thẻ: Chợ đêm]          ← hoạt động không có giờ
+ ◉── [Thẻ: 08:00 – 09:30 · Chùa Linh Ứng]
+ │
+ ┊     25 phút · 8,4 km
+ │
+ ◉── [Thẻ: 12:00 · Bún chả cá 109]
+ │
+ ◉── [Thẻ: Chưa đặt giờ · Chợ đêm]
 ```
 
 - Các ga xếp theo **thứ tự trong ngày** (do kéo thả quyết định), **không** theo tỉ lệ thời gian, vì hệ thống cho phép hoạt động không có giờ và cho phép sắp xếp tự do.
-- Lưới mỗi hàng: cột giờ 40px (căn phải) → cột ray 16px (tâm ray ở 48px) → thẻ.
-- Ray: đường dọc 1px `tide`, chỉ vẽ khi ngày có hoạt động.
-- Chấm: 10px, nền trắng, viền 3px màu tuyến.
+- Lưới mỗi hàng (Task 3.9, theo mockup "Teal Voyage"): cột nút 12px (tâm ở 6px) → thẻ, cách cột nút 6px: từ mép trái tới thẻ là 18px (bản đầu của Task 3.9: 36px; chủ dự án thấy trục chiếm nhiều chỗ nên thu lại hai lần, còn 24px rồi 18px). **Không còn cột giờ**: giờ nằm ở dòng đầu trong thẻ. Trước Task 3.9: cột giờ 40px → cột ray 16px (tâm ở 48px) → thẻ.
+- Ray: đường dọc 2px `tide`, chỉ vẽ khi ngày có hoạt động. Các thẻ cách nhau 16px.
+- Nút: chấm tròn 10px nền trắng, viền 2px màu tuyến (bản đầu của Task 3.9: đĩa 20px có chấm ở giữa); nằm ngang hàng với dòng giờ của thẻ (cách đầu thẻ 23px). Trước Task 3.9: chấm 10px viền 3px.
 - Ngày trống: khung nét đứt "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." + nút "Thêm hoạt động".
 - "+ Thêm hoạt động" là **nút chính của trang**, đặt ở góc phải tiêu đề ngày (trên điện thoại chữ rút gọn "+ Thêm"), không đặt ở cuối ray.
 - **Chưa áp dụng:** đoạn nét đứt ghi thời gian di chuyển (cần API lộ trình, Phase 3); nút mờ "+ Thêm hoạt động vào khoảng này" khi hai hoạt động cách nhau trên 3 tiếng.
@@ -381,7 +383,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 ### 7.11. Logo — `Logo`
 
 Ô vuông `jade` bo 6px chứa icon ghim trắng, cạnh chữ "Smart Trip Planner".
-- `tone="dark"`: chữ trắng, trên thanh điều hướng.
+- Từ Task 3.9 logo chỉ còn một kiểu: chữ `ink` trên nền sáng (thanh điều hướng nay nền trắng), không còn `tone`.
 - `tone="light"` + `tagline`: cỡ lớn kèm dòng phụ "Kế hoạch hành trình theo dòng thời gian", trên các trang đăng nhập.
 
 ### 7.12. Ô tìm địa điểm — `PlaceSearchField`, `ActivityPlaceField`
@@ -437,15 +439,16 @@ Loại
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [📍 Smart Trip Planner]   [🔍 Tìm chuyến đi…        ]   Trieu  ⎋ Đăng xuất │ 56px, nền ink
+│ [📍 Smart Trip Planner]   [🔍 Tìm chuyến đi…        ]   Trieu  ⎋ Đăng xuất │ 64px, nền trắng, vạch `tide` ở đáy
 ├──────────────────────────────────────────────────────────────────────┤
 │                         nội dung, tối đa 1280px                       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ © 2026 Smart Trip Planner                                            │ nền ink
+│ © 2026 Smart Trip Planner                                            │ nền trang, vạch `tide` ở trên
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Ô tìm chuyến đi** (`TripSearchBox`) nằm giữa thanh điều hướng, nền trong mờ, chữ trắng. Chỉ tìm chuyến đi theo tên hoặc điểm đến (chưa tìm được theo hoạt động). Ở `/trips`: lọc khi ngừng gõ 300 ms, không thêm bước vào lịch sử trình duyệt, giữ chip trạng thái và cách sắp xếp. Ở trang khác: Enter mở `/trips?q=…`.
+- **Thanh điều hướng** (Task 3.9, theo mockup "Teal Voyage"): nền **trắng**, cao 64px, vạch `tide` 1px ở đáy (thanh trắng trên nền trang gần trắng cần một ranh giới); logo chữ `ink`; tên người dùng `gray-700`; "Đăng xuất" là nút `ghost`. Chân trang không còn nền tối: chữ `gray-500` trên nền trang, vạch `tide` ở trên. Trước Task 3.9 cả hai có nền `ink`.
+- **Ô tìm chuyến đi** (`TripSearchBox`) nằm giữa thanh điều hướng: dạng **viên bo tròn hết cỡ** (ngoại lệ của quy tắc bo 6px cho ô nhập, theo mockup), nền `gray-100`, không viền, chữ `ink`, icon và chữ gợi ý `gray-500`; rê chuột có viền `tide`; khi focus nền trắng, viền và vòng `jade`. Chỉ tìm chuyến đi theo tên hoặc điểm đến (chưa tìm được theo hoạt động). Ở `/trips`: lọc khi ngừng gõ 300 ms, không thêm bước vào lịch sử trình duyệt, giữ chip trạng thái và cách sắp xếp. Ở trang khác: Enter mở `/trips?q=…`.
 - Dưới 768px: ô tìm xuống thành hàng riêng dưới logo, rộng hết chiều ngang.
 - Không có chuông thông báo, không có mục menu cho trang chưa tồn tại.
 
@@ -473,22 +476,22 @@ Loại
 - **Đầu trang:** link quay lại, tên 32px (tối đa 2 dòng, rê chuột xem đủ), cụm ô trạng thái + "Sửa" + "Xoá" **cố định ở góc phải** (không bị tên dài đẩy xuống; trên điện thoại nằm hàng riêng dưới tên), hàng thông tin có icon, mô tả thu gọn.
 - **Máy chủ không trả lời:** nếu chuyến đi đã tải được, trang **giữ nguyên** (kể cả hộp thoại đang mở) và hiện khung lỗi "… Đang hiển thị dữ liệu đã tải trước đó." kèm nút phụ "Thử lại" ngay trên tên chuyến đi, cùng cách trang danh sách đang làm. Chưa tải được gì thì chỉ có khung lỗi, "Thử lại" và link về danh sách. Chuyến đi không còn (404) hoặc không có quyền (403): chỉ thông báo, không có "Thử lại" (Task 2.7, BUG-UI-005).
 - **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` tự chuyển về ngày 1, hoặc về ngày hôm nay khi chuyến đi đang diễn ra (Task 3.7); số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
-- **Cột trái (200px):** các ngày kèm số hoạt động, mỗi mục là một link. Ngày đang xem có nền `jade-light` + vạch `jade` 3px ở mép trái (`aria-current="page"`).
-- **Cột giữa:** chỉ ngày đang xem: khối tiêu đề của ngày, rồi đến ray. Khối tiêu đề có **hai hàng** (từ Task 3.7, BUG-UI-010): hàng trên là tên ngày ("Ngày 2 · Thứ ba, 13/10/2026") và nhãn "Hôm nay" / "Đã qua", rộng hết cột, không chung hàng với nút nào; hàng dưới là tiêu đề của ngày, dòng thời tiết (màn hẹp) và ghi chú ở bên trái, các nút "↑ Đầu ngày" (khi đã cuộn), "Sửa" và nút chính "+ Thêm hoạt động" ở bên phải. Nút chính ghi "Thêm" trên điện thoại và ở bố cục ba cột dưới 1280px (cột giữa khi đó chỉ rộng từ 368px). Dưới ray là nút "‹ Ngày trước" / "Ngày sau ›"; bấm "Ngày sau" ở cuối một ngày dài thì trang cuộn lên tiêu đề của ngày mới.
-- **Ngày dài** (Task 2.6 commit 13): từ 1024px, **khối mô tả ngày** (tên ngày, tiêu đề, ghi chú, "Sửa", "+ Thêm hoạt động") dính ở trên khi cuộn, **ngang hàng với cột ngày bên trái** (cả hai cách mép trên 24px); nền `paper` che các thẻ cuộn qua bên dưới, viền `tide` ở đáy khối. Cả trang vẫn chỉ có **một thanh cuộn**: không dùng khung cao cố định có thanh cuộn riêng (hai thanh cuộn lồng nhau khó dùng, cản kéo thả, và cột bản đồ Phase 3 sẽ dính theo trang). Màn hình hẹp: khối mô tả **không** dính, vì sẽ chiếm gần nửa màn hình.
+- **Cột trái** (Task 3.9, theo mockup "Teal Voyage"; rộng 200px, từ 1280px: 240px. Bản đầu của Task 3.9 rộng 220 / 280px với chữ lớn hơn; chủ dự án thấy to và thô nên thu gọn ở Commit 11): một **thẻ trắng không viền, `shadow-md`**, dính khi cuộn, cao tối đa bằng màn hình trừ 48px (danh sách ngày cuộn bên trong thẻ, phần đầu thẻ đứng yên). Đầu thẻ: "Kế hoạch các ngày" (16px/600) và dòng phụ in hoa 11px `gray-500` "13 ngày · 02/10 – 14/10". Mỗi ngày là một link cao khoảng 48px: "Ngày N" (14px/600), bên dưới "Thứ sáu, 02/10" (12px `gray-500`), bên phải là số hoạt động trong vòng tròn 24px. Ngày đang xem (`aria-current="page"`): nền `jade-light`, vạch `jade` 3px ở mép trái, tên `jade-dark`, vòng tròn nền `jade-dark` chữ trắng. Hôm nay: `Badge` "Hôm nay" cạnh tên, vòng tròn nền `jade-light`. Ngày đã qua **không** có nhãn và không nhạt đi ở cột này; tiêu đề của ngày cũng không còn ở đây (cả hai còn ở khối tiêu đề ngày). Trước Task 3.9: danh sách phẳng rộng 200px, có tiêu đề của ngày và nhãn "Đã qua".
+- **Cột giữa:** chỉ ngày đang xem: khối tiêu đề của ngày, rồi đến ray. Khối tiêu đề là một **thẻ trắng không viền, `shadow-md`** gồm hai phần (Task 3.9, theo mockup "Teal Voyage"). **Phần trên** (đệm 16px, từ 1280px: 20px ngang): bên trái "Ngày N" (24px/700) và `Badge` "Hôm nay" / "Đã qua" ngay cạnh, dòng dưới "Thứ hai, 05/10/2026" (14px `gray-500`); bên phải nút "Sửa" kiểu `secondary` cỡ nhỏ có icon bút chì, và nút chính "+ Thêm hoạt động". Tên ngày cố ý ngắn: cột giữa có thể chỉ rộng 368px và các nút không co (BUG-UI-010); nhãn không bị ngắt đôi, thiếu chỗ thì cả nhãn xuống dòng. Nút chính ghi "Thêm" trên điện thoại và ở bố cục ba cột dưới 1280px; trên điện thoại rất hẹp (320px) hai nút tự xuống hàng dưới, vẫn sát mép phải. **Phần dưới**, sau một vạch `tide`: icon `Flag` và tiêu đề của ngày (`jade-dark`, 500), bên phải "N địa điểm" (12px `gray-500`, ẩn khi bằng 0) và nút "↑ Đầu ngày" (chỉ khi đã cuộn, màn rộng); rồi dòng thời tiết (màn hẹp) và ghi chú có "Đọc thêm". Form sửa tiêu đề và ghi chú của ngày hiện trong một thẻ cùng kiểu. Bản Task 3.7: hai hàng chữ trên nền trang, tên ngày viết đủ "Ngày 2 · Thứ ba, 13/10/2026". Dưới ray là nút "‹ Ngày trước" / "Ngày sau ›"; bấm "Ngày sau" ở cuối một ngày dài thì trang cuộn lên tiêu đề của ngày mới.
+- **Ngày dài** (Task 2.6 commit 13): từ 1024px, **khối mô tả ngày** (tên ngày, tiêu đề, ghi chú, "Sửa", "+ Thêm hoạt động") dính ở trên khi cuộn, **ngang hàng với cột ngày bên trái** (cả hai cách mép trên 24px); phần bọc quanh thẻ có nền `paper` (24px phía trên, 12px phía dưới) che các thẻ cuộn qua bên dưới; từ Task 3.9 không còn viền `tide` ở đáy khối vì khối đã là thẻ có bóng. Cả trang vẫn chỉ có **một thanh cuộn**: không dùng khung cao cố định có thanh cuộn riêng (hai thanh cuộn lồng nhau khó dùng, cản kéo thả, và cột bản đồ Phase 3 sẽ dính theo trang). Màn hình hẹp: khối mô tả **không** dính, vì sẽ chiếm gần nửa màn hình.
 - **Nút quay lên** (`BackToTopButton`), chỉ hiện khi đã cuộn quá một chiều cao màn hình:
   - Từ 1024px: nút ghost **"↑ Đầu ngày"** trong khối mô tả ngày đang dính, cạnh "Sửa" (về chỗ hoạt động đầu tiên nằm ngay dưới khối, như lúc mới mở ngày), và một nút tròn `ink` **nhỏ 40px** ở **góc dưới phải** màn hình, cách mép dưới **96px**, **"Lên đầu trang"** (về tên chuyến đi). Độ cao này để nút nằm trên một thông báo (toast) đang hiện ở cùng góc và không chạm footer khi cuộn tới cuối trang; cột trái chỉ có danh sách ngày.
   - Dưới 1024px chỉ một nút tròn `ink` 48px, **"Về đầu ngày"** (đầu ngày nằm ngay dưới dải chip). Cách mép dưới 56px để không chạm footer. Điện thoại: góc phải (toast ở trên). Máy tính bảng: góc **trái**, vì toast chiếm góc dưới phải.
   - Bấm thì focus chuyển tới chỗ vừa cuộn về (phần ngày, hoặc tên chuyến đi).
   - Đích cuộn "đầu ngày" là **cả phần ngày** (`#day-start`), không phải tiêu đề: tiêu đề nằm trong khối dính nên trình duyệt coi như luôn hiện, cuộn tới nó không có tác dụng. Chuyển sang ngày khác từ cuối một ngày dài cũng cuộn về `#day-start`.
 
-**Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 360px (từ 1280px: 420px), dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px) và cao bằng màn hình trừ 48px. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px bản đồ nằm ở tab "Bản đồ" (bảng "Màn hình hẹp" bên dưới). Dải thời tiết bên dưới bản đồ: Task 3.7.
+**Cột phải, bản đồ** (Task 3.6, **Đã làm**): từ 1024px có cột thứ ba rộng 340px (từ 1280px: 380px; trước Task 3.9: 360px và 420px). Cột giữa nhờ vậy rộng khoảng 530px ở màn từ 1280px, bằng bản trước Task 3.9, dính khi cuộn ngang hàng với cột ngày (cách mép trên 24px). Từ Task 3.9 Commit 11 thẻ bản đồ cao **420px** như trong mockup (trước đó cao hết phần còn lại của màn hình); trên màn hình thấp nó tự thấp đi, ít nhất 240px, để thẻ thời tiết bên dưới vẫn vừa. Khoảng cách giữa các cột 24px (từ 1280px: 32px). Bản đồ vẽ theo bản đang hiển thị của ngày, nên số trên marker đổi theo ngay khi kéo thả. Dưới 1024px bản đồ nằm ở tab "Bản đồ" (bảng "Màn hình hẹp" bên dưới). Dải thời tiết bên dưới bản đồ: Task 3.7.
 
 **Task 3.7 (chốt 2026-10-05; `design.md` rule 14.20, 14.22) — chưa làm:**
-- **Dải thời tiết** (**Đã làm**) nằm dưới bản đồ trong cột phải, cách bản đồ 12px; bản đồ thấp đi đúng bằng chiều cao của dải và khoảng cách đó (cao bằng màn hình trừ 48px trừ 124px). Chi tiết ở mục 9.
-- **Đoạn di chuyển** giữa các thẻ hoạt động (`features/itinerary/TravelLeg`, **Đã làm**): nằm trong hàng của thẻ **xuất phát**, ngay dưới thẻ, cao 24px: một dòng chữ 12px `gray-500` "12 phút · 3,2 km", và đoạn ray bên trái nó (kéo dài qua khoảng hở tới hàng sau) vẽ **nét đứt** 2px `gray-300` thay cho nét liền. Không viền, không nền, **không icon phương tiện** (API chỉ tính một phương tiện). Thẻ kế tiếp không phải đích (ở giữa có hoạt động không có địa điểm) thì ghi thêm tên đích: "12 phút · 3,2 km tới Cầu Rồng" (tên là tên của hoạt động đích; tên dài thì cắt bằng "…", phần số luôn hiện đủ). Rê chuột hiện "Ước tính theo đường bộ, chưa tính kẹt xe". Dưới 1 km ghi mét ("998 m"), từ 1 km ghi một chữ số thập phân ("8,4 km"); thời gian làm tròn lên phút, từ 60 phút ghi "1 giờ 5 phút". Chặng 0 m (hai hoạt động cùng một địa điểm) không hiện. Đang kéo thẻ thì mọi đoạn di chuyển ẩn nhưng **vẫn giữ chỗ** (các hàng không đổi chiều cao, thẻ không nhảy dưới con trỏ); sau khi lưu, số mới hiện lại. Không hiện tổng di chuyển của ngày.
+- **Thẻ thời tiết** (**Đã làm**; làm lại ở Task 3.9) nằm dưới thẻ bản đồ trong cột phải, cách 16px; thẻ bản đồ cao 420px, hoặc phần còn lại của màn hình sau khi trừ thẻ thời tiết và khoảng cách đó nếu phần này nhỏ hơn (ít nhất 240px). Chi tiết ở mục 9.
+- **Đoạn di chuyển** giữa các thẻ hoạt động (`features/itinerary/TravelLeg`, **Đã làm**): nằm trong hàng của thẻ **xuất phát**, dưới thẻ 16px. Từ Task 3.9 (mockup "Teal Voyage") là một **viên bo tròn hết cỡ**, cao 28px, nền `gray-100`, **canh giữa bề ngang của thẻ**: icon `Route` 14px `gray-500`, thời gian 12px/600 `ink`, dấu "·", quãng đường 12px `gray-600` ("12 phút · 3,2 km"). Icon là hình đường đi, không phải phương tiện. Đoạn ray bên trái viên (cả khoảng hở phía trên và phía dưới) vẽ **nét đứt** 2px `gray-300` thay cho nét liền. Bản Task 3.7: một dòng chữ 12px `gray-500` sát mép trái của thẻ. Không viền, không nền, **không icon phương tiện** (API chỉ tính một phương tiện). Thẻ kế tiếp không phải đích (ở giữa có hoạt động không có địa điểm) thì ghi thêm tên đích: "12 phút · 3,2 km tới Cầu Rồng" (tên là tên của hoạt động đích; tên dài thì cắt bằng "…", phần số luôn hiện đủ). Rê chuột hiện "Ước tính theo đường bộ, chưa tính kẹt xe". Dưới 1 km ghi mét ("998 m"), từ 1 km ghi một chữ số thập phân ("8,4 km"); thời gian làm tròn lên phút, từ 60 phút ghi "1 giờ 5 phút". Chặng 0 m (hai hoạt động cùng một địa điểm) không hiện. Đang kéo thẻ thì mọi đoạn di chuyển ẩn nhưng **vẫn giữ chỗ** (các hàng không đổi chiều cao, thẻ không nhảy dưới con trỏ); sau khi lưu, số mới hiện lại. Không hiện tổng di chuyển của ngày.
 - **Ngày đã qua và hôm nay** (**Đã làm**). "Hôm nay" tính theo múi giờ của tài khoản, hiện là giờ Việt Nam; component lấy qua `hooks/useToday`, trang để mở qua nửa đêm tự chuyển ngày trong vòng một phút:
-  - Cột trái: dưới dòng "Ngày N · ngày tháng" có một dòng nhỏ 12px: "Hôm nay" (`jade-dark`, đậm) hoặc "Đã qua" (`gray-500`). Mục của ngày đã qua nhạt đi (chữ `gray-500`), vẫn bấm được.
+  - Cột trái: nhãn "Hôm nay" cạnh tên ngày; từ Task 3.9 ngày đã qua không còn được đánh dấu ở cột này (mô tả ở mục "Cột trái" phía trên).
   - Chip ngày (dưới 1024px): chip hôm nay có chấm `jade` 6px trước chữ; chip đã qua có nền `gray-100`, chữ giữ `gray-600` (không làm mờ cả chip và không hạ màu chữ: vẫn là link, phải đủ tương phản). Chip đang chọn giữ nền `ink`.
   - Tiêu đề ngày: `Badge` "Hôm nay" (tông `brand`) hoặc "Đã qua" (tông `muted`) đi liền sau ngày tháng, **không ngắt dòng giữa nhãn**; thiếu chỗ thì cả nhãn xuống dòng dưới.
   - Thẻ hoạt động của ngày đã qua **không** nhạt đi: vẫn sửa được và phải dễ đọc.
@@ -500,8 +503,8 @@ Loại
 
 | Bề rộng | Bố cục |
 |---|---|
-| < 1024px | Cột trái thành **dải chip ngày** (link) cuộn ngang, dính ở mép trên khi cuộn; chip của ngày đang xem tô `ink` và tự cuộn vào tầm nhìn. **Đã làm** |
-| < 1024px | Ngay dưới dải chip ngày có **hai nút gạt** "Lịch trình" / "Bản đồ" (`ViewSwitch`): khung nền `gray-200` bo 6px, mỗi nút cao 44px có icon và chữ; nút đang chọn nền trắng, chữ `jade-dark` đậm, `shadow-sm` (chốt 2026-10-03 theo mockup, thay cho kiểu chữ gạch chân). Mỗi lúc chỉ hiện một trong hai: danh sách của ngày, hoặc bản đồ rộng hết màn hình, cao 70% màn hình (ít nhất 320px). Phần danh sách chỉ bị ẩn, không bị huỷ, nên việc đang sửa dở trong ngày không mất khi sang xem bản đồ; bản đồ chỉ được tạo khi tab của nó đang mở. Ở tab "Bản đồ", chạm marker mở ô tên; "Xem trong lịch trình" chuyển về tab "Lịch trình" rồi cuộn tới thẻ. Đổi ngày giữ nguyên tab đang xem. **Đã làm** (Task 3.6). Tab Chi phí: Phase 7 |
+| < 1024px | Cột trái thành **dải chip ngày** (link) cuộn ngang, dính ở mép trên khi cuộn. Từ Task 3.9 mỗi chip là một viên bo tròn hết cỡ, nền trắng, `shadow-sm`, không viền; chip của ngày đang xem tô `jade-dark` chữ trắng (trước đó: `ink`) và tự cuộn vào tầm nhìn; hôm nay có chấm 6px (`jade`, hoặc trắng khi đang chọn); ngày đã qua nền `gray-100`. **Đã làm** |
+| < 1024px | (Thẻ bản đồ ở tab "Bản đồ" cao 60% màn hình từ Task 3.9 Commit 11, trước đó 70%.) Ngay dưới dải chip ngày có **hai nút gạt** "Lịch trình" / "Bản đồ" (`ViewSwitch`): khung nền `gray-200` bo 12px (nút bên trong bo 8px; trước Task 3.9: 6px), mỗi nút cao 44px có icon và chữ; nút đang chọn nền trắng, chữ `jade-dark` đậm, `shadow-sm` (chốt 2026-10-03 theo mockup, thay cho kiểu chữ gạch chân). Mỗi lúc chỉ hiện một trong hai: danh sách của ngày, hoặc bản đồ rộng hết màn hình, cao 70% màn hình (ít nhất 320px). Phần danh sách chỉ bị ẩn, không bị huỷ, nên việc đang sửa dở trong ngày không mất khi sang xem bản đồ; bản đồ chỉ được tạo khi tab của nó đang mở. Ở tab "Bản đồ", chạm marker mở ô tên; "Xem trong lịch trình" chuyển về tab "Lịch trình" rồi cuộn tới thẻ. Đổi ngày giữ nguyên tab đang xem. **Đã làm** (Task 3.6). Tab Chi phí: Phase 7 |
 
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
@@ -558,19 +561,20 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
 
 ## 9. Bản đồ và thời tiết — **Phase 3**
 
+- **Thẻ bản đồ** (Task 3.9, theo mockup "Teal Voyage"): bản đồ của ngày nằm trong một thẻ trắng không viền, `shadow-md`. Đầu thẻ (đệm 16px ngang, 12px dọc): icon `Map` `gray-500` và "Bản đồ lộ trình" (18px/600); bên phải là chip cao 24px nền `jade-light` chữ `jade-dark` "N điểm dừng" (số hoạt động có địa điểm của ngày; ẩn khi bằng 0). Bản đồ lấp kín phần còn lại của thẻ, không viền riêng, hai góc dưới bo theo thẻ. **Không có** dòng tổng cự ly trong ngày (có trong mockup, chủ dự án cho bỏ). Nhãn tên luôn hiện cạnh marker như mockup: không làm.
 - **Bản đồ** (Task 3.6, **Đã làm**): `DayMap` + `DayMapCanvas` (`features/itinerary`), thư viện Leaflet tải lười. Nền là tile chuẩn của **OpenStreetMap** (không cần API key), **giữ màu gốc** (biển xanh, công viên xanh lá). Bản đầu làm nhạt nền bằng CSS (giảm màu 85%) cho marker nổi; chủ dự án thấy cả trang bị xám nên bỏ bộ lọc ngày 2026-10-04. Marker vẫn tách khỏi nền nhờ viền trắng 2px và bóng. Góc dưới phải ghi nguồn "Leaflet | © OpenStreetMap contributors" (bắt buộc theo điều khoản) và hai nút phóng to / thu nhỏ. CartoDB Positron (kiểu nền của mockup) cần API key từ 2026: là tuỳ chọn ở Task 3.8 (design.md 3.2). Chế độ tối: chưa làm.
 - Bản đồ luôn đóng khung vừa mọi địa điểm của ngày (một địa điểm: mức phố). Khung chỉ tính lại khi **tập địa điểm** đổi; kéo thả đổi thứ tự không làm bản đồ nhảy, và mức phóng người dùng tự chỉnh được giữ.
 - **Ngày chưa có địa điểm nào** (Task 3.6, **Đã làm**): bản đồ mở ở **điểm đến của chuyến đi** (mức thành phố), không có marker. Giữa bản đồ có một thẻ trắng nhỏ (rộng tối đa 280px, bo 10px, viền `tide`, `shadow-md`): icon bản đồ xám, dòng đậm "Ngày này chưa có địa điểm nào.", dòng nhỏ "Thêm địa điểm cho hoạt động để thấy trên bản đồ." Chuyến đi **chưa đặt vị trí điểm đến**: bản đồ hiện cả Việt Nam, và thẻ có thêm câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để bản đồ mở đúng nơi bạn đến.' Quanh thẻ, bản đồ vẫn kéo và phóng được. Thẻ biến mất ngay khi ngày có địa điểm đầu tiên.
-- **Phóng to bản đồ** (Task 3.6, **Đã làm**): góc trên phải bản đồ có nút vuông trắng 36px (màn cảm ứng: 44px), viền `tide`, icon `Maximize2`, nhãn "Phóng to bản đồ". Bấm thì bản đồ của ngày mở **phủ cả cửa sổ** trong một hộp thoại gốc của trình duyệt: cùng marker, đường nối và thẻ "chưa có địa điểm"; nút ở góc trên phải đổi thành "×" ("Thu nhỏ bản đồ"). Đóng bằng nút đó hoặc phím **Esc**; con trỏ trở về nút "Phóng to bản đồ". Trong lúc mở, phần còn lại của trang không bấm được. Bản phóng to là một bản đồ thứ hai, nên mức phóng và vị trí đang xem của bản nhỏ không mang theo (cả hai đều tự đóng khung vừa các địa điểm của ngày).
+- **Phóng to bản đồ** (Task 3.6, **Đã làm**): góc trên **trái** bản đồ (từ Task 3.9; trước đó góc trên phải, chỉ có icon) có nút trắng cao 36px (màn cảm ứng: 44px), viền `tide`, icon `Maximize2` và chữ "Mở rộng" (13px/500), nhãn đọc "Phóng to bản đồ". Bấm thì bản đồ của ngày mở **phủ cả cửa sổ** trong một hộp thoại gốc của trình duyệt: cùng marker, đường nối và thẻ "chưa có địa điểm"; nút ở góc trên phải đổi thành "×" ("Thu nhỏ bản đồ"). Đóng bằng nút đó hoặc phím **Esc**; con trỏ trở về nút "Phóng to bản đồ". Trong lúc mở, phần còn lại của trang không bấm được. Bản phóng to là một bản đồ thứ hai, nên mức phóng và vị trí đang xem của bản nhỏ không mang theo (cả hai đều tự đóng khung vừa các địa điểm của ngày).
 - **Bản đồ chọn một điểm** (`components/map/PointPicker`, Task 3.6): bản đồ nhỏ bo 6px, viền `tide`, cùng nền, dòng ghi nguồn và nút + / − như bản đồ của ngày. Bấm (hoặc chạm) lên bản đồ đặt một marker giọt nước `jade` có icon ghim trắng; bấm chỗ khác thì marker dời tới đó. Toạ độ làm tròn 7 chữ số thập phân. Khi điểm vừa đặt không nhìn rõ được, bản đồ tự chuyển tới nó ở mức thành phố: điểm nằm ngoài khung nhìn (một kết quả tìm kiếm ở nơi khác), hoặc bản đồ còn đang ở mức cả nước (một lần bấm ở mức đó quá thô, nên bản đồ phóng vào để bấm lại cho chính xác). Bản đồ đã đủ gần thì giữ nguyên khung nhìn khi bấm. Chọn điểm cần chuột hoặc ngón tay; form nào dùng bản đồ này cũng có ô tìm địa điểm cho người dùng bàn phím. Nguồn nền và các mức phóng chuẩn của mọi bản đồ nằm ở `lib/mapTiles.ts`.
-- Khung bản đồ là một lớp riêng (`isolate`), bo 10px, viền `tide`: các lớp của thư viện bản đồ (z-index tới 1000) không đè lên khối tiêu đề ngày đang dính hay lớp phủ của hộp thoại (bẫy BUG-UI-002).
+- Khung bản đồ là một lớp riêng (`isolate`), không còn viền và bo góc riêng từ Task 3.9 (thẻ bọc ngoài lo việc đó): các lớp của thư viện bản đồ (z-index tới 1000) không đè lên khối tiêu đề ngày đang dính hay lớp phủ của hộp thoại (bẫy BUG-UI-002).
 - **Marker:** hình giọt nước 28px (**36px trên màn hình cảm ứng**, icon và số lớn theo), nền màu tuyến, viền trắng 2px, icon trắng bên trong (cùng icon lucide ở mục 3.4), số thứ tự ở góc trên phải trong vòng tròn trắng 16px. Số đếm **riêng các hoạt động có địa điểm** (1, 2, 3...), theo thứ tự trong ngày; hoạt động không có địa điểm không có marker và không chiếm số. Marker do ứng dụng tự vẽ bằng HTML, không dùng ảnh marker của Leaflet. Rê chuột lên marker hiện "số. tên hoạt động". **Liên kết thẻ và marker** (Task 3.6, **Đã làm**): rê chuột lên một thẻ hoạt động, hoặc Tab vào trong thẻ, thì marker của hoạt động đó phóng to 1,15 lần (lớn lên từ mũi nhọn, mũi vẫn chỉ đúng chỗ), có vòng sáng `jade` mờ 35% dày 4px và nổi lên trên các marker khác; rời thẻ thì trở lại sau 150ms. Thẻ của hoạt động không có địa điểm không gây gì. Trạng thái này giữ ở `stores/mapLinkStore.ts`, chỉ marker liên quan vẽ lại.
 - **Bấm marker** (Task 3.6, **Đã làm**), hai kiểu:
   - *Đi thẳng tới thẻ*: bản đồ nhỏ cạnh danh sách, khi dùng chuột. Trang cuộn mượt đưa thẻ của hoạt động vào **giữa màn hình** (không nhắm mép trên, vì ở đó có khối tiêu đề ngày đang dính), thẻ có viền sáng `jade` mờ 40% trong 2 giây và nhận con trỏ; marker của nó vì thế vẫn nổi bật. Người tắt hiệu ứng chuyển động trong hệ điều hành thì trang nhảy thẳng tới thẻ.
   - *Qua ô tên*: trên **màn cảm ứng** (ngón tay không rê được để đọc chú thích) và trên **bản đồ đang phóng to** (thẻ bị che). Bấm marker mở một ô nhỏ phía trên marker: "số. tên hoạt động" (14px/600) và nút chữ `jade` **"Xem trong lịch trình"**. Bấm nút thì bản đồ phóng to tự thu lại (nếu đang mở) rồi làm như kiểu đi thẳng. Ô đóng bằng "×" của nó hoặc bấm ra ngoài.
   - Bàn phím: Tab tới marker, Enter có tác dụng như bấm chuột.
 - **Đường nối** (Task 3.6, **Đã làm**): đường **nét đứt** 2px `jade` mờ 70% (đoạn 6px, hở 6px), nối các marker theo đúng thứ tự trong ngày, nằm dưới marker. Nét đứt vì đây là đường thẳng từ điểm này tới điểm kế tiếp, không phải đường đi thật; nét liền dễ bị đọc nhầm thành một con phố của nền bản đồ (chốt 2026-10-03 khi duyệt mockup, bản đầu ghi nét liền mờ 60%). Ngày có dưới 2 địa điểm thì không có đường. Hai hoạt động cùng một địa điểm: marker chồng lên nhau, đường không đổi. Không vẽ đường giữa các ngày khác nhau. Kéo thả đổi thứ tự thì đường vẽ lại ngay.
-- **Thời tiết** (Task 3.7, **Đã làm**): dải ngang dưới bản đồ (`features/weather/WeatherStrip`), khung trắng viền `tide` bo 10px, **cao cố định 112px ở mọi trạng thái** (bản đồ phía trên chỉ đo khung của nó một lần, nên dải không được đổi chiều cao), **mỗi ngày có dự báo một ô** ngăn nhau bằng vạch `tide`. Ngày đã qua và ngày xa hơn 16 ngày **không có ô** (chốt 2026-10-05 sau khi chủ dự án xem trên trình duyệt; bản đầu vẽ ô "Chưa có" cho các ngày đó). Các ô chia đều chiều ngang, rộng tối thiểu 88px. **Dải không cuộn ngang** (chốt 2026-10-05 sau khi chủ dự án xem trên trình duyệt; bản đầu cuộn ngang): nhiều ngày hơn chỗ chứa thì chia trang, ở hai đầu dải có hai nút rộng 32px cao bằng dải (`ChevronLeft` / `ChevronRight`, nhãn đọc "Các ngày trước" / "Các ngày sau", vạch `tide` ngăn với các ô), mỗi lần bấm lật **cả một trang**; nút ở đầu không còn trang thì mờ (`gray-300`) và không bấm được. Cột 420px: 4 ngày một trang; cột 360px: đủ 4 ngày thì không có nút, nhiều hơn thì 3 ngày một trang. Trang cuối thiếu ô thì các ô giữ nguyên bề rộng, phần còn lại để trống. Chuyển trang không đổi ngày đang xem. Mỗi ô là **link tới ngày đó**: "N2 · 13/10" (12px, `gray-500`), icon 20px, "32° / 25°" (14px/600, làm tròn tới độ), icon giọt nước và "60%" (12px). Ô của ngày đang xem có nền `jade-light`, chữ đầu ô `jade-dark` đậm; mỗi khi đổi ngày, dải tự lật tới trang có ô đó. Đang xem một ngày không có ô thì không ô nào được tô. Không còn ngày nào có dự báo: thay cả dải bằng một dòng có icon `gray-400`: chuyến đi đã hết → `CalendarCheck`, "Chuyến đi đã qua, không còn dự báo thời tiết."; chuyến đi còn xa → `CalendarClock`, "Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới, chuyến đi này bắt đầu sau đó." Chuyến đi chưa đặt vị trí điểm đến: thay cả dải bằng icon `MapPinOff` màu `gray-400` và câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.' Không tải được: icon `CloudAlert` màu `gray-400`, "Tạm thời không có dự báo." kèm nút chữ `jade` "Thử lại" (đang thử: "Đang thử lại…", không bấm được); đã có dữ liệu cũ thì giữ dữ liệu cũ, không báo gì. Đang tải: khung xương cùng chiều cao. Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21).
+- **Thẻ thời tiết** (`features/weather/WeatherStrip`; Task 3.7, làm lại ở Task 3.9 theo mockup "Teal Voyage"): một thẻ trắng không viền, `shadow-md`, dưới thẻ bản đồ 16px, **cao cố định 212px ở mọi trạng thái** (thẻ bản đồ phía trên nhận phần còn lại của màn hình, và bản đồ chỉ đo khung của nó một lần). **Đầu thẻ** (cao 52px): icon `CloudSun` màu `sun`, "Thời tiết dự báo" (18px/600); bên phải là tên điểm đến của chuyến đi (12px `gray-500`, cắt bằng "…") và, khi phải chia trang, hai nút vuông 28px viền `tide` (`ChevronLeft` / `ChevronRight`, nhãn đọc "Các ngày trước" / "Các ngày sau"; 44px trên màn cảm ứng). **Thân thẻ**: mỗi ngày có dự báo một **ô rời**, bo 6px, nền `gray-100`, cách nhau 8px; ô là **link tới ngày đó**: "N4 · 05/10" (12px), icon 24px có màu, nhiệt độ cao (18px/700 `ink`), nhiệt độ thấp ngay bên dưới (12px `gray-500`), giọt nước `info` và phần trăm mưa (12px). Ô của ngày đang xem: nền `jade-light`, dòng đầu `jade-dark` đậm; rê chuột ô khác: `gray-200`. Ngày đã qua và ngày xa hơn 16 ngày **không có ô**. Ô rộng tối thiểu 82px: cột 380px có 4 ô một trang, cột 340px có 3; đủ chỗ cho mọi ô thì không có nút và các ô chia đều; trang cuối thiếu ô thì các ô giữ nguyên bề rộng. Mỗi lần bấm nút lật **cả một trang**, không đổi ngày đang xem; mỗi khi đổi ngày, thẻ tự lật tới trang có ô đó; đang xem một ngày không có ô thì không ô nào được tô. Không cuộn ngang. Khi không có ô nào, thân thẻ là một dòng có icon `gray-400` trên nền `gray-50`: chưa đặt vị trí điểm đến → `MapPinOff`, 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.'; chuyến đi đã hết → `CalendarCheck`, "Chuyến đi đã qua, không còn dự báo thời tiết."; chuyến đi còn xa → `CalendarClock`, "Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới, chuyến đi này bắt đầu sau đó."; không tải được → `CloudAlert`, "Tạm thời không có dự báo." kèm nút chữ `jade` "Thử lại" (đã có dữ liệu cũ thì giữ dữ liệu cũ). Đang tải: khung xương lấp thân thẻ. Không có hộp "Khuyến nghị" của mockup (thuộc gợi ý AI, Phase 7). Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21). Bản Task 3.7: một dải cao 112px có viền, các ô liền nhau ngăn bằng vạch, nhiệt độ dạng "32° / 25°", hai nút chuyển trang ở hai đầu dải.
 - **Icon thời tiết** (**Đã làm**; lucide, nét đơn, **có màu**, chốt 2026-10-05 theo mockup): `CLEAR` → `Sun` (`sun`), `PARTLY_CLOUDY` → `CloudSun` (`sun`), `CLOUDY` → `Cloud` (`gray-500`), `FOG` → `CloudFog` (`gray-500`), `RAIN` → `CloudRain` (`info`), `THUNDERSTORM` → `CloudLightning` (`info`), `SNOW` → `CloudSnow` (`info`). Tên tiếng Việt (dùng cho nhãn đọc và dòng thời tiết trên màn hẹp): Trời nắng, Nắng nhẹ, Có mây, Sương mù, Có mưa, Mưa dông, Có tuyết. Bảng này nằm ở `features/weather/weatherCondition.ts`, dùng chung cho dải, dòng trên màn hẹp và thẻ ở danh sách.
 
 ---
@@ -647,7 +651,7 @@ Visual direction: transit timetable. Time is the structural spine of the layout.
 Clean, flat, functional. No gradients, no decorative shadows, no glassmorphism,
 no pulsing or looping animation.
 
-Typography: Be Vietnam Pro only. Sentence case, never all caps labels.
+Typography: Inter only. Sentence case, never all caps labels.
 H1 32px/700, block title 18px/600, body 15px/400, caption 12px/400.
 
 Colors:

@@ -6,7 +6,8 @@ const SEARCH_DELAY_MS = 300
 const TRIPS_PATH = '/trips'
 
 /**
- * Trip search in the top bar (Stitch mockup). On /trips it filters the list as the user types, keeping the
+ * Trip search in the top bar (Stitch mockup): a pill on a tinted background, white once it has the focus.
+ * On /trips it filters the list as the user types, keeping the
  * other filters (status, sort) and going back to page 1. On any other page, Enter opens /trips?q=...
  * The keyword lives in the URL, so F5, Back and "Xoá bộ lọc" keep the box in step.
  */
@@ -66,7 +67,7 @@ export function TripSearchBox({ className }: { className?: string }) {
 
   return (
     <form role="search" onSubmit={handleSubmit} className={`relative ${className ?? ''}`}>
-      <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400" />
+      <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-gray-500" />
       <input
         type="search"
         aria-label="Tìm chuyến đi"
@@ -74,7 +75,7 @@ export function TripSearchBox({ className }: { className?: string }) {
         maxLength={200}
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        className="h-10 w-full rounded-control border border-white/15 bg-white/10 pr-3 pl-9 text-[15px] text-white outline-none transition-colors placeholder:text-gray-400 hover:border-white/30 focus:border-jade focus:bg-white/15 focus:ring-[3px] focus:ring-jade/40"
+        className="h-10 w-full rounded-full border border-transparent bg-gray-100 pr-4 pl-10 text-[15px] text-ink outline-none transition-colors placeholder:text-gray-500 hover:border-tide focus:border-jade focus:bg-white focus:ring-[3px] focus:ring-jade/25"
       />
     </form>
   )

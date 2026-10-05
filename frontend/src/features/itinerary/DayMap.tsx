@@ -47,8 +47,9 @@ interface DayMapProps {
 }
 
 /**
- * The map of one day (UI_GUIDE 9): a marker for every activity that has a place. A day without any place
- * shows the area of the trip's destination and a note saying how to get markers.
+ * The map of one day (UI_GUIDE 9), in a card with a title and the number of stops: a marker for every activity
+ * that has a place. A day without any place shows the area of the trip's destination and a note saying how to
+ * get markers.
  * <p>
  * "Phóng to bản đồ" opens the same map over the whole window. That view is a second map inside a native
  * dialog, not this one stretched: the dialog lives in the browser's top layer, above the pinned headers of the
@@ -100,23 +101,38 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
 
   return (
     <>
-      <MapFrame
-        stops={stops}
-        destination={destination}
-        className="h-full rounded-card border border-tide"
-        revealMode={touchScreen || listHidden ? 'popup' : 'direct'}
-        onReveal={goToCard}
-        action={
-          <MapButton ref={expandButtonRef} label="Phóng to bản đồ" onClick={expand}>
-            <Maximize2 aria-hidden className="size-4" />
-          </MapButton>
-        }
-      />
+      <div className="flex h-full flex-col overflow-hidden rounded-card bg-white shadow-md">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
+          <p className="flex min-w-0 items-center gap-2 text-lg leading-6 font-semibold text-ink">
+            <MapIcon aria-hidden className="size-5 shrink-0 text-gray-500" />
+            Bản đồ lộ trình
+          </p>
+          {stops.length > 0 && (
+            <span className="tabular inline-flex h-6 shrink-0 items-center rounded-control bg-jade-light px-2 text-xs font-medium text-jade-dark">
+              {stops.length} điểm dừng
+            </span>
+          )}
+        </div>
+        <MapFrame
+          stops={stops}
+          destination={destination}
+          className="min-h-0 flex-1"
+          actionSide="left"
+          revealMode={touchScreen || listHidden ? 'popup' : 'direct'}
+          onReveal={goToCard}
+          action={
+            <MapButton ref={expandButtonRef} label="Phóng to bản đồ" text="Mở rộng" onClick={expand}>
+              <Maximize2 aria-hidden className="size-4" />
+            </MapButton>
+          }
+        />
+      </div>
       <ExpandedMap ref={dialogRef} open={expanded} onClose={collapse}>
         <MapFrame
           stops={stops}
           destination={destination}
           className="h-full"
+          actionSide="right"
           revealMode="popup"
           onReveal={(activityId) => {
             revealAfterCollapse.current = activityId
@@ -136,10 +152,12 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
 interface MapFrameProps {
   stops: DayStop[]
   destination: Coordinates | null
-  /** Size and border of the frame; the inside is the same wherever the map is shown */
+  /** Size of the frame; the inside is the same wherever the map is shown */
   className: string
-  /** Button in the top right corner: expand, or close when already expanded */
+  /** Button in a top corner: expand, or close when already expanded */
   action: ReactNode
+  /** Corner of that button: "Mở rộng" on the left as in the mockup, the close button on the right */
+  actionSide: 'left' | 'right'
   revealMode: RevealMode
   onReveal: (activityId: number) => void
 }
@@ -149,16 +167,18 @@ interface MapFrameProps {
  * layers up to z-index 1000, and without "isolate" they would cover the sticky day header and the dialogs'
  * backdrop (BUG-UI-002).
  */
-function MapFrame({ stops, destination, className, action, revealMode, onReveal }: MapFrameProps) {
+function MapFrame({ stops, destination, className, action, actionSide, revealMode, onReveal }: MapFrameProps) {
   return (
     <section aria-label="Bản đồ của ngày" className={`relative isolate overflow-hidden bg-gray-100 ${className}`}>
-      {/* z-0 closes the layers of the map library into their own stack, so the note and the button sit above */}
-      <div className="relative z-0 h-full">
+      {/* z-0 closes the layers of the map library into their own stack, so the note and the button sit above.
+          Pinned to the four edges of the frame, not sized in percent: the frame may get its height from a
+          flex row, and the map library must find a real box the one time it measures it */}
+      <div className="absolute inset-0 z-0">
         <Suspense fallback={<Skeleton className="h-full" />}>
           <DayMapCanvas stops={stops} destination={destination} revealMode={revealMode} onReveal={onReveal} />
         </Suspense>
       </div>
-      <div className="absolute top-3 right-3 z-10">{action}</div>
+      <div className={`absolute top-3 z-10 ${actionSide === 'left' ? 'left-3' : 'right-3'}`}>{action}</div>
       {stops.length === 0 && (
         // The wrapper lets the pointer through: around the note the map can still be dragged and zoomed
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
@@ -178,13 +198,15 @@ function MapFrame({ stops, destination, className, action, revealMode, onReveal 
 
 interface MapButtonProps {
   label: string
+  /** Words shown next to the icon; without them the button is a square with the icon alone */
+  text?: string
   onClick: () => void
   children: ReactNode
   ref?: Ref<HTMLButtonElement>
 }
 
-/** White square button over the map: 36px with a mouse, 44px on touch screens. */
-function MapButton({ label, onClick, children, ref }: MapButtonProps) {
+/** White button over the map: 36px tall with a mouse, 44px on touch screens. */
+function MapButton({ label, text, onClick, children, ref }: MapButtonProps) {
   return (
     <button
       ref={ref}
@@ -192,9 +214,12 @@ function MapButton({ label, onClick, children, ref }: MapButtonProps) {
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex size-9 items-center justify-center rounded-control border border-tide bg-white text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none pointer-coarse:size-11"
+      className={`flex h-9 items-center justify-center gap-1.5 rounded-control border border-tide bg-white text-[13px] font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none pointer-coarse:h-11 ${
+        text ? 'px-3' : 'w-9 pointer-coarse:w-11'
+      }`}
     >
       {children}
+      {text}
     </button>
   )
 }

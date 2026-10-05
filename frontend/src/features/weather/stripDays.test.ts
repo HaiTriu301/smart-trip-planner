@@ -52,29 +52,34 @@ describe('noForecastReason', () => {
 })
 
 describe('stripLayout', () => {
-  it('shows every cell without buttons when they all fit', () => {
-    // The 420px column (418px inside its border) holds four cells
-    expect(stripLayout(418, 4)).toEqual({ size: 4, paged: false })
-    expect(stripLayout(418, 2)).toEqual({ size: 2, paged: false })
+  it('shows every tile without buttons when they all fit', () => {
+    // The 380px column: 356px inside the padding of the card, room for four tiles and three gaps
+    expect(stripLayout(356, 4)).toEqual({ size: 4, paged: false })
+    expect(stripLayout(356, 2)).toEqual({ size: 2, paged: false })
   })
 
-  it('turns to pages when one cell too many is asked for, and the buttons take the room of a cell', () => {
-    // 418px minus 64px of buttons still leaves room for four cells
-    expect(stripLayout(418, 5)).toEqual({ size: 4, paged: true })
-    expect(stripLayout(418, 16)).toEqual({ size: 4, paged: true })
+  it('turns to pages when one tile too many is asked for, and a page holds what the row holds', () => {
+    expect(stripLayout(356, 5)).toEqual({ size: 4, paged: true })
+    expect(stripLayout(356, 16)).toEqual({ size: 4, paged: true })
   })
 
-  it('fits fewer cells in the narrower column', () => {
-    // The 360px column: four cells without buttons, three with them
-    expect(stripLayout(358, 4)).toEqual({ size: 4, paged: false })
-    expect(stripLayout(358, 7)).toEqual({ size: 3, paged: true })
+  it('fits three tiles in the narrower column', () => {
+    // The 340px column: 316px inside the padding of the card
+    expect(stripLayout(316, 3)).toEqual({ size: 3, paged: false })
+    expect(stripLayout(316, 4)).toEqual({ size: 3, paged: true })
   })
 
-  it('fits more cells on a wide strip', () => {
-    expect(stripLayout(900, 16)).toEqual({ size: 9, paged: true })
+  it('needs room for the gaps as well as the tiles', () => {
+    // Four tiles of 82px take 328px, with three gaps 352px: one pixel less and only three fit
+    expect(stripLayout(352, 4)).toEqual({ size: 4, paged: false })
+    expect(stripLayout(351, 4)).toEqual({ size: 3, paged: true })
   })
 
-  it('always keeps one cell, however narrow the strip is', () => {
+  it('fits more tiles on a wide row', () => {
+    expect(stripLayout(876, 16)).toEqual({ size: 9, paged: true })
+  })
+
+  it('always keeps one tile, however narrow the row is', () => {
     expect(stripLayout(120, 5)).toEqual({ size: 1, paged: true })
     expect(stripLayout(0, 5)).toEqual({ size: 1, paged: true })
   })

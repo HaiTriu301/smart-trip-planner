@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Plus } from 'lucide-react'
+import { Flag, Pencil, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -45,13 +45,14 @@ interface DaySectionProps {
  * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
  * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
  * <p>
- * The heading block has two rows: the name of the day alone on the first one, then the day's own title next to
- * the buttons. With the map column in place the middle column can be as narrow as 368px; sharing one row with
- * the buttons left the name of the day about 120px and broke it over several lines (BUG-UI-010).
+ * The heading is a card in two parts (Task 3.9, mockup "Teal Voyage"). Top: "Ngày N" with its badge, the full
+ * date under it, and the two buttons. The name of the day is short on purpose: with the map column in place the
+ * middle column can be as narrow as 368px, and a long line next to buttons that do not shrink breaks over
+ * several lines (BUG-UI-010). Bottom, under a rule: the day's own title, the number of places and the note.
  * <p>
- * On wide screens the heading block is sticky (UI_GUIDE 8.1 "Ngày dài"): its 24px top padding lines it up with
- * the pinned day list on the left, and its paper background covers the cards scrolling underneath. The negative
- * top margin cancels that padding while nothing is scrolled, so the page looks the same as before at rest.
+ * On wide screens the card is sticky (UI_GUIDE 8.1 "Ngày dài"): the 24px of page background above it line it up
+ * with the pinned day list on the left and cover the cards scrolling underneath. The negative top margin
+ * cancels that padding while nothing is scrolled, so the page looks the same at rest.
  */
 export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: DaySectionProps) {
   const queryClient = useQueryClient()
@@ -96,58 +97,80 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
       tabIndex={-1}
       className="scroll-mt-20 space-y-4 focus:outline-none lg:scroll-mt-6"
     >
-      {isEditingDay ? (
-        <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
-      ) : (
-        <header className="space-y-1 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
-          {/* A row of its own, the full width of the column. The badge never breaks in two: short of room, it
-              goes to the next line as a whole */}
-          <h2
-            id="day-heading"
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg leading-[26px] font-semibold text-ink"
-          >
-            <span>
-              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-            </span>
-            {status === 'today' && <Badge tone="brand">Hôm nay</Badge>}
-            {status === 'past' && <Badge tone="muted">Đã qua</Badge>}
-          </h2>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              {day.title ? (
-                <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
-              ) : (
-                <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
-              )}
+      {/* The header of the day, a card (UI_GUIDE 8.1). On wide screens it stays pinned: the wrapper carries the
+          page background above and below the card, so the activities scrolling underneath never show around it */}
+      <div className="lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:bg-paper lg:pt-6 lg:pb-3">
+        {isEditingDay ? (
+          <div className="rounded-card bg-white p-4 shadow-md xl:p-5">
+            <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
+          </div>
+        ) : (
+          <header className="rounded-card bg-white shadow-md">
+            {/* On the narrowest phones the name of the day and the two buttons do not fit side by side: the
+                buttons then drop to a second line and stay on the right */}
+            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 p-4 xl:px-5">
+              <div className="min-w-0">
+                {/* The badge never breaks in two: short of room, it goes to the next line as a whole */}
+                <h2
+                  id="day-heading"
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl leading-8 font-bold tracking-[-0.01em] text-ink"
+                >
+                  <span>Ngày {day.dayIndex}</span>
+                  {status === 'today' && <Badge tone="brand">Hôm nay</Badge>}
+                  {status === 'past' && <Badge tone="muted">Đã qua</Badge>}
+                </h2>
+                <p className="tabular mt-0.5 text-sm text-gray-500">
+                  {formatWeekday(day.date)}, {formatDate(day.date)}
+                </p>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  fullWidth={false}
+                  aria-label={`Sửa ngày ${day.dayIndex}`}
+                  onClick={() => setIsEditingDay(true)}
+                >
+                  <Pencil aria-hidden className="size-3.5" />
+                  Sửa
+                </Button>
+                {/* The page's single primary action (UI_GUIDE 7.0). The full label only where the column has
+                    room for it: between phones and three columns, and from 1280px */}
+                <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
+                  <Plus aria-hidden className="size-4" />
+                  <span className="sm:hidden lg:inline xl:hidden">Thêm</span>
+                  <span className="hidden sm:inline lg:hidden xl:inline">Thêm hoạt động</span>
+                </Button>
+              </div>
+            </div>
+            {/* What the day is about: its own title, how many places it has, its note */}
+            <div className="space-y-1.5 border-t border-tide px-4 py-3 xl:px-5">
+              <div className="flex items-start justify-between gap-3">
+                {day.title ? (
+                  <p className="flex min-w-0 items-start gap-2 font-medium text-jade-dark">
+                    <Flag aria-hidden className="mt-1 size-4 shrink-0" />
+                    <span className="min-w-0 wrap-anywhere">{day.title}</span>
+                  </p>
+                ) : (
+                  <p className="flex items-center gap-2 text-sm text-gray-400 italic">
+                    <Flag aria-hidden className="size-4 shrink-0" />
+                    Chưa có tiêu đề
+                  </p>
+                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {placeCount > 0 && <span className="tabular text-xs leading-8 text-gray-500">{placeCount} địa điểm</span>}
+                  {/* Wide screens only, where this header stays pinned; phones have the floating button */}
+                  <div className="hidden lg:block">
+                    <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+                  </div>
+                </div>
+              </div>
               <DayWeatherLine tripId={tripId} dayId={day.id} />
               {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {/* Wide screens only, where this header stays pinned; phones have the floating button */}
-              <div className="hidden lg:block">
-                <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                fullWidth={false}
-                aria-label={`Sửa ngày ${day.dayIndex}`}
-                onClick={() => setIsEditingDay(true)}
-              >
-                <Pencil aria-hidden className="size-3.5" />
-                Sửa
-              </Button>
-              {/* The page's single primary action (UI_GUIDE 7.0). The short label where the column is narrow:
-                  phones, and three columns below 1280px */}
-              <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
-                <Plus aria-hidden className="size-4" />
-                <span className="sm:hidden lg:inline xl:hidden">Thêm</span>
-                <span className="hidden sm:inline lg:hidden xl:inline">Thêm hoạt động</span>
-              </Button>
-            </div>
-          </div>
-        </header>
-      )}
+          </header>
+        )}
+      </div>
 
       <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
         {day.activities.length === 0 ? (

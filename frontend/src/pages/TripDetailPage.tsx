@@ -115,6 +115,7 @@ export function TripDetailPage() {
         days={trip.days}
         currentDayIndex={currentDayIndex}
         tripCurrency={trip.currency}
+        destinationName={trip.destinationName}
         destination={
           trip.destinationLat !== null && trip.destinationLng !== null
             ? { lat: trip.destinationLat, lng: trip.destinationLng }
@@ -174,7 +175,7 @@ function TripDetailSkeleton() {
         <Skeleton className="h-10 w-2/3" />
         <Skeleton className="h-5 w-1/2" />
       </div>
-      <div className="space-y-3 lg:pl-[232px]">
+      <div className="space-y-3 lg:pl-[224px] xl:pl-[272px]">
         <Skeleton className="h-6 w-64" />
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="ml-16 h-20" />
