@@ -93,3 +93,4 @@ app:
     osm:
       photon-base-url: https://photon.komoot.io               # search places by keyword
       nominatim-base-url: https://nominatim.openstreetmap.org # one place by its OpenStreetMap id
+      osrm-base-url: https://router.project-osrm.org          # travel by road; this server routes cars only

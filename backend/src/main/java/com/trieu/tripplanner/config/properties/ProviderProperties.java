@@ -35,8 +35,12 @@ public record ProviderProperties(
      *
      * @param photonBaseUrl    search while typing
      * @param nominatimBaseUrl one place by its OpenStreetMap id
+     * @param osrmBaseUrl      travel by road between the stops of a day
      */
-    public record Osm(@NotBlank @URL String photonBaseUrl, @NotBlank @URL String nominatimBaseUrl) {
+    public record Osm(
+            @NotBlank @URL String photonBaseUrl,
+            @NotBlank @URL String nominatimBaseUrl,
+            @NotBlank @URL String osrmBaseUrl) {
     }
 
 }

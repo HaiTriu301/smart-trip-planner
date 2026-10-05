@@ -33,7 +33,7 @@ import org.springframework.web.client.RestClientException;
  *   <li>{@link #search}: Photon, a search service made for suggestions while typing;</li>
  *   <li>{@link #lookup}: Nominatim, asked for one place by its OpenStreetMap id at the moment a user picks a
  *       result. Its terms forbid using it for suggestions, which is why two services are needed;</li>
- *   <li>{@link #route}: no routing service yet, legs are estimated from the straight line.</li>
+ *   <li>{@link #route}: OSRM, the way by road through all the stops of a day in one call.</li>
  * </ul>
  * The id of a place is the letter of its OpenStreetMap object type followed by its number, for example
  * {@code W204885903}: what Photon tells in two fields and exactly what Nominatim accepts.
@@ -47,6 +47,14 @@ public class OsmMapProvider implements MapProvider {
 
     private static final String PHOTON = "photon";
     private static final String NOMINATIM = "nominatim";
+    private static final String OSRM = "osrm";
+
+    /**
+     * The route service of OSRM for the car. The public server has no other means of travel: it gives the same
+     * answer whatever profile the address names (checked 2026-10-05).
+     */
+    private static final String ROUTE_PATH = "/route/v1/driving/";
+    private static final String OSRM_OK = "Ok";
 
     /** N node, W way, R relation, then the number OpenStreetMap gave the object. */
     private static final Pattern EXTERNAL_ID = Pattern.compile("[NWR][0-9]{1,19}");
@@ -62,6 +70,7 @@ public class OsmMapProvider implements MapProvider {
 
     private final RestClient photon;
     private final RestClient nominatim;
+    private final RestClient osrm;
 
     /**
      * @param builder the application's builder: it carries the time limits of {@code spring.http.clients.*}
@@ -70,6 +79,7 @@ public class OsmMapProvider implements MapProvider {
         RestClient.Builder identified = builder.defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent());
         this.photon = identified.clone().baseUrl(properties.osm().photonBaseUrl()).build();
         this.nominatim = identified.clone().baseUrl(properties.osm().nominatimBaseUrl()).build();
+        this.osrm = identified.clone().baseUrl(properties.osm().osrmBaseUrl()).build();
     }
 
     @Override
@@ -152,10 +162,60 @@ public class OsmMapProvider implements MapProvider {
         return places.stream().findFirst().flatMap(place -> toResult(externalId, place));
     }
 
-    /** Until a routing service is connected: the same estimate as the mock source. */
+    /**
+     * One call to OSRM for the whole list of points. Its answer has one leg between every two consecutive points,
+     * in the order sent; two points at the same position give a leg of zero, not an error. A point away from
+     * any road is moved to the nearest one before the way is computed.
+     *
+     * @throws ProviderUnavailableException OSRM could not be reached, took too long, answered with an error
+     *                                      status, sent something unreadable, or sent another number of legs
+     *                                      than one fewer than the points: the caller matches legs to
+     *                                      activities by position, a wrong count would put numbers between the
+     *                                      wrong activities
+     */
     @Override
     public List<RouteLeg> route(List<Coordinate> points) {
-        return StraightLineRoute.legs(points);
+        if (points.size() < 2) {
+            return List.of();
+        }
+        // Longitude first, ";" between points. Only digits, "." and "-" get into the address: these are numbers
+        // read from the database, not text typed by a user
+        String path = points.stream()
+                .map(point -> point.lng().toPlainString() + "," + point.lat().toPlainString())
+                .collect(Collectors.joining(";", ROUTE_PATH, ""));
+        OsrmAnswer answer;
+        try {
+            answer = osrm.get()
+                    // Without the drawn line of the way: only the numbers are used, and the answer stays small
+                    .uri(uri -> uri.path(path).queryParam("overview", "false").build())
+                    .retrieve()
+                    .body(OsrmAnswer.class);
+        }
+        catch (RestClientException ex) {
+            throw new ProviderUnavailableException(OSRM, ex.getMessage(), ex);
+        }
+        if (answer == null || !OSRM_OK.equals(answer.code()) || answer.routes() == null || answer.routes().isEmpty()
+                || answer.routes().get(0) == null || answer.routes().get(0).legs() == null) {
+            throw new ProviderUnavailableException(OSRM, "the answer has no route");
+        }
+        List<OsrmLeg> legs = answer.routes().get(0).legs();
+        if (legs.size() != points.size() - 1) {
+            throw new ProviderUnavailableException(OSRM,
+                    "expected " + (points.size() - 1) + " legs, the answer has " + legs.size());
+        }
+        return legs.stream().map(OsmMapProvider::toLeg).toList();
+    }
+
+    /** OSRM gives metres and seconds with one decimal; the application keeps whole metres and seconds. */
+    private static RouteLeg toLeg(OsrmLeg leg) {
+        if (leg == null || !isAmount(leg.distance()) || !isAmount(leg.duration())) {
+            throw new ProviderUnavailableException(OSRM, "a leg has no usable distance or duration");
+        }
+        return new RouteLeg(Math.round(leg.distance()), Math.round(leg.duration()));
+    }
+
+    private static boolean isAmount(Double value) {
+        return value != null && Double.isFinite(value) && value >= 0;
     }
 
     private static Optional<PlaceResult> toResult(PhotonFeature feature) {
@@ -320,6 +380,28 @@ public class OsmMapProvider implements MapProvider {
             String city,
             String county,
             String state) {
+    }
+
+    /**
+     * The part of an OSRM answer this application reads.
+     *
+     * @param code   "Ok" when a way was found; anything else names what went wrong
+     * @param routes the ways found; the first one is the best, and the only one unless alternatives are asked for
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record OsrmAnswer(String code, List<OsrmRoute> routes) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record OsrmRoute(List<OsrmLeg> legs) {
+    }
+
+    /**
+     * @param distance metres by road
+     * @param duration seconds by car
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record OsrmLeg(Double distance, Double duration) {
     }
 
     /** One element of a Nominatim lookup answer; lat and lon come as text. */

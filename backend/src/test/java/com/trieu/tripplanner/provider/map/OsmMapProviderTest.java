@@ -14,6 +14,7 @@ import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
+import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import com.trieu.tripplanner.support.StubHttpServer;
 import com.trieu.tripplanner.support.TestProviders;
 import java.math.BigDecimal;
@@ -41,13 +42,15 @@ import org.springframework.web.util.UriUtils;
 
 /**
  * No Spring context and no network: the provider is built by hand on a RestClient whose calls are answered by
- * MockRestServiceServer. The two sample files are real answers of Photon and Nominatim, saved on 2026-10-05:
- * a search for "chợ hàn" around Đà Nẵng, and the lookup of the first place of that search.
+ * MockRestServiceServer. The sample files are real answers of Photon, Nominatim and OSRM, saved on 2026-10-05:
+ * a search for "chợ hàn" around Đà Nẵng, the lookup of the first place of that search, the way by road
+ * Chợ Hàn → Cầu Rồng → biển Mỹ Khê, and the same way with Chợ Hàn twice in a row.
  */
 class OsmMapProviderTest {
 
     private static final String PHOTON_URL = "https://photon.test";
     private static final String NOMINATIM_URL = "https://nominatim.test";
+    private static final String OSRM_URL = "https://osrm.test";
     private static final String USER_AGENT = "trip-planner-test/1.0";
 
     private static final ClassPathResource SEARCH_SAMPLE =
@@ -55,8 +58,17 @@ class OsmMapProviderTest {
     private static final ClassPathResource LOOKUP_SAMPLE =
             new ClassPathResource("provider/osm/nominatim-lookup-cho-han.json");
 
+    private static final ClassPathResource ROUTE_SAMPLE =
+            new ClassPathResource("provider/osm/osrm-route-three-stops.json");
+    private static final ClassPathResource ROUTE_SAME_PLACE_TWICE_SAMPLE =
+            new ClassPathResource("provider/osm/osrm-route-same-place-twice.json");
+
     private static final String CHO_HAN_ID = "W204885903";
     private static final Coordinate DA_NANG = new Coordinate(new BigDecimal("16.0678000"), new BigDecimal("108.2208000"));
+
+    private static final Coordinate CHO_HAN = new Coordinate(new BigDecimal("16.0683525"), new BigDecimal("108.2242830"));
+    private static final Coordinate CAU_RONG = new Coordinate(new BigDecimal("16.0611000"), new BigDecimal("108.2272000"));
+    private static final Coordinate MY_KHE = new Coordinate(new BigDecimal("16.0600000"), new BigDecimal("108.2470000"));
 
     private MockRestServiceServer server;
     private OsmMapProvider provider;
@@ -65,7 +77,7 @@ class OsmMapProviderTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        provider = new OsmMapProvider(builder, TestProviders.osmAt(USER_AGENT, PHOTON_URL, NOMINATIM_URL));
+        provider = new OsmMapProvider(builder, TestProviders.osmAt(USER_AGENT, PHOTON_URL, NOMINATIM_URL, OSRM_URL));
     }
 
     @Test
@@ -315,7 +327,104 @@ class OsmMapProviderTest {
         assertUnavailable("nominatim", () -> provider.lookup(CHO_HAN_ID));
     }
 
-    // ---- both services: no answer --------------------------------------------------------------------------------
+    // ---- route (OSRM) --------------------------------------------------------------------------------------------
+
+    @Test
+    void routeReadsOneLegBetweenEveryTwoPointsOutOfARealAnswer() {
+        server.expect(requestTo(startsWith(OSRM_URL + "/route/v1/driving/")))
+                .andRespond(withSuccess(ROUTE_SAMPLE, MediaType.APPLICATION_JSON));
+
+        // 1324.6 m in 105.1 s, then 3287.9 m in 246.6 s: rounded to whole metres and seconds
+        assertThat(provider.route(List.of(CHO_HAN, CAU_RONG, MY_KHE)))
+                .containsExactly(new RouteLeg(1325, 105), new RouteLeg(3288, 247));
+    }
+
+    @Test
+    void routeSendsAllPointsInOneCallLongitudeFirstAndSaysWhoIsCalling() {
+        // The whole address: the points in the order given, and no drawn line asked for
+        server.expect(requestTo(OSRM_URL + "/route/v1/driving/"
+                        + "108.2242830,16.0683525;108.2272000,16.0611000;108.2470000,16.0600000?overview=false"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.USER_AGENT, USER_AGENT))
+                .andRespond(withSuccess(ROUTE_SAMPLE, MediaType.APPLICATION_JSON));
+
+        provider.route(List.of(CHO_HAN, CAU_RONG, MY_KHE));
+
+        server.verify();
+    }
+
+    @Test
+    void twoStopsAtTheSamePlaceKeepTheirLegOfZero() {
+        // The real answer for Chợ Hàn, Chợ Hàn, Mỹ Khê: a first leg of 0 m and 0 s, not an error
+        server.expect(requestTo(startsWith(OSRM_URL)))
+                .andRespond(withSuccess(ROUTE_SAME_PLACE_TWICE_SAMPLE, MediaType.APPLICATION_JSON));
+
+        assertThat(provider.route(List.of(CHO_HAN, CHO_HAN, MY_KHE)))
+                .containsExactly(new RouteLeg(0, 0), new RouteLeg(4613, 352));
+    }
+
+    @Test
+    void fewerThanTwoPointsHaveNoLegAndTheServiceIsNotAsked() {
+        // No call is expected: any call makes the mock server fail the test
+        assertThat(provider.route(List.of())).isEmpty();
+        assertThat(provider.route(List.of(CHO_HAN))).isEmpty();
+        server.verify();
+    }
+
+    @Test
+    void answerWithTooFewLegsBecomesProviderUnavailable() {
+        // Four points need three legs; the sample has two
+        server.expect(requestTo(startsWith(OSRM_URL)))
+                .andRespond(withSuccess(ROUTE_SAMPLE, MediaType.APPLICATION_JSON));
+
+        assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, CAU_RONG, MY_KHE, CHO_HAN)));
+    }
+
+    @Test
+    void answerWithTooManyLegsBecomesProviderUnavailable() {
+        // Two points need one leg; the sample has two
+        server.expect(requestTo(startsWith(OSRM_URL)))
+                .andRespond(withSuccess(ROUTE_SAMPLE, MediaType.APPLICATION_JSON));
+
+        assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, MY_KHE)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {400, 429, 500, 503})
+    void routeErrorStatusBecomesProviderUnavailable(int status) {
+        // 400 is how OSRM says "no way between these points" or "too many points"
+        server.expect(requestTo(startsWith(OSRM_URL)))
+                .andRespond(withStatus(HttpStatus.valueOf(status)).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"code\":\"NoRoute\",\"message\":\"sample\"}"));
+
+        assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, MY_KHE)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "not json at all",
+            "null",
+            "{}",
+            "{\"code\":\"NoRoute\",\"routes\":[]}",
+            "{\"code\":\"Ok\"}",
+            "{\"code\":\"Ok\",\"routes\":[]}",
+            "{\"code\":\"Ok\",\"routes\":[null]}",
+            "{\"code\":\"Ok\",\"routes\":[{}]}",
+            // the right number of legs, but nothing to read in the leg
+            "{\"code\":\"Ok\",\"routes\":[{\"legs\":[null]}]}",
+            "{\"code\":\"Ok\",\"routes\":[{\"legs\":[{\"distance\":120.5}]}]}",
+            "{\"code\":\"Ok\",\"routes\":[{\"legs\":[{\"duration\":30.1}]}]}",
+            "{\"code\":\"Ok\",\"routes\":[{\"legs\":[{\"distance\":-1,\"duration\":30.1}]}]}",
+            "{\"code\":\"Ok\",\"routes\":[{\"legs\":[{\"distance\":\"far\",\"duration\":30.1}]}]}"
+    })
+    void routeAnswerThatCannotBeReadBecomesProviderUnavailable(String body) {
+        server.expect(requestTo(startsWith(OSRM_URL)))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, MY_KHE)));
+    }
+
+    // ---- all services: no answer ---------------------------------------------------------------------------------
 
     @Test
     void serviceThatDoesNotAnswerInTimeBecomesProviderUnavailable() {
@@ -323,10 +432,11 @@ class OsmMapProviderTest {
             JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
             requestFactory.setReadTimeout(Duration.ofMillis(200));
             provider = new OsmMapProvider(RestClient.builder().requestFactory(requestFactory),
-                    TestProviders.osmAt(USER_AGENT, silent.baseUrl(), silent.baseUrl()));
+                    TestProviders.osmAt(USER_AGENT, silent.baseUrl(), silent.baseUrl(), silent.baseUrl()));
 
             assertUnavailable("photon", () -> provider.search("chợ hàn", 8, null));
             assertUnavailable("nominatim", () -> provider.lookup(CHO_HAN_ID));
+            assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, MY_KHE)));
         }
     }
 
@@ -337,23 +447,12 @@ class OsmMapProviderTest {
             addressNobodyListensOn = stopped.baseUrl();
         }
         provider = new OsmMapProvider(RestClient.builder(),
-                TestProviders.osmAt(USER_AGENT, addressNobodyListensOn, addressNobodyListensOn));
+                TestProviders.osmAt(USER_AGENT, addressNobodyListensOn, addressNobodyListensOn,
+                        addressNobodyListensOn));
 
         assertUnavailable("photon", () -> provider.search("chợ hàn", 8, null));
         assertUnavailable("nominatim", () -> provider.lookup(CHO_HAN_ID));
-    }
-
-    // ---- route ---------------------------------------------------------------------------------------------------
-
-    @Test
-    void routeIsEstimatedFromTheStraightLineWithoutAskingAnyService() {
-        Coordinate dragonBridge = new Coordinate(new BigDecimal("16.0611000"), new BigDecimal("108.2272000"));
-
-        // Same numbers as the mock source: both use the straight-line estimate until a routing service is connected
-        assertThat(provider.route(List.of(DA_NANG, dragonBridge, DA_NANG)))
-                .isEqualTo(StraightLineRoute.legs(List.of(DA_NANG, dragonBridge, DA_NANG)))
-                .hasSize(2);
-        server.verify();
+        assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, MY_KHE)));
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------

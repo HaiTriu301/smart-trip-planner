@@ -18,14 +18,15 @@ public final class TestProviders {
     public static ProviderProperties openMeteoAt(String userAgent, String baseUrl) {
         return new ProviderProperties(userAgent,
                 new ProviderProperties.OpenMeteo(baseUrl),
-                new ProviderProperties.Osm(NOT_USED, NOT_USED));
+                new ProviderProperties.Osm(NOT_USED, NOT_USED, NOT_USED));
     }
 
-    /** Settings for a test of the map source: Photon and Nominatim are found at the two addresses. */
-    public static ProviderProperties osmAt(String userAgent, String photonBaseUrl, String nominatimBaseUrl) {
+    /** Settings for a test of the map source: Photon, Nominatim and OSRM are found at the three addresses. */
+    public static ProviderProperties osmAt(String userAgent, String photonBaseUrl, String nominatimBaseUrl,
+            String osrmBaseUrl) {
         return new ProviderProperties(userAgent,
                 new ProviderProperties.OpenMeteo(NOT_USED),
-                new ProviderProperties.Osm(photonBaseUrl, nominatimBaseUrl));
+                new ProviderProperties.Osm(photonBaseUrl, nominatimBaseUrl, osrmBaseUrl));
     }
 
 }
