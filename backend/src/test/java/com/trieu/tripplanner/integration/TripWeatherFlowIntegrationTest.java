@@ -1,9 +1,15 @@
 package com.trieu.tripplanner.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.provider.weather.MockWeatherProvider;
 import com.trieu.tripplanner.provider.weather.WeatherProvider;
@@ -24,8 +30,11 @@ import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +43,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.convention.TestBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
@@ -44,15 +54,20 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  *   <li>the mock source is the bean the application really uses when nothing else is configured;</li>
  *   <li>"today" comes from the time zone stored in the account, read from the database;</li>
  *   <li>the trip, its days and the forecast fit together: one element per day, the right days carry a forecast;</li>
- *   <li>the number of SQL statements does not grow with the length of the trip (CLAUDE.md section 8).</li>
+ *   <li>the number of SQL statements does not grow with the length of the trip (CLAUDE.md section 8);</li>
+ *   <li>a weather source that fails gives an answer without forecast, and that answer is not kept in Redis.</li>
  * </ul>
  * The clock of the application stands still at 05/10/2026 03:00 UTC: 10:00 on the 5th in Việt Nam, 20:00 on the
  * 4th in Los Angeles. Hibernate statistics are switched on for this class only.
+ * <p>
+ * The weather source is the real mock source wrapped in a spy, so one test can make it fail. Redis is real and
+ * keeps forecasts between tests: that test uses a destination of its own, no other test asks about Huế.
  */
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestcontainersConfiguration.class)
+@ExtendWith(OutputCaptureExtension.class)
 class TripWeatherFlowIntegrationTest {
 
     private static final String TRIPS_URL = "/api/v1/trips";
@@ -83,7 +98,8 @@ class TripWeatherFlowIntegrationTest {
     @Autowired
     private EntityManagerFactory entityManagerFactory;
 
-    @Autowired
+    // The bean of the application, calls go to the real mock source unless a test says otherwise
+    @MockitoSpyBean
     private WeatherProvider weatherProvider;
 
     private String ownerBearer;
@@ -186,6 +202,37 @@ class TripWeatherFlowIntegrationTest {
         assertThat(seenFromLosAngeles.get(0).get("forecast")).isNotNull();
         // The days both can still see carry the same forecast: same place, same day
         assertThat(seenFromLosAngeles.get(1).get("forecast")).isEqualTo(seenFromVietnam.get(1).get("forecast"));
+    }
+
+    // ---- the weather source fails ------------------------------------------------------------------------------
+
+    @Test
+    void tripStillGetsAnAnswerWhileTheWeatherSourceIsDownAndAForecastOnceItIsBack(CapturedOutput output) {
+        long tripId = createTrip(ownerBearer, TODAY, TODAY.plusDays(2), false);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, ownerBearer, """
+                { "destinationName": "Huế", "destinationLat": 16.4637, "destinationLng": 107.5909 }
+                """)).hasStatusOk();
+        // Down for the first question, back for every question after it
+        doThrow(new ProviderUnavailableException("open-meteo", "read timed out"))
+                .doCallRealMethod()
+                .when(weatherProvider).forecast(any(), any(), any(), any());
+
+        MvcTestResult whileDown = get(weatherUrl(tripId), ownerBearer);
+
+        assertThat(whileDown).hasStatusOk();
+        assertThat(JsonPath.<String>read(body(whileDown), "$.data.status")).isEqualTo("UNAVAILABLE");
+        List<Map<String, Object>> daysWhileDown = JsonPath.read(body(whileDown), "$.data.days");
+        assertThat(daysWhileDown).hasSize(3).allSatisfy(day -> assertThat(day.get("forecast")).isNull());
+        assertThat(daysWhileDown).extracting(day -> day.get("date"))
+                .containsExactly("2026-10-05", "2026-10-06", "2026-10-07");
+        assertThat(output.getOut()).contains("No forecast for trip " + tripId + " this time");
+
+        // "No forecast" was not stored: the next call asks the source again and gets the forecast
+        String onceBack = body(get(weatherUrl(tripId), ownerBearer));
+        assertThat(JsonPath.<String>read(onceBack, "$.data.status")).isEqualTo("OK");
+        List<Map<String, Object>> daysOnceBack = JsonPath.read(onceBack, "$.data.days");
+        assertThat(daysOnceBack).hasSize(3).allSatisfy(day -> assertThat(day.get("forecast")).isNotNull());
+        verify(weatherProvider, times(2)).forecast(any(), any(), any(), any());
     }
 
     // ---- who may see it ------------------------------------------------------------------------------------------

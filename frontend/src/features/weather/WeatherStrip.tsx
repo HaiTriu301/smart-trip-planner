@@ -43,7 +43,8 @@ interface WeatherStripProps {
  * tiles than fit are split into pages turned with two buttons in the heading; nothing scrolls sideways.
  * The card keeps one height whatever it holds: the map above it measures its own box only once.
  * <p>
- * The forecast is an extra: when it cannot be loaded the card says so and the rest of the page works as usual.
+ * The forecast is an extra: when it cannot be loaded, or the server has none because its weather source does
+ * not answer, the card says so with a "Thử lại" and the rest of the page works as usual.
  * A forecast loaded earlier stays on screen when a later reload fails (same rule as the trip itself, BUG-UI-005).
  */
 export function WeatherStrip({ tripId, days, currentDayIndex, destinationName }: WeatherStripProps) {
@@ -60,7 +61,8 @@ export function WeatherStrip({ tripId, days, currentDayIndex, destinationName }:
     )
   }
 
-  if (!weather) {
+  // Nothing could be loaded, or the server answered that its weather source is down: the same thing to the user
+  if (!weather || weather.status === 'UNAVAILABLE') {
     return (
       <WeatherCard destinationName={destinationName}>
         <Note icon={<CloudAlert aria-hidden className="size-5 shrink-0 text-gray-400" />}>

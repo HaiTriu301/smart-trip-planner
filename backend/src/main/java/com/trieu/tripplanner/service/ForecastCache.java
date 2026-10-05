@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.constant.CacheNames;
+import com.trieu.tripplanner.config.properties.AppProperties;
 import com.trieu.tripplanner.provider.weather.WeatherProvider;
 import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ public class ForecastCache {
     static final int COORDINATE_SCALE = 4;
 
     private final WeatherProvider weatherProvider;
+    private final AppProperties appProperties;
 
     /**
      * What the weather source answers for this point and these days, from Redis when the same question was
@@ -37,14 +39,22 @@ public class ForecastCache {
         return weatherProvider.forecast(lat, lng, from, to);
     }
 
+    /** The key of this question for the weather source in use, named as {@code app.providers.weather} names it. */
+    public String keyOf(BigDecimal lat, BigDecimal lng, LocalDate from, LocalDate to) {
+        return keyOf(appProperties.providers().weather(), lat, lng, from, to);
+    }
+
     /**
-     * Which questions share one stored answer: the point rounded to four decimals, and the exact range of days.
-     * The range is part of the key because the source is asked for exactly that range (design.md 8.1).
+     * Which questions share one stored answer: the source, the point rounded to four decimals, and the exact
+     * range of days. The range is part of the key because the source is asked for exactly that range
+     * (design.md 8.1). The source is part of it so that, after a switch of {@code app.providers.weather}, the
+     * made-up numbers of the mock are not shown as a real forecast for three hours, nor the other way round
+     * (BUG-PLACE-004).
      *
-     * @return for example {@code 16.0678,108.2208:2026-10-05:2026-10-07}
+     * @return for example {@code open-meteo|16.0678,108.2208:2026-10-05:2026-10-07}
      */
-    public static String keyOf(BigDecimal lat, BigDecimal lng, LocalDate from, LocalDate to) {
-        return rounded(lat) + "," + rounded(lng) + ":" + from + ":" + to;
+    public static String keyOf(String source, BigDecimal lat, BigDecimal lng, LocalDate from, LocalDate to) {
+        return source + "|" + rounded(lat) + "," + rounded(lng) + ":" + from + ":" + to;
     }
 
     private static String rounded(BigDecimal degrees) {

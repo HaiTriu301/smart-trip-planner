@@ -4,6 +4,9 @@ import type { ErrorResponse } from '../types/api'
 
 const NETWORK_ERROR_MESSAGE = 'Không kết nối được máy chủ, vui lòng thử lại'
 
+/** errorCode of a 503 the backend sends when an outside service (map, weather) gave no usable answer. */
+const PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE'
+
 /** The backend ErrorResponse body, or undefined for network errors / non-API failures. */
 export function getApiError(error: unknown): ErrorResponse | undefined {
   if (!axios.isAxiosError<ErrorResponse>(error)) return undefined
@@ -19,6 +22,17 @@ export function isRejectedByServer(error: unknown): boolean {
   if (!axios.isAxiosError(error)) return false
   const status = error.response?.status
   return status !== undefined && status >= 400 && status < 500
+}
+
+/**
+ * True when sending the same request again may give another answer: the network was down, the request timed
+ * out, the server failed (5xx). False for a 4xx, and for PROVIDER_UNAVAILABLE: the backend has already tried
+ * the outside service up to three times, or has stopped calling it for a while (design.md 7.3). Asking again
+ * at once would multiply the calls to a public service by four and keep the user waiting for the same message.
+ */
+export function isWorthRetrying(error: unknown): boolean {
+  if (isRejectedByServer(error)) return false
+  return getApiError(error)?.errorCode !== PROVIDER_UNAVAILABLE
 }
 
 /** Vietnamese message from the backend (messages.properties), or a generic fallback. */

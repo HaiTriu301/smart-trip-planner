@@ -12,6 +12,7 @@ import com.trieu.tripplanner.dto.response.ForecastResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherDayResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherStatus;
+import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.WeatherMapper;
 import com.trieu.tripplanner.model.Trip;
@@ -261,6 +262,33 @@ class WeatherServiceTest {
 
         assertThat(response.days()).extracting(TripWeatherDayResponse::forecast)
                 .containsExactly(null, SOME_FORECAST, SOME_FORECAST);
+    }
+
+    @Test
+    void sourceThatDoesNotAnswerLeavesEveryDayWithoutForecastAndSaysSo() {
+        threeDayTrip(LAT, LNG);
+        todayIs(OCT_5);
+        when(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7))
+                .thenThrow(new ProviderUnavailableException("open-meteo", "read timed out"));
+
+        TripWeatherResponse response = weatherService.forTrip(TRIP_ID, USER_ID);
+
+        // An answer, not an error: the trip page works without weather
+        assertThat(response.status()).isEqualTo(TripWeatherStatus.UNAVAILABLE);
+        assertThat(response.days()).containsExactly(
+                new TripWeatherDayResponse(11L, OCT_5, null),
+                new TripWeatherDayResponse(12L, OCT_6, null),
+                new TripWeatherDayResponse(13L, OCT_7, null));
+    }
+
+    @Test
+    void failureThatIsNotAnUnavailableSourceIsNotHidden() {
+        threeDayTrip(LAT, LNG);
+        todayIs(OCT_5);
+        when(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7)).thenThrow(new IllegalStateException("a bug"));
+
+        assertThatThrownBy(() -> weatherService.forTrip(TRIP_ID, USER_ID))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private void todayIs(LocalDate today) {

@@ -40,7 +40,7 @@ class ForecastCacheIntegrationTest {
     private static final LocalDate OCT_7 = LocalDate.of(2026, 10, 7);
 
     /** How Spring names the entry in Redis: the cache name, two colons, then our key. */
-    private static final String REDIS_KEY = "weather:forecast::16.0678,108.2208:2026-10-05:2026-10-07";
+    private static final String REDIS_KEY = "weather:forecast::mock|16.0678,108.2208:2026-10-05:2026-10-07";
 
     private static final DailyForecast MADE_UP = new DailyForecast(OCT_5, WeatherCondition.SNOW, -5.0, -1.0, 100);
 
@@ -78,7 +78,7 @@ class ForecastCacheIntegrationTest {
     void sameQuestionIsThenAnsweredFromRedisNotByTheSource() {
         forecastCache.forecast(LAT, LNG, OCT_5, OCT_7);
         // Snow in Đà Nẵng: nothing the source would ever say, so it can only come from Redis
-        cache().put(ForecastCache.keyOf(LAT, LNG, OCT_5, OCT_7), List.of(MADE_UP));
+        cache().put(forecastCache.keyOf(LAT, LNG, OCT_5, OCT_7), List.of(MADE_UP));
 
         assertThat(forecastCache.forecast(LAT, LNG, OCT_5, OCT_7)).containsExactly(MADE_UP);
         // A point 8 m away is the same point
@@ -89,7 +89,7 @@ class ForecastCacheIntegrationTest {
     @Test
     void anotherPointOrAnotherRangeOfDaysIsAskedToTheSource() {
         forecastCache.forecast(LAT, LNG, OCT_5, OCT_7);
-        cache().put(ForecastCache.keyOf(LAT, LNG, OCT_5, OCT_7), List.of(MADE_UP));
+        cache().put(forecastCache.keyOf(LAT, LNG, OCT_5, OCT_7), List.of(MADE_UP));
 
         assertThat(forecastCache.forecast(new BigDecimal("21.0283"), new BigDecimal("105.8542"), OCT_5, OCT_7))
                 .doesNotContain(MADE_UP).hasSize(3);
@@ -110,9 +110,9 @@ class ForecastCacheIntegrationTest {
     }
 
     @Test
-    void bothCachesAreDeclaredAndNothingElse() {
+    void theDeclaredCachesExistAndNothingElse() {
         assertThat(cacheManager.getCacheNames())
-                .containsExactlyInAnyOrder(CacheNames.PLACE_SEARCH, CacheNames.WEATHER_FORECAST);
+                .containsExactlyInAnyOrder(CacheNames.PLACE_SEARCH, CacheNames.ROUTE_LEGS, CacheNames.WEATHER_FORECAST);
     }
 
     private Cache cache() {
