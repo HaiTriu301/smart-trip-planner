@@ -45,27 +45,29 @@ Mọi màu nằm trong `frontend/src/styles/tokens.css` (mục 6). **Không dùn
 
 ### 3.1. Màu nền tảng
 
+Bảng màu **"Teal Voyage"**, áp dụng từ Task 3.9 (2026-10-05) theo mockup `trip-planner-screenshots/stitch_action_button_ui_redesign/`. Bảng trước đó (Task 2.6): `ink #10242B`, `paper #F4F6F5`, `jade #0B7A6B`, `jade-dark #095E52`, `jade-light #E6F2EF`, `tide #D7E4E1`, thang xám ngả xanh lá. Tên token không đổi, chỉ đổi giá trị. Độ tương phản đã kiểm bằng công thức WCAG: chữ trắng trên `jade` 5,5:1; `jade` trên trắng 5,5:1; `jade-dark` trên `jade-light` 7,0:1; `gray-600` trên `paper` 7,2:1; `gray-500` trên trắng 4,8:1. Nền `paper` so với thẻ trắng chỉ tách nhau 1,05:1 (bảng cũ: 1,09:1), nên thẻ trắng luôn cần **viền `tide` hoặc bóng `shadow-md`**, không bao giờ để trơn. Viền `tide` được chọn đậm hơn bảng cũ để bù: 1,35:1 so với trắng (cũ 1,31:1) và 1,29:1 so với `paper` (cũ 1,20:1); giá trị nháp `#DFE6F3` trong kế hoạch chỉ đạt 1,25:1 nên không dùng.
+
 | Token | Hex | Dùng ở đâu |
 |---|---|---|
-| `ink` | `#10242B` | Chữ chính, thanh điều hướng, chân trang, chip đang chọn |
-| `paper` | `#F4F6F5` | Nền trang (hơi lạnh, không phải kem) |
-| `white` | `#FFFFFF` | Nền thẻ, ô nhập, hộp thoại |
-| `jade` | `#0B7A6B` | Màu thương hiệu: nút chính, link, vòng focus, trạng thái đang chọn |
-| `jade-dark` | `#095E52` | Nút chính khi rê chuột, chữ trên nền `jade-light` |
-| `jade-light` | `#E6F2EF` | Nền nhạt của mục đang chọn (ngày trong cột trái) |
-| `tide` | `#D7E4E1` | Viền, đường kẻ, đường ray |
+| `ink` | `#0B1C30` | Chữ chính (xanh navy), chip đang chọn |
+| `paper` | `#F8F9FF` | Nền trang (trắng ngả xanh dương) |
+| `white` | `#FFFFFF` | Nền thẻ, ô nhập, hộp thoại, thanh điều hướng |
+| `jade` | `#0F766E` | Màu thương hiệu: nút chính, link, vòng focus, trạng thái đang chọn |
+| `jade-dark` | `#005C55` | Nút chính khi rê chuột, chữ trên nền `jade-light` |
+| `jade-light` | `#E3F5F2` | Nền nhạt của mục đang chọn (ngày trong cột trái) |
+| `tide` | `#D5DEEE` | Viền, đường kẻ, đường ray |
 | `sun` | `#E0A33C` | Thời tiết, huy hiệu Premium |
 
-### 3.2. Thang xám (dẫn xuất từ `ink`, hơi ngả xanh)
+### 3.2. Thang xám (ngả xanh dương theo `ink`)
 
 Thay thế hẳn thang `gray-*` của Tailwind.
 
 ```
-gray-50   #F7F9F8      gray-500  #6B8085
-gray-100  #EDF1F0      gray-600  #52666B   ← chữ phụ
-gray-200  #DCE4E2      gray-700  #3C4F55   ← nhãn ô nhập
-gray-300  #C3CFCD      gray-800  #24383E
-gray-400  #94A6A7      gray-900  #10242B
+gray-50   #F6F8FC      gray-500  #64748B
+gray-100  #EFF4FF      gray-600  #475569   ← chữ phụ
+gray-200  #E1E8F4      gray-700  #334155   ← nhãn ô nhập
+gray-300  #C7D1E0      gray-800  #1E293B
+gray-400  #94A3B8      gray-900  #0B1C30
 ```
 
 ### 3.3. Màu ngữ nghĩa
@@ -162,19 +164,19 @@ Thang 4px của Tailwind (`1` = 4px): `space-1` 4px, `2` 8px, `3` 12px, `4` 16px
 | Thành phần | Token | Giá trị |
 |---|---|---|
 | Ô nhập, nút, chip, huy hiệu, menu | `rounded-control` | 6px |
-| Thẻ hoạt động, thẻ chuyến đi, khung trang đăng nhập, khung báo | `rounded-card` | 10px |
-| Hộp thoại | `rounded-panel` | 14px (trên điện thoại chỉ bo hai góc trên) |
+| Thẻ hoạt động, thẻ chuyến đi, khung trang đăng nhập, khung báo | `rounded-card` | 12px (10px trước Task 3.9) |
+| Hộp thoại | `rounded-panel` | 16px (trên điện thoại chỉ bo hai góc trên) |
 | Ảnh đại diện, chấm trên ray, ô số đếm | `rounded-full` | 9999px |
 
 ### 5.3. Đổ bóng — rất nhẹ, ngả xanh theo `ink`
 
 ```css
---shadow-sm: 0 1px 2px rgba(16, 36, 43, .06);
---shadow-md: 0 2px 8px rgba(16, 36, 43, .08);   /* menu thả xuống, thông báo */
---shadow-lg: 0 8px 24px rgba(16, 36, 43, .12);  /* hộp thoại, thẻ đang được kéo */
+--shadow-sm: 0 1px 2px rgba(11, 28, 48, .05);
+--shadow-md: 0 1px 8px rgba(11, 28, 48, .06);   /* thẻ không viền của trang chuyến đi, menu thả xuống, thông báo */
+--shadow-lg: 0 8px 24px rgba(11, 28, 48, .12);  /* hộp thoại, thẻ đang được kéo */
 ```
 
-Thẻ ở trạng thái nghỉ dùng **viền `1px tide`**, không dùng bóng. Bóng chỉ xuất hiện khi phần tử nổi lên trên mặt phẳng khác.
+Từ Task 3.9 có hai kiểu thẻ ở trạng thái nghỉ: thẻ của **trang chuyến đi** (cột ngày, tiêu đề ngày, hoạt động, bản đồ, thời tiết) không viền, dùng `shadow-md`; thẻ ở **các trang khác** (danh sách chuyến đi, form) giữ **viền `1px tide`**, không bóng. Không để thẻ trắng trơn trên nền `paper` (mục 3.1).
 
 ### 5.4. Khung trang
 
@@ -191,12 +193,12 @@ Thẻ ở trạng thái nghỉ dùng **viền `1px tide`**, không dùng bóng. 
 ```css
 @theme {
   /* Nền tảng */
-  --color-ink: #10242B;  --color-paper: #F4F6F5;
-  --color-jade: #0B7A6B; --color-jade-dark: #095E52; --color-jade-light: #E6F2EF;
-  --color-tide: #D7E4E1; --color-sun: #E0A33C;
+  --color-ink: #0B1C30;  --color-paper: #F8F9FF;
+  --color-jade: #0F766E; --color-jade-dark: #005C55; --color-jade-light: #E3F5F2;
+  --color-tide: #D5DEEE; --color-sun: #E0A33C;
 
   /* Xám (thay thang gray của Tailwind) */
-  --color-gray-50: #F7F9F8;  /* … tới */ --color-gray-900: #10242B;
+  --color-gray-50: #F6F8FC;  /* … tới */ --color-gray-900: #0B1C30;
 
   /* Ngữ nghĩa */
   --color-success: #1D7A4C; --color-warning: #E0A33C; --color-danger: #C2453B; --color-info: #2D6FA8;
