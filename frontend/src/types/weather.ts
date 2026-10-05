@@ -20,8 +20,11 @@ export interface TripWeatherDay {
   forecast: DailyForecast | null
 }
 
-/** NO_DESTINATION: the trip has no destination position yet, so no day has a forecast. */
-export type TripWeatherStatus = 'OK' | 'NO_DESTINATION'
+/**
+ * NO_DESTINATION: the trip has no destination position yet, so no day has a forecast.
+ * UNAVAILABLE: the weather source did not answer this time; no day has a forecast, asking again may give one.
+ */
+export type TripWeatherStatus = 'OK' | 'NO_DESTINATION' | 'UNAVAILABLE'
 
 /** GET /weather/trips/{tripId}: one element per day of the trip, in calendar order. */
 export interface TripWeather {
