@@ -245,7 +245,7 @@ const VIEWS = [
  */
 function ViewSwitch({ view, onChange }: ViewSwitchProps) {
   return (
-    <div role="group" aria-label="Cách xem ngày" className="grid grid-cols-2 gap-1 rounded-control bg-gray-200 p-1 lg:hidden">
+    <div role="group" aria-label="Cách xem ngày" className="grid grid-cols-2 gap-1 rounded-card bg-gray-200 p-1 lg:hidden">
       {VIEWS.map((option) => {
         const chosen = option.view === view
         return (
@@ -254,7 +254,7 @@ function ViewSwitch({ view, onChange }: ViewSwitchProps) {
             type="button"
             aria-pressed={chosen}
             onClick={() => onChange(option.view)}
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-control text-[15px] transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none ${
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-[8px] text-[15px] transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/40 focus-visible:outline-none ${
               chosen ? 'bg-white font-semibold text-jade-dark shadow-sm' : 'text-gray-600'
             }`}
           >
@@ -276,8 +276,9 @@ interface DayChipsProps {
 }
 
 /**
- * Phones and tablets: the day list as chips that scroll sideways, stuck to the top of the screen. Today's chip
- * carries a jade dot; a past day sits on a grey chip, with text that keeps its contrast (it is still a link).
+ * Phones and tablets: the day list as pills that scroll sideways, stuck to the top of the screen. The pill of
+ * the day on screen is filled like the entry of the day list on wide screens; today's pill carries a jade dot;
+ * a past day sits on a grey pill, with text that keeps its contrast (it is still a link).
  */
 function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
   const activeRef = useRef<HTMLAnchorElement>(null)
@@ -290,9 +291,9 @@ function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
   return (
     <nav
       aria-label="Các ngày"
-      className="sticky top-0 z-20 -mx-4 border-b border-tide bg-paper px-4 py-2 sm:-mx-6 sm:px-6 lg:hidden"
+      className="sticky top-0 z-20 -mx-4 border-b border-tide bg-paper px-4 py-1.5 sm:-mx-6 sm:px-6 lg:hidden"
     >
-      <ol className="flex gap-2 overflow-x-auto">
+      <ol className="flex gap-2 overflow-x-auto px-0.5 py-1">
         {days.map((day) => {
           const active = day.dayIndex === currentDayIndex
           const status = dayStatus(day.date, today)
@@ -302,13 +303,15 @@ function DayChips({ tripId, days, currentDayIndex, today }: DayChipsProps) {
                 ref={active ? activeRef : undefined}
                 to={dayPath(tripId, day.dayIndex)}
                 aria-current={active ? 'page' : undefined}
-                className={`tabular inline-flex h-9 items-center gap-1.5 rounded-control px-3 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                className={`tabular inline-flex h-9 items-center gap-1.5 rounded-full px-4 pointer-coarse:h-11 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                   active
-                    ? 'bg-ink text-white'
-                    : `border border-tide text-gray-600 ${status === 'past' ? 'bg-gray-100' : 'bg-white'}`
+                    ? 'bg-jade-dark text-white'
+                    : `text-gray-600 shadow-sm ${status === 'past' ? 'bg-gray-100' : 'bg-white'}`
                 }`}
               >
-                {status === 'today' && <span aria-hidden className="size-1.5 rounded-full bg-jade" />}
+                {status === 'today' && (
+                  <span aria-hidden className={`size-1.5 rounded-full ${active ? 'bg-white' : 'bg-jade'}`} />
+                )}
                 Ngày {day.dayIndex} · {shortDate(day.date)}
                 {status === 'today' && <span className="sr-only">, hôm nay</span>}
                 {status === 'past' && <span className="sr-only">, đã qua</span>}

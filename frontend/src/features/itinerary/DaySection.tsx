@@ -106,7 +106,9 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
           </div>
         ) : (
           <header className="rounded-card bg-white shadow-md">
-            <div className="flex items-start justify-between gap-3 p-4 xl:px-5">
+            {/* On the narrowest phones the name of the day and the two buttons do not fit side by side: the
+                buttons then drop to a second line and stay on the right */}
+            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 p-4 xl:px-5">
               <div className="min-w-0">
                 {/* The badge never breaks in two: short of room, it goes to the next line as a whole */}
                 <h2
@@ -121,7 +123,7 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
                   {formatWeekday(day.date)}, {formatDate(day.date)}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
