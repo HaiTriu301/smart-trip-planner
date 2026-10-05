@@ -53,14 +53,14 @@ describe('noForecastReason', () => {
 
 describe('stripLayout', () => {
   it('shows every tile without buttons when they all fit', () => {
-    // The 400px column: 376px inside the padding of the card, room for four tiles and three gaps
-    expect(stripLayout(376, 4)).toEqual({ size: 4, paged: false })
-    expect(stripLayout(376, 2)).toEqual({ size: 2, paged: false })
+    // The 380px column: 356px inside the padding of the card, room for four tiles and three gaps
+    expect(stripLayout(356, 4)).toEqual({ size: 4, paged: false })
+    expect(stripLayout(356, 2)).toEqual({ size: 2, paged: false })
   })
 
   it('turns to pages when one tile too many is asked for, and a page holds what the row holds', () => {
-    expect(stripLayout(376, 5)).toEqual({ size: 4, paged: true })
-    expect(stripLayout(376, 16)).toEqual({ size: 4, paged: true })
+    expect(stripLayout(356, 5)).toEqual({ size: 4, paged: true })
+    expect(stripLayout(356, 16)).toEqual({ size: 4, paged: true })
   })
 
   it('fits three tiles in the narrower column', () => {
@@ -70,8 +70,9 @@ describe('stripLayout', () => {
   })
 
   it('needs room for the gaps as well as the tiles', () => {
-    // Four tiles of 88px take 352px, with three gaps 376px: one pixel less and only three fit
-    expect(stripLayout(375, 4)).toEqual({ size: 3, paged: true })
+    // Four tiles of 82px take 328px, with three gaps 352px: one pixel less and only three fit
+    expect(stripLayout(352, 4)).toEqual({ size: 4, paged: false })
+    expect(stripLayout(351, 4)).toEqual({ size: 3, paged: true })
   })
 
   it('fits more tiles on a wide row', () => {

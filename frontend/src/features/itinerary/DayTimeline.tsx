@@ -98,7 +98,7 @@ export function DayTimeline({
         // While dragging inside the day, the working copy is shown; pick the current day from it
         const shown = shownDays.find((d) => d.id === current.id) ?? current
         return (
-          <div className="grid gap-x-6 gap-y-4 lg:grid-cols-[220px_minmax(0,1fr)_340px] xl:grid-cols-[280px_minmax(0,1fr)_400px] xl:gap-x-8">
+          <div className="grid gap-x-6 gap-y-4 lg:grid-cols-[200px_minmax(0,1fr)_340px] xl:grid-cols-[240px_minmax(0,1fr)_380px] xl:gap-x-8">
             {/* Fixed position, so they take no room in the grid. Narrow screens: back to the start of the day, the
                 place that matters there. Wide screens: back to the top of the page ("Đầu ngày" is in the header) */}
             <BackToTopButton placement="floating" screens="narrow" label="Về đầu ngày" targetId="day-start" />
@@ -109,13 +109,13 @@ export function DayTimeline({
                 trip scrolls inside the card, so the card itself never grows past the screen */}
             <nav aria-label="Các ngày" className="hidden lg:block">
               <div className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col rounded-card bg-white shadow-md">
-                <div className="px-4 pt-4 pb-3">
-                  <p className="text-lg leading-6 font-semibold text-ink">Kế hoạch các ngày</p>
-                  <p className="tabular mt-0.5 text-xs tracking-[0.02em] text-gray-500 uppercase">
+                <div className="px-3 pt-3 pb-2">
+                  <p className="text-base leading-6 font-semibold text-ink">Kế hoạch các ngày</p>
+                  <p className="tabular text-[11px] leading-4 tracking-[0.02em] text-gray-500 uppercase">
                     {days.length} ngày · {shortDate(days[0].date)} – {shortDate(days[days.length - 1].date)}
                   </p>
                 </div>
-                <ol className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-2">
+                <ol className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-1.5">
                   {days.map((day) => {
                     const active = day.dayIndex === currentDayIndex
                     const isToday = dayStatus(day.date, today) === 'today'
@@ -125,7 +125,7 @@ export function DayTimeline({
                           <Link
                             to={dayPath(tripId, day.dayIndex)}
                             aria-current={active ? 'page' : undefined}
-                            className={`relative flex items-center justify-between gap-2 rounded-control py-2.5 pr-3 pl-4 transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
+                            className={`relative flex items-center justify-between gap-2 rounded-control py-1.5 pr-2 pl-3 transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none ${
                               active
                                 ? 'bg-jade-light before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:rounded-full before:bg-jade'
                                 : 'hover:bg-gray-50'
@@ -134,19 +134,19 @@ export function DayTimeline({
                             <span className="min-w-0">
                               <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                 <span
-                                  className={`text-[15px] leading-5 font-semibold ${active ? 'text-jade-dark' : 'text-ink'}`}
+                                  className={`text-sm leading-5 font-semibold ${active ? 'text-jade-dark' : 'text-gray-800'}`}
                                 >
                                   Ngày {day.dayIndex}
                                 </span>
                                 {isToday && <Badge tone="brand">Hôm nay</Badge>}
                               </span>
-                              <span className="tabular mt-0.5 block text-[13px] leading-5 text-gray-500">
+                              <span className="tabular block text-xs leading-4 text-gray-500">
                                 {formatWeekday(day.date)}, {shortDate(day.date)}
                               </span>
                             </span>
                             {/* Number of activities: filled for the day on screen, tinted for today */}
                             <span
-                              className={`tabular flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                              className={`tabular flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-medium ${
                                 active
                                   ? 'bg-jade-dark text-white'
                                   : isToday
@@ -197,12 +197,13 @@ export function DayTimeline({
             </div>
             {/* Wide screens: third column, pinned like the day list, as tall as the screen allows. Narrow
                 screens: the "Bản đồ" tab. The map is created only while it is shown; it shows the working copy
-                of the day, so the numbers follow a card while it is being dragged. The weather card sits
-                under it; the map card gives up exactly that card's height (212px) and the gap (16px) */}
+                of the day, so the numbers follow a card while it is being dragged. The map card is a
+                compact 420px, as in the mockup, not as tall as the screen; on a short screen it gives up
+                room so that the weather card under it (212px, 16px lower) still fits */}
             {mapShown && (
               <aside>
                 <div className="space-y-4 lg:sticky lg:top-6">
-                  <div className="h-[70dvh] min-h-[320px] lg:h-[calc(100vh-3rem-228px)] lg:min-h-[240px]">
+                  <div className="h-[60dvh] min-h-[320px] lg:h-[min(420px,calc(100vh-3rem-228px))] lg:min-h-[240px]">
                     <DayMap
                       activities={shown.activities}
                       destination={destination}

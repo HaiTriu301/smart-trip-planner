@@ -16,14 +16,14 @@ interface TravelLegProps {
  * two cards, and the stretch of timeline next to it drawn dashed. The icon is a route, not a vehicle: the
  * server estimates for one vehicle only and does not say which.
  * <p>
- * It sits in the card column of its row, which starts 36px from the left of the list; the dashed stretch is
- * pulled back onto the line (centred 12px from the left) and covers the gaps above and below the pill. A
+ * It sits in the card column of its row, which starts 18px from the left of the list; the dashed stretch is
+ * pulled back onto the line (centred 6px from the left) and covers the gaps above and below the pill. A
  * paper-coloured strip under it hides the solid line.
  */
 export function TravelLeg({ leg, destination }: TravelLegProps) {
   return (
     <div className="relative mt-4 flex justify-center">
-      <span aria-hidden className="absolute -top-4 -bottom-4 -left-8 flex w-4 justify-center">
+      <span aria-hidden className="absolute -top-4 -bottom-4 -left-5 flex w-4 justify-center">
         <span className="w-1.5 bg-paper" />
         <span className="absolute inset-y-0 border-l-2 border-dashed border-gray-300" />
       </span>

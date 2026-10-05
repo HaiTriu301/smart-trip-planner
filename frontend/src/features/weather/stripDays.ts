@@ -28,8 +28,8 @@ export function noForecastReason(days: readonly { date: string }[], today: strin
 // Pages (decided 2026-10-05): the forecast never scrolls sideways. When the tiles do not all fit, the card shows
 // as many as fit and two buttons in its heading turn a whole page at a time.
 
-/** A tile narrower than this is too tight for "N12 · 13/10". Four of them fit the 400px column */
-export const MIN_TILE_WIDTH = 88
+/** A tile narrower than this is too tight for "N12 · 13/10". Four of them fit the 380px column */
+export const MIN_TILE_WIDTH = 82
 /** Space between two tiles, in pixels */
 export const TILE_GAP = 8
 
