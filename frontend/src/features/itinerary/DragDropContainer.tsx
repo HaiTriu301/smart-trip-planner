@@ -93,6 +93,8 @@ function applyItems(days: TripDayDetail[], items: ReorderItem[]): TripDayDetail[
 interface ReorderContextValue {
   /** True while a reorder is saving or waiting for the overlap question: dragging and moving are paused */
   disabled: boolean
+  /** True while a card is being dragged: what sits between the cards steps out of the way */
+  dragging: boolean
   /** Move one step up or down inside its day (one day per page: leaving the day would hide the activity) */
   move: (activityId: number, direction: -1 | 1) => void
   /** False for the first activity of its day going up and the last one going down */
@@ -101,6 +103,7 @@ interface ReorderContextValue {
 
 const ReorderContext = createContext<ReorderContextValue>({
   disabled: false,
+  dragging: false,
   move: () => undefined,
   canMove: () => false,
 })
@@ -153,6 +156,9 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
       setConflict(null)
       // The response carries the final orderIndex, including a backend renumbering
       setCachedDays((current) => current.map((day) => affected.find((d) => d.id === day.id) ?? day))
+      // Travel between the activities follows their order. The key covers every day of the trip, so the day
+      // the activity left and the day it went to are both asked again; only the days on screen reload now
+      void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
       if (movedTo) {
         toast.success(`Đã chuyển "${movedTo.title}" sang Ngày ${movedTo.dayIndex}`, {
           label: `Mở Ngày ${movedTo.dayIndex}`,
@@ -287,6 +293,7 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
     activeId === null ? undefined : shownDays.flatMap((d) => d.activities).find((a) => a.id === activeId)
   const reorder: ReorderContextValue = {
     disabled: mutation.isPending || conflict !== null,
+    dragging: activeId !== null,
     move,
     canMove,
   }
@@ -393,11 +400,13 @@ interface SortableActivityProps {
   activity: Activity
   /** Receives the drag handle to place inside the card; only the handle starts a drag */
   children: (dragHandle: ReactNode) => ReactNode
+  /** Shown under the card, in the same row: the travel to the next activity */
+  below?: ReactNode
 }
 
 /** One "station": start time on the left, a dot in the route colour on the rail, the card on the right. */
-export function SortableActivity({ activity, children }: SortableActivityProps) {
-  const { disabled, move, canMove } = useContext(ReorderContext)
+export function SortableActivity({ activity, children, below }: SortableActivityProps) {
+  const { disabled, dragging, move, canMove } = useContext(ReorderContext)
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: activityKey(activity.id),
     disabled,
@@ -448,6 +457,8 @@ export function SortableActivity({ activity, children }: SortableActivityProps) 
       <div className="relative pl-2">
         <div className={isDragging ? 'invisible' : undefined}>{children(handle)}</div>
         {isDragging && <div aria-hidden className="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-jade" />}
+        {/* Hidden, not removed, during any drag: the rows keep their height, so nothing jumps under the pointer */}
+        {below && <div className={dragging ? 'invisible' : undefined}>{below}</div>}
       </div>
     </li>
   )

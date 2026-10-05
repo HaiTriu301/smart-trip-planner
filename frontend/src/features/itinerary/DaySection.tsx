@@ -2,27 +2,34 @@ import { useState } from 'react'
 import { Pencil, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deleteActivity } from '../../api/activities'
+import { getDayRoute } from '../../api/routes'
 import { updateTripDay } from '../../api/trips'
 import { applyFieldErrors, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { BackToTopButton } from '../../components/BackToTopButton'
+import { Badge } from '../../components/Badge'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
+import { useToday } from '../../hooks/useToday'
 import { formatDate, formatWeekday } from '../../lib/format'
 import { findOverlaps } from '../../lib/timeOverlap'
+import { dayStatus } from '../../lib/today'
+import { legsAfter } from '../../lib/travelLegs'
 import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFormDialog } from './ActivityFormDialog'
 import { MoveToDayDialog } from './MoveToDayDialog'
+import { TravelLeg } from './TravelLeg'
 import { SortableActivity, SortableDayList } from './DragDropContainer'
 import { daySchema, NOTE_MAX_LENGTH, type DayValues } from './schemas'
+import { DayWeatherLine } from '../weather/DayWeatherLine'
 
 interface DaySectionProps {
   tripId: number
@@ -38,6 +45,10 @@ interface DaySectionProps {
  * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
  * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
  * <p>
+ * The heading block has two rows: the name of the day alone on the first one, then the day's own title next to
+ * the buttons. With the map column in place the middle column can be as narrow as 368px; sharing one row with
+ * the buttons left the name of the day about 120px and broke it over several lines (BUG-UI-010).
+ * <p>
  * On wide screens the heading block is sticky (UI_GUIDE 8.1 "Ngày dài"): its 24px top padding lines it up with
  * the pinned day list on the left, and its paper background covers the cards scrolling underneath. The negative
  * top margin cancels that padding while nothing is scrolled, so the page looks the same as before at rest.
@@ -50,10 +61,25 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
   const [deleting, setDeleting] = useState<Activity | null>(null)
   const [moving, setMoving] = useState<Activity | null>(null)
   const overlaps = findOverlaps(day.activities)
+  const status = dayStatus(day.date, useToday())
+
+  // Travel between the activities that have a place; one without a place is passed over, and the leg then
+  // names where it arrives. Its own key, not under ['trip', id]; a day with fewer than two places has no leg,
+  // so nothing is asked
+  const placeCount = day.activities.filter((activity) => activity.place).length
+  const { data: route } = useQuery({
+    queryKey: ['route', tripId, day.id],
+    queryFn: () => getDayRoute(tripId, day.id),
+    enabled: placeCount >= 2,
+  })
+  const legs = legsAfter(day.activities, route?.legs ?? [])
+  const titleOf = (activityId: number) => day.activities.find((a) => a.id === activityId)?.title
 
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
     onSuccess: async () => {
+      // The two neighbours of the deleted activity now follow each other: a leg the server has not sent yet
+      void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       setDeleting(null)
       toast.success('Đã xoá hoạt động')
@@ -73,39 +99,52 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
       {isEditingDay ? (
         <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
       ) : (
-        <header className="flex items-start justify-between gap-3 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
-          <div className="min-w-0 space-y-1">
-            <h2 id="day-heading" className="text-lg leading-[26px] font-semibold text-ink">
+        <header className="space-y-1 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
+          {/* A row of its own, the full width of the column. The badge never breaks in two: short of room, it
+              goes to the next line as a whole */}
+          <h2
+            id="day-heading"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg leading-[26px] font-semibold text-ink"
+          >
+            <span>
               Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-            </h2>
-            {day.title ? (
-              <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
-            ) : (
-              <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
-            )}
-            {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {/* Wide screens only, where this header stays pinned; phones have the floating button */}
-            <div className="hidden lg:block">
-              <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+            </span>
+            {status === 'today' && <Badge tone="brand">Hôm nay</Badge>}
+            {status === 'past' && <Badge tone="muted">Đã qua</Badge>}
+          </h2>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              {day.title ? (
+                <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
+              ) : (
+                <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
+              )}
+              <DayWeatherLine tripId={tripId} dayId={day.id} />
+              {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              fullWidth={false}
-              aria-label={`Sửa ngày ${day.dayIndex}`}
-              onClick={() => setIsEditingDay(true)}
-            >
-              <Pencil aria-hidden className="size-3.5" />
-              Sửa
-            </Button>
-            {/* The page's single primary action (UI_GUIDE 7.0); a shorter label on phones */}
-            <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
-              <Plus aria-hidden className="size-4" />
-              <span className="sm:hidden">Thêm</span>
-              <span className="hidden sm:inline">Thêm hoạt động</span>
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Wide screens only, where this header stays pinned; phones have the floating button */}
+              <div className="hidden lg:block">
+                <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                fullWidth={false}
+                aria-label={`Sửa ngày ${day.dayIndex}`}
+                onClick={() => setIsEditingDay(true)}
+              >
+                <Pencil aria-hidden className="size-3.5" />
+                Sửa
+              </Button>
+              {/* The page's single primary action (UI_GUIDE 7.0). The short label where the column is narrow:
+                  phones, and three columns below 1280px */}
+              <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
+                <Plus aria-hidden className="size-4" />
+                <span className="sm:hidden lg:inline xl:hidden">Thêm</span>
+                <span className="hidden sm:inline lg:hidden xl:inline">Thêm hoạt động</span>
+              </Button>
+            </div>
           </div>
         </header>
       )}
@@ -121,23 +160,29 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
             </Button>
           </li>
         ) : (
-          day.activities.map((activity) => (
-            <SortableActivity key={activity.id} activity={activity}>
-              {(dragHandle) => (
-                <ActivityCard
-                  activity={activity}
-                  dragHandle={dragHandle}
-                  overlapping={overlaps.has(activity.id)}
-                  onEdit={() => setEditing(activity)}
-                  onDelete={() => {
-                    deletion.reset()
-                    setDeleting(activity)
-                  }}
-                  onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
-                />
-              )}
-            </SortableActivity>
-          ))
+          day.activities.map((activity) => {
+            const shown = legs.get(activity.id)
+            const travel = shown && (
+              <TravelLeg leg={shown.leg} destination={shown.direct ? undefined : titleOf(shown.leg.toActivityId)} />
+            )
+            return (
+              <SortableActivity key={activity.id} activity={activity} below={travel}>
+                {(dragHandle) => (
+                  <ActivityCard
+                    activity={activity}
+                    dragHandle={dragHandle}
+                    overlapping={overlaps.has(activity.id)}
+                    onEdit={() => setEditing(activity)}
+                    onDelete={() => {
+                      deletion.reset()
+                      setDeleting(activity)
+                    }}
+                    onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
+                  />
+                )}
+              </SortableActivity>
+            )
+          })
         )}
       </SortableDayList>
 

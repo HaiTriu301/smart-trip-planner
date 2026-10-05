@@ -8,6 +8,8 @@ interface ConfirmDialogProps {
   title: string
   children: ReactNode
   confirmLabel: string
+  /** The way out without acting; "Huỷ" unless the dialog has a better word for it */
+  cancelLabel?: string
   variant?: 'primary' | 'danger'
   isLoading?: boolean
   /** Shown above the buttons, e.g. when the confirmed action itself failed */
@@ -22,6 +24,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  cancelLabel = 'Huỷ',
   variant = 'primary',
   isLoading = false,
   error,
@@ -34,7 +37,7 @@ export function ConfirmDialog({
       {error && <Alert variant="error">{error}</Alert>}
       <div className="flex justify-end gap-2">
         <Button variant="secondary" fullWidth={false} disabled={isLoading} onClick={onCancel}>
-          Huỷ
+          {cancelLabel}
         </Button>
         {/* The confirm button of a destructive dialog is the only red-filled button (UI_GUIDE 7.1) */}
         <Button

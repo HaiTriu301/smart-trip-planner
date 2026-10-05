@@ -105,6 +105,14 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
         ? createActivity(tripId, dayId, request.body, allowOverlap)
         : updateActivity(tripId, request.activityId, request.body, allowOverlap),
     onSuccess: async (_saved, { request }) => {
+      // Travel between the activities: a new activity, a new start time (the activity moves) or another place
+      // all change it. A replaced place makes the loaded numbers wrong for the same two cards, so they are
+      // dropped at once instead of staying on screen until the new ones arrive; in every other case the legs
+      // that no longer fit are already hidden (lib/travelLegs) and a quiet reload is enough. Not awaited: the
+      // dialog closes as soon as the trip itself is up to date
+      const placeReplaced = request.kind === 'update' && request.body.placeId !== undefined
+      if (placeReplaced) void queryClient.resetQueries({ queryKey: ['route', tripId] })
+      else void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       onClose()
       toast.success(request.kind === 'create' ? 'Đã thêm hoạt động' : 'Đã lưu thay đổi')

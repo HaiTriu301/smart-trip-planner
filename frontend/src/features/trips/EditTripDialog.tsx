@@ -81,6 +81,8 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['trip', trip.id] }),
         queryClient.invalidateQueries({ queryKey: ['trips'] }),
+        // The forecast follows the destination and the dates, both editable here
+        queryClient.invalidateQueries({ queryKey: ['weather', trip.id] }),
       ])
       onClose()
       toast.success('Đã lưu thay đổi')
