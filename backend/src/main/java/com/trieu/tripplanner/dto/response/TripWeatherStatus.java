@@ -10,5 +10,11 @@ public enum TripWeatherStatus {
     OK,
 
     /** The trip has no destination coordinates yet: no day has a forecast and the UI asks for a destination. */
-    NO_DESTINATION
+    NO_DESTINATION,
+
+    /**
+     * The weather source did not answer (down, too slow, unreadable): no day has a forecast this time. The trip
+     * page must stay usable without weather, so this is an answer and not an error; the next call asks again.
+     */
+    UNAVAILABLE
 }

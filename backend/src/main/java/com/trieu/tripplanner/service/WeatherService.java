@@ -3,6 +3,7 @@ package com.trieu.tripplanner.service;
 import com.trieu.tripplanner.dto.response.TripWeatherDayResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherResponse;
 import com.trieu.tripplanner.dto.response.TripWeatherStatus;
+import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.WeatherMapper;
 import com.trieu.tripplanner.model.Trip;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
  * switching from made-up numbers to a real service changes configuration, not this class (CLAUDE.md rule 19).
  * Simple enough to be a class without interface (CLAUDE.md rule 5).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WeatherService {
@@ -49,6 +52,10 @@ public class WeatherService {
      * (rule 14.22). A day of the trip that is already over, or further away, keeps a null forecast. The rule
      * lives here and not in the source, so it holds for the mock source as well as for a real one.
      * <p>
+     * A weather source that does not answer must not break the trip page: the days come back without any
+     * forecast and the status UNAVAILABLE (design.md 7.3). Nothing of that answer is stored, so the next call
+     * asks the source again.
+     * <p>
      * Not @Transactional on purpose. Each repository call is one short read; a surrounding transaction would
      * keep a database connection busy for as long as the weather source takes to answer, and a real source is a
      * network call.
@@ -64,7 +71,14 @@ public class WeatherService {
             return new TripWeatherResponse(TripWeatherStatus.NO_DESTINATION, withForecasts(days, Map.of()));
         }
         LocalDate today = userService.today(userId);
-        return new TripWeatherResponse(TripWeatherStatus.OK, withForecasts(days, forecastsByDate(trip, today)));
+        try {
+            return new TripWeatherResponse(TripWeatherStatus.OK, withForecasts(days, forecastsByDate(trip, today)));
+        }
+        catch (ProviderUnavailableException ex) {
+            // Only this failure is turned into an answer; anything else is a bug and must stay an error
+            log.warn("No forecast for trip {} this time: {}", tripId, ex.getMessage());
+            return new TripWeatherResponse(TripWeatherStatus.UNAVAILABLE, withForecasts(days, Map.of()));
+        }
     }
 
     /** A point needs both numbers; a trip holding only one of them has no usable destination. */
