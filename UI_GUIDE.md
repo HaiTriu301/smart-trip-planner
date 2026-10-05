@@ -15,7 +15,7 @@
 - Mỗi ngày trong chuyến đi là một **thanh ray dọc**. **Đã làm**
 - Mỗi hoạt động là một **"ga"** gắn vào ray, có chấm màu theo loại hoạt động. **Đã làm**
 - Khoảng giữa hai ga là **đoạn nét đứt** ghi thời gian và quãng đường di chuyển. **Phase 3** (cần API lộ trình)
-- Màu của loại hoạt động dùng nhất quán ở **ba nơi**: chấm trên ray, viền trái của thẻ, marker trên bản đồ. Hai nơi đầu **Đã làm**, marker **Phase 3**.
+- Màu của loại hoạt động dùng nhất quán ở **ba nơi**: nút trên ray, chip loại trong thẻ (trước Task 3.9: viền trái của thẻ), marker trên bản đồ. **Đã làm**.
 - Thanh bước của wizard tạo chuyến đi cũng là một tuyến tàu ngắn (các bước là "ga"). **Đã làm**
 
 **Điểm bạo nhất chỉ ở một chỗ:** thanh ray thời gian. Mọi thứ còn lại giữ im lặng: nền phẳng, viền mảnh, bóng rất nhẹ, không gradient trang trí.
@@ -313,19 +313,19 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 ### 7.4. Thanh ray thời gian ⭐
 
 ```
- 08:00 ─●── [Thẻ: Chùa Linh Ứng]
-         │
-         ┊ 25 phút · 8,4 km        ← Phase 3
-         │
- 12:00 ─●── [Thẻ: Bún chả cá 109]
-         │
-     — ─●── [Thẻ: Chợ đêm]          ← hoạt động không có giờ
+ ◉── [Thẻ: 08:00 – 09:30 · Chùa Linh Ứng]
+ │
+ ┊     25 phút · 8,4 km
+ │
+ ◉── [Thẻ: 12:00 · Bún chả cá 109]
+ │
+ ◉── [Thẻ: Chưa đặt giờ · Chợ đêm]
 ```
 
 - Các ga xếp theo **thứ tự trong ngày** (do kéo thả quyết định), **không** theo tỉ lệ thời gian, vì hệ thống cho phép hoạt động không có giờ và cho phép sắp xếp tự do.
-- Lưới mỗi hàng: cột giờ 40px (căn phải) → cột ray 16px (tâm ray ở 48px) → thẻ.
-- Ray: đường dọc 1px `tide`, chỉ vẽ khi ngày có hoạt động.
-- Chấm: 10px, nền trắng, viền 3px màu tuyến.
+- Lưới mỗi hàng (Task 3.9, theo mockup "Teal Voyage"): cột nút 24px (tâm ở 12px) → thẻ, cách cột nút 12px. **Không còn cột giờ**: giờ nằm ở dòng đầu trong thẻ. Trước Task 3.9: cột giờ 40px → cột ray 16px (tâm ở 48px) → thẻ.
+- Ray: đường dọc 2px `tide`, chỉ vẽ khi ngày có hoạt động. Các thẻ cách nhau 16px.
+- Nút: đĩa tròn 20px nền trắng, viền 2px màu tuyến, chấm 8px màu tuyến ở giữa; nằm ngang hàng với dòng giờ của thẻ (cách đầu thẻ 18px). Trước Task 3.9: chấm 10px viền 3px.
 - Ngày trống: khung nét đứt "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." + nút "Thêm hoạt động".
 - "+ Thêm hoạt động" là **nút chính của trang**, đặt ở góc phải tiêu đề ngày (trên điện thoại chữ rút gọn "+ Thêm"), không đặt ở cuối ray.
 - **Chưa áp dụng:** đoạn nét đứt ghi thời gian di chuyển (cần API lộ trình, Phase 3); nút mờ "+ Thêm hoạt động vào khoảng này" khi hai hoạt động cách nhau trên 3 tiếng.

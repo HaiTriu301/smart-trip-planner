@@ -350,9 +350,10 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
   )
 }
 
-// Rail geometry (UI_GUIDE 7.4): a 40px time column, then the rail centred at 48px, then the card.
-// The vertical line is drawn by the list; each row places its dot on it.
-const ROW_GRID = 'grid grid-cols-[40px_16px_minmax(0,1fr)]'
+// Timeline geometry (UI_GUIDE 7.4): a 24px column whose centre, 12px from the left, carries the line and one
+// node per activity; then the card. The start time is on the card, not beside the line. The vertical line
+// is drawn by the list; each row places its node on it.
+const ROW_GRID = 'grid grid-cols-[24px_minmax(0,1fr)]'
 
 interface SortableDayListProps {
   dayId: number
@@ -361,19 +362,20 @@ interface SortableDayListProps {
 }
 
 /**
- * The rail of one day: a sortable list and a drop target, so an empty day can receive activities.
- * The 1px tide line runs through the dots; it is hidden while the day is empty.
+ * The timeline of one day: a sortable list and a drop target, so an empty day can receive activities.
+ * The 2px tide line runs through the nodes; it is hidden while the day is empty.
  */
 export function SortableDayList({ dayId, activityIds, children }: SortableDayListProps) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(dayId) })
-  const rail = activityIds.length > 0 ? 'before:absolute before:inset-y-3 before:left-12 before:w-px before:bg-tide' : ''
+  const rail =
+    activityIds.length > 0 ? 'before:absolute before:inset-y-5 before:left-[11px] before:w-0.5 before:bg-tide' : ''
   return (
     <SortableContext id={dayKey(dayId)} items={activityIds.map(activityKey)} strategy={verticalListSortingStrategy}>
-      {/* isolate: the station dots (z-10, above the rail line) stay inside the list and never paint over the
-          sticky day header (BUG-UI-002) */}
+      {/* isolate: the nodes (z-10, above the line) stay inside the list and never paint over the sticky day
+          header (BUG-UI-002) */}
       <ol
         ref={setNodeRef}
-        className={`relative isolate min-h-12 space-y-3 rounded-card transition-colors ${rail} ${isOver ? 'bg-jade-light/60' : ''}`}
+        className={`relative isolate min-h-12 space-y-4 rounded-card transition-colors ${rail} ${isOver ? 'bg-jade-light/60' : ''}`}
       >
         {children}
       </ol>
@@ -404,7 +406,7 @@ interface SortableActivityProps {
   below?: ReactNode
 }
 
-/** One "station": start time on the left, a dot in the route colour on the rail, the card on the right. */
+/** One stop of the day: a node in the colour of its type on the line, the card to the right of it. */
 export function SortableActivity({ activity, children, below }: SortableActivityProps) {
   const { disabled, dragging, move, canMove } = useContext(ReorderContext)
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -447,14 +449,17 @@ export function SortableActivity({ activity, children, below }: SortableActivity
 
   return (
     <li ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={ROW_GRID}>
-      <span className="tabular pt-3 pr-2 text-right text-[13px] leading-4 font-semibold tracking-[0.02em] text-gray-700">
-        {activity.startTime ?? <span className="font-normal text-gray-400">—</span>}
-      </span>
-      <span aria-hidden className="relative z-10 flex justify-center pt-3.5">
-        <span className={`size-2.5 rounded-full border-[3px] bg-white ${ACTIVITY_ROUTE[activity.type].dot}`} />
+      {/* A white disc ringed in the type colour with a dot of the same colour, level with the first line of
+          the card. White, so it hides the line passing behind it */}
+      <span aria-hidden className="relative z-10 flex justify-center pt-[18px]">
+        <span
+          className={`flex size-5 items-center justify-center rounded-full border-2 bg-white ${ACTIVITY_ROUTE[activity.type].dot}`}
+        >
+          <span className={`size-2 rounded-full ${ACTIVITY_ROUTE[activity.type].marker}`} />
+        </span>
       </span>
       {/* While dragging, the row keeps its height and shows where the card will land: a 2px jade line */}
-      <div className="relative pl-2">
+      <div className="relative pl-3">
         <div className={isDragging ? 'invisible' : undefined}>{children(handle)}</div>
         {isDragging && <div aria-hidden className="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-jade" />}
         {/* Hidden, not removed, during any drag: the rows keep their height, so nothing jumps under the pointer */}
