@@ -115,6 +115,7 @@ export function TripDetailPage() {
         days={trip.days}
         currentDayIndex={currentDayIndex}
         tripCurrency={trip.currency}
+        destinationName={trip.destinationName}
         destination={
           trip.destinationLat !== null && trip.destinationLng !== null
             ? { lat: trip.destinationLat, lng: trip.destinationLng }

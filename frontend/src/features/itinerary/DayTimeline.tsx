@@ -24,6 +24,8 @@ interface DayTimelineProps {
   tripCurrency: string
   /** Position of the trip's destination, where the map opens for a day without places; null when not set */
   destination: Coordinates | null
+  /** Its name, shown on the weather card; null when the trip has none */
+  destinationName: string | null
 }
 
 const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${dayIndex}`
@@ -51,7 +53,14 @@ type NarrowView = 'list' | 'map'
  * and in the day header only, the list stays plain (design rule 14.22, Task 3.9). A past day stays a link and
  * its activities can still be edited.
  */
-export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, destination }: DayTimelineProps) {
+export function DayTimeline({
+  tripId,
+  days,
+  currentDayIndex,
+  tripCurrency,
+  destination,
+  destinationName,
+}: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
   const next = days.find((d) => d.dayIndex === currentDayIndex + 1)
@@ -188,12 +197,12 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
             </div>
             {/* Wide screens: third column, pinned like the day list, as tall as the screen allows. Narrow
                 screens: the "Bản đồ" tab. The map is created only while it is shown; it shows the working copy
-                of the day, so the numbers follow a card while it is being dragged. The weather strip sits
-                under it; the map gives up exactly the strip's height (7rem) and the gap (0.75rem) */}
+                of the day, so the numbers follow a card while it is being dragged. The weather card sits
+                under it; the map card gives up exactly that card's height (212px) and the gap (16px) */}
             {mapShown && (
               <aside>
-                <div className="space-y-3 lg:sticky lg:top-6">
-                  <div className="h-[70dvh] min-h-[320px] lg:h-[calc(100vh-3rem-7.75rem)] lg:min-h-0">
+                <div className="space-y-4 lg:sticky lg:top-6">
+                  <div className="h-[70dvh] min-h-[320px] lg:h-[calc(100vh-3rem-228px)] lg:min-h-[240px]">
                     <DayMap
                       activities={shown.activities}
                       destination={destination}
@@ -204,7 +213,12 @@ export function DayTimeline({ tripId, days, currentDayIndex, tripCurrency, desti
                       }}
                     />
                   </div>
-                  <WeatherStrip tripId={tripId} days={days} currentDayIndex={currentDayIndex} />
+                  <WeatherStrip
+                    tripId={tripId}
+                    days={days}
+                    currentDayIndex={currentDayIndex}
+                    destinationName={destinationName}
+                  />
                 </div>
               </aside>
             )}

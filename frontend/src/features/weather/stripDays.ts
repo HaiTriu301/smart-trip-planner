@@ -25,28 +25,29 @@ export function noForecastReason(days: readonly { date: string }[], today: strin
   return days.every((day) => day.date < today) ? 'over' : 'ahead'
 }
 
-// Pages (decided 2026-10-05): the strip never scrolls sideways. When the cells do not all fit, it shows as many
-// as fit and two buttons turn a whole page at a time.
+// Pages (decided 2026-10-05): the forecast never scrolls sideways. When the tiles do not all fit, the card shows
+// as many as fit and two buttons in its heading turn a whole page at a time.
 
-/**
- * A cell narrower than this cannot hold "32° / 25°" on one line. Chosen so the 420px column shows four days a
- * page with the buttons in place, the same four it shows when they all fit
- */
-export const MIN_CELL_WIDTH = 88
-/** Room taken by the two page buttons together */
-export const PAGE_BUTTONS_WIDTH = 64
+/** A tile narrower than this is too tight for "N12 · 13/10". Four of them fit the 400px column */
+export const MIN_TILE_WIDTH = 88
+/** Space between two tiles, in pixels */
+export const TILE_GAP = 8
 
 export interface StripLayout {
-  /** Cells on one page, at least one */
+  /** Tiles on one page, at least one */
   size: number
-  /** False when every cell fits at once: no buttons then, and the cells share the whole width */
+  /** False when every tile fits at once: no buttons then, and the tiles share the whole width */
   paged: boolean
 }
 
-/** How `total` cells are laid out in a strip `width` pixels wide. */
+/**
+ * How `total` tiles are laid out in a row `width` pixels wide. The buttons sit in the heading of the card and
+ * take nothing from the row, so a page holds as many tiles as the row does.
+ */
 export function stripLayout(width: number, total: number): StripLayout {
-  if (total <= Math.floor(width / MIN_CELL_WIDTH)) return { size: Math.max(1, total), paged: false }
-  return { size: Math.max(1, Math.floor((width - PAGE_BUTTONS_WIDTH) / MIN_CELL_WIDTH)), paged: true }
+  // n tiles need n widths and n - 1 gaps
+  const fits = Math.max(1, Math.floor((width + TILE_GAP) / (MIN_TILE_WIDTH + TILE_GAP)))
+  return total <= fits ? { size: Math.max(1, total), paged: false } : { size: fits, paged: true }
 }
 
 /** Number of pages needed for `total` cells, at least one. */
