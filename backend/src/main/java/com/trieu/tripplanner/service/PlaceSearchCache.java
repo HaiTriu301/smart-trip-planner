@@ -1,12 +1,12 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.constant.CacheNames;
-import com.trieu.tripplanner.common.util.VietnameseText;
 import com.trieu.tripplanner.provider.map.MapProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -46,17 +46,21 @@ public class PlaceSearchCache {
     }
 
     /**
-     * Which searches are the same question, and therefore share one stored answer. "Chợ  Hàn", "cho han" and
-     * " CHỢ HÀN " are one question: accents, capitals and extra spaces are dropped. The number of results
-     * wanted and the reference point are part of the question, because both change the answer.
+     * Which searches are the same question, and therefore share one stored answer. "Chợ  Hàn" and " CHỢ HÀN "
+     * are one question: capitals and extra spaces are dropped. Accents are kept (design.md 8.1, Task 3.8): to a
+     * real map source "chợ hàn" and "cho han" are two keywords with two answers, and "cho han" must not get the
+     * answer stored for the other. A letter typed as one character or as a base letter followed by its accent
+     * marks (as some keyboards send it) is the same letter. The number of results wanted and the reference
+     * point are part of the question, because both change the answer.
      * <p>
      * The keyword comes last: whatever the user types, it cannot be read as another limit or another point.
      *
      * @param near the point results are ranked around, or null when there is none
-     * @return for example {@code 8|16.0678,108.2208|cho han}, or {@code 8|-|cho han} without a point
+     * @return for example {@code 8|16.0678,108.2208|chợ hàn}, or {@code 8|-|chợ hàn} without a point
      */
     public static String keyOf(String query, int limit, Coordinate near) {
-        String keyword = VietnameseText.stripAccents(query).toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", " ");
+        String keyword = Normalizer.normalize(query, Normalizer.Form.NFC)
+                .toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", " ");
         String point = (near == null) ? NO_COORDINATE : rounded(near.lat()) + "," + rounded(near.lng());
         return limit + "|" + point + "|" + keyword;
     }

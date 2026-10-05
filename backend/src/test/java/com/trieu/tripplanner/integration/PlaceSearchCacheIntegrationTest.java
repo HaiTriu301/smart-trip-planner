@@ -44,7 +44,7 @@ import org.springframework.test.context.ActiveProfiles;
 class PlaceSearchCacheIntegrationTest {
 
     /** How Spring names the entry in Redis: the cache name, two colons, then our key. */
-    private static final String REDIS_KEY_OF_CHO_HAN = "place:search::8|-|cho han";
+    private static final String REDIS_KEY_OF_CHO_HAN = "place:search::8|-|chợ hàn";
 
     private static final PlaceResult MADE_UP = new PlaceResult(PlaceProvider.MOCK, "made-up", "Địa điểm bịa ra",
             null, new BigDecimal("1.0000000"), new BigDecimal("2.0000000"), null);
@@ -86,8 +86,8 @@ class PlaceSearchCacheIntegrationTest {
         cache().put(PlaceSearchCache.keyOf("chợ hàn", 8, null), List.of(MADE_UP));
 
         assertThat(placeSearchCache.search("chợ hàn", 8, null)).containsExactly(MADE_UP);
-        // Typed without accents, in capitals, with extra spaces: still the same question
-        assertThat(placeSearchCache.search("  CHO   HAN ", 8, null)).containsExactly(MADE_UP);
+        // Typed in capitals, with extra spaces: still the same question
+        assertThat(placeSearchCache.search("  CHỢ   HÀN ", 8, null)).containsExactly(MADE_UP);
     }
 
     @Test
@@ -95,6 +95,10 @@ class PlaceSearchCacheIntegrationTest {
         placeSearchCache.search("chợ hàn", 8, null);
         cache().put(PlaceSearchCache.keyOf("chợ hàn", 8, null), List.of(MADE_UP));
 
+        // The same words without accents are another keyword to a real map source (Task 3.8)
+        assertThat(placeSearchCache.search("cho han", 8, null)).doesNotContain(MADE_UP)
+                .extracting(PlaceResult::name).contains("Chợ Hàn");
+        assertThat(redis.hasKey("place:search::8|-|cho han")).isTrue();
         // Another keyword, another limit, another reference point: none of them may get the stored answer
         assertThat(placeSearchCache.search("chợ cồn", 8, null)).doesNotContain(MADE_UP)
                 .extracting(PlaceResult::name).contains("Chợ Cồn");

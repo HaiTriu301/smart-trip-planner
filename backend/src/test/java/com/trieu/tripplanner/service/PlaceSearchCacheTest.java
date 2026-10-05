@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,19 +19,38 @@ class PlaceSearchCacheTest {
     @Test
     void keyShowsTheLimitThePointAndTheKeywordInReadableForm() {
         // Readable on purpose: this is what one sees when looking into Redis
-        assertThat(PlaceSearchCache.keyOf("Chợ Hàn", 8, DA_NANG)).isEqualTo("8|16.0678,108.2208|cho han");
-        assertThat(PlaceSearchCache.keyOf("Chợ Hàn", 8, null)).isEqualTo("8|-|cho han");
+        assertThat(PlaceSearchCache.keyOf("Chợ Hàn", 8, DA_NANG)).isEqualTo("8|16.0678,108.2208|chợ hàn");
+        assertThat(PlaceSearchCache.keyOf("Chợ Hàn", 8, null)).isEqualTo("8|-|chợ hàn");
     }
 
     @Test
     void sameKeywordTypedDifferentlyIsOneQuestion() {
         String key = PlaceSearchCache.keyOf("chợ hàn", 8, null);
 
-        assertThat(PlaceSearchCache.keyOf("cho han", 8, null)).isEqualTo(key);          // no accents
         assertThat(PlaceSearchCache.keyOf("CHỢ HÀN", 8, null)).isEqualTo(key);          // capitals
         assertThat(PlaceSearchCache.keyOf("  chợ   hàn ", 8, null)).isEqualTo(key);     // extra spaces
-        assertThat(PlaceSearchCache.keyOf("Đà Nẵng", 8, null))
-                .isEqualTo(PlaceSearchCache.keyOf("da nang", 8, null));                 // Đ is its own letter
+        assertThat(PlaceSearchCache.keyOf("ĐÀ NẴNG", 8, null))
+                .isEqualTo(PlaceSearchCache.keyOf("đà nẵng", 8, null));                 // Đ is its own letter
+    }
+
+    @Test
+    void keywordWithAndWithoutAccentsAreTwoQuestions() {
+        // A real map source answers them differently: one must not get the stored answer of the other
+        assertThat(PlaceSearchCache.keyOf("cho han", 8, null)).isNotEqualTo(PlaceSearchCache.keyOf("chợ hàn", 8, null));
+        assertThat(PlaceSearchCache.keyOf("da nang", 8, null)).isNotEqualTo(PlaceSearchCache.keyOf("đà nẵng", 8, null));
+        // Another accent is another word: market / wait
+        assertThat(PlaceSearchCache.keyOf("chờ", 8, null)).isNotEqualTo(PlaceSearchCache.keyOf("chợ", 8, null));
+    }
+
+    @Test
+    void sameLetterSentAsOneCharacterOrAsLetterPlusAccentMarksIsOneQuestion() {
+        // Some keyboards send "ợ" as o + horn + dot below; it looks the same on screen
+        String oneCharacterPerLetter = Normalizer.normalize("chợ hàn", Normalizer.Form.NFC);
+        String letterPlusMarks = Normalizer.normalize("chợ hàn", Normalizer.Form.NFD);
+        assertThat(letterPlusMarks).isNotEqualTo(oneCharacterPerLetter);
+
+        assertThat(PlaceSearchCache.keyOf(letterPlusMarks, 8, null))
+                .isEqualTo(PlaceSearchCache.keyOf(oneCharacterPerLetter, 8, null));
     }
 
     @Test
