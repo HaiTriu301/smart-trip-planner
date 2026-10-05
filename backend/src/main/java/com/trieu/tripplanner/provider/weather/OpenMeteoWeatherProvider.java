@@ -6,6 +6,9 @@ import com.trieu.tripplanner.config.properties.ProviderProperties;
 import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
 import com.trieu.tripplanner.provider.weather.dto.WeatherCondition;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -29,6 +32,9 @@ import org.springframework.web.client.RestClientException;
  * the user who asks. A day the service does not have is simply missing from the result, which the port allows.
  * <p>
  * Days are calendar days at the point asked for ({@code timezone=auto}).
+ * <p>
+ * A failed call is tried again and repeated failures open a circuit (design.md 7.3; the numbers are in
+ * application.yml under {@code resilience4j}). Both work through the proxy Spring puts in front of this bean.
  */
 @Slf4j
 @Component
@@ -62,6 +68,8 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
      *                                      error status or sent something unreadable
      */
     @Override
+    @Retry(name = SOURCE)
+    @CircuitBreaker(name = SOURCE, fallbackMethod = "suspended")
     public List<DailyForecast> forecast(BigDecimal lat, BigDecimal lng, LocalDate from, LocalDate to) {
         Daily daily = ask(lat, lng);
         List<DailyForecast> forecasts = new ArrayList<>();
@@ -73,6 +81,15 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
             toForecast(daily, i).ifPresent(forecasts::add);
         }
         return List.copyOf(forecasts);
+    }
+
+    /**
+     * What Resilience4j calls instead of {@link #forecast} while the circuit is open. No cause on purpose: a
+     * call that was never made is neither retried nor counted against the service. Public on purpose: the
+     * library cannot safely call a private fallback from two threads at once (BUG-PLAT-004).
+     */
+    public List<DailyForecast> suspended(CallNotPermittedException ex) {
+        throw new ProviderUnavailableException(SOURCE, "calls are suspended after repeated failures");
     }
 
     /** One call for the whole forecast of the point; every failure becomes a ProviderUnavailableException. */

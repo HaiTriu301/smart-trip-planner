@@ -9,6 +9,11 @@ import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import com.trieu.tripplanner.provider.map.dto.RouteLeg;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.LinkedHashMap;
@@ -40,6 +45,12 @@ import org.springframework.web.client.RestClientException;
  * <p>
  * Names come in the language of the place itself (Vietnamese in Việt Nam): no language is asked for, Photon
  * knows only English, German and French besides that default.
+ * <p>
+ * Each service has its own retry and its own circuit (design.md 7.3; the numbers are in application.yml under
+ * {@code resilience4j}): one of them being down does not stop the other two. The annotations work through the
+ * proxy Spring puts in front of this bean, so they only apply to calls coming from another bean. A call that is
+ * not let through, because the circuit is open or the rate limit is reached, ends as the same
+ * ProviderUnavailableException as any other failure: callers never see an exception of the library.
  */
 @Component
 @ConditionalOnProperty(name = "app.providers.map", havingValue = "osm")
@@ -96,6 +107,8 @@ public class OsmMapProvider implements MapProvider {
      *                                      status or sent something unreadable
      */
     @Override
+    @Retry(name = PHOTON)
+    @CircuitBreaker(name = PHOTON, fallbackMethod = "photonSuspended")
     public List<PlaceResult> search(String query, int limit, Coordinate near) {
         // Values go in as variables, never as part of the address: "&" or "=" typed by a user stay in the keyword
         Map<String, Object> values = new LinkedHashMap<>();
@@ -132,11 +145,17 @@ public class OsmMapProvider implements MapProvider {
     /**
      * One call to Nominatim. An id that does not have the form this source gives out is unknown without asking:
      * the id comes from a client, and Nominatim would read a comma in it as a list of several places.
+     * <p>
+     * At most one call a second for the whole application, as the terms of the public server demand. A call
+     * waits up to two seconds for its turn; when the queue is longer than that, it fails at once.
      *
      * @throws ProviderUnavailableException Nominatim could not be reached, took too long, answered with an
      *                                      error status or sent something unreadable
      */
     @Override
+    @Retry(name = NOMINATIM)
+    @CircuitBreaker(name = NOMINATIM, fallbackMethod = "nominatimSuspended")
+    @RateLimiter(name = NOMINATIM, fallbackMethod = "nominatimQueueFull")
     public Optional<PlaceResult> lookup(String externalId) {
         if (externalId == null || !EXTERNAL_ID.matcher(externalId).matches()) {
             return Optional.empty();
@@ -174,6 +193,8 @@ public class OsmMapProvider implements MapProvider {
      *                                      wrong activities
      */
     @Override
+    @Retry(name = OSRM)
+    @CircuitBreaker(name = OSRM, fallbackMethod = "osrmSuspended")
     public List<RouteLeg> route(List<Coordinate> points) {
         if (points.size() < 2) {
             return List.of();
@@ -204,6 +225,32 @@ public class OsmMapProvider implements MapProvider {
                     "expected " + (points.size() - 1) + " legs, the answer has " + legs.size());
         }
         return legs.stream().map(OsmMapProvider::toLeg).toList();
+    }
+
+    // What Resilience4j calls instead of the method when it does not let the call through. One per method: a
+    // fallback must have the return type of the method it stands in for. Public on purpose: the library opens
+    // a private fallback for the time of one call and closes it again, and two calls at the same moment trip
+    // over each other (IllegalAccessException instead of the fallback, BUG-PLAT-004)
+
+    public List<PlaceResult> photonSuspended(CallNotPermittedException ex) {
+        throw suspended(PHOTON);
+    }
+
+    public Optional<PlaceResult> nominatimSuspended(CallNotPermittedException ex) {
+        throw suspended(NOMINATIM);
+    }
+
+    public Optional<PlaceResult> nominatimQueueFull(RequestNotPermitted ex) {
+        throw new ProviderUnavailableException(NOMINATIM, "too many lookups are waiting for their turn");
+    }
+
+    public List<RouteLeg> osrmSuspended(CallNotPermittedException ex) {
+        throw suspended(OSRM);
+    }
+
+    /** No cause on purpose: a call that was never made is neither retried nor counted against the service. */
+    private static ProviderUnavailableException suspended(String source) {
+        return new ProviderUnavailableException(source, "calls are suspended after repeated failures");
     }
 
     /** OSRM gives metres and seconds with one decimal; the application keeps whole metres and seconds. */

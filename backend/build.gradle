@@ -34,6 +34,7 @@ dependencies {
 	implementation libs.mapstruct.core
 	implementation libs.springdoc.openapi.webmvc.ui
 	implementation libs.jjwt.api
+	implementation libs.resilience4j.spring.boot4
 	runtimeOnly libs.jjwt.impl
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'

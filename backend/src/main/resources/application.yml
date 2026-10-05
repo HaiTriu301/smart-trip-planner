@@ -94,3 +94,51 @@ app:
       photon-base-url: https://photon.komoot.io               # search places by keyword
       nominatim-base-url: https://nominatim.openstreetmap.org # one place by its OpenStreetMap id
       osrm-base-url: https://router.project-osrm.org          # travel by road; this server routes cars only
+
+# What happens around a call to a real outside service (design.md 7.3). One instance per service, named in the
+# annotations of the providers: a service that is down does not stop the others. Unused while every provider
+# is a mock. The time limit of a single call is spring.http.clients above
+resilience4j:
+  retry:
+    configs:
+      default:
+        max-attempts: 3            # the first call and two more
+        wait-duration: 500ms
+        # Only a 5xx status, no answer in time, no connection. A 4xx or an unreadable answer is not tried again
+        retry-exception-predicate: com.trieu.tripplanner.provider.resilience.TransientFailure
+    instances:
+      photon:
+        base-config: default
+      nominatim:
+        base-config: default
+      osrm:
+        base-config: default
+      open-meteo:
+        base-config: default
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20                 # the 20 most recent calls...
+        minimum-number-of-calls: 10             # ...judged from the 10th on
+        failure-rate-threshold: 50              # half of them failed: stop calling, fail at once
+        wait-duration-in-open-state: 30s        # then let a few calls through to see if the service is back
+        permitted-number-of-calls-in-half-open-state: 2
+        # A call counts as failed when the HTTP call itself failed; a 4xx other than 429 does not
+        record-failure-predicate: com.trieu.tripplanner.provider.resilience.ServiceFailure
+    instances:
+      photon:
+        base-config: default
+      nominatim:
+        base-config: default
+      osrm:
+        base-config: default
+      open-meteo:
+        base-config: default
+  ratelimiter:
+    instances:
+      # Terms of the public Nominatim server: at most one call a second, for the whole application
+      nominatim:
+        limit-for-period: 1
+        limit-refresh-period: 1s
+        timeout-duration: 2s                    # how long a lookup waits for its turn before it fails
