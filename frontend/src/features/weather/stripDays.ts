@@ -24,3 +24,37 @@ export type NoForecastReason = 'over' | 'ahead'
 export function noForecastReason(days: readonly { date: string }[], today: string): NoForecastReason {
   return days.every((day) => day.date < today) ? 'over' : 'ahead'
 }
+
+// Pages (decided 2026-10-05): the strip never scrolls sideways. When the cells do not all fit, it shows as many
+// as fit and two buttons turn a whole page at a time.
+
+/**
+ * A cell narrower than this cannot hold "32° / 25°" on one line. Chosen so the 420px column shows four days a
+ * page with the buttons in place, the same four it shows when they all fit
+ */
+export const MIN_CELL_WIDTH = 88
+/** Room taken by the two page buttons together */
+export const PAGE_BUTTONS_WIDTH = 64
+
+export interface StripLayout {
+  /** Cells on one page, at least one */
+  size: number
+  /** False when every cell fits at once: no buttons then, and the cells share the whole width */
+  paged: boolean
+}
+
+/** How `total` cells are laid out in a strip `width` pixels wide. */
+export function stripLayout(width: number, total: number): StripLayout {
+  if (total <= Math.floor(width / MIN_CELL_WIDTH)) return { size: Math.max(1, total), paged: false }
+  return { size: Math.max(1, Math.floor((width - PAGE_BUTTONS_WIDTH) / MIN_CELL_WIDTH)), paged: true }
+}
+
+/** Number of pages needed for `total` cells, at least one. */
+export function pageCount(total: number, size: number): number {
+  return Math.max(1, Math.ceil(total / size))
+}
+
+/** The page, counted from 0, that holds the cell at `position` (also counted from 0). */
+export function pageOf(position: number, size: number): number {
+  return Math.floor(position / size)
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TripWeatherDay } from '../../types/weather'
-import { daysWithForecast, noForecastReason } from './stripDays'
+import { daysWithForecast, noForecastReason, pageCount, pageOf, stripLayout } from './stripDays'
 
 const FORECAST = { condition: 'CLOUDY', tempMin: 24.6, tempMax: 31.2, precipitationProbability: 20 } as const
 
@@ -48,5 +48,56 @@ describe('noForecastReason', () => {
 
   it('does not call a trip over while one of its days is today or later', () => {
     expect(noForecastReason([{ date: '2026-10-12' }, { date: '2026-10-13' }], today)).toBe('ahead')
+  })
+})
+
+describe('stripLayout', () => {
+  it('shows every cell without buttons when they all fit', () => {
+    // The 420px column (418px inside its border) holds four cells
+    expect(stripLayout(418, 4)).toEqual({ size: 4, paged: false })
+    expect(stripLayout(418, 2)).toEqual({ size: 2, paged: false })
+  })
+
+  it('turns to pages when one cell too many is asked for, and the buttons take the room of a cell', () => {
+    // 418px minus 64px of buttons still leaves room for four cells
+    expect(stripLayout(418, 5)).toEqual({ size: 4, paged: true })
+    expect(stripLayout(418, 16)).toEqual({ size: 4, paged: true })
+  })
+
+  it('fits fewer cells in the narrower column', () => {
+    // The 360px column: four cells without buttons, three with them
+    expect(stripLayout(358, 4)).toEqual({ size: 4, paged: false })
+    expect(stripLayout(358, 7)).toEqual({ size: 3, paged: true })
+  })
+
+  it('fits more cells on a wide strip', () => {
+    expect(stripLayout(900, 16)).toEqual({ size: 9, paged: true })
+  })
+
+  it('always keeps one cell, however narrow the strip is', () => {
+    expect(stripLayout(120, 5)).toEqual({ size: 1, paged: true })
+    expect(stripLayout(0, 5)).toEqual({ size: 1, paged: true })
+  })
+})
+
+describe('pageCount and pageOf', () => {
+  it.each([
+    [7, 3, 3],
+    [6, 3, 2],
+    [16, 4, 4],
+    [1, 3, 1],
+    [0, 3, 1],
+  ])('%i cells, %i a page → %i pages', (total, size, expected) => {
+    expect(pageCount(total, size)).toBe(expected)
+  })
+
+  it.each([
+    [0, 3, 0],
+    [2, 3, 0],
+    [3, 3, 1],
+    [6, 3, 2],
+    [15, 4, 3],
+  ])('cell %i, %i a page → page %i', (position, size, expected) => {
+    expect(pageOf(position, size)).toBe(expected)
   })
 })
