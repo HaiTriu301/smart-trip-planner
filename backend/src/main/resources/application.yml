@@ -88,3 +88,8 @@ app:
     user-agent: smart-trip-planner/0.1 (+https://github.com/HaiTriu301/smart-trip-planner)
     open-meteo:
       base-url: https://api.open-meteo.com   # weather forecast, used when weather = open-meteo
+    # Used when map = osm. Public servers with fair-use terms; Nominatim: at most one call a second and never
+    # for suggestions while typing, which is why search goes to Photon (design.md 7.2)
+    osm:
+      photon-base-url: https://photon.komoot.io               # search places by keyword
+      nominatim-base-url: https://nominatim.openstreetmap.org # one place by its OpenStreetMap id

@@ -1,8 +1,8 @@
 // Mirrors backend dto/response/PlaceResponse (design.md 10.2 "Quy ước Place API").
 // Temporary hand-written types; replaced by generated types from OpenAPI in a later task.
 
-/** MOCK: the bundled data set · MANUAL: typed in by a user, private to its creator. */
-export type PlaceProvider = 'MOCK' | 'MANUAL'
+/** MOCK: the bundled data set · OSM: OpenStreetMap, when the server uses the real map source · MANUAL: typed in by a user, private to its creator. */
+export type PlaceProvider = 'MOCK' | 'OSM' | 'MANUAL'
 
 /**
  * One row of GET /places/search. It has no id yet: the place is stored only when the user picks it, and

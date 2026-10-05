@@ -16,6 +16,7 @@ import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
 import com.trieu.tripplanner.provider.weather.dto.WeatherCondition;
 import com.trieu.tripplanner.support.StubHttpServer;
+import com.trieu.tripplanner.support.TestProviders;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -215,7 +216,7 @@ class OpenMeteoWeatherProviderTest {
     }
 
     private static ProviderProperties properties(String baseUrl) {
-        return new ProviderProperties(USER_AGENT, new ProviderProperties.OpenMeteo(baseUrl));
+        return TestProviders.openMeteoAt(USER_AGENT, baseUrl);
     }
 
     /** An answer in the shape of the service with a single day, 2026-10-05; "null" leaves a value empty. */
