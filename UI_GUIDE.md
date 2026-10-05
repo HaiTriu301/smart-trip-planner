@@ -255,7 +255,6 @@ Tất cả **tự viết** trong `frontend/src/components/`, không dùng shadcn
 | `primary` | nền `jade`, chữ trắng | Hành động chính của màn hình |
 | `secondary` | nền trắng, viền `tide`, chữ `gray-800` | Hành động phụ, "Huỷ" |
 | `ghost` | trong suốt, chữ `gray-600` | Hành động thứ yếu lặp lại nhiều lần ("Sửa" ngày) |
-| `ghost-inverse` | trong suốt, chữ `gray-300` | Trên thanh điều hướng tối ("Đăng xuất") |
 | `danger` | nền trắng, viền + chữ `danger` | Nút "Xoá" bên ngoài hộp xác nhận |
 | `danger-solid` | nền `danger`, chữ trắng | **Chỉ** nút xác nhận trong hộp xoá (`ConfirmDialog variant="danger"` tự chọn) |
 
@@ -383,7 +382,7 @@ Mô tả chuyến đi, ghi chú ngày, ghi chú hoạt động hiện tối đa 
 ### 7.11. Logo — `Logo`
 
 Ô vuông `jade` bo 6px chứa icon ghim trắng, cạnh chữ "Smart Trip Planner".
-- `tone="dark"`: chữ trắng, trên thanh điều hướng.
+- Từ Task 3.9 logo chỉ còn một kiểu: chữ `ink` trên nền sáng (thanh điều hướng nay nền trắng), không còn `tone`.
 - `tone="light"` + `tagline`: cỡ lớn kèm dòng phụ "Kế hoạch hành trình theo dòng thời gian", trên các trang đăng nhập.
 
 ### 7.12. Ô tìm địa điểm — `PlaceSearchField`, `ActivityPlaceField`
@@ -439,15 +438,16 @@ Loại
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ [📍 Smart Trip Planner]   [🔍 Tìm chuyến đi…        ]   Trieu  ⎋ Đăng xuất │ 56px, nền ink
+│ [📍 Smart Trip Planner]   [🔍 Tìm chuyến đi…        ]   Trieu  ⎋ Đăng xuất │ 64px, nền trắng, vạch `tide` ở đáy
 ├──────────────────────────────────────────────────────────────────────┤
 │                         nội dung, tối đa 1280px                       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ © 2026 Smart Trip Planner                                            │ nền ink
+│ © 2026 Smart Trip Planner                                            │ nền trang, vạch `tide` ở trên
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Ô tìm chuyến đi** (`TripSearchBox`) nằm giữa thanh điều hướng, nền trong mờ, chữ trắng. Chỉ tìm chuyến đi theo tên hoặc điểm đến (chưa tìm được theo hoạt động). Ở `/trips`: lọc khi ngừng gõ 300 ms, không thêm bước vào lịch sử trình duyệt, giữ chip trạng thái và cách sắp xếp. Ở trang khác: Enter mở `/trips?q=…`.
+- **Thanh điều hướng** (Task 3.9, theo mockup "Teal Voyage"): nền **trắng**, cao 64px, vạch `tide` 1px ở đáy (thanh trắng trên nền trang gần trắng cần một ranh giới); logo chữ `ink`; tên người dùng `gray-700`; "Đăng xuất" là nút `ghost`. Chân trang không còn nền tối: chữ `gray-500` trên nền trang, vạch `tide` ở trên. Trước Task 3.9 cả hai có nền `ink`.
+- **Ô tìm chuyến đi** (`TripSearchBox`) nằm giữa thanh điều hướng: dạng **viên bo tròn hết cỡ** (ngoại lệ của quy tắc bo 6px cho ô nhập, theo mockup), nền `gray-100`, không viền, chữ `ink`, icon và chữ gợi ý `gray-500`; rê chuột có viền `tide`; khi focus nền trắng, viền và vòng `jade`. Chỉ tìm chuyến đi theo tên hoặc điểm đến (chưa tìm được theo hoạt động). Ở `/trips`: lọc khi ngừng gõ 300 ms, không thêm bước vào lịch sử trình duyệt, giữ chip trạng thái và cách sắp xếp. Ở trang khác: Enter mở `/trips?q=…`.
 - Dưới 768px: ô tìm xuống thành hàng riêng dưới logo, rộng hết chiều ngang.
 - Không có chuông thông báo, không có mục menu cho trang chưa tồn tại.
 

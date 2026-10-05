@@ -15,7 +15,7 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-[400px] space-y-6">
         <div className="flex justify-center">
-          <Logo tone="light" tagline="Kế hoạch hành trình theo dòng thời gian" />
+          <Logo tagline="Kế hoạch hành trình theo dòng thời gian" />
         </div>
         <div className="rounded-card border border-tide bg-white p-6 sm:p-8">
           <h1 className="text-[28px] leading-9 font-bold tracking-[-0.02em] text-ink">{title}</h1>
