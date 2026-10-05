@@ -93,7 +93,7 @@ Sáu màu này phải phân biệt được khi đứng cạnh nhau trên bản 
 | `SHOPPING` | Mua sắm | `act-shopping` | `#BE3C79` | `ShoppingBag` |
 | `OTHER` | Khác | `act-other` | `#4F8A62` | `MapPin` |
 
-**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, viền trái 3px của thẻ hoạt động, marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
+**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, chip loại của thẻ hoạt động (nền mờ 12%, chữ và icon theo màu; từ Task 3.9, thay cho viền trái 3px của thẻ), marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
 
 ### 3.5. Màu trạng thái chuyến đi
 
@@ -290,20 +290,21 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 ### 7.3. Thẻ hoạt động — thành phần quan trọng nhất ⭐ `ActivityCard`
 
 ```
-┌─┬───────────────────────────────────────────────────────┐
-│ │ ⠿  09:00 – 11:30   🏛 Tham quan                    ⋮   │ ← viền trái 3px màu tuyến
-│ │    Chùa Linh Ứng                                      │ ← 16px / 600
-│ │    📍 Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng         │ ← địa điểm 13px, khi có
-│ │    Đi sớm tránh nắng… Đọc thêm                        │ ← ghi chú 13px, tối đa 2 dòng
-│ │    👛 350.000 ₫    Link đặt chỗ ↗                     │ ← 12px, hàng meta
-└─┴───────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ ⠿  09:00 – 11:30  (🏛 Tham quan)                     ⋮   │ ← giờ 15px/600, chip loại bo tròn
+│    Chùa Linh Ứng                                        │ ← 18px / 600
+│    📍 Đường Hoàng Sa, Phường Sơn Trà, Đà Nẵng           │ ← địa điểm 13px, khi có
+│    Đi sớm tránh nắng… Đọc thêm                          │ ← ghi chú 13px, tối đa 2 dòng
+│    ─────────────────────────────────────────────────    │ ← vạch tide, chỉ khi có chân thẻ
+│    Chi phí dự kiến: 350.000 ₫          Link đặt chỗ ↗   │ ← 13px
+└─────────────────────────────────────────────────────────┘
 ```
 
-- **Nghỉ:** nền trắng, viền `tide` 1px ở ba cạnh, viền trái 3px màu tuyến.
-- **Rê chuột hoặc Tab tới thẻ:** nền `gray-50`; hiện tay nắm kéo (`GripVertical`) ở mép trái và menu "⋮" ở mép phải. **Màn hình cảm ứng:** hai nút này luôn hiện.
+- **Nghỉ** (Task 3.9, theo mockup "Teal Voyage"): nền trắng, **không viền**, `shadow-md`, bo 12px. Loại hoạt động là một **chip** bo tròn cao 20px cạnh giờ: icon 12px và tên loại, nền màu tuyến mờ 12%, chữ màu tuyến. Chân thẻ (khi có chi phí hoặc link): vạch `tide` phía trên, "Chi phí dự kiến:" `gray-500` kèm số tiền `jade-dark` đậm ở bên trái, link `jade-dark` ở bên phải. Trước Task 3.9: viền `tide` 1px ở ba cạnh, viền trái 3px màu tuyến, loại là chữ có màu, hàng meta 12px có icon ví.
+- **Rê chuột hoặc Tab tới thẻ:** (từ Task 3.9 nền không đổi) hiện tay nắm kéo (`GripVertical`) ở mép trái và menu "⋮" ở mép phải. **Màn hình cảm ứng:** hai nút này luôn hiện.
 - **Menu "⋮"** (`ActivityMenu`, Radix): "Sửa", "Chuyển sang ngày…" (không có khi chuyến đi chỉ có 1 ngày), "Xoá" (chữ đỏ). Dùng được bằng bàn phím: Enter mở, mũi tên chọn, Esc đóng.
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
-- **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền `warning` mờ 8% và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
+- **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền là `warning` pha 10% vào trắng (nền đặc, không trong suốt: thẻ có bóng phải che được phần bên dưới) và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
 - **Hàng địa điểm** (Task 3.6, **Đã làm**): ngay dưới tên, icon ghim `MapPin` xám + chữ 13px `gray-600`, được xuống dòng. Nội dung: "Tên địa điểm · địa chỉ". Tên hoạt động trùng tên địa điểm (không phân biệt hoa thường) thì chỉ ghi địa chỉ, để không lặp chữ; địa điểm không có địa chỉ thì ghi tên. Hoạt động chưa gắn địa điểm: **không có hàng này**, không ghi "Chưa gắn địa điểm" (mockup Stitch có, đã bỏ vì lặp trên mọi thẻ).
 - Ô thời tiết trong hàng meta: hoãn ngày 2026-10-02 cùng cảnh báo ngoài trời (design rule 14.21).

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ExternalLink, MapPin, TriangleAlert, Wallet } from 'lucide-react'
+import { ExternalLink, MapPin, TriangleAlert } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
 import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
@@ -41,9 +41,10 @@ interface ActivityCardProps {
 }
 
 /**
- * The most important component (UI_GUIDE 7.3): white card, 1px tide border, 3px left edge in the route colour.
- * First row: time range + type (icon and label, so colour is never the only signal) + "⋮" menu. Under the
- * title, the place of the activity with a pin icon.
+ * The most important component (UI_GUIDE 7.3): a white card with a soft shadow and no border. First row: the
+ * time range, the type as a tinted chip (icon and label, so colour is never the only signal) and the "⋮" menu.
+ * Then the title, the place with a pin icon, the note, and a footer under a rule with the cost on the left and
+ * the booking link on the right.
  */
 export function ActivityCard({
   activity,
@@ -65,6 +66,8 @@ export function ActivityCard({
   const isRealCard = Boolean(onEdit)
 
   return (
+    // An overlapping card is tinted with the warning colour mixed into white, not laid over the page: a card
+    // with a shadow has to stay opaque
     <article
       id={isRealCard ? activityCardId(activity.id) : undefined}
       // Reachable by script only (a marker moves the focus here), not by Tab
@@ -74,29 +77,31 @@ export function ActivityCard({
       onMouseLeave={() => clearHighlight(activity.id)}
       onFocus={() => highlight(activity.id)}
       onBlur={() => clearHighlight(activity.id)}
-      className={`group flex gap-1 rounded-card border-y border-r border-l-[3px] border-y-tide border-r-tide py-3 pr-2 pl-1 transition-[color,background-color,box-shadow] focus:outline-none ${route.edge} ${
-        overlapping ? 'bg-warning/8' : 'bg-white hover:bg-gray-50'
+      className={`group flex gap-1 rounded-card py-4 pr-3 pl-1.5 shadow-md transition-[color,background-color,box-shadow] focus:outline-none ${
+        overlapping ? 'bg-[color-mix(in_srgb,var(--color-warning)_10%,white)]' : 'bg-white'
       } ${revealed ? 'ring-2 ring-jade/40' : ''}`}
     >
       {dragHandle && <div className={`shrink-0 self-start ${REVEAL}`}>{dragHandle}</div>}
 
-      <div className={`min-w-0 flex-1 space-y-1 ${dragHandle ? '' : 'pl-2'}`}>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5">
-          <span className="tabular inline-flex items-center gap-1 font-semibold text-gray-700">
+      <div className={`min-w-0 flex-1 space-y-1.5 ${dragHandle ? '' : 'pl-2.5'}`}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="tabular inline-flex items-center gap-1 text-[15px] leading-6 font-semibold text-ink">
             {overlapping && (
               <>
                 <TriangleAlert aria-hidden className="size-3.5 text-warning" />
                 <span className="sr-only">Trùng giờ với hoạt động khác, </span>
               </>
             )}
-            {time ?? <span className="font-normal text-gray-400">Chưa đặt giờ</span>}
+            {time ?? <span className="text-sm font-normal text-gray-400">Chưa đặt giờ</span>}
           </span>
-          <span className={`inline-flex items-center gap-1 font-medium ${route.text}`}>
-            <route.Icon aria-hidden className="size-3.5" />
+          <span
+            className={`inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs leading-none font-medium ${route.chip}`}
+          >
+            <route.Icon aria-hidden className="size-3" />
             {ACTIVITY_TYPE_LABELS[activity.type]}
           </span>
         </div>
-        <h4 className="text-base leading-6 font-semibold wrap-anywhere text-ink">{activity.title}</h4>
+        <h4 className="text-lg leading-6 font-semibold wrap-anywhere text-ink">{activity.title}</h4>
         {place && (
           <p className="flex items-start gap-1 text-[13px] leading-5 text-gray-600">
             <MapPin aria-hidden className="mt-[3px] size-3.5 shrink-0 text-gray-400" />
@@ -106,22 +111,27 @@ export function ActivityCard({
         )}
         {activity.note && <ExpandableText text={activity.note} className="max-w-[68ch] text-[13px] leading-5 text-gray-600" />}
         {(activity.costAmount !== null || activity.bookingUrl) && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5 text-xs text-gray-600">
-            {activity.costAmount !== null && activity.currency && (
-              <span className="tabular inline-flex items-center gap-1">
-                <Wallet aria-hidden className="size-3.5 text-gray-400" />
-                {formatMoney(activity.costAmount, activity.currency)}
+          // Footer under a rule: what it costs on the left, where to book on the right
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-tide pt-2.5 text-[13px] leading-5">
+            {activity.costAmount !== null && activity.currency ? (
+              <span className="text-gray-500">
+                Chi phí dự kiến:{' '}
+                <span className="tabular font-semibold text-jade-dark">
+                  {formatMoney(activity.costAmount, activity.currency)}
+                </span>
               </span>
+            ) : (
+              <span />
             )}
             {activity.bookingUrl && (
               <a
                 href={activity.bookingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-medium text-jade hover:underline"
+                className="inline-flex items-center gap-1 rounded-control font-medium text-jade-dark hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
               >
                 Link đặt chỗ
-                <ExternalLink aria-hidden className="size-3" />
+                <ExternalLink aria-hidden className="size-3.5" />
               </a>
             )}
           </div>
