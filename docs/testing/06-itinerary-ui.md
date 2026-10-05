@@ -1,6 +1,6 @@
 # 06 · Giao diện lịch trình
 
-> Cập nhật: 2026-10-05 · **Task 3.7 xong: 16 commit (`8ba6710` đến `6955238`), lint, build và 108 test tự động xanh; 15 bài `MT-UI-63` đến `MT-UI-77` chưa chạy đủ; `BUG-UI-010` đã sửa, chờ kiểm lại.** Diễn biến: Commit 1 (`8ba6710`) thêm công cụ test tự động cho giao diện (Vitest), 7 test xanh; Commit 2 (`847cda9`) thêm dải thời tiết dưới bản đồ, Commit 3 (`d32e248`) thêm câu mời đặt vị trí điểm đến, Commit 4 (`a7f818c`) thêm báo lỗi khi dự báo không tải được, Commit 5 (`f1e9f04`) thêm dòng thời tiết ở tiêu đề ngày trên màn hẹp, Commit 6 (`f9ff894`) thêm thời gian và quãng đường giữa các hoạt động (33 test tự động xanh), Commit 7 (`8408ac0`) tính lại quãng đường sau khi ngày thay đổi, Commit 8 (`e8511be`) hiện chặng đi qua hoạt động không có địa điểm, Commit 9 (`51abea7`) thêm nhãn "Đã qua" / "Hôm nay", Commit 10 (`e767e62`) mở chuyến đi đang diễn ra ở ngày hôm nay, Commit 11 (`584df0f`) thêm thời tiết trên thẻ ở trang danh sách, Commit 12 (`d221461`) hỏi hoàn thành chuyến đi đã qua ngày cuối, Commit 13 (`d8ba1ee`) nhớ câu trả lời "Để sau". Chủ dự án xem dải thời tiết trên trình duyệt ngày 2026-10-05 và yêu cầu hai thay đổi (Commit 14, 15); Commit 14 (`4a736be`) bỏ khỏi dải các ngày không có dự báo, Commit 15 (`40bdd35`) thay cuộn ngang bằng nút chuyển trang (108 test tự động xanh). Chủ dự án tìm ra `BUG-UI-010` (tên ngày ở cột giữa bị xuống dòng), sửa ở Commit 16, chờ kiểm lại; các bài `MT-UI-63` đến `MT-UI-77` chưa có kết quả đầy đủ · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
+> Cập nhật: 2026-10-05 · **Task 3.9 xong: 12 commit (`12972a5` đến `26dc267`), lint, build và 109 test tự động xanh; 12 bài `MT-UI-78` đến `MT-UI-89` chưa chạy đủ (chủ dự án đã xem trang và cho chỉnh kích thước, font).** Diễn biến: Commit 1 (`12972a5`) đổi bảng màu toàn web, Commit 2 (`a1a5c8a`) đổi thanh trên cùng sang nền trắng, Commit 3 (`0f940b6`) làm cột ngày thành thẻ, Commit 4 (`160c9a5`) làm khối tiêu đề ngày thành thẻ, Commit 5 (`ad5b452`) đổi kiểu thẻ hoạt động, Commit 6 (`4e5f6fa`) thay cột giờ bằng nút tròn trên trục thời gian, Commit 7 (`e9ddeae`) đổi đoạn di chuyển thành viên bo tròn, Commit 8 (`1ca41fb`) đặt bản đồ vào thẻ có tiêu đề, Commit 9 (`3c012f9`) làm thời tiết thành thẻ có các ô ngày, Commit 10 (`3771ea9`) chỉnh trang mới cho màn hình hẹp. Chủ dự án xem trang lần đầu và nhận xét về kích thước ba cột; Commit 11 (`e9db9f1`) chỉnh theo, Commit 12 (`26dc267`) đổi font sang Inter (đã thử Plus Jakarta Sans của mockup, chủ dự án thấy nét mỏng). Nút thu gọn cột ngày đã làm thử theo yêu cầu rồi được chủ dự án cho bỏ trước khi commit; các bài `MT-UI-78` đến `MT-UI-89` chưa có kết quả đầy đủ · **Task 3.7 xong: 16 commit (`8ba6710` đến `6955238`), lint, build và 108 test tự động xanh; 15 bài `MT-UI-63` đến `MT-UI-77` chưa chạy đủ; `BUG-UI-010` đã sửa, chờ kiểm lại.** Diễn biến: Commit 1 (`8ba6710`) thêm công cụ test tự động cho giao diện (Vitest), 7 test xanh; Commit 2 (`847cda9`) thêm dải thời tiết dưới bản đồ, Commit 3 (`d32e248`) thêm câu mời đặt vị trí điểm đến, Commit 4 (`a7f818c`) thêm báo lỗi khi dự báo không tải được, Commit 5 (`f1e9f04`) thêm dòng thời tiết ở tiêu đề ngày trên màn hẹp, Commit 6 (`f9ff894`) thêm thời gian và quãng đường giữa các hoạt động (33 test tự động xanh), Commit 7 (`8408ac0`) tính lại quãng đường sau khi ngày thay đổi, Commit 8 (`e8511be`) hiện chặng đi qua hoạt động không có địa điểm, Commit 9 (`51abea7`) thêm nhãn "Đã qua" / "Hôm nay", Commit 10 (`e767e62`) mở chuyến đi đang diễn ra ở ngày hôm nay, Commit 11 (`584df0f`) thêm thời tiết trên thẻ ở trang danh sách, Commit 12 (`d221461`) hỏi hoàn thành chuyến đi đã qua ngày cuối, Commit 13 (`d8ba1ee`) nhớ câu trả lời "Để sau". Chủ dự án xem dải thời tiết trên trình duyệt ngày 2026-10-05 và yêu cầu hai thay đổi (Commit 14, 15); Commit 14 (`4a736be`) bỏ khỏi dải các ngày không có dự báo, Commit 15 (`40bdd35`) thay cuộn ngang bằng nút chuyển trang (108 test tự động xanh). Chủ dự án tìm ra `BUG-UI-010` (tên ngày ở cột giữa bị xuống dòng), sửa ở Commit 16, chờ kiểm lại; các bài `MT-UI-63` đến `MT-UI-77` chưa có kết quả đầy đủ · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
 
 Giao diện web để người dùng xem danh sách chuyến đi, tạo chuyến đi, xem và sửa lịch trình từng ngày, thêm hoạt động và kéo thả để sắp xếp lại. Làm ở Task 2.5.
 
@@ -104,6 +104,23 @@ Task 3.7 (`feat/T3.7-weather-route-ui`): thời tiết, quãng đường di chuy
 | 14 | Dải thời tiết chỉ còn các ngày có dự báo: ngày đã qua và ngày xa hơn 16 ngày không có ô; không còn ngày nào thì khung ghi một câu giải thích (yêu cầu của chủ dự án sau khi xem trên trình duyệt) | TC-UI-056 đến TC-UI-062, MT-UI-75; MT-UI-63 sửa theo | `4a736be` |
 | 15 | Dải thời tiết không còn cuộn ngang: nhiều ngày hơn chỗ chứa thì chia trang, hai nút ở hai đầu lật mỗi lần một trang; mở một ngày thì dải tự lật tới trang có ngày đó (yêu cầu của chủ dự án) | TC-UI-063 đến TC-UI-069, MT-UI-76; MT-UI-63 sửa theo | `40bdd35` |
 | 16 | Tên ngày ở cột giữa đứng riêng một hàng, không còn bị các nút ép xuống dòng (`BUG-UI-010`) | MT-UI-77; MT-UI-70 chạy lại | `6955238` |
+
+Task 3.9 (`feat/T3.9-trip-page-redesign`): bảng màu mới cho toàn web và trang chuyến đi dạng thẻ theo mockup "Teal Voyage". Không có tính năng mới: hành vi của các task trước giữ nguyên, nên các bài `MT-UI` cũ vẫn dùng để kiểm tra lại.
+
+| Commit | Nội dung | Kiểm tra | Mã commit |
+|---|---|---|---|
+| 1 | Bảng màu mới trên mọi trang: nền trắng ngả xanh dương, chữ navy, xanh ngọc đậm hơn, viền và xám ngả xanh dương, thẻ bo 12px. Chỉ đổi giá trị màu, không đổi bố cục | MT-UI-78 | `12972a5` |
+| 2 | Thanh trên cùng nền trắng, ô tìm kiếm dạng viên bo tròn trên nền sáng, chân trang không còn dải tối | MT-UI-79; MT-UI-02 chạy lại | `a1a5c8a` |
+| 3 | Cột ngày của trang chuyến đi thành một thẻ: tiêu đề "Kế hoạch các ngày", mỗi ngày ghi thứ và ngày tháng, số hoạt động trong vòng tròn, nhãn "Hôm nay". Ba cột theo tỉ lệ mới | MT-UI-80; MT-UI-26, MT-UI-70 chạy lại | `0f940b6` |
+| 4 | Khối tiêu đề của ngày thành một thẻ: "Ngày N" cỡ lớn kèm nhãn, ngày tháng bên dưới, nút "Sửa" có viền và nút chính; dưới vạch kẻ là tiêu đề của ngày, số địa điểm và ghi chú | MT-UI-81; MT-UI-11, MT-UI-41, MT-UI-77 chạy lại | `160c9a5` |
+| 5 | Thẻ hoạt động kiểu mới: thẻ trắng có bóng, giờ in đậm và chip loại có màu ở dòng đầu, chân thẻ ghi chi phí và link đặt chỗ; bỏ vạch màu ở mép trái | MT-UI-82; MT-UI-20 đến MT-UI-24, MT-UI-45 chạy lại | `ad5b452` |
+| 6 | Bỏ cột giờ bên trái các thẻ; mỗi hoạt động có một nút tròn theo màu loại trên trục thời gian; giờ chỉ còn trong thẻ | MT-UI-83; MT-UI-25, MT-UI-26, MT-UI-37 chạy lại | `4e5f6fa` |
+| 7 | Đoạn di chuyển giữa hai thẻ thành một viên bo tròn nằm giữa: icon đường đi, thời gian in đậm, quãng đường; không icon phương tiện | MT-UI-84; MT-UI-67 đến MT-UI-69 chạy lại | `e9ddeae` |
+| 8 | Bản đồ của ngày nằm trong một thẻ có tiêu đề "Bản đồ lộ trình", chip số điểm dừng, nút "Mở rộng" có chữ ở góc trên trái; không có dòng tổng cự ly | MT-UI-85; MT-UI-53 đến MT-UI-58 chạy lại | `1ca41fb` |
+| 9 | Thời tiết thành một thẻ: tiêu đề "Thời tiết dự báo", tên điểm đến, mỗi ngày một ô rời (nhiệt độ cao cỡ lớn, thấp bên dưới, phần trăm mưa); hai nút chuyển trang lên tiêu đề thẻ | TC-UI-063 đến TC-UI-067 (viết lại), TC-UI-070, MT-UI-86; MT-UI-63 đến MT-UI-65, MT-UI-75, MT-UI-76 chạy lại | `3c012f9` |
+| 10 | Màn hình hẹp: dải ngày thành các viên bo tròn (ngày đang xem nền xanh đậm), khung hai nút gạt bo góc theo kiểu mới, hai nút của thẻ tiêu đề ngày tự xuống hàng trên điện thoại rất hẹp | MT-UI-87; MT-UI-38, MT-UI-59, MT-UI-60, MT-UI-66 chạy lại | `3771ea9` |
+| 11 | Sau lần xem đầu của chủ dự án: cột ngày hẹp và gọn hơn, cột giữa rộng lại như bản cũ, trục thời gian mảnh hơn (chấm nhỏ), thẻ bản đồ thấp như trong mockup thay vì cao hết màn hình | TC-UI-063, 064, 070 (sửa số); MT-UI-88; MT-UI-80, MT-UI-83, MT-UI-85 xem lại theo kích thước mới | `e9db9f1` |
+| 12 | Font chữ của toàn web đổi sang Inter. Chủ dự án muốn chữ gần mockup hơn; font của mockup (Plus Jakarta Sans) đã thử trên trang thật và bị thấy nét quá mỏng | MT-UI-89 | `26dc267` |
 
 ---
 
@@ -246,19 +263,20 @@ Danh sách chuyến đi đã trả lời "Để sau" được giữ trong bộ n
 | TC-UI-061 | Không có dự báo, chuyến đi bắt đầu tháng sau | Lý do: chuyến đi còn ở ngoài khoảng có dự báo | Đúng | Đạt |
 | TC-UI-062 | Không có dự báo dù hôm nay còn là một ngày của chuyến đi (nguồn dự báo trả thiếu) | Không coi là "đã qua" | Biên | Đạt |
 
-### J. Dải thời tiết chia trang thế nào
+### J. Thẻ thời tiết chia trang thế nào
 
-> **Yêu cầu:** UI_GUIDE 9 "Thời tiết" (chốt 2026-10-05: không cuộn ngang, chuyển trang bằng nút, mỗi lần một trang) · **Kiểm bởi:** `features/weather/stripDays.test.ts`
+> **Yêu cầu:** UI_GUIDE 9 "Thời tiết" (chốt 2026-10-05: không cuộn ngang, chuyển trang bằng nút, mỗi lần một trang; từ Task 3.9 các ngày là ô rời và nút nằm ở tiêu đề thẻ) · **Kiểm bởi:** `features/weather/stripDays.test.ts`
 
-Mỗi ô cần ít nhất 88px; hai nút chuyển trang chiếm 64px. Cột bản đồ rộng 420px (418px bên trong viền) hoặc 360px (358px).
+Mỗi ô cần ít nhất 82px (88px trước Commit 11), hai ô cách nhau 8px; nút chuyển trang nằm ở tiêu đề thẻ nên không lấy chỗ của hàng ô. Hàng ô rộng 356px ở cột bản đồ 380px (từ Commit 11; trước đó 376px ở cột 400px), và 316px ở cột 340px. (Bảng dưới đã viết lại ở Task 3.9 Commit 9; bản của Task 3.7 tính theo dải có hai nút ở hai đầu.)
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
-| TC-UI-063 | Cột 420px, chuyến đi có 4 ngày (hoặc 2 ngày) có dự báo | Hiện đủ, không có nút; các ô chia đều bề ngang | Đúng | Đạt |
-| TC-UI-064 | Cột 420px, có 5 ngày hoặc 16 ngày có dự báo | Chia trang, **4 ngày một trang**, có hai nút | Biên | Đạt |
-| TC-UI-065 | Cột 360px: 4 ngày; 7 ngày | 4 ngày: hiện đủ, không nút. 7 ngày: chia trang, 3 ngày một trang | Biên | Đạt |
-| TC-UI-066 | Dải rộng 900px (tab "Bản đồ" trên máy tính bảng), 16 ngày | 9 ngày một trang | Đúng | Đạt |
-| TC-UI-067 | Dải rất hẹp (120px), hoặc chưa đo được bề rộng | Vẫn có 1 ô mỗi trang, không bao giờ 0 | Biên | Đạt |
+| TC-UI-063 | Cột 380px, chuyến đi có 4 ngày (hoặc 2 ngày) có dự báo | Hiện đủ, không có nút; các ô chia đều bề ngang | Đúng | Đạt |
+| TC-UI-064 | Cột 380px, có 5 ngày hoặc 16 ngày có dự báo | Chia trang, **4 ngày một trang** | Biên | Đạt |
+| TC-UI-065 | Cột 340px: 3 ngày; 4 ngày | 3 ngày: hiện đủ, không nút. 4 ngày: chia trang, 3 ngày một trang | Biên | Đạt |
+| TC-UI-066 | Hàng ô rộng 876px (tab "Bản đồ" trên máy tính bảng), 16 ngày | 9 ngày một trang | Đúng | Đạt |
+| TC-UI-067 | Hàng rất hẹp (120px), hoặc chưa đo được bề rộng | Vẫn có 1 ô mỗi trang, không bao giờ 0 | Biên | Đạt |
+| TC-UI-070 | Hàng ô rộng vừa đủ cho 4 ô (352px) và hẹp hơn đúng 1px (351px) | 352px: 4 ô. 351px: chỉ còn 3 ô một trang, vì khoảng cách giữa các ô cũng được tính | Biên | Đạt |
 | TC-UI-068 | Số trang: 7 ô chia 3; 6 ô chia 3; 16 ô chia 4; 1 ô; 0 ô | 3, 2, 4, 1, 1 trang | Biên | Đạt |
 | TC-UI-069 | Ô thứ mấy nằm ở trang nào (3 ô một trang): ô đầu, ô thứ 3, ô thứ 4, ô thứ 7 | Trang 1, trang 1, trang 2, trang 3 | Biên | Đạt |
 
@@ -1280,7 +1298,7 @@ Cần: một ngày có 4 hoạt động theo thứ tự: "Chợ Hàn" (có đị
 
 Cần: một chuyến đi bắt đầu từ **hôm qua**, dài ít nhất 3 ngày (Ngày 1 đã qua, Ngày 2 là hôm nay, Ngày 3 sắp tới); một chuyến đi đã kết thúc từ tuần trước; một chuyến đi tháng sau.
 
-- [ ] Màn hình rộng, cột trái: dưới "Ngày 1 · ngày/tháng" có dòng nhỏ "Đã qua" màu xám và cả mục nhạt hơn các mục khác; dưới "Ngày 2" có dòng "Hôm nay" màu xanh ngọc, in đậm; "Ngày 3" không có nhãn.
+- [ ] Màn hình rộng, cột trái (đổi ở Task 3.9, xem `MT-UI-80`): ngày hôm nay có nhãn "Hôm nay" cạnh tên; ngày đã qua và ngày sắp tới không có nhãn.
 - [ ] Bấm vào Ngày 1 (đã qua): mở được như thường; khi đang được chọn, mục có nền xanh nhạt như mọi ngày đang xem và vẫn có dòng "Đã qua".
 - [ ] Tiêu đề ngày ở cột giữa: sau "Ngày 1 · thứ, ngày/tháng/năm" có nhãn xám "Đã qua"; ở Ngày 2 là nhãn xanh "Hôm nay"; Ngày 3 không có nhãn.
 - [ ] Thu hẹp cửa sổ dần: nhãn ở tiêu đề **không bị ngắt đôi** ("Hôm" một dòng, "nay" một dòng); thiếu chỗ thì cả nhãn xuống dòng dưới. Nút "Thêm hoạt động" vẫn trên một dòng.
@@ -1391,7 +1409,7 @@ Cần: (a) chuyến đi đã đặt vị trí điểm đến, bắt đầu từ 
 
 Cần: chuyến đi (b) của `MT-UI-75` (20 ngày bắt đầu từ hôm nay, 16 ngày có dự báo) và chuyến đi (a) (3 ngày có dự báo). Màn hình rộng từ 1280px (cột bản đồ 420px).
 
-- [ ] Chuyến (b), Ngày 1: dải có **4 ô** (Ngày 1 đến 4), một nút "‹" ở đầu trái và một nút "›" ở đầu phải. **Không có thanh cuộn ngang**, kéo chuột hay lăn bánh xe ngang trên dải không làm gì.
+- [ ] (Từ Task 3.9 hai nút nằm ở tiêu đề thẻ, xem `MT-UI-86`; các bước dưới vẫn đúng về hành vi.) Chuyến (b), Ngày 1: có **4 ô** (Ngày 1 đến 4) và hai nút "‹" "›". **Không có thanh cuộn ngang**, kéo chuột hay lăn bánh xe ngang trên dải không làm gì.
 - [ ] Nút "‹" đang mờ và không bấm được (đang ở trang đầu). Bấm "›": dải đổi sang Ngày 5 đến 8, cả 4 ô cùng đổi. Trang chuyến đi **không** đổi ngày (URL giữ nguyên).
 - [ ] Bấm "›" tới trang cuối (Ngày 13 đến 16): nút "›" mờ đi. Bấm "‹" quay lại được.
 - [ ] Đang ở trang Ngày 13–16, bấm ô "N14": trang chuyển sang Ngày 14, dải vẫn ở trang đó và ô N14 được tô.
@@ -1420,6 +1438,241 @@ Cần: một chuyến đi dài ít nhất 12 ngày có ngày rơi vào Chủ nh�
 - [ ] Điện thoại giả lập 390px và 320px: tên ngày trên một dòng (ở 320px được phép xuống dòng nếu thật sự không vừa), dưới đó là tiêu đề của ngày, dòng thời tiết, và các nút "Sửa", "Thêm" ở bên phải.
 - [ ] Bấm "Sửa" của ngày: form sửa hiện ra như trước; "Huỷ" trả lại khối tiêu đề hai hàng.
 - [ ] Trình đọc màn hình vẫn đọc tên vùng của ngày theo dòng tiêu đề ("Ngày 2 · Thứ ba, …").
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-78 · Bảng màu mới trên mọi trang (Task 3.9 Commit 1)
+
+Xem trên màn hình thật, không xem qua ảnh thu nhỏ. Mục đích chính: thẻ, ô nhập và nút phải **tách rõ khỏi nền** ở mọi trang (lần thử bảng màu ở Task 3.6 hỏng ở điểm này).
+
+- [ ] Trang đăng nhập, đăng ký, quên mật khẩu: nền trang trắng ngả xanh dương; khung form trắng có viền nhìn thấy được; nút chính xanh ngọc đậm, chữ trắng đọc rõ; link xanh ngọc.
+- [ ] Trang danh sách chuyến đi: từng thẻ **tách khỏi nền** nhờ viền; chip trạng thái đang chọn nền navy chữ trắng; các chip khác nền trắng có viền; ô "Sắp xếp" có viền rõ. Thẻ không có ảnh bìa: khối xám nhạt vẫn phân biệt được với phần trắng của thẻ.
+- [ ] Trang tạo chuyến đi (3 bước): thanh bước, ô nhập, bản đồ nhỏ, nút "Tiếp" / "Quay lại" đều rõ; ô nhập đang focus có vòng xanh.
+- [ ] Trang chi tiết chuyến đi: cột ngày, khối tiêu đề ngày, thẻ hoạt động, bản đồ, dải thời tiết đều phân biệt được với nền; mục ngày đang chọn có nền xanh nhạt; đường ray và vạch kẻ nhìn thấy được.
+- [ ] Hộp thoại (thêm hoạt động, sửa chuyến đi, xác nhận xoá): bo góc lớn hơn trước một chút, lớp phủ tối phía sau, nút đỏ của xoá vẫn đỏ.
+- [ ] Thông báo (toast), menu "⋮", gợi ý địa điểm đang nổi: có bóng, tách khỏi nội dung bên dưới.
+- [ ] Chữ phụ màu xám (ngày tháng, ghi chú, "Chưa có tiêu đề") đọc được ở mọi trang, không quá nhạt.
+- [ ] Màu của 6 loại hoạt động (chấm trên ray, marker, nút chọn loại) **không đổi** so với trước.
+- [ ] Thanh trên cùng và chân trang: xem `MT-UI-79`.
+- [ ] Không còn chỗ nào mang màu xám ngả xanh lá của bảng cũ đứng cạnh màu mới.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-79 · Thanh trên cùng nền trắng (Task 3.9 Commit 2)
+
+- [ ] Ở mọi trang sau khi đăng nhập: thanh trên cùng nền **trắng**, có một vạch mảnh ở đáy ngăn với nội dung; logo ô vuông xanh ngọc, chữ "Smart Trip Planner" màu navy.
+- [ ] Ô tìm kiếm ở giữa thanh: dạng viên bo tròn, nền xanh xám rất nhạt, icon kính lúp và chữ gợi ý màu xám đọc được. Rê chuột: có viền mảnh. Bấm vào: nền trắng, viền và vòng sáng xanh ngọc; chữ gõ vào màu navy.
+- [ ] Tìm kiếm vẫn chạy như trước: ở trang danh sách lọc khi ngừng gõ; ở trang khác nhấn Enter thì mở danh sách với kết quả (lặp lại `MT-UI-02`).
+- [ ] Bên phải: tên người dùng màu xám đậm, nút "Đăng xuất" có icon; rê chuột nút có nền xám nhạt. Bấm "Đăng xuất" vẫn đăng xuất được.
+- [ ] Chân trang: không còn dải tối; dòng "© 2026 Smart Trip Planner" màu xám trên nền trang, có vạch mảnh phía trên.
+- [ ] Trang đăng nhập / đăng ký: logo lớn kèm dòng phụ hiện như trước.
+- [ ] Điện thoại giả lập: ô tìm kiếm xuống hàng riêng dưới logo, rộng hết bề ngang, vẫn trong phần nền trắng của thanh.
+- [ ] Bàn phím: Tab đi qua logo, ô tìm kiếm, "Đăng xuất", mỗi cái có vòng focus nhìn thấy được trên nền trắng.
+- [ ] Trang chi tiết chuyến đi: dải chip ngày dính ở trên (màn hẹp) và khối tiêu đề ngày dính (màn rộng) không bị thanh trên cùng che hay lệch.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-80 · Cột ngày dạng thẻ (Task 3.9 Commit 3)
+
+Cần: một chuyến đi dài ít nhất 13 ngày, trong đó có ngày hôm nay và ngày đã qua; một chuyến đi 2 ngày. Màn hình từ 1024px.
+
+- [ ] Cột trái là một **thẻ trắng có bóng nhẹ, không viền**, bo góc. Đầu thẻ: "Kế hoạch các ngày", dòng dưới chữ nhỏ in hoa "13 NGÀY · 02/10 – 14/10" (số ngày và khoảng ngày đúng với chuyến đi).
+- [ ] Mỗi ngày một mục: "Ngày 1" đậm, bên dưới "Thứ sáu, 02/10"; bên phải là số hoạt động của ngày trong một vòng tròn.
+- [ ] Ngày đang xem: nền xanh nhạt, vạch xanh ở mép trái, chữ "Ngày N" màu xanh đậm, vòng tròn số tô xanh đậm chữ trắng.
+- [ ] Ngày hôm nay: nhãn "Hôm nay" ngay cạnh tên ngày; vòng tròn số nền xanh nhạt. Khi hôm nay cũng là ngày đang xem: giữ kiểu của ngày đang xem, vẫn có nhãn.
+- [ ] Ngày đã qua: **không** có nhãn và không nhạt đi ở cột này (nhãn "Đã qua" chỉ còn ở tiêu đề ngày).
+- [ ] Không còn dòng tiêu đề của ngày ("Bán đảo Sơn Trà", "Chưa có tiêu đề") ở cột này.
+- [ ] Chuyến đi 13 ngày trên màn hình thấp (cửa sổ cao khoảng 700px): thẻ không dài quá màn hình; danh sách ngày **cuộn bên trong thẻ**, phần tiêu đề thẻ đứng yên. Thẻ dính khi cuộn trang, ngang hàng với khối tiêu đề ngày.
+- [ ] Bấm một mục: sang ngày đó. Tab đi qua từng mục, có vòng focus.
+- [ ] Kéo một thẻ hoạt động thả lên một mục: mục có viền xanh khi rê qua, thả thì hoạt động chuyển sang ngày đó (lặp lại `MT-UI-26`). Thả lên chính ngày đang xem: không có gì thay đổi.
+- [ ] Màn hình 1024px (cột trái 220px) và từ 1280px (280px): tên ngày và nhãn "Hôm nay" không đè lên vòng tròn số; thiếu chỗ thì nhãn xuống dòng dưới tên ngày.
+- [ ] Cột giữa và cột bản đồ vẫn hiện đủ, không bị tràn ngang ở 1024px.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-81 · Khối tiêu đề ngày dạng thẻ (Task 3.9 Commit 4)
+
+Cần: một ngày có tiêu đề và ghi chú dài hơn 2 dòng, có ít nhất 3 hoạt động có địa điểm; một ngày chưa có tiêu đề, chưa có ghi chú, chưa có địa điểm; ngày hôm nay và một ngày đã qua; một ngày có hơn 8 hoạt động.
+
+- [ ] Đầu cột giữa là một **thẻ trắng có bóng nhẹ, không viền**. Phần trên: "Ngày 4" cỡ lớn, in đậm, nhãn "Hôm nay" (hoặc "Đã qua") ngay cạnh; dòng dưới chữ xám "Thứ hai, 05/10/2026". Bên phải: nút "Sửa" có viền kèm icon bút chì, và nút chính xanh "+ Thêm hoạt động".
+- [ ] Dưới một vạch kẻ mảnh: icon lá cờ và tiêu đề của ngày màu xanh đậm; bên phải ghi "3 địa điểm" (đúng số hoạt động có địa điểm của ngày); bên dưới là ghi chú, dài hơn 2 dòng thì có "Đọc thêm".
+- [ ] Ngày chưa có tiêu đề: dòng "Chưa có tiêu đề" chữ nghiêng xám kèm lá cờ. Ngày chưa có địa điểm nào: **không** có chữ "0 địa điểm". Ngày chưa có ghi chú: không có khoảng trống thừa.
+- [ ] "Ngày 12" (hai chữ số) và "Chủ nhật, dd/mm/yyyy": không dòng nào bị bẻ giữa chừng ở 1366px và 1920px. Ở 1024px: nút chính ghi "Thêm"; nếu thiếu chỗ thì cả nhãn "Hôm nay" xuống dòng dưới "Ngày N" (kiểm lại `BUG-UI-010`).
+- [ ] Bấm "Sửa": form sửa tiêu đề và ghi chú hiện **bên trong một thẻ trắng** cùng chỗ; "Lưu thay đổi" và "Huỷ" chạy như trước (`MT-UI-11`).
+- [ ] Bấm "+ Thêm hoạt động": mở hộp thêm hoạt động như trước.
+- [ ] Ngày dài, màn rộng: cuộn xuống thì thẻ tiêu đề **dính ở trên**, ngang hàng với thẻ cột ngày bên trái; các thẻ hoạt động cuộn bên dưới **không lộ ra** ở phía trên hay hai bên thẻ. Khi đã cuộn quá một màn hình, nút "↑ Đầu ngày" hiện ở hàng tiêu đề của ngày (cạnh số địa điểm), không làm các nút phía trên xô lệch; bấm thì về đầu ngày.
+- [ ] Bấm marker trên bản đồ để tới một thẻ hoạt động: thẻ hiện ra **dưới** thẻ tiêu đề đang dính, không bị che.
+- [ ] Màn hẹp (dưới 1024px): thẻ tiêu đề không dính; có dòng thời tiết của ngày nằm giữa tiêu đề và ghi chú; nút chính ghi "Thêm" trên điện thoại.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-82 · Thẻ hoạt động kiểu mới (Task 3.9 Commit 5)
+
+Cần: một ngày có 6 hoạt động thuộc **đủ 6 loại**; trong đó có hoạt động có giờ bắt đầu và kết thúc, có hoạt động chỉ có giờ bắt đầu, có hoạt động chưa đặt giờ; có hoạt động có địa điểm, ghi chú dài, chi phí và link đặt chỗ; có hoạt động chỉ có tên; hai hoạt động trùng giờ (lưu với "Vẫn lưu").
+
+- [ ] Mỗi thẻ là một **thẻ trắng có bóng nhẹ, không viền**, không còn vạch màu ở mép trái.
+- [ ] Dòng đầu của thẻ: giờ in đậm ("08:00 – 09:30", hoặc "08:00", hoặc chữ xám "Chưa đặt giờ"), kế bên là **chip bo tròn** có icon và tên loại, nền nhạt và chữ theo màu của loại. Sáu loại có sáu màu khác nhau, trùng với màu marker trên bản đồ.
+- [ ] Dưới đó: tên hoạt động cỡ lớn hơn trước; dòng địa điểm có icon ghim; ghi chú, dài hơn 2 dòng thì có "Đọc thêm".
+- [ ] Hoạt động có chi phí hoặc link: chân thẻ có một vạch kẻ mảnh; bên trái "Chi phí dự kiến: 40.000 ₫" (số tiền in đậm màu xanh), bên phải "Link đặt chỗ ↗". Chỉ có chi phí: link không hiện. Chỉ có link: link vẫn nằm bên phải. Không có cả hai: không có vạch kẻ, không có chân thẻ.
+- [ ] Bấm "Link đặt chỗ": mở trang trong tab mới, thẻ không bị kéo hay mở form.
+- [ ] Hai hoạt động trùng giờ: thẻ có nền vàng rất nhạt và icon tam giác cảnh báo trước giờ; vẫn đọc rõ chữ.
+- [ ] Rê chuột lên thẻ: tay nắm kéo ở mép trái và nút "⋮" ở góc phải hiện ra; marker của hoạt động trên bản đồ phóng to. Trên màn cảm ứng hai nút ↑ / ↓ và "⋮" luôn hiện.
+- [ ] Menu "⋮" (Sửa, Chuyển sang ngày…, Xoá) chạy như trước.
+- [ ] Kéo một thẻ: bản sao đi theo con trỏ có cùng kiểu thẻ mới, hơi nghiêng, có bóng đậm hơn.
+- [ ] Bấm một marker trên bản đồ: thẻ tương ứng có vòng sáng xanh trong 2 giây.
+- [ ] Tên rất dài, địa chỉ rất dài: tự xuống dòng trong thẻ, không tràn ngang, không đẩy "⋮" ra ngoài.
+- [ ] Điện thoại giả lập: chân thẻ tự xuống hai dòng khi thiếu chỗ, không chồng chữ.
+
+Trục thời gian: xem `MT-UI-83`. Đoạn di chuyển: xem `MT-UI-84`.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-83 · Trục thời gian có nút tròn, không còn cột giờ (Task 3.9 Commit 6)
+
+Cần: ngày của `MT-UI-82` (6 hoạt động đủ 6 loại, có cái chưa đặt giờ) và một ngày trống.
+
+- [ ] Bên trái các thẻ **không còn cột giờ**. Giờ của mỗi hoạt động chỉ hiện ở dòng đầu trong thẻ, không hiện hai lần.
+- [ ] Sát mép trái có một đường dọc mảnh chạy từ thẻ đầu tới thẻ cuối. Trên đường đó, mỗi hoạt động có một **nút tròn** nền trắng, viền và chấm ở giữa theo màu của loại hoạt động (trùng màu chip trong thẻ và marker trên bản đồ).
+- [ ] Nút tròn nằm **ngang hàng với dòng giờ** của thẻ, không lệch lên đầu thẻ hay xuống giữa thẻ. Đường dọc đi qua **đúng tâm** các nút.
+- [ ] Hoạt động chưa đặt giờ: vẫn có nút tròn; trong thẻ ghi "Chưa đặt giờ".
+- [ ] Các thẻ rộng hơn trước (phần cột giờ nay thuộc về thẻ) và cách nhau một khoảng đủ để bóng của từng thẻ tách nhau.
+- [ ] Ngày trống: không có đường dọc, chỉ có khung nét đứt "Ngày này còn trống…".
+- [ ] Kéo một thẻ: ở chỗ thẻ vừa rời có một vạch xanh ngang; nút tròn của hàng đó vẫn nằm trên đường. Thả xuống: các nút đổi thứ tự theo thẻ. Kéo thả trong ngày và sang ngày khác chạy như trước (`MT-UI-25`, `MT-UI-26`).
+- [ ] Cuộn một ngày dài trên màn rộng: các nút tròn đi **dưới** thẻ tiêu đề ngày đang dính, không đè lên nó (`BUG-UI-002`).
+- [ ] Đoạn di chuyển giữa hai thẻ (còn là dòng chữ ở commit này): đoạn nét đứt nằm **trùng** lên đường dọc, không lệch sang phải.
+- [ ] Điện thoại giả lập: nút tròn và đường dọc vẫn ở mép trái, thẻ rộng gần hết màn hình; nút ↑ / ↓ trong thẻ bấm được.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-84 · Đoạn di chuyển dạng viên bo tròn (Task 3.9 Commit 7)
+
+Cần: ngày của `MT-UI-69` (Chợ Hàn có địa điểm, "Nghỉ trưa, tự do" không có, Cầu Rồng có, Bún chả cá 109 có).
+
+- [ ] Giữa hai thẻ liền nhau cùng có địa điểm có một **viên bo tròn nền xanh xám nhạt, nằm giữa bề ngang của thẻ**: icon đường đi, thời gian in đậm, dấu chấm, quãng đường ("2 phút · 998 m"). Không có icon ô tô, xe buýt hay người đi bộ; không có tên đường.
+- [ ] Dưới thẻ "Chợ Hàn": viên ghi thêm "tới Cầu Rồng". Dưới "Nghỉ trưa, tự do": không có viên nào.
+- [ ] Bên trái viên, đoạn đường dọc của trục thời gian là **nét đứt** và nằm trùng lên đường dọc (không lệch); các đoạn khác nét liền. Nút tròn của các hoạt động không bị nét đứt che.
+- [ ] Rê chuột lên viên: hiện "Ước tính theo đường bộ, chưa tính kẹt xe".
+- [ ] Con số trùng với `GET /api/v1/trips/{tripId}/days/{dayId}/route` (như `MT-UI-67`).
+- [ ] Đổi tên hoạt động đích thành tên rất dài: viên không rộng quá thẻ, tên bị cắt bằng "…", thời gian và quãng đường vẫn đủ.
+- [ ] Bắt đầu kéo một thẻ: mọi viên ẩn đi, các thẻ **không nhảy vị trí**; thả xong các viên hiện lại, số mới về sau khi lưu (`MT-UI-68`).
+- [ ] Hai hoạt động cùng một địa điểm: không có viên giữa chúng.
+- [ ] Điện thoại giả lập: viên nằm giữa, không tràn ngang.
+- [ ] Trình đọc màn hình đọc "Di chuyển tới hoạt động kế tiếp, ước tính: 2 phút 998 m".
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-85 · Bản đồ trong thẻ có tiêu đề (Task 3.9 Commit 8)
+
+Cần: một ngày có 3 hoạt động có địa điểm và một hoạt động không có; một ngày chưa có địa điểm nào. Máy có mạng.
+
+- [ ] Cột phải, phía trên: một **thẻ trắng có bóng, không viền**. Đầu thẻ ghi "Bản đồ lộ trình" kèm icon bản đồ; bên phải là chip xanh nhạt "3 điểm dừng" (bằng số hoạt động có địa điểm của ngày, bằng số marker).
+- [ ] Bản đồ nằm ngay dưới đầu thẻ, **lấp kín phần còn lại của thẻ**: không có vùng xám, không có khe hở ở đáy hay hai bên; hai góc dưới của bản đồ bo theo thẻ.
+- [ ] Góc trên **trái** của bản đồ có nút trắng "Mở rộng" kèm icon. Bấm: bản đồ mở phủ cả cửa sổ, hiện đủ nền và marker (`BUG-UI-009`); nút đóng "×" ở góc trên phải; Esc đóng, con trỏ trở về nút "Mở rộng".
+- [ ] Mở rồi đóng bản đồ lớn **hai lần liên tiếp**: lần nào cũng hiện đủ.
+- [ ] Thêm địa điểm cho hoạt động thứ tư: chip đổi thành "4 điểm dừng". Bỏ địa điểm: về "3 điểm dừng".
+- [ ] Ngày chưa có địa điểm: **không có chip**; giữa bản đồ có thẻ "Ngày này chưa có địa điểm nào."
+- [ ] Nút + / − và dòng ghi nguồn "© OpenStreetMap contributors" vẫn ở góc dưới phải, không bị nút "Mở rộng" che.
+- [ ] Marker, đường nét đứt nối các điểm, rê thẻ thì marker phóng to, bấm marker tới thẻ: chạy như trước (`MT-UI-53`, `MT-UI-54`, `MT-UI-57`, `MT-UI-58`).
+- [ ] **Không có** dòng "Tổng cự ly trong ngày" dưới bản đồ.
+- [ ] Dưới 1024px, tab "Bản đồ": thẻ bản đồ rộng hết màn hình, bản đồ lấp kín thẻ; chạm marker mở ô tên như trước.
+- [ ] Cuộn trang trên màn rộng: thẻ bản đồ dính cùng cột ngày; lớp phủ của hộp thoại và thẻ tiêu đề ngày vẫn nằm **trên** bản đồ (`BUG-UI-002`).
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-86 · Thẻ thời tiết với các ô ngày (Task 3.9 Commit 9)
+
+Cần: chuyến đi (b) của `MT-UI-75` (20 ngày bắt đầu từ hôm nay, đã đặt vị trí và **có tên điểm đến**), chuyến đi 3 ngày có dự báo, chuyến đi chưa đặt vị trí điểm đến, chuyến đi đã kết thúc, chuyến đi 2 tháng nữa mới đi. Màn hình từ 1280px.
+
+- [ ] Dưới thẻ bản đồ là một **thẻ trắng có bóng, không viền**. Đầu thẻ: icon thời tiết màu vàng cam và "Thời tiết dự báo"; bên phải là tên điểm đến của chuyến đi (chữ xám nhỏ; tên dài bị cắt bằng "…").
+- [ ] Trong thẻ có **4 ô rời nhau**, bo góc, nền xanh xám nhạt, cách nhau một khe nhỏ. Mỗi ô: "N1 · ngày/tháng", icon thời tiết có màu, **nhiệt độ cao cỡ lớn in đậm**, nhiệt độ thấp cỡ nhỏ ngay bên dưới, rồi giọt nước và phần trăm mưa.
+- [ ] Ô của ngày đang xem có nền xanh nhạt và dòng đầu in đậm màu xanh.
+- [ ] Chuyến 20 ngày: ở đầu thẻ, cạnh tên điểm đến, có **hai nút vuông nhỏ ‹ ›**. Bấm "›": 4 ô đổi sang 4 ngày kế tiếp; trang chuyến đi không đổi ngày. Ở trang đầu nút "‹" mờ và không bấm được; ở trang cuối nút "›" mờ.
+- [ ] Bấm một ô: trang chuyển sang ngày đó, ô được tô. Bấm Ngày 6 ở cột trái: thẻ tự lật tới trang có Ngày 6.
+- [ ] Chuyến 3 ngày có dự báo: 3 ô chia đều, **không có** hai nút.
+- [ ] Chuyến chưa đặt vị trí điểm đến; chuyến đã kết thúc; chuyến còn xa: trong thẻ là một dòng có icon trên nền xám rất nhạt, đúng ba câu của `MT-UI-64` và `MT-UI-75`. Chặn lời gọi thời tiết: "Tạm thời không có dự báo." kèm "Thử lại" (`MT-UI-65`).
+- [ ] Trong mọi trường hợp trên và lúc đang tải (khối xám nhấp nháy trong thân thẻ), thẻ thời tiết **cao như nhau**; thẻ bản đồ phía trên không đổi chiều cao và không có vùng xám.
+- [ ] Chuyến đi không có tên điểm đến: đầu thẻ chỉ có tiêu đề (và hai nút nếu có), không có khoảng trống lạ.
+- [ ] Thu cửa sổ về khoảng 1100px (cột 340px): mỗi trang còn 3 ô; ngày đang xem vẫn nằm trong trang đang hiện.
+- [ ] Cửa sổ thấp (cao khoảng 700px): thẻ bản đồ vẫn cao ít nhất 240px, thẻ thời tiết hiện đủ; nếu thiếu chỗ thì cột phải dài hơn màn hình chứ hai thẻ không chồng lên nhau.
+- [ ] Dưới 1024px, tab "Bản đồ": thẻ thời tiết nằm dưới thẻ bản đồ, rộng hết màn hình, nhiều ô hơn mỗi trang; trên điện thoại 3 ô, hai nút ‹ › đủ lớn để chạm.
+- [ ] Bàn phím: Tab đi qua hai nút rồi tới các ô; trình đọc màn hình đọc đủ "Ngày 2, 13/10: Có mây, cao nhất 32°, thấp nhất 25°, khả năng mưa 20%".
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-87 · Trang chuyến đi kiểu mới trên màn hình hẹp (Task 3.9 Commit 10)
+
+Giả lập điện thoại 390px và 320px, và máy tính bảng 820px trong DevTools (bật chế độ cảm ứng). Cần chuyến đi dài hơn 6 ngày có ngày hôm nay và ngày đã qua, một ngày có đủ loại hoạt động như `MT-UI-82`.
+
+- [ ] Dải ngày dính ở mép trên: mỗi ngày là một **viên bo tròn** nền trắng có bóng rất nhẹ. Ngày đang xem: nền xanh đậm, chữ trắng. Hôm nay: có chấm nhỏ trước chữ (chấm trắng khi đang được chọn, chấm xanh khi không). Ngày đã qua: nền xám nhạt, chữ vẫn đọc rõ. Dải cuộn ngang được, viên đang chọn tự nằm trong tầm nhìn.
+- [ ] Hai nút gạt "Lịch trình" / "Bản đồ": khung bo góc lớn hơn trước, nút đang chọn nền trắng chữ xanh đậm.
+- [ ] Thẻ tiêu đề ngày ở 390px: "Ngày 4", nhãn "Hôm nay", ngày tháng bên dưới; "Sửa" và "Thêm" ở bên phải **cùng hàng**. Ở 320px: hai nút tự **xuống hàng dưới, vẫn sát mép phải**; không có gì tràn ngang, không có thanh cuộn ngang của trang.
+- [ ] Dưới vạch kẻ của thẻ tiêu đề: tiêu đề của ngày, số địa điểm, **dòng thời tiết của ngày**, ghi chú.
+- [ ] Trục thời gian: nút tròn và đường dọc sát mép trái; thẻ hoạt động rộng gần hết màn hình; hai nút ↑ / ↓ và "⋮" luôn hiện, mỗi nút bấm được bằng ngón tay (không nhỏ hơn 44px).
+- [ ] Chân thẻ hoạt động ("Chi phí dự kiến…" và "Link đặt chỗ"): cùng hàng khi đủ chỗ, xuống hai dòng khi thiếu, không chồng chữ.
+- [ ] Viên di chuyển nằm giữa, không tràn; chặng có "tới …" bị cắt bằng "…" khi tên dài.
+- [ ] Tab "Bản đồ": thẻ bản đồ rộng hết màn hình, cao khoảng 70% màn hình, bản đồ lấp kín thẻ; nút "Mở rộng" bấm được; dưới đó là thẻ thời tiết với 3 ô mỗi trang ở 390px và hai nút ‹ › đủ lớn.
+- [ ] Chuyển qua lại hai tab: form đang sửa dở ở tab "Lịch trình" không mất; ngày đang xem giữ nguyên.
+- [ ] Máy tính bảng 820px: vẫn bố cục một cột có hai tab; thẻ thời tiết có nhiều ô hơn mỗi trang.
+- [ ] Nút tròn "Về đầu ngày" nổi ở góc dưới khi đã cuộn sâu, không che nút "⋮" của thẻ cuối và không chạm chân trang.
+- [ ] Xoay ngang điện thoại (844 × 390): không có phần nào bị cắt, dải ngày vẫn dính.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-88 · Chỉnh kích thước sau lần xem đầu: cột ngày, trục thời gian, thẻ bản đồ (Task 3.9 Commit 11)
+
+Chủ dự án xem trang ngày 2026-10-05 và nhận xét: cột ngày to và thô; cột giữa hẹp hơn bản cũ và trục thời gian chiếm nhiều chỗ; bản đồ nên nhỏ như trong mockup. Bài này kiểm lại ba điểm đó. Màn hình từ 1280px, so với ảnh mockup đặt bên cạnh.
+
+- [ ] **Cột ngày** hẹp hơn lần trước (240px; 200px ở 1024px) và gọn hơn: tiêu đề "Kế hoạch các ngày" nhỏ hơn, mỗi mục thấp hơn, chữ "Ngày N" cỡ 14px, dòng thứ và ngày cỡ 12px, vòng tròn số nhỏ hơn. Một chuyến đi 13 ngày hiện được nhiều ngày hơn mà không phải cuộn trong thẻ.
+- [ ] Nhãn "Hôm nay" vẫn nằm cạnh tên ngày và không đè lên vòng tròn số ở cả 240px và 200px.
+- [ ] **Cột giữa** rộng bằng bản trước khi làm lại (khoảng 530px ở màn 1280px trở lên): tên hoạt động, địa chỉ và ghi chú có chỗ như cũ.
+- [ ] **Trục thời gian** mảnh hơn: mỗi hoạt động là một chấm tròn nhỏ viền màu theo loại (không còn vòng to có chấm giữa); khoảng từ mép trái tới thẻ chỉ còn khoảng 18px (thu thêm một lần nữa theo ý chủ dự án: chấm 10px, trước đó 14px và 24px).
+- [ ] Chấm vẫn ngang hàng với dòng giờ của thẻ; đường dọc đi qua đúng tâm các chấm; đoạn nét đứt cạnh viên di chuyển trùng lên đường dọc.
+- [ ] **Thẻ bản đồ** thấp hơn hẳn: cao khoảng 420px tính cả đầu thẻ, **không còn kéo dài hết chiều cao màn hình**. Thẻ thời tiết nằm ngay bên dưới, thấy được cả hai mà không phải cuộn trên màn hình cao từ 700px.
+- [ ] Bản đồ vẫn lấp kín thẻ, không có vùng xám; nút "Mở rộng" mở bản đồ lớn như trước.
+- [ ] Cửa sổ thấp (cao khoảng 600px): thẻ bản đồ tự thấp đi (ít nhất 240px) để thẻ thời tiết vẫn hiện đủ.
+- [ ] Thẻ thời tiết ở cột 380px vẫn có **4 ô** mỗi trang; "N12 · 13/10" và nhiệt độ không bị cắt chữ trong ô.
+- [ ] Dưới 1024px, tab "Bản đồ": thẻ bản đồ cao khoảng 60% màn hình (trước là 70%), thẻ thời tiết bên dưới dễ thấy hơn.
+- [ ] Kéo thả một thẻ hoạt động, thả lên tên ngày ở cột trái: vẫn chạy như trước với cột ngày đã thu nhỏ.
+
+**Kết quả:** Chưa chạy
+
+---
+
+### MT-UI-89 · Font chữ mới: Inter (Task 3.9 Commit 12)
+
+Cần máy có mạng (font tải từ Google Fonts). Tải lại trang bằng Ctrl+F5.
+
+- [ ] Chữ trên mọi trang đổi sang **Inter**. (DevTools → chọn một dòng chữ → tab Computed → "Rendered Fonts" ghi Inter.) Chữ nhỏ 12–14px (ngày tháng, ghi chú, địa chỉ, ô thời tiết) **đủ dày và rõ**, không mỏng như bản thử Plus Jakarta Sans.
+- [ ] Tiếng Việt hiện đủ dấu, **không có chữ nào rơi về font khác** trong cùng một từ: thử "Đà Nẵng", "Thưởng thức", "Nghỉ dưỡng", "Phường Sơn Trà", "Ngũ Hành Sơn", "Chùa Linh Ứng".
+- [ ] Chữ hoa có dấu ở tiêu đề lớn ("ĐÀ NẴNG", "Ế", "Ợ", "Ỡ" trong tên chuyến đi 32px): dấu không bị cắt ở mép trên, không chạm vào dòng phía trên.
+- [ ] Số tiền có ký hiệu "₫" ("350.000 ₫") hiện đúng font, không lệch dòng.
+- [ ] Các con số trong cột (giờ "08:00 – 09:30", nhiệt độ, phần trăm mưa, số hoạt động) vẫn thẳng hàng theo cột.
+- [ ] Không có chỗ nào bị vỡ dòng mới do đổi font: nút "Thêm hoạt động", nhãn "Hôm nay", chip trạng thái ở trang danh sách, ô thời tiết "N12 · 13/10", viên di chuyển, tên ngày ở cột trái (xem ở 1024px và 1280px).
+- [ ] Trang đăng nhập, đăng ký, tạo chuyến đi và các hộp thoại: nhãn ô nhập, chữ gợi ý và thông báo lỗi đọc rõ.
+- [ ] Bản đồ: nhãn trên marker và ô tên dùng cùng font với trang.
+- [ ] Tắt mạng rồi tải lại: trang vẫn dùng được với font hệ thống (Segoe UI), bố cục không vỡ.
 
 **Kết quả:** Chưa chạy
 

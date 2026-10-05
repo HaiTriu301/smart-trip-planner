@@ -275,6 +275,9 @@ Khi review code, kiểm tra lại các điểm này:
 - Vẽ dữ liệu tải kèm (chặng di chuyển, dự báo) mà không kiểm nó còn khớp với thứ đang hiển thị: sau kéo thả, con số cũ nằm sai chỗ. Lọc qua hàm thuần (`lib/travelLegs.legsAfter`); khi thay đổi làm con số **sai** chứ không chỉ cũ (đổi địa điểm) thì `resetQueries`, không `invalidateQueries` — Task 3.7
 - Component cần "hôm nay" tự gọi `new Date()`: lệch với backend khi máy người dùng khác múi giờ tài khoản. Lấy qua `hooks/useToday` (`lib/today.todayIn`), so ngày bằng chuỗi `YYYY-MM-DD` — Task 3.7
 - Thứ nằm cùng cột với bản đồ Leaflet (dải thời tiết) đổi chiều cao giữa các trạng thái: bản đồ đo khung một lần nên có vùng xám. Giữ chiều cao cố định ở mọi trạng thái — Task 3.7
+- Thẻ trắng đặt trơn trên nền `paper` (`#F8F9FF`, chỉ tách 1,05:1 so với trắng): thẻ lẫn vào nền. Thẻ luôn có viền `tide` hoặc `shadow-md`; thẻ có bóng phải có nền đặc (pha màu vào trắng bằng `color-mix`, không dùng nền trong suốt). Đổi giá trị token màu thì tính tương phản trước (UI_GUIDE 3.1) — Task 3.9
+- Đặt chiều cao vùng bản đồ Leaflet theo phần trăm bên trong một hàng flex: thư viện có thể đo ra khung sai. Ghim vùng bản đồ vào bốn mép khung (`absolute inset-0`), như `MapFrame` — Task 3.9
+- Dựng lại bố cục theo tỉ lệ của một mockup rộng hơn trang thật (mockup 1550px, nội dung của ta tối đa 1280px): cột nội dung chính bị hẹp đi. Tính bề rộng từng cột ở 1024px và 1280px và so với bản đang chạy trước khi code — Task 3.9
 
 ---
 

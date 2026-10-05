@@ -122,6 +122,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Framework | React 19 + Vite 8 + TypeScript |
 | Styling | TailwindCSS v4 (plugin `@tailwindcss/vite`, không có `tailwind.config.js`, chỉ `@import "tailwindcss"` trong `index.css`). Component dùng chung **tự viết** trong `src/components/` (`Button`, `FormField`, `Modal`, `ConfirmDialog`...), **không dùng shadcn/ui** (chốt 2026-09-30, Task 2.5). Từ Task 2.6: màu, bo góc, bóng, font khai báo bằng `@theme` trong `src/styles/tokens.css` |
 | Giao diện | **`UI_GUIDE.md` ở thư mục gốc là nguồn sự thật về giao diện** (token, component, bố cục từng màn, prompt Stitch ở mục 15) — chốt 2026-10-01, Task 2.6. Mâu thuẫn giữa UI_GUIDE và mục 15 của file này về bố cục → theo UI_GUIDE; về route, API → theo file này |
+| Font | Inter (Google Fonts, nạp bằng `<link>` trong `index.html`), đổi từ Be Vietnam Pro ở Task 3.9; chi tiết ở `UI_GUIDE.md` mục 4.1 |
 | Icon | lucide-react (Task 2.6) |
 | Test | Vitest (Task 3.7): `npm run test`, môi trường node, test hàm thuần trong `lib/`, `features/*/` và `stores/`. Test component bằng Testing Library: Task 8.3 |
 | Menu thả xuống | @radix-ui/react-dropdown-menu (menu "⋮" của activity, Task 2.6): có sẵn điều hướng bàn phím và focus |

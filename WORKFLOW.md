@@ -1895,6 +1895,48 @@ Màu của 6 loại hoạt động, `sun`, `info`, `success`, `warning`, `danger
 
 **Nhớ:** hành vi không đổi, nên các bài `MT-UI` cũ của trang chuyến đi vẫn là bài kiểm tra hồi quy; bài nào có vị trí hoặc nhãn đổi thì sửa ngay trong bài. `DragDropContainer` (khoảng 490 dòng): Commit 6 chỉ đổi hình học của hàng. Dải thời tiết phải giữ chiều cao cố định ở mọi trạng thái (CLAUDE.md mục 8). Không tự thêm nội dung của mockup ngoài danh sách đã chốt.
 
+> **Thực tế khi làm 3.9 (2026-10-05):** 12 commit trên nhánh thay vì 10 của bảng đã duyệt, sau commit docs Mốc 0 trên `main` (`0d770f9`). Số PR và merge commit: ghi ở Mốc 0 của task sau.
+>
+> | # | Commit | File code (duyệt → thật) | Ghi chú |
+> |:--:|---|:--:|---|
+> | 1 | `12972a5` apply the teal voyage colour tokens | 1 → 1 | viền `tide` là `#D5DEEE`, không phải `#DFE6F3` của kế hoạch (bản nháp nhạt hơn viền cũ) |
+> | 2 | `a1a5c8a` use a white top bar and a light footer | 4 → 5 | thêm `AuthLayout` (bỏ `tone` của `Logo`); xoá kiểu nút `ghost-inverse` |
+> | 3 | `0f940b6` show the day list as a card | 1 → 2 | thêm `TripDetailPage` (khung xương canh theo bề rộng cột ngày) |
+> | 4 | `160c9a5` show the day header as a card | 2 → 1 | không cần sửa `BackToTopButton`: nút "Đầu ngày" chuyển xuống hàng dưới của thẻ |
+> | 5 | `ad5b452` restyle the activity card | 2 → 2 | thẻ trùng giờ dùng màu cảnh báo pha vào trắng (nền đặc) |
+> | 6 | `4e5f6fa` replace the time column with timeline nodes | 2 → 2 | `TravelLeg` thay cho `activityType`; sửa luôn đoạn nét đứt lệch 8px có từ Task 3.7 |
+> | 7 | `e9ddeae` show the travel leg as a pill | 1 → 1 | icon đường đi, không phải phương tiện |
+> | 8 | `1ca41fb` put the day map in a titled card | 2 → 1 | thẻ và số điểm dừng dựng ngay trong `DayMap` |
+> | 9 | `3c012f9` show the forecast as a card of day tiles | 5 → 5 | thẻ cao cố định 212px; nút chuyển trang lên tiêu đề thẻ |
+> | 10 | `3771ea9` fit the redesigned trip page to small screens | 2 → 2 | |
+> | 11 | `e9db9f1` tighten the day list, the timeline and the map card | mới · 6 | sau lần xem đầu của chủ dự án |
+> | 12 | `26dc267` use inter as the typeface | mới · 2 | chủ dự án muốn font gần mockup hơn |
+>
+> Không có endpoint, migration, dependency hay thay đổi backend. Test tự động của giao diện: **109 test trong 8 file** (thêm 1 so với Task 3.7; các test của `stripLayout` viết lại hai lần theo bề rộng mới). 12 bài thủ công mới (`MT-UI-78` đến `MT-UI-89`). **Lúc đóng task các bài thủ công chưa được chạy đủ**: chủ dự án đã xem trang trên trình duyệt sau Commit 10 và sau các lượt chỉnh (kích thước ba cột, trục thời gian, font), các bước còn lại chưa có kết quả. Claude không mở được trình duyệt trong suốt task (tiện ích Chrome không kết nối).
+>
+> Quyết định khi làm (ngoài các quyết định lúc lập kế hoạch):
+> - **Lưới ba cột** chốt ở `200px / 1fr / 340px` (1024px) và `240px / 1fr / 380px` (1280px), không theo tỉ lệ 3 / 5 / 4 của mockup: bản đầu (220 / 280 và 340 / 400) làm cột giữa hẹp hơn bản cũ khoảng 60px, chủ dự án thấy cột ngày "to và thô" và cột giữa nhỏ đi. Sau khi chỉnh, cột giữa rộng bằng bản trước Task 3.9.
+> - **Trục thời gian** thu lại hai lần theo ý chủ dự án: từ mép trái tới thẻ 36px → 24px → 18px; nút từ đĩa 20px có chấm giữa về chấm 10px viền 2px.
+> - **Thẻ bản đồ cao 420px** như mockup thay vì cao hết màn hình; tự thấp đi (ít nhất 240px) trên màn hình thấp.
+> - **Font:** kế hoạch giữ Be Vietnam Pro; chủ dự án so với ảnh và muốn đổi. Plus Jakarta Sans (font của mockup) được thử trước, chủ dự án thấy nét quá mỏng; chọn **Inter**. Cả hai đều đã kiểm có bộ chữ tiếng Việt trên Google Fonts. Plus Jakarta Sans chưa từng được commit.
+> - **Nút thu gọn cột ngày** (dải hẹp chỉ còn số ngày, nhớ trong `localStorage`): chủ dự án yêu cầu, Claude làm xong kèm 5 test, chủ dự án cho bỏ trước khi commit. Không có gì của nó trong lịch sử; nếu làm lại thì ý tưởng nằm ở đây.
+> - Nút trên trục thời gian mang **màu của loại hoạt động** (mockup dùng một màu xanh cho mọi nút), để giữ quy tắc "màu loại ở ba nơi" của UI_GUIDE.
+> - Thẻ thời tiết: ô tối thiểu 82px để cột 380px vẫn có 4 ngày một trang.
+>
+> **Bẫy đã gặp khi làm 3.9:**
+> 1. **Làm theo tỉ lệ của mockup mà không đối chiếu bề rộng thật:** mockup rộng 1550px, trang của ta tối đa 1280px. Tỉ lệ 3 / 5 / 4 đẹp trên ảnh nhưng làm cột nội dung chính hẹp đi. Khi dựng lại theo ảnh, tính trước bề rộng từng cột ở 1024px và 1280px và so với bản đang chạy.
+> 2. **Nền trang gần trắng làm thẻ trắng mất ranh giới:** `#F8F9FF` so với trắng chỉ 1,05:1 (bảng cũ 1,09:1). Giá trị viền nháp trong kế hoạch còn nhạt hơn viền cũ; phải tính tương phản rồi mới chọn (`#D5DEEE`, 1,35:1). Thẻ trắng luôn cần viền hoặc bóng. Đã ghi vào CLAUDE.md mục 8.
+> 3. **Vùng bản đồ lấy chiều cao từ thẻ co giãn:** bản đồ chỉ đo khung một lần (gốc của `BUG-UI-009`). Vùng bản đồ được ghim vào bốn mép của khung (`absolute inset-0`) thay vì đặt chiều cao theo phần trăm. Đã ghi vào CLAUDE.md mục 8.
+> 4. **Thẻ có bóng không dùng được nền trong suốt:** nền cảnh báo mờ 8% để lộ thứ nằm dưới; phải pha màu vào trắng (`color-mix`) để thẻ vẫn đặc.
+> 5. **Một file tài liệu chứa thay đổi của hai commit đang chờ** (`UI_GUIDE.md` ở Commit 11 và 12): không tách được theo file, phải cho đi cùng commit chạy trước. Khi có hai việc chưa commit, tránh sửa chung một file tài liệu.
+> 6. **Vẫn làm 10 commit liền mà chưa ai nhìn giao diện:** kế hoạch ghi "dừng thật" ở năm điểm; chủ dự án bảo làm tiếp ở từng điểm và Claude làm tiếp. Kết quả giống Task 3.7: mọi phản hồi về kích thước và font đến sau Commit 10 và phải sửa bằng commit riêng. Điểm dừng chỉ có giá trị khi có người xem; nếu chủ dự án muốn làm liền một mạch thì nói trước, và gom phản hồi vào một lượt chỉnh ở cuối như đã xảy ra.
+>
+> **Còn nợ sau Task 3.9:**
+> - Chạy 12 bài `MT-UI-78` đến `MT-UI-89`; các bài cũ của trang chuyến đi (`MT-UI-20` đến `MT-UI-77`) là bài kiểm tra hồi quy và cũng chưa chạy lại sau khi đổi giao diện. Trước hết: `MT-UI-88` (kích thước), `MT-UI-89` (font Inter, dấu tiếng Việt trên chữ hoa), `MT-UI-85` (bản đồ lấp kín thẻ), `MT-UI-87` (màn hẹp).
+> - Các trang ngoài trang chuyến đi (danh sách, form, đăng nhập) mới đổi màu và font, chưa chuyển sang thẻ có bóng như mockup: việc của một task sau nếu chủ dự án muốn đồng bộ.
+> - Thẻ tiêu đề ngày khi dính ở trên cao khoảng 150–170px; nếu thấy chiếm chỗ, cho phần dưới (tiêu đề và ghi chú của ngày) cuộn đi.
+> - Nợ cũ chưa đổi: câu "Đặt vị trí điểm đến…" dễ hiểu nhầm (Task 3.7); UI_GUIDE 7.0 "một nút chính mỗi màn" (Task 2.7).
+
 ---
 
 ### Task 3.8 — Provider thật: OpenStreetMap và Open-Meteo
@@ -2348,7 +2390,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.5 Quãng đường trong ngày | ☑ | 2026-10-03 |
 | 3 | 3.6 UI: địa điểm + bản đồ | ☑ | 2026-10-04 |
 | 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☑ | 2026-10-05 |
-| 3 | 3.9 UI: làm lại trang chuyến đi + bảng màu theo mockup (làm trước 3.8) | ☐ | |
+| 3 | 3.9 UI: làm lại trang chuyến đi + bảng màu theo mockup (làm trước 3.8) | ☑ | 2026-10-05 |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
 | 4 | 4.1 Trip members | ☐ | |
 | 4 | 4.2 Permission evaluator | ☐ | |
