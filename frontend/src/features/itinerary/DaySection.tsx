@@ -45,6 +45,10 @@ interface DaySectionProps {
  * The day shown on /trips/:id/days/:dayIndex (UI_GUIDE 8.1): heading with the page's main action
  * "Thêm hoạt động", then the rail of stations. One form dialog and one delete dialog for the day.
  * <p>
+ * The heading block has two rows: the name of the day alone on the first one, then the day's own title next to
+ * the buttons. With the map column in place the middle column can be as narrow as 368px; sharing one row with
+ * the buttons left the name of the day about 120px and broke it over several lines (BUG-UI-010).
+ * <p>
  * On wide screens the heading block is sticky (UI_GUIDE 8.1 "Ngày dài"): its 24px top padding lines it up with
  * the pinned day list on the left, and its paper background covers the cards scrolling underneath. The negative
  * top margin cancels that padding while nothing is scrolled, so the page looks the same as before at rest.
@@ -95,48 +99,52 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
       {isEditingDay ? (
         <DayEditForm tripId={tripId} day={day} onDone={() => setIsEditingDay(false)} />
       ) : (
-        <header className="flex items-start justify-between gap-3 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
-          <div className="min-w-0 space-y-1">
-            {/* The badge never breaks in two: short of room, it goes to the next line as a whole */}
-            <h2
-              id="day-heading"
-              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg leading-[26px] font-semibold text-ink"
-            >
-              <span>
-                Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
-              </span>
-              {status === 'today' && <Badge tone="brand">Hôm nay</Badge>}
-              {status === 'past' && <Badge tone="muted">Đã qua</Badge>}
-            </h2>
-            {day.title ? (
-              <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
-            ) : (
-              <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
-            )}
-            <DayWeatherLine tripId={tripId} dayId={day.id} />
-            {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {/* Wide screens only, where this header stays pinned; phones have the floating button */}
-            <div className="hidden lg:block">
-              <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+        <header className="space-y-1 lg:sticky lg:top-0 lg:z-10 lg:-mt-6 lg:border-b lg:border-tide lg:bg-paper lg:pt-6 lg:pb-3">
+          {/* A row of its own, the full width of the column. The badge never breaks in two: short of room, it
+              goes to the next line as a whole */}
+          <h2
+            id="day-heading"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg leading-[26px] font-semibold text-ink"
+          >
+            <span>
+              Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date)}
+            </span>
+            {status === 'today' && <Badge tone="brand">Hôm nay</Badge>}
+            {status === 'past' && <Badge tone="muted">Đã qua</Badge>}
+          </h2>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              {day.title ? (
+                <p className="font-medium wrap-anywhere text-jade-dark">{day.title}</p>
+              ) : (
+                <p className="text-sm text-gray-400 italic">Chưa có tiêu đề</p>
+              )}
+              <DayWeatherLine tripId={tripId} dayId={day.id} />
+              {day.note && <ExpandableText text={day.note} className="max-w-[68ch] text-sm text-gray-600" />}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              fullWidth={false}
-              aria-label={`Sửa ngày ${day.dayIndex}`}
-              onClick={() => setIsEditingDay(true)}
-            >
-              <Pencil aria-hidden className="size-3.5" />
-              Sửa
-            </Button>
-            {/* The page's single primary action (UI_GUIDE 7.0); a shorter label on phones */}
-            <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
-              <Plus aria-hidden className="size-4" />
-              <span className="sm:hidden">Thêm</span>
-              <span className="hidden sm:inline">Thêm hoạt động</span>
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Wide screens only, where this header stays pinned; phones have the floating button */}
+              <div className="hidden lg:block">
+                <BackToTopButton placement="inline" label="Đầu ngày" targetId="day-start" />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                fullWidth={false}
+                aria-label={`Sửa ngày ${day.dayIndex}`}
+                onClick={() => setIsEditingDay(true)}
+              >
+                <Pencil aria-hidden className="size-3.5" />
+                Sửa
+              </Button>
+              {/* The page's single primary action (UI_GUIDE 7.0). The short label where the column is narrow:
+                  phones, and three columns below 1280px */}
+              <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
+                <Plus aria-hidden className="size-4" />
+                <span className="sm:hidden lg:inline xl:hidden">Thêm</span>
+                <span className="hidden sm:inline lg:hidden xl:inline">Thêm hoạt động</span>
+              </Button>
+            </div>
           </div>
         </header>
       )}
