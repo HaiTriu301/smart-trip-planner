@@ -621,6 +621,15 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 > - `forecast`: hỏi Open-Meteo với `timezone=auto`, nên "ngày" là ngày lịch **tại điểm đến**; khoảng 16 ngày vẫn tính theo "hôm nay" của tài khoản. Hai nơi khác múi giờ thì lệch tối đa một ngày ở hai đầu khoảng: **chấp nhận**, không xử lý. Mã WMO đổi về 7 giá trị `condition` (mưa phùn, mưa rào → `RAIN`).
 > - Giao diện ghi nguồn dữ liệu ở chân trang: OpenStreetMap, OSRM, Open-Meteo.
 > - JSON mẫu của test lấy từ câu trả lời thật của từng dịch vụ (gọi tay một lần lúc soạn), không viết theo trí nhớ. Test không gọi mạng (CLAUDE.md rule 24): `MockRestServiceServer` cho nội dung và mã lỗi, một máy chủ HTTP nhỏ của JDK cho trường hợp quá thời gian. Không dùng WireMock (bản 3.x xung đột với Jetty 12.1 của Spring Boot 4, bản 4 còn beta).
+>
+> **Chốt khi làm Task 3.8 (2026-10-05), sau khi gọi thử từng dịch vụ:**
+>
+> - **Photon:** tên trả về mặc định theo ngôn ngữ của nơi đó (tiếng Việt có dấu ở Việt Nam); tham số ngôn ngữ chỉ nhận `en`, `de`, `fr` (gửi `vi` bị 400) nên ứng dụng không gửi. Ưu tiên theo toạ độ bằng `lat` / `lon`. "cho han" và "chợ hàn" ra cùng các địa điểm nhưng khác thứ tự. Từ khoá gửi đi dưới dạng biến của địa chỉ, không ghép chuỗi.
+> - **Nominatim `lookup`:** mã không tồn tại hoặc sai dạng trả 200 với danh sách rỗng. `OsmMapProvider` kiểm mã đúng dạng `[NWR]` + số trước khi gọi (dấu phẩy trong mã sẽ bị hiểu là nhiều mã).
+> - **Địa chỉ** ở gợi ý (Photon) và ở bản lưu (Nominatim) có thể khác chữ: "Hải Châu, Đà Nẵng" và "Phường Hải Châu, Thành phố Đà Nẵng". Bản lưu là của Nominatim.
+> - **`category`** của nguồn thật là tên một loại hoạt động (`FOOD`, `ACCOMMODATION`, `SHOPPING`, `TRANSPORT`, `SIGHTSEEING`) suy từ nhãn OpenStreetMap khi nhãn rõ ràng, còn lại `null`.
+> - **OSRM:** máy chủ công cộng chỉ có ô tô (gọi `bike` / `foot` ra đúng con số của `driving`). Hai điểm trùng toạ độ trả chặng 0. Thử 101 điểm một lần gọi vẫn được. Một điểm xa mọi con đường (giữa biển) **không báo lỗi**: OSRM dời nó về đường gần nhất rồi tính; ứng dụng chưa phát hiện trường hợp này. Gọi với `overview=false` (chỉ lấy con số).
+> - **Ghi nguồn** nằm ở chân trang của mọi trang đã đăng nhập và không phụ thuộc nguồn đang bật: frontend không biết backend dùng nguồn nào.
 
 ### 7.3. Resilience
 
@@ -630,8 +639,8 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 |---|---|---|---|
 | Giới hạn thời gian | kết nối 2 giây, chờ trả lời 3 giây | Bộ gọi HTTP (`RestClient`) | Dịch vụ không trả lời thì bỏ cuộc, người dùng không nhìn trang quay mãi |
 | Thử lại | 2 lần sau lần đầu, cách 500ms; chỉ với 5xx, quá thời gian, mất kết nối | Resilience4j `@Retry` | Qua được lỗi thoáng qua. Lỗi 4xx là do ta gửi sai, gọi lại không đổi kết quả |
-| Ngắt mạch | mở khi hơn 50% trong 20 lần gọi gần nhất lỗi | Resilience4j `@CircuitBreaker`, mỗi dịch vụ một mạch | Dịch vụ đang sập thì báo lỗi ngay, không bắt mỗi người dùng chờ 3 giây × 3 lần |
-| Giới hạn tần suất | 1 lần / giây, chỉ Nominatim | Resilience4j `@RateLimiter` | Điều khoản của Nominatim |
+| Ngắt mạch | mở khi đã có từ 10 lần gọi và một nửa trong 20 lần gọi gần nhất lỗi; sau 30 giây cho 2 lần gọi đi thử, được thì đóng lại | Resilience4j `@CircuitBreaker`, mỗi dịch vụ một mạch | Dịch vụ đang sập thì báo lỗi ngay, không bắt mỗi người dùng chờ 3 giây × 3 lần |
+| Giới hạn tần suất | 1 lần / giây, chỉ Nominatim; một lần tra chờ lượt tối đa 2 giây, hàng chờ dài hơn thì lỗi ngay | Resilience4j `@RateLimiter` | Điều khoản của Nominatim |
 
 - **Không dùng `@TimeLimiter`:** nó đòi method chạy bất đồng bộ; giới hạn thời gian của bộ gọi HTTP cho cùng kết quả.
 - **Mạch đang mở** → `PROVIDER_UNAVAILABLE` như mọi lỗi khác của provider; người gọi không phân biệt.
@@ -641,6 +650,16 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 - **Không làm "stale-while-error"** (trả bản cache đã hết hạn khi nguồn lỗi; bản cũ của mục này có ghi). Redis xoá bản hết hạn nên không còn gì để trả; muốn có phải cất hai bản cho mỗi câu trả lời và báo cho người dùng biết dữ liệu đã cũ. Trong hạn cache (thời tiết 3 giờ, địa điểm và quãng đường 24 giờ) người dùng vẫn có dữ liệu khi nguồn sập.
 - **Frontend không tự gọi lại** một request bị trả `PROVIDER_UNAVAILABLE`: backend đã thử lại rồi; gọi lại 3 lần nữa (mặc định với 5xx) nhân số lần gọi ra dịch vụ công cộng lên 4.
 
+Chốt khi làm Task 3.8 (2026-10-05):
+- **Lỗi nào được thử lại** (`provider/resilience/TransientFailure`): 5xx, quá thời gian, mất kết nối. Mã 4xx (kể cả 429) và câu trả lời không đọc được thì không.
+- **Lỗi nào tính vào việc mở mạch** (`provider/resilience/ServiceFailure`): lời gọi HTTP lỗi, tức ba loại trên cộng 429 và câu trả lời không đọc được. Mã 4xx khác **không** tính: OSRM trả 400 khi hai điểm không có đường nối, đó là câu hỏi sai chứ không phải dịch vụ sập. Mạch đang mở và hết lượt cũng không tính.
+- Thứ tự bọc: thử lại ở ngoài cùng, rồi ngắt mạch, rồi giới hạn tần suất, rồi lời gọi. Mỗi lần thử lại là một lần gọi của mạch và tốn một lượt của bộ giới hạn.
+- Mạch mở và hết lượt được đổi thành `ProviderUnavailableException` ngay trong provider (hàm dự phòng của Resilience4j), nên service và `GlobalExceptionHandler` không biết tới thư viện. **Hàm dự phòng phải `public`:** thư viện gọi hàm `private` không an toàn khi có hai lần gọi cùng lúc (BUG-PLAT-004).
+- Không cần thêm starter AOP: annotation của Resilience4j chạy được với những gì dự án đã có.
+- Cấu hình nằm ở `application.yml` khối `resilience4j`, mỗi dịch vụ một tên: `photon`, `nominatim`, `osrm`, `open-meteo`.
+- Tệ nhất một yêu cầu chờ khoảng 10 giây (3 lần × 3 giây + 2 × 0,5 giây) trước khi báo lỗi; sau 10 lần gọi lỗi mạch mở và lỗi về ngay.
+- Giới hạn 1 lần / giây tính trong **một** bản ứng dụng đang chạy. Chạy nhiều bản thì phải chuyển bộ đếm sang Redis (chưa làm).
+
 ---
 
 ## 8. Caching & Rate Limiting (Redis)
@@ -649,9 +668,9 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 
 | Cache name | Key | TTL | Evict khi |
 |---|---|---|---|
-| `place:search` | từ khoá đã chuẩn hoá (chữ thường, trim; **giữ dấu** từ Task 3.8) + `limit` + toạ độ làm tròn | 24h | — |
-| `route:legs` (Task 3.8) | chuỗi toạ độ làm tròn 5 chữ số, theo đúng thứ tự các điểm | 24h | — |
-| `weather:forecast` | `{lat4},{lng4}:{from}:{to}` | 3h | — |
+| `place:search` | tên nguồn + `limit` + toạ độ làm tròn + từ khoá đã chuẩn hoá (chữ thường, trim; **giữ dấu** từ Task 3.8) | 24h | — |
+| `route:legs` (Task 3.8) | tên nguồn + chuỗi toạ độ làm tròn 5 chữ số, theo đúng thứ tự các điểm | 24h | — |
+| `weather:forecast` | `{nguồn}\|{lat4},{lng4}:{from}:{to}` | 3h | — |
 | `trip:permission` | `perm:{userId}:{tripId}` | 5 phút | thay đổi member/share |
 | `ai:suggestion` | `ai:sugg:{promptHash}` | 7 ngày | — |
 | `user:quota` | `quota:{userId}:{yyyyMMdd}` | hết ngày | — |
@@ -681,6 +700,10 @@ Chốt khi làm Task 3.4 (2026-10-03):
 Chốt 2026-10-05 (Mốc 0 Task 3.8):
 - **Khoá tìm địa điểm giữ dấu.** Bản cũ bỏ dấu nên "chợ hàn" và "cho han" chung một ô; với Photon hai cách gõ có thể cho kết quả khác nhau, người gõ sau nhận kết quả của người gõ trước trong 24 giờ. Từ khoá chỉ còn đổi chữ thường và cắt khoảng trắng.
 - **Cache quãng đường** `route:legs`: bean `service/RouteCache` đứng giữa `RouteService` và `MapProvider.route`, theo đúng mẫu hai cache trước. Khoá là chuỗi toạ độ theo thứ tự đi, nên đổi thứ tự hoạt động hay đổi địa điểm cho ra khoá khác và tự hỏi lại nguồn; hai ngày đi qua cùng các điểm theo cùng thứ tự dùng chung một ô. Lưu `List<RouteLeg>`.
+
+Chốt khi làm Task 3.8 (2026-10-05):
+- **Mọi khoá có tên nguồn đứng đầu** (BUG-PLACE-004): `OSM|8|-|chợ hàn`, `OSM|16.06835,108.22428;16.06114,108.22757`, `open-meteo|16.0678,108.2208:2026-10-05:2026-10-07`. Thiếu nó, sau khi đổi `app.providers.*` trên cùng một Redis người dùng nhận câu trả lời của nguồn cũ cho tới khi hết hạn; với tìm địa điểm thì kết quả đó còn không chọn được (400). Khoá địa điểm và quãng đường lấy tên từ `MapProvider.provider()` (`MOCK`, `OSM`); khoá dự báo lấy từ cấu hình `app.providers.weather` (`mock`, `open-meteo`) vì `WeatherProvider` không có method cho biết nó là nguồn nào.
+- Khoá quãng đường dài theo số điểm của ngày (khoảng 19 ký tự mỗi điểm). Chưa đặt giới hạn số hoạt động mỗi ngày; nếu sau này có ngày vài trăm điểm thì đổi sang băm khoá.
 
 ### 8.2. Rate limit (Bucket4j + Redis)
 

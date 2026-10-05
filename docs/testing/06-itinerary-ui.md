@@ -1,6 +1,6 @@
 # 06 · Giao diện lịch trình
 
-> Cập nhật: 2026-10-05 · **Task 3.9 xong: 12 commit (`12972a5` đến `26dc267`), lint, build và 109 test tự động xanh; 12 bài `MT-UI-78` đến `MT-UI-89` chưa chạy đủ (chủ dự án đã xem trang và cho chỉnh kích thước, font).** Diễn biến: Commit 1 (`12972a5`) đổi bảng màu toàn web, Commit 2 (`a1a5c8a`) đổi thanh trên cùng sang nền trắng, Commit 3 (`0f940b6`) làm cột ngày thành thẻ, Commit 4 (`160c9a5`) làm khối tiêu đề ngày thành thẻ, Commit 5 (`ad5b452`) đổi kiểu thẻ hoạt động, Commit 6 (`4e5f6fa`) thay cột giờ bằng nút tròn trên trục thời gian, Commit 7 (`e9ddeae`) đổi đoạn di chuyển thành viên bo tròn, Commit 8 (`1ca41fb`) đặt bản đồ vào thẻ có tiêu đề, Commit 9 (`3c012f9`) làm thời tiết thành thẻ có các ô ngày, Commit 10 (`3771ea9`) chỉnh trang mới cho màn hình hẹp. Chủ dự án xem trang lần đầu và nhận xét về kích thước ba cột; Commit 11 (`e9db9f1`) chỉnh theo, Commit 12 (`26dc267`) đổi font sang Inter (đã thử Plus Jakarta Sans của mockup, chủ dự án thấy nét mỏng). Nút thu gọn cột ngày đã làm thử theo yêu cầu rồi được chủ dự án cho bỏ trước khi commit; các bài `MT-UI-78` đến `MT-UI-89` chưa có kết quả đầy đủ · **Task 3.7 xong: 16 commit (`8ba6710` đến `6955238`), lint, build và 108 test tự động xanh; 15 bài `MT-UI-63` đến `MT-UI-77` chưa chạy đủ; `BUG-UI-010` đã sửa, chờ kiểm lại.** Diễn biến: Commit 1 (`8ba6710`) thêm công cụ test tự động cho giao diện (Vitest), 7 test xanh; Commit 2 (`847cda9`) thêm dải thời tiết dưới bản đồ, Commit 3 (`d32e248`) thêm câu mời đặt vị trí điểm đến, Commit 4 (`a7f818c`) thêm báo lỗi khi dự báo không tải được, Commit 5 (`f1e9f04`) thêm dòng thời tiết ở tiêu đề ngày trên màn hẹp, Commit 6 (`f9ff894`) thêm thời gian và quãng đường giữa các hoạt động (33 test tự động xanh), Commit 7 (`8408ac0`) tính lại quãng đường sau khi ngày thay đổi, Commit 8 (`e8511be`) hiện chặng đi qua hoạt động không có địa điểm, Commit 9 (`51abea7`) thêm nhãn "Đã qua" / "Hôm nay", Commit 10 (`e767e62`) mở chuyến đi đang diễn ra ở ngày hôm nay, Commit 11 (`584df0f`) thêm thời tiết trên thẻ ở trang danh sách, Commit 12 (`d221461`) hỏi hoàn thành chuyến đi đã qua ngày cuối, Commit 13 (`d8ba1ee`) nhớ câu trả lời "Để sau". Chủ dự án xem dải thời tiết trên trình duyệt ngày 2026-10-05 và yêu cầu hai thay đổi (Commit 14, 15); Commit 14 (`4a736be`) bỏ khỏi dải các ngày không có dự báo, Commit 15 (`40bdd35`) thay cuộn ngang bằng nút chuyển trang (108 test tự động xanh). Chủ dự án tìm ra `BUG-UI-010` (tên ngày ở cột giữa bị xuống dòng), sửa ở Commit 16, chờ kiểm lại; các bài `MT-UI-63` đến `MT-UI-77` chưa có kết quả đầy đủ · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
+> Cập nhật: 2026-10-05 · **Task 3.8 Commit 10 (chân trang ghi nguồn dữ liệu): tại `da6a6a0`, lint, build và 115 test tự động xanh; `MT-UI-92` chưa chạy. Commit 9 (không tự gọi lại request bị trả `PROVIDER_UNAVAILABLE`) tại `8a2ae0d`; `MT-UI-91` chưa chạy.** · **Task 3.8 Commit 3 (thẻ thời tiết báo "Tạm thời không có dự báo" khi nguồn dự báo không trả lời): tại `f478aca`, lint, build và 109 test tự động xanh; `MT-UI-90` chưa chạy.** · **Task 3.9 xong: 12 commit (`12972a5` đến `26dc267`), lint, build và 109 test tự động xanh; 12 bài `MT-UI-78` đến `MT-UI-89` chưa chạy đủ (chủ dự án đã xem trang và cho chỉnh kích thước, font).** Diễn biến: Commit 1 (`12972a5`) đổi bảng màu toàn web, Commit 2 (`a1a5c8a`) đổi thanh trên cùng sang nền trắng, Commit 3 (`0f940b6`) làm cột ngày thành thẻ, Commit 4 (`160c9a5`) làm khối tiêu đề ngày thành thẻ, Commit 5 (`ad5b452`) đổi kiểu thẻ hoạt động, Commit 6 (`4e5f6fa`) thay cột giờ bằng nút tròn trên trục thời gian, Commit 7 (`e9ddeae`) đổi đoạn di chuyển thành viên bo tròn, Commit 8 (`1ca41fb`) đặt bản đồ vào thẻ có tiêu đề, Commit 9 (`3c012f9`) làm thời tiết thành thẻ có các ô ngày, Commit 10 (`3771ea9`) chỉnh trang mới cho màn hình hẹp. Chủ dự án xem trang lần đầu và nhận xét về kích thước ba cột; Commit 11 (`e9db9f1`) chỉnh theo, Commit 12 (`26dc267`) đổi font sang Inter (đã thử Plus Jakarta Sans của mockup, chủ dự án thấy nét mỏng). Nút thu gọn cột ngày đã làm thử theo yêu cầu rồi được chủ dự án cho bỏ trước khi commit; các bài `MT-UI-78` đến `MT-UI-89` chưa có kết quả đầy đủ · **Task 3.7 xong: 16 commit (`8ba6710` đến `6955238`), lint, build và 108 test tự động xanh; 15 bài `MT-UI-63` đến `MT-UI-77` chưa chạy đủ; `BUG-UI-010` đã sửa, chờ kiểm lại.** Diễn biến: Commit 1 (`8ba6710`) thêm công cụ test tự động cho giao diện (Vitest), 7 test xanh; Commit 2 (`847cda9`) thêm dải thời tiết dưới bản đồ, Commit 3 (`d32e248`) thêm câu mời đặt vị trí điểm đến, Commit 4 (`a7f818c`) thêm báo lỗi khi dự báo không tải được, Commit 5 (`f1e9f04`) thêm dòng thời tiết ở tiêu đề ngày trên màn hẹp, Commit 6 (`f9ff894`) thêm thời gian và quãng đường giữa các hoạt động (33 test tự động xanh), Commit 7 (`8408ac0`) tính lại quãng đường sau khi ngày thay đổi, Commit 8 (`e8511be`) hiện chặng đi qua hoạt động không có địa điểm, Commit 9 (`51abea7`) thêm nhãn "Đã qua" / "Hôm nay", Commit 10 (`e767e62`) mở chuyến đi đang diễn ra ở ngày hôm nay, Commit 11 (`584df0f`) thêm thời tiết trên thẻ ở trang danh sách, Commit 12 (`d221461`) hỏi hoàn thành chuyến đi đã qua ngày cuối, Commit 13 (`d8ba1ee`) nhớ câu trả lời "Để sau". Chủ dự án xem dải thời tiết trên trình duyệt ngày 2026-10-05 và yêu cầu hai thay đổi (Commit 14, 15); Commit 14 (`4a736be`) bỏ khỏi dải các ngày không có dự báo, Commit 15 (`40bdd35`) thay cuộn ngang bằng nút chuyển trang (108 test tự động xanh). Chủ dự án tìm ra `BUG-UI-010` (tên ngày ở cột giữa bị xuống dòng), sửa ở Commit 16, chờ kiểm lại; các bài `MT-UI-63` đến `MT-UI-77` chưa có kết quả đầy đủ · Task 3.6 xong: 21 commit (`2810b64` đến `e4bc2d0`), lint và build xanh; BUG-UI-009 đã sửa và được chủ dự án xác nhận; 18 bài `MT-UI-45` đến `MT-UI-62` chưa chạy đủ · Task 2.5 đã merge (`eb1ad5e`) · Task 2.6 (làm lại giao diện theo `UI_GUIDE.md`) đã merge (`8f06d72`) · kiểm tra thủ công chưa chạy · Task 2.7: BUG-UI-003 đã sửa và được chủ dự án xác nhận; BUG-UI-004 đến BUG-UI-008 đã sửa chờ kiểm lại · [Về trang chính](README.md)
 
 Giao diện web để người dùng xem danh sách chuyến đi, tạo chuyến đi, xem và sửa lịch trình từng ngày, thêm hoạt động và kéo thả để sắp xếp lại. Làm ở Task 2.5.
 
@@ -121,6 +121,14 @@ Task 3.9 (`feat/T3.9-trip-page-redesign`): bảng màu mới cho toàn web và t
 | 10 | Màn hình hẹp: dải ngày thành các viên bo tròn (ngày đang xem nền xanh đậm), khung hai nút gạt bo góc theo kiểu mới, hai nút của thẻ tiêu đề ngày tự xuống hàng trên điện thoại rất hẹp | MT-UI-87; MT-UI-38, MT-UI-59, MT-UI-60, MT-UI-66 chạy lại | `3771ea9` |
 | 11 | Sau lần xem đầu của chủ dự án: cột ngày hẹp và gọn hơn, cột giữa rộng lại như bản cũ, trục thời gian mảnh hơn (chấm nhỏ), thẻ bản đồ thấp như trong mockup thay vì cao hết màn hình | TC-UI-063, 064, 070 (sửa số); MT-UI-88; MT-UI-80, MT-UI-83, MT-UI-85 xem lại theo kích thước mới | `e9db9f1` |
 | 12 | Font chữ của toàn web đổi sang Inter. Chủ dự án muốn chữ gần mockup hơn; font của mockup (Plus Jakarta Sans) đã thử trên trang thật và bị thấy nét quá mỏng | MT-UI-89 | `26dc267` |
+
+Task 3.8 (`feat/T3.8-real-providers`): phần giao diện của việc nối dịch vụ thật.
+
+| Commit | Nội dung | Kiểm tra | Mã commit |
+|---|---|---|---|
+| 3 | Thẻ thời tiết ghi "Tạm thời không có dự báo." kèm "Thử lại" khi máy chủ báo nguồn dự báo không trả lời (`UNAVAILABLE`); trước đó thẻ ghi nhầm "Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới..." | MT-UI-90 | `f478aca` |
+| 9 | Giao diện không tự gọi lại một lần tải dữ liệu bị máy chủ trả "dịch vụ bên ngoài không sẵn sàng" (trước đó gọi lại 3 lần như mọi lỗi 5xx) | `TC-UI-071` đến `076`, `MT-UI-91` | `8a2ae0d` |
+| 10 | Chân trang của mọi trang đã đăng nhập ghi nguồn dữ liệu: OpenStreetMap, OSRM, Open-Meteo, mỗi tên là một link mở tab mới. Chỉ là chữ và link, không có logic nên không có test tự động | `MT-UI-92` | `da6a6a0` |
 
 ---
 
@@ -279,6 +287,27 @@ Mỗi ô cần ít nhất 82px (88px trước Commit 11), hai ô cách nhau 8px;
 | TC-UI-070 | Hàng ô rộng vừa đủ cho 4 ô (352px) và hẹp hơn đúng 1px (351px) | 352px: 4 ô. 351px: chỉ còn 3 ô một trang, vì khoảng cách giữa các ô cũng được tính | Biên | Đạt |
 | TC-UI-068 | Số trang: 7 ô chia 3; 6 ô chia 3; 16 ô chia 4; 1 ô; 0 ô | 3, 2, 4, 1, 1 trang | Biên | Đạt |
 | TC-UI-069 | Ô thứ mấy nằm ở trang nào (3 ô một trang): ô đầu, ô thứ 3, ô thứ 4, ô thứ 7 | Trang 1, trang 1, trang 2, trang 3 | Biên | Đạt |
+
+---
+
+### K. Lỗi nào thì tự gọi lại máy chủ
+
+> **Yêu cầu:** design.md 7.3 ("Frontend không tự gọi lại một request bị trả `PROVIDER_UNAVAILABLE`") · **Kiểm bởi:** `api/errors.test.ts`
+
+Khi một lần tải dữ liệu lỗi, giao diện tự gọi lại tối đa 3 lần trước khi báo lỗi, vì mất mạng hay máy chủ trục trặc thường tự qua. Lỗi 4xx thì không gọi lại (từ Task 2.7). Từ Task 3.8 Commit 9, lỗi "dịch vụ bên ngoài không sẵn sàng" (503 `PROVIDER_UNAVAILABLE`) cũng không gọi lại: máy chủ đã tự thử dịch vụ đó tới 3 lần, hoặc đang tạm ngừng gọi nó. Gọi lại thêm 3 lần nữa sẽ nhân số lần gọi ra dịch vụ công cộng lên 4 và bắt người dùng chờ thêm khoảng 7 giây để nhận đúng thông báo cũ.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-UI-071 | Mất mạng; quá thời gian chờ; máy chủ trả 500; máy chủ trung gian trả 502 hoặc 503 kèm một trang HTML | Tự gọi lại | Đúng | Đạt |
+| TC-UI-072 | Máy chủ trả 503 với mã `PROVIDER_UNAVAILABLE` | **Không** gọi lại. Câu thông báo người dùng đọc vẫn là câu của máy chủ ("Dịch vụ bên ngoài tạm thời không khả dụng") | Đúng | Đạt |
+| TC-UI-073 | Máy chủ trả 400, 403, 404, 429 | Không gọi lại | Sai | Đạt |
+| TC-UI-074 | Máy chủ trả 503 với một mã lỗi khác | Tự gọi lại: quy tắc dựa vào **mã lỗi**, không dựa vào số 503 | Biên | Đạt |
+| TC-UI-075 | Một lỗi không đến từ lần gọi máy chủ nào | Tự gọi lại, như trước khi có quy tắc này | Biên | Đạt |
+| TC-UI-076 | Hỏi "máy chủ có từ chối không" với 400, 499, 500, 503, mất mạng, lỗi khác | Chỉ 400 và 499 là "từ chối" (hàm có từ Task 2.7, nay mới có test) | Biên | Đạt |
+
+Điều test tự động **chưa chứng minh**: test kiểm hàm quyết định, không kiểm việc thư viện tải dữ liệu thật sự dừng sau một lần gọi. Xem trên trình duyệt: `MT-UI-91`.
+
+Quãng đường và ô tìm địa điểm là hai nơi nhận lỗi này. Thời tiết thì không: máy chủ trả 200 với trạng thái `UNAVAILABLE` (Commit 2).
 
 ---
 
@@ -1673,6 +1702,45 @@ Cần máy có mạng (font tải từ Google Fonts). Tải lại trang bằng C
 - [ ] Trang đăng nhập, đăng ký, tạo chuyến đi và các hộp thoại: nhãn ô nhập, chữ gợi ý và thông báo lỗi đọc rõ.
 - [ ] Bản đồ: nhãn trên marker và ô tên dùng cùng font với trang.
 - [ ] Tắt mạng rồi tải lại: trang vẫn dùng được với font hệ thống (Segoe UI), bố cục không vỡ.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-90 · Thẻ thời tiết khi nguồn dự báo không trả lời (Task 3.8 Commit 3)
+
+Không cần mạng. Chạy backend với nguồn thật trỏ tới một địa chỉ không có ai nghe: `./gradlew bootRun --args='--spring.profiles.active=local --app.providers.weather=open-meteo --app.providers.open-meteo.base-url=http://localhost:9'`. Dùng một chuyến đi **đang diễn ra hoặc bắt đầu trong 16 ngày tới**, có vị trí điểm đến ở một nơi chưa xem thời tiết trong 3 giờ qua (ví dụ Vũng Tàu), nếu không dự báo cũ còn trong Redis sẽ hiện ra.
+
+- [ ] Mở trang chuyến đi trên màn hình rộng: lịch trình, bản đồ hiện bình thường, **không có khung báo lỗi** nào của trang.
+- [ ] Thẻ "Thời tiết dự báo" dưới bản đồ ghi **"Tạm thời không có dự báo."** kèm chữ xanh "Thử lại", có icon đám mây cảnh báo. Thẻ **không** ghi "Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới..." và không ghi "Chuyến đi đã qua...".
+- [ ] Thẻ vẫn cao như mọi khi; bản đồ phía trên không có vùng xám.
+- [ ] Bấm "Thử lại": chữ đổi thành "Đang thử lại…" rồi trở về "Thử lại", câu thông báo giữ nguyên.
+- [ ] Màn hình hẹp (dưới 1024px): dưới tiêu đề ngày **không có** dòng thời tiết, không có chỗ trống thừa.
+- [ ] Trang danh sách chuyến đi: thẻ của chuyến đó **không có** phần thời tiết ở chân thẻ, không có chữ báo lỗi.
+- [ ] Dừng backend, chạy lại với nguồn giả như bình thường. Quay lại trang chuyến đi, bấm "Thử lại": các ô dự báo hiện ra.
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-91 · Không tự gọi lại khi dịch vụ bên ngoài không trả lời (Task 3.8 Commit 9)
+
+Không cần mạng. Chạy backend với nguồn bản đồ thật trỏ tới một địa chỉ không có ai nghe: `./gradlew bootRun --args='--spring.profiles.active=local --app.providers.map=osm --app.providers.osm.photon-base-url=http://127.0.0.1:9 --app.providers.osm.osrm-base-url=http://127.0.0.1:9'`. Mở trình duyệt, bật DevTools, tab Network.
+
+- [ ] Mở trang một chuyến đi có một ngày với ít nhất hai hoạt động có địa điểm. Trong Network, lần gọi `.../route` của ngày đó trả **503** và chỉ xuất hiện **một lần** (trước commit này: 4 lần, cách nhau 1, 2 và 4 giây).
+- [ ] Trang vẫn hiện danh sách hoạt động và bản đồ; chỉ không có chặng di chuyển giữa các hoạt động. Không có khung báo lỗi của trang.
+- [ ] Bấm "Thêm hoạt động", gõ một từ khoá vào ô địa điểm: lần gọi `.../places/search` trả 503 **một lần**, ô tìm kiếm báo lỗi sau vài giây (thời gian máy chủ tự thử 3 lần), không cộng thêm khoảng 7 giây chờ của giao diện. Tìm thêm vài từ khoá nữa: từ lần thứ năm lỗi về ngay (máy chủ đã ngắt mạch).
+- [ ] Dừng backend hẳn, tải lại trang: lần gọi lấy chuyến đi lỗi mạng và **được gọi lại** vài lần trước khi trang báo lỗi (hành vi cũ, vẫn giữ).
+
+**Kết quả:** Chưa chạy
+
+### MT-UI-92 · Chân trang ghi nguồn dữ liệu (Task 3.8 Commit 10)
+
+Backend và frontend chạy như bình thường, đã đăng nhập.
+
+- [ ] Trang danh sách chuyến đi, màn hình rộng: chân trang có "© 2026 Smart Trip Planner" bên trái và bên phải dòng "Nguồn dữ liệu: Bản đồ và địa điểm © OpenStreetMap   Quãng đường OSRM   Thời tiết Open-Meteo", chữ nhỏ màu xám, ba tên có gạch chân.
+- [ ] Bấm "© OpenStreetMap": mở **tab mới** tới trang bản quyền của OpenStreetMap; tab đang dùng giữ nguyên. Tương tự "OSRM" (project-osrm.org) và "Open-Meteo" (open-meteo.com).
+- [ ] Rê chuột lên một tên: chữ đổi sang xanh đậm. Bấm Tab tới chân trang: mỗi tên có vòng focus nhìn thấy được.
+- [ ] Trang chi tiết chuyến đi và trang tạo chuyến đi: chân trang giống hệt.
+- [ ] Thu cửa sổ xuống 375px: hai phần xếp thành hai hàng, dòng nguồn xuống dòng **giữa** các nguồn (không cắt đôi một tên), trang không có thanh cuộn ngang.
+- [ ] Trang chuyến đi ở 375px: nút tròn "Về đầu ngày" không đè lên chữ của chân trang khi cuộn tới cuối.
+- [ ] Trang đăng nhập (chưa đăng nhập): không có chân trang này (đúng thiết kế: trang đăng nhập không hiện dữ liệu của ba nguồn).
 
 **Kết quả:** Chưa chạy
 

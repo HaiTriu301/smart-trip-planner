@@ -1,6 +1,6 @@
 # 07 · Địa điểm
 
-> Cập nhật: 2026-10-03 · build xanh tại commit `e75152c` (Task 3.5, 769 lượt test) · kiểm tra thủ công `MT-PLACE-01` đến `MT-PLACE-05` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-05 · Task 3.8 Commit 8 (thử lại, ngắt mạch, giới hạn 1 lần / giây cho Nominatim; kịch bản ở [01-platform.md](01-platform.md) phần H): build xanh trên nhánh `feat/T3.8-real-providers`, 955 lượt test · commit sửa `BUG-PLACE-004` tại `08bd0ad`, 935 lượt test · Commit 7 (giữ tạm quãng đường trong Redis 24 giờ) tại `9e20586`, 930 lượt test · Commit 6 (quãng đường theo đường thật từ OSRM) tại `a3eeea7`, 918 lượt test · Commit 5 (tìm và chọn địa điểm từ OpenStreetMap) tại `3f78612`, 896 lượt test · Commit 4 (từ khoá có dấu và không dấu là hai câu hỏi khác nhau trong bản giữ tạm) tại `6602aee`, 823 lượt test · trước đó build xanh tại commit `e75152c` (Task 3.5, 769 lượt test) · kiểm tra thủ công `MT-PLACE-01` đến `MT-PLACE-07` chưa chạy · [Về trang chính](README.md)
 
 Địa điểm là một nơi có tên và toạ độ, ví dụ "Chùa Linh Ứng". Người dùng tìm địa điểm theo tên rồi gắn vào một hoạt động; từ đó hoạt động hiện được trên bản đồ. Tìm địa điểm làm ở Task 3.1, gắn vào hoạt động ở Task 3.2.
 
@@ -49,6 +49,17 @@ Task 3.5, quãng đường di chuyển trong một ngày:
 | 3 | Bỏ qua hoạt động không có địa điểm khi tính quãng đường | P | `727ae69` |
 | 4 | Ngày có 0 hoặc 1 địa điểm: trả lời rỗng ngay, không hỏi nguồn bản đồ | Q | `159df83` |
 | 5 | Kiểm toàn luồng quãng đường của một ngày qua mọi tầng | R | `e75152c` |
+
+Task 3.8, nối dịch vụ bản đồ thật (số commit theo bảng của Task 3.8):
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 4 | Bản giữ tạm kết quả tìm kiếm phân biệt từ khoá có dấu và không dấu | L (`TC-PLACE-095`, `096`, `134`, `135`), M (`TC-PLACE-100` đến `102`) | `6602aee` |
+| 5 | Nguồn bản đồ thật: tìm địa điểm qua Photon, tra địa điểm đã chọn qua Nominatim; mặc định vẫn là nguồn có sẵn | S | `3f78612` |
+| 6 | Nguồn bản đồ thật: quãng đường và thời gian giữa các điểm của một ngày lấy từ OSRM (đường thật, ô tô) | T, S (`TC-PLACE-153`) | `a3eeea7` |
+| 7 | Quãng đường qua một dãy điểm được giữ tạm trong Redis 24 giờ, với cả nguồn có sẵn lẫn nguồn thật | U | `9e20586` |
+| fix | Bản giữ tạm kết quả tìm địa điểm và dự báo ghi tên nguồn trong khoá (BUG-PLACE-004, phát hiện khi làm Commit 7) | L (`TC-PLACE-095`, `171`), M (`TC-PLACE-100`), "Lỗi đã phát hiện" | `08bd0ad` |
+| 8 | Quanh ba dịch vụ bản đồ thật: thử lại khi lỗi thoáng qua, ngắt mạch khi dịch vụ sập, Nominatim tối đa 1 lần gọi mỗi giây | [01-platform.md](01-platform.md) phần H | `3f49f60` |
 
 Vài từ dùng trong file:
 
@@ -290,13 +301,18 @@ Từ Task 3.4, câu trả lời của một lần tìm địa điểm được g
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
-| TC-PLACE-095 | Tìm "Chợ Hàn", 8 kết quả, quanh Đà Nẵng; rồi cùng lần tìm đó nhưng không có toạ độ | Khoá đọc được bằng mắt: `8\|16.0678,108.2208\|cho han` và `8\|-\|cho han`. Người vận hành nhìn vào Redis là biết ô nào của câu hỏi nào | Đúng | Đạt |
-| TC-PLACE-096 | Gõ "chợ hàn", "cho han", "CHỢ HÀN", "  chợ   hàn "; rồi "Đà Nẵng" và "da nang" | Cùng một khoá: dấu, chữ hoa và khoảng trắng thừa không tạo ra câu hỏi mới | Đúng | Đạt |
+| TC-PLACE-095 | Tìm "Chợ Hàn", 8 kết quả, quanh Đà Nẵng; rồi cùng lần tìm đó nhưng không có toạ độ | Khoá đọc được bằng mắt: `MOCK\|8\|16.0678,108.2208\|chợ hàn` và `MOCK\|8\|-\|chợ hàn` (giữ dấu từ Task 3.8 Commit 4; tên nguồn đứng đầu từ lần sửa BUG-PLACE-004). Người vận hành nhìn vào Redis là biết ô nào của câu hỏi nào | Đúng | Đạt |
+| TC-PLACE-096 | Gõ "chợ hàn", "CHỢ HÀN", "  chợ   hàn "; rồi "ĐÀ NẴNG" và "đà nẵng" | Cùng một khoá: chữ hoa và khoảng trắng thừa không tạo ra câu hỏi mới. (Trước Task 3.8 cả cách gõ không dấu cũng chung khoá; xem `TC-PLACE-134`) | Đúng | Đạt |
 | TC-PLACE-097 | Đổi từ khoá, đổi số kết quả muốn lấy (8 thành 20), đổi toạ độ (Đà Nẵng thành Hà Nội), bỏ toạ độ | Mỗi thay đổi ra một khoá khác: cả ba thứ đều làm đổi câu trả lời | Biên | Đạt |
 | TC-PLACE-098 | Hai toạ độ cách nhau dưới khoảng 11 m; cùng một toạ độ viết với 4 và với 7 chữ số thập phân; một toạ độ lệch ở chữ số thứ tư | Hai trường hợp đầu cùng khoá; trường hợp cuối khác khoá | Biên | Đạt |
 | TC-PLACE-099 | Người dùng gõ từ khoá trông giống hệt một khoá, có cả ký tự ngăn cách (`8\|-\|cho han`) | Không trùng với khoá của lần tìm "cho han": từ khoá đứng cuối khoá nên không thể bị đọc thành số kết quả hay toạ độ của câu hỏi khác | Bảo mật | Đạt |
+| TC-PLACE-134 | Gõ "cho han" và "chợ hàn"; "da nang" và "đà nẵng"; "chờ" và "chợ" | Mỗi cặp ra **hai khoá khác nhau**. Với dịch vụ bản đồ thật, từ khoá có dấu và không dấu cho hai danh sách kết quả khác nhau, nên lần tìm này không được nhận câu trả lời đã cất của lần tìm kia | Biên | Đạt |
+| TC-PLACE-171 | Cùng một lần tìm ("chợ hàn", 8 kết quả, quanh Đà Nẵng) hỏi nguồn có sẵn và hỏi nguồn thật; rồi xem khoá của ứng dụng đang chạy với nguồn thật | Hai khoá khác nhau: `MOCK\|8\|...` và `OSM\|8\|...`. Khoá của ứng dụng mang tên nguồn đang bật. Kết quả của nguồn này không chọn được khi đang dùng nguồn kia, nên không được dùng chung ô | Biên | Đạt · từng lỗi BUG-PLACE-004 |
+| TC-PLACE-135 | Cùng chữ "chợ hàn" nhưng được mã hoá theo hai cách (dấu liền với chữ, hoặc dấu là ký tự riêng đứng sau chữ) | Cùng một khoá: trên màn hình hai cách trông giống hệt nhau, người dùng không biết bàn phím của mình gửi dạng nào | Biên | Đạt |
 
-Kiểm chứng ngược (2026-10-03), mỗi lần sửa một chỗ rồi trả lại: giữ nguyên dấu trong khoá thì `TC-PLACE-095`, `096` đỏ; bỏ số kết quả khỏi khoá thì `TC-PLACE-095`, `097` đỏ (2 trong 5 test mỗi lần).
+**Đổi ở Task 3.8 Commit 4 (2026-10-05):** trước đó khoá bỏ dấu, vì nguồn có sẵn tìm không phân biệt dấu nên "cho han" và "chợ hàn" luôn cùng câu trả lời. Dịch vụ thật (Photon) thì không: giữ quy tắc cũ sẽ làm người gõ "cho han" nhận kết quả của "chợ hàn" hoặc ngược lại, tuỳ ai tìm trước. Cái giá: hai cách gõ không còn dùng chung bản giữ tạm.
+
+Kiểm chứng ngược (2026-10-03, viết cho quy tắc cũ), mỗi lần sửa một chỗ rồi trả lại: giữ nguyên dấu trong khoá thì `TC-PLACE-095`, `096` đỏ; bỏ số kết quả khỏi khoá thì `TC-PLACE-095`, `097` đỏ (2 trong 5 test mỗi lần). Chưa làm lại kiểm chứng ngược cho quy tắc mới.
 
 ## M. Giữ tạm kết quả tìm địa điểm trong Redis
 
@@ -308,9 +324,9 @@ Cách chứng minh "câu trả lời đến từ Redis": sau lần tìm đầu, 
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
-| TC-PLACE-100 | Tìm "chợ hàn" lần đầu, rồi nhìn vào Redis | Có một ô mang khoá `place:search::8\|-\|cho han`, còn hạn gần đủ 24 giờ. Nội dung là JSON đọc được, có "Chợ Hàn", không chứa tên class Java | Đúng | Đạt |
-| TC-PLACE-101 | Đánh tráo câu trả lời trong Redis, rồi tìm lại "chợ hàn", và "  CHO   HAN " | Cả hai lần đều nhận địa điểm đã đánh tráo: câu trả lời lấy từ Redis, và cách gõ khác nhau vẫn là một câu hỏi | Đúng | Đạt |
-| TC-PLACE-102 | Sau khi đánh tráo, tìm từ khoá khác ("chợ cồn"), số kết quả khác (20), toạ độ khác (quanh Đà Nẵng) | Cả ba lần đều nhận địa điểm thật từ nguồn, không lần nào nhận địa điểm đánh tráo | Biên | Đạt |
+| TC-PLACE-100 | Tìm "chợ hàn" lần đầu, rồi nhìn vào Redis | Có một ô mang khoá `place:search::MOCK\|8\|-\|chợ hàn`, còn hạn gần đủ 24 giờ. Nội dung là JSON đọc được, có "Chợ Hàn", không chứa tên class Java | Đúng | Đạt |
+| TC-PLACE-101 | Đánh tráo câu trả lời trong Redis, rồi tìm lại "chợ hàn", và "  CHỢ   HÀN " | Cả hai lần đều nhận địa điểm đã đánh tráo: câu trả lời lấy từ Redis, và cách gõ khác nhau vẫn là một câu hỏi | Đúng | Đạt |
+| TC-PLACE-102 | Sau khi đánh tráo câu trả lời của "chợ hàn", tìm "cho han" không dấu (thêm ở Task 3.8), từ khoá khác ("chợ cồn"), số kết quả khác (20), toạ độ khác (quanh Đà Nẵng) | Cả bốn lần đều nhận địa điểm thật từ nguồn, không lần nào nhận địa điểm đánh tráo. Lần tìm "cho han" có ô riêng trong Redis | Biên | Đạt |
 | TC-PLACE-103 | Tìm "da nang" hai lần liên tiếp, lần hai lấy từ Redis | Hai danh sách bằng nhau hoàn toàn: cùng địa điểm, cùng thứ tự, toạ độ đúng tới chữ số cuối. Dữ liệu đọc lại vẫn đúng kiểu, không biến thành dạng thô | Đúng | Đạt |
 | TC-PLACE-104 | Tìm một từ khoá không có kết quả, hai lần | Câu trả lời rỗng cũng được cất (`[]`), lần sau không hỏi lại nguồn | Biên | Đạt · từng lỗi BUG-PLACE-003 |
 | TC-PLACE-106 | Tìm 40 từ khoá khác nhau liên tiếp, sau mỗi lần nhìn ngay vào Redis | Lần nào khoá cũng đã có mặt **ngay khi hàm tìm kiếm trả về**. Test này được thêm khi sửa BUG-PLACE-003 để ép lỗi "ghi ở nền" lộ ra chắc chắn, thay vì thỉnh thoảng | Biên | Đạt |
@@ -414,6 +430,138 @@ Kiểm chứng ngược (2026-10-03): tạm gỡ bước "bỏ qua hoạt độn
 
 ---
 
+## S. Nguồn bản đồ thật: tìm và tra địa điểm trên OpenStreetMap
+
+> **Yêu cầu:** design.md 7.2 (bảng dịch vụ, quy ước chung, `search`, `lookup`), 7.3 (giới hạn thời gian) · **Kiểm bởi:** `OsmMapProviderTest`
+
+Khi bật `app.providers.map=osm`, ứng dụng dùng hai dịch vụ công cộng của OpenStreetMap thay cho file địa điểm có sẵn:
+
+- **Photon** trả lời lúc người dùng gõ tìm kiếm.
+- **Nominatim** được hỏi đúng một lần khi người dùng chọn một kết quả, để ứng dụng tự đọc tên và toạ độ của địa điểm đó thay vì tin dữ liệu trình duyệt gửi lên. Điều khoản của Nominatim cấm dùng nó cho gợi ý khi đang gõ, nên cần hai dịch vụ.
+
+Mã của một địa điểm là chữ cái loại đối tượng (N, W hoặc R) kèm số của OpenStreetMap, ví dụ `W204885903`. Test **không gọi mạng**: câu trả lời do máy chủ giả đưa ra. Hai câu trả lời mẫu là câu trả lời thật lưu ngày 2026-10-05: tìm "chợ hàn" quanh Đà Nẵng (8 kết quả) và tra `W204885903` (Chợ Hàn).
+
+Quãng đường của nguồn này: phần T (Commit 6).
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-136 | Hỏi nguồn này đánh dấu địa điểm của nó là gì | `OSM` | Đúng | Đạt |
+| TC-PLACE-137 | Tìm "chợ hàn" quanh Đà Nẵng, dịch vụ trả câu trả lời mẫu | Đủ 8 địa điểm, **giữ thứ tự của dịch vụ**. Đầu tiên là "Chợ Hàn", mã `W204885903`, địa chỉ "119 Trần Phú, Hải Châu, Đà Nẵng", toạ độ 16.0683525 / 108.2242830, loại gợi ý "mua sắm". Trạm xe buýt được gợi ý "di chuyển", nhà hàng được gợi ý "ăn uống" | Đúng | Đạt |
+| TC-PLACE-138 | Xem ứng dụng gửi gì cho Photon khi tìm có toạ độ | Một lần gọi, có từ khoá (chữ có dấu còn nguyên), số kết quả, toạ độ để ưu tiên, và tên ứng dụng (`User-Agent`) | Đúng | Đạt |
+| TC-PLACE-139 | Tìm không có toạ độ, xin 5 kết quả, dịch vụ trả 8 | Không gửi toạ độ. Chỉ nhận 5 kết quả đầu | Biên | Đạt |
+| TC-PLACE-140 | Người dùng gõ từ khoá chứa ký tự của đường dẫn: "cà phê & bánh=1+1&limit=50#x?y" | Cả chuỗi tới dịch vụ nguyên vẹn như **một** từ khoá. Phần "&limit=50" không trở thành tham số thứ hai | Bảo mật | Đạt |
+| TC-PLACE-141 | Trong câu trả lời có một mục không dùng được: không tên, tên toàn dấu cách, không mã, loại đối tượng lạ, không toạ độ, thiếu một nửa toạ độ, hoặc mục rỗng | Mục đó bị bỏ, mục dùng được đứng sau vẫn được trả về (không có địa chỉ và loại gợi ý cũng được: hai ô này không bắt buộc) | Biên | Đạt |
+| TC-PLACE-142 | Đổi 25 nhãn phân loại của OpenStreetMap thành loại hoạt động gợi ý | Chỉ đổi khi rõ ràng: nhà hàng, quán cà phê là ăn uống; khách sạn, nhà nghỉ là lưu trú; chợ, cửa hàng là mua sắm; bến xe, ga, sân bay, trạm xe buýt là di chuyển; chùa, bảo tàng, di tích, bãi biển, công viên là tham quan. Ngân hàng, cây, sân bóng, đường phố, toà nhà: không gợi ý gì | Đúng | Đạt |
+| TC-PLACE-143 | Địa điểm không có tên đường và thành phố, chỉ có số nhà, huyện và tỉnh | Địa chỉ là "Huyện B, Lâm Đồng". Số nhà không có tên đường thì bỏ | Biên | Đạt |
+| TC-PLACE-144 | Photon trả mã lỗi 400, 429, 500, 502, 503 | Ứng dụng báo "dịch vụ bên ngoài không sẵn sàng" (`PROVIDER_UNAVAILABLE`), có ghi tên `photon` để tra log | Sai | Đạt |
+| TC-PLACE-145 | Photon trả 200 nhưng nội dung không đọc được: không phải JSON, JSON rỗng, không có danh sách địa điểm, danh sách sai dạng | `PROVIDER_UNAVAILABLE` | Sai | Đạt |
+| TC-PLACE-146 | Tra `W204885903`, Nominatim trả câu trả lời mẫu | "Chợ Hàn", địa chỉ "119 Trần Phú, Phường Hải Châu, Thành phố Đà Nẵng", đúng toạ độ, loại gợi ý "mua sắm" | Đúng | Đạt |
+| TC-PLACE-147 | Xem ứng dụng gửi gì cho Nominatim | Một lần gọi, hỏi đúng một mã, xin kèm địa chỉ chi tiết, có tên ứng dụng (`User-Agent`) như điều khoản yêu cầu | Đúng | Đạt |
+| TC-PLACE-148 | Tra một mã đúng dạng nhưng Nominatim không biết (trả danh sách rỗng) | "Không có địa điểm này", không phải lỗi | Sai | Đạt |
+| TC-PLACE-149 | Tra một mã không đúng dạng của nguồn này: mã của nguồn có sẵn (`da-nang-cho-han`), chữ thường, **nhiều mã ngăn bằng dấu phẩy**, thiếu số, thiếu chữ, số quá dài, có dấu cách, rỗng | "Không có địa điểm này", và Nominatim **không bị gọi**. Mã do trình duyệt gửi lên nên phải được kiểm trước khi đưa cho dịch vụ | Bảo mật | Đạt |
+| TC-PLACE-150 | Tra một địa điểm không có tên (một ngôi nhà) | Tên lấy từ phần đầu của địa chỉ đầy đủ; địa chỉ ghép từ số nhà, đường, phường, thành phố | Biên | Đạt |
+| TC-PLACE-151 | Nominatim trả một địa điểm không có toạ độ | "Không có địa điểm này": không lưu địa điểm không vẽ được lên bản đồ | Biên | Đạt |
+| TC-PLACE-152 | Nominatim trả mã lỗi 400, 403 (bị chặn), 429, 500, 503, hoặc nội dung không đọc được | `PROVIDER_UNAVAILABLE`, có ghi tên `nominatim` | Sai | Đạt |
+| TC-PLACE-153 | Dịch vụ nhận câu hỏi rồi im lặng (chờ 0,2 giây), hoặc không kết nối được, với cả tìm kiếm, tra mã và (từ Commit 6) quãng đường | `PROVIDER_UNAVAILABLE` có ghi đúng tên dịch vụ (`photon`, `nominatim`, `osrm`), không treo | Sai | Đạt |
+
+`TC-PLACE-152` và `153` mỗi mã gộp hai method test (mã lỗi và nội dung hỏng; quá thời gian và không kết nối được).
+
+Điều test tự động **chưa chứng minh**:
+- Chưa có test nào chạy cả ứng dụng với `app.providers.map=osm` (các test toàn luồng dùng nguồn có sẵn). Đã kiểm bằng tay ngày 2026-10-05: ứng dụng khởi động được với cấu hình này. Tìm và chọn địa điểm thật qua giao diện: `MT-PLACE-06`.
+- (Đã có từ Commit 8: [01-platform.md](01-platform.md) `TC-PLAT-049`, và `TC-PLAT-051` chạy cả ứng dụng với nguồn thật.) Giới hạn 1 lần gọi mỗi giây tới Nominatim chưa có ở commit này. Ở commit này Nominatim chỉ bị gọi khi một người dùng chọn một địa điểm **chưa từng được lưu**.
+- Thứ tự và nội dung kết quả là của Photon, có thể đổi theo thời gian; test chỉ chứng minh ứng dụng đọc đúng một câu trả lời đã lưu.
+
+Địa chỉ ở danh sách gợi ý (Photon) và địa chỉ được lưu (Nominatim) có thể khác nhau đôi chút, ví dụ "Hải Châu, Đà Nẵng" và "Phường Hải Châu, Thành phố Đà Nẵng": hai dịch vụ ghi tên đơn vị hành chính theo hai cách.
+
+---
+
+## T. Nguồn bản đồ thật: quãng đường theo đường thật từ OSRM
+
+> **Yêu cầu:** design.md 7.2 (`route`: một lần gọi cho cả ngày, số chặng khác n−1 thì báo lỗi), 7.3 (giới hạn thời gian) · **Kiểm bởi:** `OsmMapProviderTest`
+
+Khi bật `app.providers.map=osm`, quãng đường và thời gian giữa các điểm của một ngày lấy từ **OSRM**, dịch vụ tìm đường trên dữ liệu OpenStreetMap, thay cho cách ước lượng đường chim bay. Cả ngày chỉ một lần gọi: ứng dụng gửi mọi điểm theo đúng thứ tự, OSRM trả một chặng cho mỗi hai điểm liền nhau.
+
+Kết quả gọi thử máy chủ công cộng ngày 2026-10-05 (14 lần gọi, cách nhau 1,5 giây), dùng làm căn cứ cho các kịch bản dưới:
+
+| Câu hỏi | Kết quả |
+|---|---|
+| Có phương tiện nào ngoài ô tô | Không. Gọi với "xe đạp" hay "đi bộ" ra đúng con số của ô tô |
+| Hai điểm trùng toạ độ | Trả một chặng 0 mét, 0 giây; không báo lỗi |
+| Số điểm tối đa mỗi lần gọi | Thử 25 và 101 điểm đều được. Giới hạn thật chưa chạm tới |
+| Một điểm ở giữa biển | Không báo lỗi: điểm bị dời về con đường gần nhất (lần thử: cách 292 km) rồi tính đường tới đó |
+| Toạ độ vô nghĩa, hoặc chỉ một điểm | Mã 400 kèm lý do |
+
+Test **không gọi mạng**. Hai câu trả lời mẫu là câu trả lời thật lưu ngày 2026-10-05: Chợ Hàn → Cầu Rồng → biển Mỹ Khê, và Chợ Hàn → Chợ Hàn → biển Mỹ Khê.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-154 | Hỏi quãng đường Chợ Hàn → Cầu Rồng → biển Mỹ Khê, OSRM trả câu trả lời mẫu (1324,6 m trong 105,1 giây; 3287,9 m trong 246,6 giây) | 2 chặng, làm tròn tới mét và giây: 1325 m / 105 giây, rồi 3288 m / 247 giây | Đúng | Đạt |
+| TC-PLACE-155 | Xem ứng dụng gửi gì cho OSRM | **Một** lần gọi chứa cả ba điểm theo đúng thứ tự, kinh độ đứng trước vĩ độ như OSRM yêu cầu; không xin hình vẽ của con đường (chỉ cần con số); có tên ứng dụng (`User-Agent`) | Đúng | Đạt |
+| TC-PLACE-156 | Hai hoạt động liền nhau ở cùng một địa điểm: Chợ Hàn → Chợ Hàn → biển Mỹ Khê, OSRM trả câu trả lời mẫu | Vẫn đủ 2 chặng: chặng đầu 0 m / 0 giây, chặng sau 4613 m / 352 giây. Không lỗi | Biên | Đạt |
+| TC-PLACE-157 | Hỏi quãng đường với 0 điểm hoặc 1 điểm | Không có chặng nào, OSRM **không bị gọi** | Biên | Đạt |
+| TC-PLACE-158 | OSRM trả số chặng không khớp số điểm: 4 điểm mà chỉ có 2 chặng, hoặc 2 điểm mà có 2 chặng | `PROVIDER_UNAVAILABLE`, có ghi tên `osrm`. Ứng dụng không ghép con số vào sai cặp hoạt động | Sai | Đạt |
+| TC-PLACE-159 | OSRM trả mã lỗi 400 (không có đường giữa hai điểm, quá nhiều điểm), 429, 500, 503 | `PROVIDER_UNAVAILABLE`, có ghi tên `osrm` | Sai | Đạt |
+| TC-PLACE-160 | OSRM trả 200 nhưng nội dung không dùng được (13 dạng): không phải JSON, rỗng, báo "không có đường", không có con đường nào, chặng rỗng, chặng thiếu quãng đường hoặc thiếu thời gian, quãng đường âm, quãng đường là chữ | `PROVIDER_UNAVAILABLE` | Sai | Đạt |
+
+`TC-PLACE-158` gộp hai method test (thiếu chặng, thừa chặng). OSRM im lặng hoặc không kết nối được: `TC-PLACE-153` ở phần S, từ commit này kiểm cả ba dịch vụ.
+
+Trước commit này `TC-PLACE-154` là "nguồn thật ước lượng quãng đường theo đường chim bay" (Commit 5, lúc chưa nối OSRM); hành vi đó không còn nên kịch bản được viết lại.
+
+Điều test tự động **chưa chứng minh**:
+- Chưa có test nào chạy cả ứng dụng với `app.providers.map=osm`. Xem quãng đường thật trên giao diện: `MT-PLACE-07`.
+- Thời gian là thời gian đi **ô tô** theo vận tốc OSRM gán cho từng loại đường, không tính kẹt xe; ở Việt Nam đi xe máy có thể khác.
+- Địa điểm nằm xa mọi con đường (đảo, giữa biển) được OSRM dời về con đường gần nhất mà không báo: con số khi đó không có nghĩa. Ứng dụng chưa phát hiện trường hợp này.
+- Ở Commit 6 mỗi lần mở một ngày là một lần gọi OSRM; từ Commit 7 kết quả được giữ tạm 24 giờ (phần U).
+- Giới hạn số điểm của máy chủ công cộng chưa biết chính xác; nếu vượt, OSRM trả 400 và ngày đó không hiện chặng (`TC-PLACE-159`).
+
+Quãng đường lỗi thì trang chuyến đi chỉ không vẽ chặng giữa các hoạt động; phần còn lại vẫn dùng được (quyết định ở bảng của Task 3.8).
+
+---
+
+## U. Giữ tạm quãng đường trong Redis
+
+> **Yêu cầu:** design.md 8.1 (`route:legs`, 24 giờ; khoá là chuỗi toạ độ theo thứ tự đi) · **Kiểm bởi:** `RouteCacheTest`, `RouteCacheIntegrationTest`, `RouteServiceTest`
+
+Từ commit này, câu trả lời của nguồn bản đồ cho quãng đường qua một dãy điểm được cất trong Redis 24 giờ. Cùng dãy điểm theo cùng thứ tự, ai hỏi cũng nhận bản đã cất, nguồn không bị hỏi lại. Với nguồn thật, đây là thứ giữ cho việc mở một ngày không thành một lần gọi máy chủ công cộng mỗi lần.
+
+Khoá gồm tên nguồn rồi các điểm theo thứ tự đi, toạ độ làm tròn 5 chữ số (khoảng 1 mét), ví dụ `OSM|16.06835,108.22428;16.06114,108.22757`. Không có thao tác "xoá bản giữ tạm" nào: kéo thả đổi thứ tự hay đổi địa điểm của một hoạt động cho ra một khoá khác, nên ứng dụng tự hỏi lại nguồn.
+
+Tên nguồn nằm trong khoá là **khác với design.md 8.1** (ở đó khoá chỉ có toạ độ): ước lượng đường chim bay và OSRM cho hai con số khác nhau với cùng các điểm, nên sau khi đổi `app.providers.map` không được trả con số của nguồn kia trong 24 giờ.
+
+Hai câu hỏi nào dùng chung một bản đã cất (`RouteCacheTest`, không cần Redis):
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-161 | Tạo khoá cho Chợ Hàn → Cầu Rồng → Chùa Linh Ứng, nguồn OSM | `OSM\|16.06835,108.22428;16.06114,108.22757;16.10016,108.27841`: tên nguồn, rồi các điểm đúng thứ tự đi | Đúng | Đạt |
+| TC-PLACE-162 | Cùng ba điểm, đi theo thứ tự khác | Khoá khác: thứ tự đi là một phần của câu hỏi | Đúng | Đạt |
+| TC-PLACE-163 | Thêm một điểm, bớt một điểm, hoặc một điểm lặp lại hai lần liền nhau | Khoá khác | Biên | Đạt |
+| TC-PLACE-164 | Một điểm lệch dưới 1 mét (khác ở chữ số thập phân thứ sáu) | Cùng khoá: coi là cùng một điểm dừng | Biên | Đạt |
+| TC-PLACE-165 | Một điểm lệch khoảng 5 mét | Khoá khác | Biên | Đạt |
+| TC-PLACE-166 | Cùng các điểm, hỏi nguồn có sẵn và hỏi nguồn thật | Hai khoá khác nhau (`MOCK\|...` và `OSM\|...`); khoá của ứng dụng đang chạy mang tên nguồn đang bật | Đúng | Đạt |
+
+Với Redis thật và nguồn có sẵn đứng sau (`RouteCacheIntegrationTest`):
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-PLACE-167 | Hỏi quãng đường Chợ Hàn → Cầu Rồng lần đầu, rồi nhìn vào Redis | Có một ô mang khoá `route:legs::MOCK\|16.06835,108.22428;16.06114,108.22757`, còn hạn gần đủ 24 giờ. Nội dung là JSON đọc được (`distanceMeters`, `durationSeconds`), không chứa tên class Java | Đúng | Đạt |
+| TC-PLACE-168 | Đánh tráo câu trả lời trong Redis (999 km trong 1 giây), rồi hỏi lại đúng hai điểm đó, và hỏi với một điểm lệch dưới 1 mét | Cả hai lần nhận con số đã đánh tráo: câu trả lời lấy từ Redis | Đúng | Đạt |
+| TC-PLACE-169 | Sau khi đánh tráo, hỏi chiều ngược lại (Cầu Rồng → Chợ Hàn), hỏi tới một điểm khác, hỏi ba điểm (thêm Chùa Linh Ứng sau hai điểm đã cất) | Cả ba lần nhận con số thật từ nguồn, không lần nào nhận con số đánh tráo | Đúng | Đạt |
+| TC-PLACE-170 | Hỏi một ngày 4 điểm có hai điểm trùng nhau, hai lần liên tiếp | Lần hai (từ Redis) bằng hệt lần đầu: đủ 3 chặng, đúng thứ tự, chặng 0 m vẫn còn. Dữ liệu đọc lại vẫn đúng kiểu | Đúng | Đạt |
+
+`TC-PLACE-166` gộp hai method test. `RouteServiceTest` (11 method, các kịch bản ở phần O, P, Q) từ commit này kiểm việc tính quãng đường **luôn đi qua bản giữ tạm**, không gọi thẳng nguồn; ngày có 0 hoặc 1 địa điểm vẫn không hỏi gì.
+
+Redis tắt thì quãng đường vẫn trả lời (bỏ qua bản giữ tạm, hỏi thẳng nguồn): [01-platform.md](01-platform.md) `TC-PLAT-040`. Danh sách cache đã khai báo nay có ba cái: [08-weather.md](08-weather.md) `TC-WEATHER-042`.
+
+Kiểm chứng ngược (2026-10-05): tạm bỏ dòng bật cache trên hàm lấy quãng đường thì `TC-PLACE-167`, `168`, `169` đỏ (3 trong 4 test của `RouteCacheIntegrationTest`); trả lại thì xanh.
+
+Điều test tự động **chưa chứng minh**:
+- Nguồn báo lỗi thì **không có gì được cất** (lần sau hỏi lại nguồn). Đây là cách làm việc sẵn có của Spring Cache với ngoại lệ; chưa có test riêng của dự án, vì muốn nguồn có sẵn báo lỗi phải dựng thêm một lần khởi động ứng dụng.
+- Chưa có test chạy cả ứng dụng với nguồn thật và Redis cùng lúc; xem khoá `route:legs::OSM|...` trong Redis là một bước của `MT-PLACE-07`.
+
+**Điểm hở phát hiện khi làm commit này (đã sửa ở commit kế tiếp, `BUG-PLACE-004`):** bản giữ tạm kết quả **tìm địa điểm** (phần M) và **dự báo** không có tên nguồn trong khoá. Nếu đã tìm "chợ hàn" bằng nguồn có sẵn rồi đổi sang `osm` trong vòng 24 giờ, ô tìm kiếm vẫn hiện kết quả của nguồn có sẵn, và chọn một kết quả như vậy bị từ chối (400, "nguồn không phải nguồn đang dùng"). Chỉ xảy ra khi đổi nguồn trên cùng một Redis; cách tránh khi thử tay: xoá Redis trước (bước đầu của `MT-PLACE-06`). Chủ dự án quyết định sửa ngay trước Commit 8: khoá của cả hai cache nay có tên nguồn (`TC-PLACE-171`, [08-weather.md](08-weather.md) `TC-WEATHER-056`).
+
+---
+
 ## Kiểm tra thủ công
 
 Cần có: Docker đang chạy, backend chạy bản code mới nhất (profile `local`), một tài khoản đã xác thực email.
@@ -474,19 +622,20 @@ docker exec -it tripplanner-mysql mysql -u tripuser -p tripplanner -e "SELECT id
 
 ### MT-PLACE-04 · Xem kết quả tìm địa điểm được giữ trong Redis
 
-Thêm ở Task 3.4 Commit 4. Cần `docker compose up -d mysql redis mailhog` và backend đang chạy.
+Thêm ở Task 3.4 Commit 4, viết lại ở Task 3.8 Commit 4 (khoá giữ dấu); khoá có tên nguồn `MOCK` đứng đầu từ lần sửa BUG-PLACE-004. Cần `docker compose up -d mysql redis mailhog` và backend đang chạy.
 
 - [ ] Chạy lệnh thứ nhất bên dưới để xoá sạch Redis của máy bạn (chỉ chứa bản tạm, xoá không mất gì).
-- [ ] Trên Swagger, đăng nhập rồi gọi `GET /api/v1/places/search?q=chợ hàn`. Trả 200, có "Chợ Hàn".
-- [ ] Chạy lệnh thứ hai. Có đúng một khoá: `place:search::8|-|cho han`.
+- [ ] Trên Swagger, đăng nhập rồi gọi `GET /api/v1/places/search?q=cho han` (không dấu). Trả 200, có "Chợ Hàn".
+- [ ] Chạy lệnh thứ hai. Có đúng một khoá: `place:search::MOCK|8|-|cho han`.
 - [ ] Chạy lệnh thứ ba. Ra một số gần 86400 (số giây của 24 giờ) và đang giảm dần.
-- [ ] Gọi lại với `q=CHO HAN`. Chạy lại lệnh thứ hai: vẫn chỉ một khoá (hai cách gõ dùng chung một ô).
-- [ ] Gọi với `q=chợ hàn&limit=20`. Chạy lại lệnh thứ hai: có thêm khoá `place:search::20|-|cho han`.
+- [ ] Gọi lại với `q=CHO  HAN` (chữ hoa, hai dấu cách). Chạy lại lệnh thứ hai: vẫn chỉ một khoá (hai cách gõ dùng chung một ô).
+- [ ] Gọi với `q=cho han&limit=20`. Chạy lại lệnh thứ hai: có thêm khoá `place:search::MOCK|20|-|cho han`.
+- [ ] Gọi với `q=chợ hàn` (có dấu). Chạy lại lệnh thứ hai: có thêm **một khoá thứ ba**, kết thúc bằng `chợ hàn` (PowerShell có thể hiện chữ có dấu thành ký tự lạ; điều cần thấy là số khoá tăng lên 3).
 
 ```powershell
 docker exec tripplanner-redis redis-cli FLUSHALL
-docker exec tripplanner-redis redis-cli KEYS "place:search*"
-docker exec tripplanner-redis redis-cli TTL "place:search::8|-|cho han"
+docker exec tripplanner-redis redis-cli --raw KEYS "place:search*"
+docker exec tripplanner-redis redis-cli TTL "place:search::MOCK|8|-|cho han"
 ```
 
 **Kết quả:** Chưa chạy
@@ -507,12 +656,49 @@ Thêm ở Task 3.5 Commit 2. Cần backend chạy bản code mới nhất.
 
 **Kết quả:** Chưa chạy
 
+### MT-PLACE-06 · Tìm và chọn địa điểm thật từ OpenStreetMap
+
+Thêm ở Task 3.8 Commit 5. Cần có mạng. Hai dịch vụ là máy chủ công cộng dùng chung: thao tác với tốc độ của người dùng bình thường, không bấm liên tục.
+
+- [ ] **Không** xoá Redis trước. Khi backend còn chạy nguồn có sẵn, tìm "chợ hàn" một lần (để có bản giữ tạm của nguồn có sẵn). Sau khi đổi sang nguồn thật ở bước dưới, tìm lại "chợ hàn": kết quả phải là của nguồn thật (`provider` = `OSM` trên Swagger), không phải bản cũ (kiểm lại `BUG-PLACE-004`).
+- [ ] Dừng backend đang chạy. Chạy lại với nguồn thật: `./gradlew bootRun --args='--spring.profiles.active=local --app.providers.map=osm'` (trong IntelliJ: thêm `--app.providers.map=osm` vào Program arguments).
+- [ ] Mở một chuyến đi ở Đà Nẵng có vị trí điểm đến, bấm "Thêm hoạt động", gõ "chợ hàn" vào ô địa điểm: danh sách gợi ý hiện "Chợ Hàn" với địa chỉ ở Đà Nẵng, tên bằng tiếng Việt có dấu. Các gợi ý quanh Đà Nẵng đứng trước.
+- [ ] Gõ một nơi **không có** trong dữ liệu có sẵn, ví dụ "Bảo tàng Chăm": có gợi ý (nguồn có sẵn chỉ có 56 địa điểm, nguồn thật có cả thế giới).
+- [ ] Gõ một nơi ở nước ngoài, ví dụ "Tokyo Tower": có gợi ý.
+- [ ] Chọn "Chợ Hàn", lưu hoạt động: thẻ hoạt động hiện tên và địa chỉ, bản đồ của ngày có marker đúng vị trí chợ (cạnh sông Hàn, đường Trần Phú).
+- [ ] Trên Swagger, gọi `GET /api/v1/places/search?q=chợ hàn&lat=16.0678&lng=108.2208`: mỗi kết quả có `provider` là `OSM` và `externalId` dạng một chữ cái kèm số (ví dụ `W204885903`).
+- [ ] Trong MySQL: `SELECT provider, external_id, name, address, lat, lng FROM places ORDER BY id DESC LIMIT 1;` ra một dòng `OSM` của Chợ Hàn.
+- [ ] Tạo thêm một hoạt động khác cũng chọn "Chợ Hàn": chạy lại câu SQL đếm `SELECT COUNT(*) FROM places WHERE provider = 'OSM' AND name = 'Chợ Hàn';` vẫn ra 1 (dùng lại bản đã lưu, không hỏi lại dịch vụ).
+- [ ] Hoạt động cũ đã gắn địa điểm của nguồn có sẵn (tạo trước khi đổi nguồn): vẫn hiện tên, địa chỉ và marker như trước.
+- [ ] Ngắt mạng rồi gõ tìm một từ khoá mới: ô tìm báo lỗi, phần còn lại của trang vẫn dùng được. Nối mạng lại.
+- [ ] Dừng backend, chạy lại như bình thường (không có tham số trên): tìm "chợ hàn" trở lại kết quả của nguồn có sẵn.
+
+**Kết quả:** Chưa chạy
+
+### MT-PLACE-07 · Xem quãng đường theo đường thật từ OSRM
+
+Thêm ở Task 3.8 Commit 6. Cần có mạng. OSRM là máy chủ công cộng dùng chung: thao tác với tốc độ của người dùng bình thường.
+
+- [ ] Chạy backend với nguồn thật như `MT-PLACE-06`: `./gradlew bootRun --args='--spring.profiles.active=local --app.providers.map=osm'`.
+- [ ] Mở một chuyến đi ở Đà Nẵng. Trong một ngày, tạo ba hoạt động theo thứ tự, chọn địa điểm từ gợi ý: "Chợ Hàn", "Cầu Rồng", "Bãi biển Mỹ Khê".
+- [ ] Giữa hai hoạt động liền nhau hiện một chặng có quãng đường và thời gian. Chợ Hàn → Cầu Rồng khoảng 1 đến 2 km, vài phút (đường thật dài hơn đường thẳng trên bản đồ).
+- [ ] Trên Swagger, gọi `GET /api/v1/trips/{tripId}/days/{dayId}/route`: 200 với 2 chặng, `totalDistanceMeters` bằng tổng hai chặng.
+- [ ] So với Google Maps (chế độ ô tô) cho cùng hai điểm: quãng đường gần bằng nhau (lệch dưới khoảng 20%).
+- [ ] Thêm hoạt động thứ tư cũng chọn "Bãi biển Mỹ Khê" (trùng địa điểm với hoạt động thứ ba): chặng giữa hai hoạt động đó là 0 m, không báo lỗi.
+- [ ] Kéo thả đổi thứ tự hai hoạt động: các chặng được tính lại theo thứ tự mới.
+- [ ] (Từ Commit 7) `docker exec tripplanner-redis redis-cli --raw KEYS "route:legs*"`: có các khoá bắt đầu bằng `route:legs::OSM|`, mỗi thứ tự đã xem một khoá. Tải lại trang vài lần: số khoá không tăng.
+- [ ] Ngắt mạng rồi tải lại trang: danh sách hoạt động và bản đồ vẫn hiện, chỉ không có chặng giữa các hoạt động. Nối mạng lại, tải lại trang: chặng hiện trở lại.
+- [ ] Dừng backend, chạy lại như bình thường (không có tham số trên): chặng trở lại con số ước lượng của nguồn có sẵn.
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
+| BUG-PLACE-004 | `TC-PLACE-171`, `TC-WEATHER-056` (kịch bản mới, viết khi sửa) | 2026-10-05 | **Không phải test đỏ: phát hiện khi đọc lại code lúc làm Task 3.8 Commit 7.** Bản giữ tạm kết quả tìm địa điểm và bản giữ tạm dự báo không ghi câu trả lời là của nguồn nào. Tìm "chợ hàn" bằng nguồn có sẵn, rồi khởi động lại với `app.providers.map=osm` trên cùng một Redis: trong 24 giờ ô tìm kiếm vẫn hiện kết quả của nguồn có sẵn, và chọn một kết quả như vậy bị từ chối với 400 ("nguồn không phải nguồn đang dùng"). Với thời tiết: con số giả lập của nguồn có sẵn còn hiện như dự báo thật tối đa 3 giờ sau khi đổi sang `open-meteo`. Chưa xảy ra với người dùng nào: nguồn thật mới có từ Task 3.8 và chưa được bật ở đâu | **Code sai** (thiếu sót thiết kế từ Task 3.4, lúc chỉ có một nguồn). Khoá của hai cache chỉ gồm nội dung câu hỏi (từ khoá, số kết quả, toạ độ; toạ độ và khoảng ngày), nên hai nguồn dùng chung một ô. Test không bắt được vì mọi test chạy với một nguồn duy nhất | Thêm tên nguồn vào đầu khoá: `MOCK\|8\|-\|chợ hàn` / `OSM\|8\|-\|chợ hàn`, `mock\|16.0678,...` / `open-meteo\|16.0678,...`. Cache quãng đường (Commit 7) đã làm vậy từ đầu. Các ô cũ không có tên nguồn tự hết hạn, không cần xoá. Thêm `TC-PLACE-171`, `TC-WEATHER-056`; sửa khoá trong `TC-PLACE-095`, `100`, `TC-WEATHER-038`, `MT-PLACE-04` | Đã sửa |
 | BUG-PLACE-003 | `TC-PLACE-104` (Task 3.4 Commit 6, test cũ của Commit 4) | 2026-10-03 | `PlaceSearchCacheIntegrationTest > emptyAnswerIsStoredToo` đỏ **lúc có lúc không**: 2 lần đỏ trong khoảng 10 lần chạy bộ 4 class (`ForecastCache`, `PlaceSearchCache`, `RedisDown`, `TripWeatherFlow`), chưa từng đỏ khi chạy một mình. Thông báo: `expected: "[]" but was: null` tại dòng đọc thẳng khoá `place:search::8\|-\|khong co dia diem nao ten nay` ngay sau khi tìm kiếm trả về danh sách rỗng. Không có dòng WARN nào của cache trong log; các test khác của class vẫn đạt; thứ tự class giống nhau ở lần đỏ và lần xanh | **Code sai**, test đúng. Bộ ghi cache mặc định của Spring Data Redis 4 **ghi vào Redis ở nền** khi dùng trình điều khiển Lettuce: hàm tìm kiếm trả về trước khi lệnh ghi tới Redis, nên đọc thẳng Redis ngay sau đó thỉnh thoảng chưa thấy khoá. Đã xác nhận bằng cách đọc bytecode của `DefaultRedisCacheWriter` (`writeAsynchronously`, cờ bật sẵn) và bằng một test ép lỗi lộ ra (`TC-PLACE-106`: 40 lần tìm liên tiếp, đỏ 2/2 lần khi chưa sửa). Ngoài test, cách ghi ở nền còn làm lỗi ghi không tới được bộ xử lý lỗi của Commit 5 | Cấu hình bộ ghi cache bằng `RedisCacheWriter.create(..., writer -> writer.immediateWrites())` trong `CacheConfig`: ghi xong rồi mới trả về. Giá phải trả là mỗi lần ghi cache chờ Redis khoảng một phần nghìn giây | Đã sửa, commit `8b7c864` |
 | BUG-PLACE-002 | Test mới của Task 3.2 Mốc 1: database từ chối toạ độ ngoài khoảng | 2026-10-01 | `PlaceMappingTest > coordinatesOutsideTheGlobeAreRejectedByTheDatabase` đỏ cả 4 lượt. Database **có** từ chối (`Check constraint 'chk_places_lat' is violated`), nhưng test mong đợi loại lỗi `DataIntegrityViolationException` còn thực tế nhận `UncategorizedSQLException`. 63 lượt còn lại của năm class đạt | **Test sai**, hệ thống đúng. Spring chỉ đổi một số mã lỗi của MySQL sang loại "vi phạm ràng buộc dữ liệu"; lỗi của ràng buộc `CHECK` (mã 3819) không nằm trong số đó nên ra loại lỗi chung | Test không còn dựa vào loại lỗi, mà kiểm đúng tên ràng buộc bị vi phạm (`chk_places_lat`, `chk_places_lng`). Kiểm như vậy còn chặt hơn bản đầu. Code không đổi | Đã sửa, commit `5b9088f` |
 | BUG-PLACE-001 | Test mới của Task 3.1 Mốc 4: mỗi điểm đến phải có đủ các loại địa điểm | 2026-10-01 | `MockPlacesDataTest > everyDestinationHasEnoughPlacesOfSeveralKinds() FAILED`: với Hội An, test mong đợi có đủ bốn loại tham quan, ăn uống, lưu trú, di chuyển; thực tế thiếu loại di chuyển (`could not find the following element(s): ["TRANSPORT"]`). 19 test còn lại của hai class đạt | **Dữ liệu thiếu**, test đúng. Khi soạn danh sách Hội An, lần tra "Bến xe Hội An" trên OpenStreetMap không ra kết quả dùng được nên điểm đến này bị bỏ trống loại di chuyển | Tra thêm và bổ sung "Cảng du lịch Cửa Đại" (bến tàu đi Cù Lao Chàm) vào Hội An | Đã sửa, commit `3ba2e85` |

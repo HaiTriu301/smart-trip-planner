@@ -15,7 +15,22 @@ Web app lên kế hoạch du lịch: tạo lịch trình theo ngày, gắn đị
 - Chống dò email: các endpoint công khai nhận email luôn trả cùng một phản hồi
 - Mã lỗi thống nhất (`ErrorResponse` + `errorCode`), message tiếng Việt từ `messages.properties`
 
-Lộ trình các phase tiếp theo (Trip & lịch trình, bản đồ + thời tiết, chia sẻ, realtime, Stripe, chi phí, AI gợi ý...): [WORKFLOW.md](WORKFLOW.md).
+**Phase 2 — Chuyến đi và lịch trình (hoàn thành 2026-09-30)**
+
+- Tạo, sửa, xoá chuyến đi; đổi ngày đi thì các ngày của lịch trình tự được tạo / dời theo
+- Hoạt động trong từng ngày: thêm, sửa, xoá, kéo thả đổi thứ tự hoặc chuyển sang ngày khác; cảnh báo trùng giờ
+- Trang lịch trình một ngày một trang, dùng được trên điện thoại
+
+**Phase 3 — Địa điểm, bản đồ, thời tiết (hoàn thành 2026-10-05)**
+
+- Tìm địa điểm theo tên và gắn vào hoạt động, hoặc tự thêm địa điểm bằng cách chấm một điểm trên bản đồ
+- Bản đồ của từng ngày (Leaflet + OpenStreetMap), quãng đường và thời gian di chuyển giữa các hoạt động
+- Dự báo thời tiết 16 ngày tới cho điểm đến của chuyến đi
+- Kết quả từ nguồn bên ngoài được giữ tạm trong Redis; Redis tắt thì ứng dụng vẫn chạy
+- Hai bộ nguồn dữ liệu, đổi bằng cấu hình: **dữ liệu có sẵn** (mặc định, không cần mạng) và **dữ liệu thật** từ OpenStreetMap (Photon, Nominatim, OSRM) và Open-Meteo, không cần API key
+- Khi nguồn thật lỗi: tự thử lại, ngắt mạch khi dịch vụ sập (Resilience4j), trang chuyến đi vẫn dùng được
+
+Lộ trình các phase tiếp theo (chia sẻ, realtime, Stripe, chi phí, AI gợi ý...): [WORKFLOW.md](WORKFLOW.md). Kịch bản test và tình trạng từng kịch bản: [docs/testing/README.md](docs/testing/README.md).
 
 ## Tech stack
 
@@ -77,6 +92,21 @@ npm run dev
 | http://localhost:8025 | MailHog — xem mail xác thực / đặt lại mật khẩu |
 
 **Dùng thử:** mở http://localhost:5173 → *Đăng ký* → mở MailHog, bấm link trong mail "Xác thực email" → *Đăng nhập* → vào trang *Chuyến đi của tôi*.
+
+### Dùng dữ liệu thật (tuỳ chọn)
+
+Mặc định ứng dụng chạy bằng dữ liệu có sẵn: 56 địa điểm ở 5 thành phố, quãng đường ước lượng theo đường chim bay, thời tiết giả lập. Muốn tìm được mọi địa điểm, có quãng đường theo đường thật và dự báo thật, chạy backend với hai tham số thêm (cần mạng, **không cần đăng ký hay API key**):
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=local --app.providers.map=osm --app.providers.weather=open-meteo'
+```
+
+| Tham số | Giá trị | Dữ liệu lấy từ |
+|---|---|---|
+| `app.providers.map` | `mock` (mặc định) \| `osm` | Photon (tìm địa điểm), Nominatim (lưu địa điểm đã chọn), OSRM (quãng đường, tính cho ô tô) |
+| `app.providers.weather` | `mock` (mặc định) \| `open-meteo` | Open-Meteo |
+
+Đây là các máy chủ công cộng miễn phí dùng chung, có điều khoản "dùng hợp lý" (Nominatim: tối đa 1 lần gọi mỗi giây; ứng dụng tự giữ giới hạn này). Chỉ nên bật khi chạy trên máy mình; **đừng bật trên bản deploy công khai** cho tới khi có hạn mức theo người dùng (Task 8.1). Test tự động không bao giờ gọi ra ngoài.
 
 > - `./gradlew bootRun` đứng ở `80% EXECUTING` là bình thường (app đang chạy). Dừng bằng Ctrl+C.
 > - Chạy/debug backend bằng IntelliJ: Run configuration Spring Boot, profile `local`, **Working directory = `backend/`** — sai thư mục thì không đọc được `../.env` (lỗi `Could not resolve placeholder 'MAIL_HOST'`).

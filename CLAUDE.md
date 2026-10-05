@@ -28,6 +28,7 @@ docker compose up -d mysql redis mailhog
 # Backend
 cd backend
 ./gradlew bootRun --args='--spring.profiles.active=local'
+./gradlew bootRun --args='--spring.profiles.active=local --app.providers.map=osm --app.providers.weather=open-meteo'   # dữ liệu thật, cần mạng, không cần key (Task 3.8)
 ./gradlew test                               # unit + slice test
 ./gradlew build                              # compile + toàn bộ test + đóng gói jar
 ./gradlew test --tests "*TripServiceTest"    # chạy 1 class; 1 method: --tests "*TripServiceTest.tenMethod"
@@ -106,6 +107,8 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 19. Mọi lời gọi ra ngoài phải đi qua interface trong `provider/`. Service **không** import SDK của Stripe/Google/Anthropic trực tiếp. Gửi mail cũng là gọi ra ngoài: `provider/mail/MailProvider` (`smtp` | `mock`), service không import `JavaMailSender`.
 20. Mặc định môi trường local là `mock` cho tất cả provider. Code mới phải chạy được khi chưa có API key nào.
     - `provider/map/MapProvider` (`mock` | `osm` từ Task 3.8): bản mock đọc `resources/mock/places.json`. Thêm / sửa địa điểm trong file này thì toạ độ phải tra từ OpenStreetMap (Nominatim: 1 lần hỏi mỗi giây, có `User-Agent`), không viết theo trí nhớ; `MockPlacesDataTest` phải xanh (Task 3.1).
+    - Provider thật (Task 3.8): `OsmMapProvider` (Photon tìm, Nominatim tra theo mã, OSRM quãng đường), `OpenMeteoWeatherProvider`. Mọi lỗi của thư viện HTTP đổi thành `ProviderUnavailableException(source, detail, cause)`; service không thấy ngoại lệ của `RestClient` hay Resilience4j. Giá trị người dùng gõ đi vào địa chỉ dưới dạng biến (`queryParam("q", "{q}")`), không ghép chuỗi. Địa chỉ gốc và `User-Agent` đọc từ `app.providers.*`. Test của provider thật dùng `MockRestServiceServer` + JSON mẫu là câu trả lời thật trong `test/resources/provider/`; dựng cấu hình qua `support/TestProviders`.
+    - `@Retry` / `@CircuitBreaker` / `@RateLimiter` (Resilience4j) đặt trên method `public` của provider thật, mỗi dịch vụ một tên trong `application.yml`. Hàm dự phòng (`fallbackMethod`) phải `public` và chỉ ném `ProviderUnavailableException` không kèm nguyên nhân. Thêm một provider thật mới thì thêm tên của nó vào cả ba khối `resilience4j` và thêm kịch bản vào `RealProvidersResilienceIntegrationTest` (đừng tạo class mới: mỗi class như vậy tốn một lần khởi động ứng dụng).
     - `provider/weather/WeatherProvider` (`mock` | `open-meteo` từ Task 3.8): bản mock sinh số ổn định theo toạ độ làm tròn + ngày. Quy tắc nghiệp vụ (chỉ 16 ngày tới, ghép dự báo theo ngày lịch) nằm ở `WeatherService`, không ở provider, nên đổi nguồn không đổi hành vi (Task 3.3).
 
 ### Realtime
@@ -127,7 +130,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 ### Frontend
 31. Mọi lời gọi HTTP đi qua `apiClient` trong `src/api/client.ts`. Component không import `axios` trực tiếp; mỗi module API là một file trong `src/api/` trả về body đã có type.
 32. `baseURL` là đường dẫn **tương đối** (`VITE_API_URL`, mặc định `/api/v1`) để đi qua proxy Vite (dev) / nginx (prod). Không hardcode `http://localhost:8080` trong `frontend/src`.
-33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand. `QueryClient` duy nhất nằm ở `src/lib/queryClient.ts`: lỗi 4xx không tự gửi lại, và cache bị xoá mỗi khi phiên đăng nhập kết thúc (Task 2.7) — không tạo `QueryClient` thứ hai, không tự `queryClient.clear()` ở nơi khác.
+33. Server state dùng TanStack Query (`useQuery`/`useMutation`), không tự `useEffect` + `useState` để fetch. Client state (auth, collab) dùng Zustand. `QueryClient` duy nhất nằm ở `src/lib/queryClient.ts`: lỗi 4xx và lỗi `PROVIDER_UNAVAILABLE` không tự gửi lại (`api/errors.isWorthRetrying`, Task 3.8), và cache bị xoá mỗi khi phiên đăng nhập kết thúc (Task 2.7) — không tạo `QueryClient` thứ hai, không tự `queryClient.clear()` ở nơi khác.
 34. Chỉ biến có tiền tố `VITE_` mới ra được trình duyệt; khai báo type của biến mới trong `src/vite-env.d.ts`. Không đặt secret vào biến `VITE_*` — chúng nằm trong bundle công khai.
 35. Trước khi commit frontend: `npm run lint`, `npm run build` và `npm run test` phải xanh. Logic thuần mới (tính ngày, định dạng, lọc, chia trang) viết thành hàm trong `lib/` hoặc cạnh feature, kèm file `*.test.ts` trong cùng commit (Task 3.7).
 36. Auth phía client (chốt Task 1.5): access token chỉ ở `stores/authStore` (memory), không `localStorage`. Chỉ `refreshAccessToken()` trong `api/client.ts` được gọi `/auth/refresh` (single-flight + Web Lock giữa các tab) — không tự gọi refresh ở nơi khác, hai lần refresh song song bị backend coi là trộm token và thu hồi mọi phiên. Lỗi API hiển thị qua `api/errors.ts` (`getErrorMessage`, `applyFieldErrors`), không tự đọc `error.response`.
@@ -219,7 +222,7 @@ Cập nhật mục này sau mỗi phase hoàn thành.
 - [x] Phase 0 — Setup: project, docker-compose, Flyway, Swagger, ApiResponse, exception handler, init frontend (2026-09-18)
 - [x] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password, auth UI (2026-09-25)
 - [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30); làm lại giao diện theo UI_GUIDE — Task 2.6 (2026-10-01); sửa 9 lỗi sau rà soát Phase 1–2 — Task 2.7 (2026-10-01)
-- [ ] Phase 3 — Place + Weather (mock provider + Redis cache)
+- [x] Phase 3 — Place + Weather: tìm và gắn địa điểm, bản đồ, quãng đường, thời tiết, Redis cache, giao diện "Teal Voyage" (Task 3.9), provider thật OpenStreetMap + Open-Meteo với Resilience4j (Task 3.8) (2026-10-05)
 - [ ] Phase 4 — Sharing + Permission (member, share link, PermissionEvaluator)
 - [ ] Phase 5 — Realtime WebSocket + optimistic locking
 - [ ] Phase 6 — Premium + Stripe (quota, checkout, webhook idempotent)
@@ -276,6 +279,12 @@ Khi review code, kiểm tra lại các điểm này:
 - Component cần "hôm nay" tự gọi `new Date()`: lệch với backend khi máy người dùng khác múi giờ tài khoản. Lấy qua `hooks/useToday` (`lib/today.todayIn`), so ngày bằng chuỗi `YYYY-MM-DD` — Task 3.7
 - Thứ nằm cùng cột với bản đồ Leaflet (dải thời tiết) đổi chiều cao giữa các trạng thái: bản đồ đo khung một lần nên có vùng xám. Giữ chiều cao cố định ở mọi trạng thái — Task 3.7
 - Thẻ trắng đặt trơn trên nền `paper` (`#F8F9FF`, chỉ tách 1,05:1 so với trắng): thẻ lẫn vào nền. Thẻ luôn có viền `tide` hoặc `shadow-md`; thẻ có bóng phải có nền đặc (pha màu vào trắng bằng `color-mix`, không dùng nền trong suốt). Đổi giá trị token màu thì tính tương phản trước (UI_GUIDE 3.1) — Task 3.9
+- Cache câu trả lời của provider mà khoá không có **tên nguồn**: sau khi đổi `app.providers.*`, người dùng nhận câu trả lời của nguồn cũ tới khi hết hạn. Mọi test chạy với một nguồn nên không test nào bắt được. Khoá của `PlaceSearchCache`, `RouteCache`, `ForecastCache` đều bắt đầu bằng tên nguồn — BUG-PLACE-004, Task 3.8
+- Hàm dự phòng của Resilience4j khai báo `private`: thư viện mở rồi đóng quyền truy cập quanh mỗi lần gọi, hai lần gọi cùng lúc thì một lần nhận `IllegalAccessException` (500 thay vì 503). Chạy riêng test vẫn xanh. Hàm dự phòng phải `public`; test cho hành vi "không cho gọi" phải có nhiều lần gọi đồng thời — BUG-PLAT-004, Task 3.8
+- Bắt chung mọi lỗi của provider rồi thử lại hoặc tính vào ngắt mạch: 4xx là câu hỏi sai (OSRM trả 400 khi hai điểm không có đường nối), thử lại vô ích và không được mở mạch của một dịch vụ đang khoẻ. Phân loại ở `provider/resilience/TransientFailure` và `ServiceFailure` — Task 3.8
+- Tin rằng câu trả lời 200 của dịch vụ công cộng là câu trả lời đúng: OSRM dời điểm xa đường về đường gần nhất, Photon trả kết quả cho từ khoá vô nghĩa, Nominatim trả danh sách rỗng cho mã sai. Trước khi viết provider thật, gọi thử các trường hợp biên và lưu câu trả lời làm JSON mẫu — Task 3.8
+- Gọi thử một API có chữ tiếng Việt bằng `curl` trong Git Bash: chữ có dấu bị hỏng trên đường đi và dịch vụ vẫn trả 200. Dùng script Python (`urllib`) — Task 3.8
+- Script sửa nhiều file ghi dần từng file: lỗi giữa chừng rồi chạy lại là chèn hai lần. Kiểm mọi chỗ thay thế trước, tất cả khớp mới ghi — Task 3.8
 - Đặt chiều cao vùng bản đồ Leaflet theo phần trăm bên trong một hàng flex: thư viện có thể đo ra khung sai. Ghim vùng bản đồ vào bốn mép khung (`absolute inset-0`), như `MapFrame` — Task 3.9
 - Dựng lại bố cục theo tỉ lệ của một mockup rộng hơn trang thật (mockup 1550px, nội dung của ta tối đa 1280px): cột nội dung chính bị hẹp đi. Tính bề rộng từng cột ở 1024px và 1280px và so với bản đang chạy trước khi code — Task 3.9
 

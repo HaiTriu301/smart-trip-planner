@@ -2007,7 +2007,47 @@ Số file là ước lượng theo code hiện tại và chưa tính `docs/testi
 
 **Nhớ:** hạn mức gọi `/places/search` theo người dùng (design 8.2) tới Task 8.1 mới có; trước đó cache của Task 3.4 và độ trễ 300ms ở ô tìm kiếm là thứ giữ cho app không gọi dịch vụ công cộng quá nhiều. Không bật provider thật trên bản deploy công khai trước khi có rate limit. `@Retry` / `@CircuitBreaker` đặt trên method `public` của provider và được gọi từ bean khác (các bean cache), nếu không proxy không chạy (CLAUDE.md mục 8). Báo cáo sau mỗi commit: file đã sửa, chức năng từng file và method, luồng chạy theo thứ tự các method, lệnh `git add` ghi từng file.
 
-> ✅ Hết Phase 3 → tick `[x] Phase 3` trong CLAUDE.md. Trước khi sang Phase 4: rà lại Phase 4 theo quy ước A.2 "Rà soát theo phase".
+> **Thực tế khi làm 3.8 (2026-10-05):** 11 commit code trên nhánh thay vì 10 của bảng đã duyệt (thêm một commit sửa lỗi), sau commit docs Mốc 0 trên `main` (`192155b`). Số PR và mã merge commit ghi ở lần cập nhật tài liệu kế tiếp.
+>
+> | # | Commit | File code (duyệt → thật) | Ghi chú |
+> |:--:|---|:--:|---|
+> | 1 | `90f0eb5` add open-meteo weather provider | 8 → 8 | starter đúng tên `spring-boot-starter-restclient` |
+> | 2 | `8b7a4c3` answer without a forecast when the source fails | 4 → 5 | thêm chú thích ở `TripWeatherResponse` |
+> | 3 | `f478aca` say when the forecast is temporarily unavailable | 6 → 3 | `stripDays` và `TripCardWeather` không cần sửa |
+> | 4 | `6602aee` tell accented keywords apart in the search cache | 3 → 3 | khoá còn gộp chữ gõ dạng tổ hợp (NFC) |
+> | 5 | `3f78612` search and pick places from openstreetmap | 9 → 12 | thêm `support/TestProviders`, `types/place.ts`; `category` suy từ nhãn OpenStreetMap |
+> | 6 | `a3eeea7` get travel legs from osrm | 5 → 7 | hai file JSON mẫu; `TestProviders` |
+> | 7 | `9e20586` cache the travel legs of a day | 6 → 9 | thêm `RouteCacheTest`, kịch bản Redis tắt; khoá có tên nguồn |
+> | fix | `08bd0ad` keep answers of different sources apart | mới · 6 | `BUG-PLACE-004`, phát hiện khi làm commit 7 |
+> | 8 | `3f49f60` retry and break the circuit of real providers | 7 → 10 | hai lớp phân loại lỗi; `GlobalExceptionHandler` không đổi; `BUG-PLAT-004` |
+> | 9 | `8a2ae0d` do not repeat a request the provider could not answer | 3 → 3 | |
+> | 10 | `da6a6a0` credit the data sources | 2 → 2 | |
+>
+> Không có endpoint mới, không có migration. Một dependency mới: `resilience4j-spring-boot4` 2.4.0. Backend: **787 method test trong 69 file, 955 lượt**. Giao diện: **115 test trong 9 file** (thêm 6).
+>
+> Quyết định khi làm (ngoài các quyết định lúc lập kế hoạch):
+> - **Khoá cache có tên nguồn** ở cả ba cache; design 8.1 lúc lập kế hoạch chỉ có nội dung câu hỏi.
+> - **Ngắt mạch:** tối thiểu 10 lần gọi mới xét, mở 30 giây, 2 lần gọi thử; 4xx khác 429 không tính là dịch vụ lỗi. **Nominatim:** một lần tra chờ lượt tối đa 2 giây. Design 7.3 đã cập nhật.
+> - **Tên nguồn của khoá dự báo lấy từ cấu hình**, không thêm method vào `WeatherProvider`.
+> - **Ghi nguồn hiện cả khi đang dùng nguồn có sẵn:** frontend không biết backend dùng nguồn nào; không thêm API chỉ để ẩn một dòng chữ.
+> - **`StraightLineRoute`** tách khỏi `MockMapProvider` ở commit 5 để lớp thật đủ ba method ngay từ đầu; từ commit 6 chỉ còn nguồn có sẵn dùng.
+>
+> **Bẫy đã gặp khi làm 3.8:**
+> 1. **Hàm dự phòng `private` của Resilience4j:** thư viện mở quyền truy cập, gọi, rồi đóng lại sau mỗi lần; hai lần gọi cùng lúc thì một lần nhận `IllegalAccessException` (người dùng thấy 500 thay vì 503). Test chạy riêng xanh, chạy cả bộ mới đỏ. Hàm dự phòng phải `public`; test có 300 lần gọi cùng lúc để giữ.
+> 2. **Cache dùng chung giữa hai nguồn:** mọi test chạy với một nguồn nên không test nào thấy. Chỉ lộ khi đọc lại code lúc viết cache thứ ba. Thêm nguồn thứ hai cho bất cứ provider nào thì xem lại khoá của cache đứng trước nó.
+> 3. **Ghi chú trong báo cáo sai với hành vi thật:** báo cáo commit 2 viết thẻ thời tiết "trông như chưa có dự báo"; thật ra thẻ ghi nhầm lý do. Phát hiện khi làm commit 3, đã sửa trong tài liệu test.
+> 4. **Gọi thử dịch vụ từ Git Bash làm hỏng chữ có dấu:** `curl` với "chợ hàn" gửi đi chuỗi rác và Photon vẫn trả kết quả (tìm mờ), dễ tưởng là đúng. Dùng script Python.
+> 5. **Script sửa nhiều file chạy lại sau khi lỗi giữa chừng** chèn hai lần cùng một đoạn (commit 7). Từ đó script kiểm mọi chỗ thay thế trước, tất cả khớp mới ghi file.
+> 6. **Ảnh hưởng của dịch vụ công cộng tới con số:** OSRM dời điểm xa đường về đường gần nhất mà không báo; Photon trả kết quả cho cả từ khoá vô nghĩa. Câu trả lời 200 không có nghĩa là câu trả lời có nghĩa.
+>
+> **Còn nợ sau Task 3.8:**
+> - Bài thủ công chưa chạy: `MT-PLACE-06`, `MT-PLACE-07`, `MT-PLAT-07`, `MT-WEATHER-02`, `MT-WEATHER-03`, `MT-UI-90`, `MT-UI-91`, `MT-UI-92` (cùng các bài cũ). Chưa ai dùng ứng dụng với nguồn thật qua giao diện.
+> - Mạch tự đóng lại sau 30 giây chưa có test tự động (`MT-PLAT-07`).
+> - **Không bật nguồn thật trên bản deploy công khai trước Task 8.1** (hạn mức theo người dùng): một người gửi liên tục có thể dùng hết lượt 1 lần / giây của Nominatim, kể cả bằng mã sai dạng (phần kiểm mã nằm sau bộ giới hạn).
+> - Địa điểm xa mọi con đường cho quãng đường vô nghĩa; chưa có test "nguồn lỗi thì không cất gì vào cache" của riêng dự án; khoá quãng đường dài theo số điểm.
+> - README mới có mục Phase 2 và Phase 3 ở commit này, viết ngắn; ảnh chụp màn hình vẫn chưa có.
+
+> ✅ Hết Phase 3 (đã tick `[x] Phase 3` trong CLAUDE.md ngày 2026-10-05). Trước khi sang Phase 4: rà lại Phase 4 theo quy ước A.2 "Rà soát theo phase".
 
 ---
 

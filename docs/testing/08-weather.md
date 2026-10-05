@@ -1,6 +1,6 @@
 # 08 · Thời tiết
 
-> Cập nhật: 2026-10-03 · build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · kiểm tra thủ công `MT-WEATHER-01` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-05 · Task 3.8 Commit 8 (Open-Meteo có thử lại và ngắt mạch; kịch bản ở [01-platform.md](01-platform.md) phần H, `TC-PLAT-045`, `048`, `052`): build xanh, 955 lượt test · commit sửa `BUG-PLACE-004` (khoá của bản giữ tạm dự báo có tên nguồn; `TC-WEATHER-038`, `056`) tại `08bd0ad`, 935 lượt test · Commit 2 (nguồn dự báo lỗi thì vẫn trả lời, không có dự báo) tại `8b7a4c3`, build xanh, 821 lượt test · Commit 1 tại `90f0eb5` (818 lượt test) · phần giao diện (Commit 3) ghi ở [06-itinerary-ui.md](06-itinerary-ui.md), `MT-UI-90` · trước đó build xanh tại `957550e` (Task 3.4, 742 lượt test) · kiểm tra thủ công `MT-WEATHER-01`, `MT-WEATHER-02`, `MT-WEATHER-03` chưa chạy · [Về trang chính](README.md)
 
 Mỗi ngày của chuyến đi có một dự báo thời tiết: trời thế nào, nhiệt độ thấp nhất và cao nhất, khả năng mưa. Dự báo lấy theo điểm đến của chuyến đi. Phần backend làm ở Task 3.3; giao diện ở Task 3.7; nguồn dự báo thật (Open-Meteo) ở Task 3.8.
 
@@ -22,12 +22,22 @@ Task 3.4, giữ tạm dự báo trong Redis (kết nối Redis, health và Redis
 |---|---|---|---|
 | 6 | Giữ tạm dự báo thời tiết trong Redis 3 giờ | H | `957550e` |
 
+Task 3.8, nguồn dự báo thật:
+
+| Commit | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 1 | Nguồn dự báo thật Open-Meteo, bật bằng cấu hình `app.providers.weather=open-meteo`; mặc định vẫn là nguồn giả | I | `90f0eb5` |
+| 2 | Nguồn dự báo lỗi: vẫn trả lời 200 với trạng thái `UNAVAILABLE`, không có dự báo | J | `8b7a4c3` |
+
 Vài từ dùng trong file:
 
 | Từ | Nghĩa |
 |---|---|
 | Nguồn dự báo | Nơi ứng dụng lấy dự báo: một bộ sinh số giả (mock) hoặc dịch vụ thời tiết thật |
 | Nguồn giả | Bộ sinh số có sẵn trong ứng dụng. Số là giả, nhưng cùng một nơi và cùng một ngày thì luôn ra cùng một dự báo |
+| Nguồn thật (Open-Meteo) | Dịch vụ dự báo thời tiết trên mạng, miễn phí cho mục đích phi thương mại, không cần đăng ký. Có dự báo cho hôm nay và 15 ngày sau |
+| Mã thời tiết | Con số Open-Meteo dùng để nói trời thế nào (ví dụ 0 là trời quang, 95 là dông). Ứng dụng đổi con số này về một trong 7 tình trạng |
+| Máy chủ giả | Một chương trình nhỏ chạy ngay trong lúc test, đóng vai dịch vụ bên ngoài. Nhờ nó test không cần mạng mà vẫn thử được cả lúc dịch vụ trả lỗi hoặc không trả lời |
 | Tình trạng | Một trong 7 giá trị: trời quang, ít mây, nhiều mây, sương mù, mưa, dông, tuyết. Giao diện chọn icon theo giá trị này |
 | Khả năng mưa | Số từ 0 đến 100 (phần trăm) |
 | Múi giờ của tài khoản | Múi giờ lưu trong hồ sơ người dùng, mặc định là giờ Việt Nam (`Asia/Ho_Chi_Minh`). "Hôm nay" của người dùng được tính theo múi giờ này |
@@ -163,15 +173,61 @@ Cùng cách làm với tìm địa điểm ([07-place.md](07-place.md) phần L,
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
-| TC-WEATHER-038 | Hỏi dự báo Đà Nẵng từ 05/10 đến 07/10 lần đầu, rồi nhìn vào Redis | Có ô mang khoá `weather:forecast::16.0678,108.2208:2026-10-05:2026-10-07`, còn hạn gần đủ 3 giờ. Nội dung là JSON đọc được với ngày dạng `2026-10-05`, không chứa tên class Java | Đúng | Đạt |
+| TC-WEATHER-038 | Hỏi dự báo Đà Nẵng từ 05/10 đến 07/10 lần đầu, rồi nhìn vào Redis | Có ô mang khoá `weather:forecast::mock\|16.0678,108.2208:2026-10-05:2026-10-07` (tên nguồn đứng đầu từ lần sửa BUG-PLACE-004), còn hạn gần đủ 3 giờ. Nội dung là JSON đọc được với ngày dạng `2026-10-05`, không chứa tên class Java | Đúng | Đạt |
 | TC-WEATHER-039 | Đánh tráo câu trả lời trong Redis bằng "tuyết ở Đà Nẵng", rồi hỏi lại; hỏi với một điểm cách 8 m | Cả hai lần nhận "tuyết": câu trả lời lấy từ Redis, và hai điểm sát nhau là một điểm | Đúng | Đạt |
 | TC-WEATHER-040 | Sau khi đánh tráo, hỏi Hà Nội cùng khoảng ngày; hỏi Đà Nẵng nhưng ngắn hơn một ngày | Cả hai lần nhận dự báo thật từ nguồn. Khoảng ngày khác là câu hỏi khác, dù có trùng ngày với câu đã cất | Biên | Đạt |
 | TC-WEATHER-041 | Hỏi 16 ngày hai lần liên tiếp, lần hai lấy từ Redis | Hai danh sách bằng nhau hoàn toàn: ngày, tình trạng, nhiệt độ tới chữ số thập phân. Dữ liệu đọc lại vẫn đúng kiểu | Đúng | Đạt |
-| TC-WEATHER-042 | Xem danh sách cache đã khai báo | Đúng hai cache: tìm địa điểm và dự báo, không có cái nào khác | Biên | Đạt |
+| TC-WEATHER-056 | (Task 3.8, `ForecastCacheTest`) Cùng một câu hỏi (Đà Nẵng, 05/10 đến 07/10) hỏi nguồn giả lập và hỏi Open-Meteo; một điểm cách 8 m; một khoảng ngày ngắn hơn | Hai nguồn ra hai khoá khác nhau: `mock\|16.0678,...` và `open-meteo\|16.0678,...`, nên con số giả lập không bao giờ hiện như dự báo thật sau khi đổi nguồn. Điểm cách 8 m cùng khoá; khoảng ngày khác thì khác khoá | Biên | Đạt · từng lỗi BUG-PLACE-004 |
+| TC-WEATHER-042 | Xem danh sách cache đã khai báo | Đúng ba cache: tìm địa điểm, quãng đường (thêm ở Task 3.8 Commit 7) và dự báo, không có cái nào khác | Biên | Đạt |
 
 `WeatherServiceTest` (phần B, F) từ commit này chạy với bản giả của lớp cache thay cho bản giả của nguồn: mọi kịch bản cũ giữ nguyên kết quả. Redis tắt mà xem thời tiết vẫn 200: [01-platform.md](01-platform.md) `TC-PLAT-039`.
 
 Kiểm chứng ngược (2026-10-03): bỏ dòng bật cache trên hàm hỏi dự báo thì `TC-WEATHER-038`, `039` đỏ (2 trong 5 test); trả lại thì xanh.
+
+---
+
+## I. Nguồn dự báo thật (Open-Meteo)
+
+> **Yêu cầu:** design.md 7.2 (bảng dịch vụ, quy ước chung), 7.3 (giới hạn thời gian), 10.2 (7 tình trạng) · **Kiểm bởi:** `OpenMeteoWeatherProviderTest`
+
+Khi bật nguồn thật, ứng dụng hỏi Open-Meteo qua mạng thay cho bộ sinh số giả. Test **không gọi mạng**: câu trả lời do máy chủ giả đưa ra. Câu trả lời mẫu là một câu trả lời thật của Open-Meteo cho Đà Nẵng, lưu ngày 2026-10-05, gồm 16 ngày từ 05/10 đến 20/10.
+
+Mỗi lần hỏi, ứng dụng lấy **toàn bộ** dự báo của điểm đó (16 ngày) rồi tự giữ lại những ngày cần. Lý do: nếu hỏi đúng một khoảng ngày mà có một ngày nằm ngoài phần Open-Meteo có, dịch vụ từ chối cả câu hỏi; trong khi "hôm nay" ở điểm đến có thể lệch một ngày so với "hôm nay" của người xem.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-WEATHER-043 | Hỏi dự báo Đà Nẵng từ 06/10 đến 08/10, dịch vụ trả câu trả lời mẫu 16 ngày | Đúng 3 ngày, đúng số của mẫu: 06/10 mưa, 23,8 đến 29,0 độ, 98% mưa; 07/10 và 08/10 dông | Đúng | Đạt |
+| TC-WEATHER-044 | Xem ứng dụng gửi gì cho dịch vụ | Một lần gọi, hỏi đủ 16 ngày, ngày tính theo giờ tại điểm đến, toạ độ làm tròn 4 chữ số thập phân, và có ghi tên ứng dụng (`User-Agent`) như điều khoản của dịch vụ yêu cầu | Đúng | Đạt |
+| TC-WEATHER-045 | Hỏi từ 19/10 đến 22/10 trong khi dịch vụ chỉ có tới 20/10 | Nhận 19/10 và 20/10. Hai ngày dịch vụ không có thì vắng mặt, không phải lỗi | Biên | Đạt |
+| TC-WEATHER-046 | Hỏi một khoảng nằm hẳn sau phần dịch vụ có (21/10 đến 23/10) | Danh sách rỗng, không báo lỗi | Biên | Đạt |
+| TC-WEATHER-047 | Dịch vụ trả lần lượt từng mã trong 28 mã thời tiết của nó | Mỗi mã ra đúng một trong 7 tình trạng: 0 và 1 là trời quang, 2 ít mây, 3 nhiều mây, 45 và 48 sương mù, mưa phùn / mưa / mưa rào đều là mưa, các mã tuyết là tuyết, 95 / 96 / 99 là dông | Đúng | Đạt |
+| TC-WEATHER-048 | Một ngày bị dịch vụ bỏ trống một giá trị (mã thời tiết, nhiệt độ thấp, nhiệt độ cao hoặc khả năng mưa), hoặc mang một mã thời tiết không có trong bảng | Ngày đó vắng mặt. Ứng dụng không tự bịa số cho ngày thiếu dữ liệu | Biên | Đạt |
+| TC-WEATHER-049 | Dịch vụ trả mã lỗi: 400, 429 (gọi quá nhiều), 500, 502, 503 | Ứng dụng báo "dịch vụ bên ngoài không sẵn sàng" (`PROVIDER_UNAVAILABLE`), có ghi tên dịch vụ để người vận hành tra log | Sai | Đạt |
+| TC-WEATHER-050 | Dịch vụ trả 200 nhưng nội dung không đọc được: không phải JSON, JSON rỗng, thiếu phần dự báo theo ngày, thiếu danh sách ngày, hoặc số ngày và số giá trị không bằng nhau | `PROVIDER_UNAVAILABLE`. Ứng dụng không đoán dự báo từ dữ liệu lệch | Sai | Đạt |
+| TC-WEATHER-051 | Dịch vụ nhận câu hỏi rồi im lặng (máy chủ giả không bao giờ trả lời), ứng dụng chỉ chờ 0,2 giây | Hết thời gian chờ thì bỏ cuộc và báo `PROVIDER_UNAVAILABLE`, không treo | Sai | Đạt |
+| TC-WEATHER-052 | Không kết nối được tới dịch vụ (địa chỉ không có ai nghe) | `PROVIDER_UNAVAILABLE` | Sai | Đạt |
+
+Giới hạn thật khi chạy là 2 giây để kết nối và 3 giây chờ trả lời, đặt trong cấu hình chung (`spring.http.clients`). `TC-WEATHER-051` chứng minh ứng dụng xử lý đúng khi hết thời gian chờ, với một giới hạn ngắn đặt riêng cho test; **chưa có test tự động nào** chứng minh con số 3 giây trong cấu hình được áp dụng lúc chạy thật. Đã kiểm bằng tay ngày 2026-10-05: ứng dụng khởi động được với `app.providers.weather=open-meteo`.
+
+Ở Commit 1, khi bật nguồn thật mà Open-Meteo lỗi thì `GET /api/v1/weather/trips/{id}` trả **503**. Commit 2 đã đổi thành 200 kèm trạng thái "tạm thời không có dự báo" (phần J).
+
+---
+
+## J. Nguồn dự báo không trả lời
+
+> **Yêu cầu:** design.md 7.3 ("Khi provider lỗi"), 10.2 (dòng "Provider lỗi") · **Kiểm bởi:** `WeatherServiceTest`, `TripWeatherFlowIntegrationTest`
+
+Thời tiết là thông tin phụ của trang chuyến đi. Khi nguồn dự báo lỗi (sập, quá chậm, trả nội dung không đọc được), ứng dụng vẫn trả lời bình thường (200) với trạng thái `UNAVAILABLE` ("tạm thời không có dự báo") thay vì báo lỗi 503. Lịch trình vẫn dùng được.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-WEATHER-053 | Chuyến đi 3 ngày có điểm đến, nguồn dự báo báo "không sẵn sàng" | Không báo lỗi. Trạng thái `UNAVAILABLE`, vẫn đủ 3 ngày theo thứ tự, không ngày nào có dự báo | Sai | Đạt |
+| TC-WEATHER-054 | Lúc lấy dự báo xảy ra một lỗi khác, không phải "nguồn không sẵn sàng" (ví dụ lỗi lập trình) | Lỗi đó **không** bị che thành "tạm thời không có dự báo": vẫn được báo ra để người vận hành thấy | Sai | Đạt |
+| TC-WEATHER-055 | Qua mọi tầng với MySQL và Redis thật: chuyến đi 3 ngày ở Huế, nguồn dự báo lỗi ở lần hỏi đầu rồi hoạt động lại | Lần đầu: 200, `UNAVAILABLE`, 3 ngày không có dự báo, log có một dòng cảnh báo ghi mã chuyến đi. Lần sau: `OK`, cả 3 ngày có dự báo. Câu trả lời "không có dự báo" không bị giữ lại trong Redis, nên nguồn được hỏi lại (đúng 2 lần hỏi) | Sai | Đạt |
+
+Chuyến đi không cần hỏi nguồn (chưa có điểm đến, đã kết thúc, hoặc còn quá xa) không bị ảnh hưởng: nguồn không được gọi nên trạng thái vẫn như cũ (`TC-WEATHER-018`, `TC-WEATHER-029`, `TC-WEATHER-030`).
+
+Giao diện chưa đổi ở commit này: khi nhận `UNAVAILABLE`, thẻ thời tiết ghi nhầm lý do ("Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới..."). Commit 3 sửa thành "Tạm thời không có dự báo." kèm "Thử lại" (`MT-UI-90`).
 
 ---
 
@@ -194,8 +250,37 @@ Thêm ở Task 3.3 Commit 3. Bổ sung `status` ở Commit 4, giới hạn 16 ng
 
 **Kết quả:** Chưa chạy
 
+### MT-WEATHER-02 · Xem dự báo thật từ Open-Meteo
+
+Thêm ở Task 3.8 Commit 1. Cần có mạng. Ngày của chuyến đi tính theo **ngày chạy bài**.
+
+- [ ] Dừng backend đang chạy. Chạy lại với nguồn thật: `./gradlew bootRun --args='--spring.profiles.active=local --app.providers.weather=open-meteo'` (trong IntelliJ: thêm `--app.providers.weather=open-meteo` vào Program arguments).
+- [ ] Mở `http://localhost:8080/swagger-ui.html`, đăng nhập và "Authorize".
+- [ ] Tạo một chuyến đi 3 ngày **bắt đầu từ hôm nay**, có `destinationLat` = 16.0678, `destinationLng` = 108.2208 (Đà Nẵng). Ghi lại `id`.
+- [ ] Gọi `GET /api/v1/weather/trips/{id}`: 200, `status` là `OK`, cả 3 ngày có `forecast`.
+- [ ] Mở `https://open-meteo.com/en/docs`, nhập cùng toạ độ, chọn các giá trị theo ngày (nhiệt độ cao nhất, thấp nhất, khả năng mưa): nhiệt độ và khả năng mưa của 3 ngày khớp với kết quả ở bước trước.
+- [ ] Tạo một chuyến đi 3 ngày ở một nơi lạnh (ví dụ Reykjavik: `destinationLat` = 64.1466, `destinationLng` = -21.9426) rồi gọi: nhiệt độ thấp hơn hẳn Đà Nẵng. Đây là dấu hiệu số không còn là số giả (nguồn giả luôn cho 24 đến 35 độ).
+- [ ] Mở trang chuyến đi trên giao diện: thẻ thời tiết hiện đúng các số đó.
+- [ ] Dừng backend, chạy lại như bình thường (không có tham số trên): thời tiết trở lại số của nguồn giả.
+
+**Kết quả:** Chưa chạy
+
+### MT-WEATHER-03 · Nguồn dự báo thật không trả lời
+
+Thêm ở Task 3.8 Commit 2. Không cần mạng: nguồn thật được trỏ tới một địa chỉ không có ai nghe.
+
+- [ ] Dừng backend đang chạy. Chạy lại: `./gradlew bootRun --args='--spring.profiles.active=local --app.providers.weather=open-meteo --app.providers.open-meteo.base-url=http://localhost:9'`.
+- [ ] Mở Swagger, đăng nhập và "Authorize". Tạo một chuyến đi 3 ngày **bắt đầu từ hôm nay**, có `destinationLat` = 10.3460, `destinationLng` = 107.0843 (Vũng Tàu; dùng một nơi chưa xem thời tiết trong 3 giờ qua, nếu không Redis trả lời thay).
+- [ ] Gọi `GET /api/v1/weather/trips/{id}`: **200** (không phải 503), `status` là `UNAVAILABLE`, `days` có 3 phần tử, `forecast` của cả 3 là `null`.
+- [ ] Xem log của backend: có một dòng `WARN` bắt đầu bằng `No forecast for trip`, không có dòng `ERROR` nào cho lần gọi này.
+- [ ] Mở trang chuyến đi đó trên giao diện: lịch trình hiện bình thường, không có ô báo lỗi.
+- [ ] Dừng backend, chạy lại với nguồn thật và địa chỉ đúng (bỏ tham số `base-url`), gọi lại: `status` là `OK`, có dự báo.
+- [ ] Dừng backend, chạy lại như bình thường.
+
+**Kết quả:** Chưa chạy
+
 ---
 
 ## Lỗi đã phát hiện
 
-Chưa có lỗi nào.
+Chưa có lỗi nào của riêng tính năng này. Một lỗi chung của các bản giữ tạm chạm tới dự báo: `BUG-PLACE-004` (khoá không có tên nguồn), ghi ở [07-place.md](07-place.md), đã sửa ngày 2026-10-05.
