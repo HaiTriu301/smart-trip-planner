@@ -8,10 +8,23 @@ import { TripSearchBox } from '../features/trips/TripSearchBox'
 import { useAuthStore } from '../stores/authStore'
 
 /**
+ * Where the data shown in the app comes from. The public services ask for this credit in their terms
+ * (design.md 7.2): places and map data are OpenStreetMap's, travel legs come from OSRM, forecasts from
+ * Open-Meteo. Shown on every page, also when the server runs on its bundled data: the frontend does not know
+ * which source the server uses, and the bundled places are OpenStreetMap data too.
+ */
+const DATA_SOURCES = [
+  { label: 'Bản đồ và địa điểm', name: '© OpenStreetMap', href: 'https://www.openstreetmap.org/copyright' },
+  { label: 'Quãng đường', name: 'OSRM', href: 'https://project-osrm.org/' },
+  { label: 'Thời tiết', name: 'Open-Meteo', href: 'https://open-meteo.com/' },
+] as const
+
+/**
  * Shell of every signed-in page (UI_GUIDE 5.4, 8): 64px white top bar with the logo, the trip search and the
- * user, content up to 1280px wide, and a quiet footer on the page background. The bar is white on a page that
- * is almost white, so a line under it marks where it ends. On phones the search drops to its own row under
- * the logo. No placeholders for features that do not exist yet (notifications).
+ * user, content up to 1280px wide, and a quiet footer on the page background that credits the data sources.
+ * The bar is white on a page that is almost white, so a line under it marks where it ends. On phones the
+ * search drops to its own row under the logo. No placeholders for features that do not exist yet
+ * (notifications).
  */
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
@@ -47,9 +60,25 @@ export function AppLayout() {
         <Outlet />
       </main>
       <footer className="border-t border-tide">
-        <p className="mx-auto max-w-[1280px] px-4 py-4 text-xs text-gray-500 sm:px-6 lg:px-8">
-          © 2026 Smart Trip Planner
-        </p>
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-x-6 gap-y-1 px-4 py-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <p>© 2026 Smart Trip Planner</p>
+          <p className="flex flex-wrap gap-x-3 gap-y-1">
+            <span>Nguồn dữ liệu:</span>
+            {DATA_SOURCES.map((source) => (
+              <span key={source.name}>
+                {source.label}{' '}
+                <a
+                  href={source.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-control font-medium text-gray-700 underline hover:text-jade-dark focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+                >
+                  {source.name}
+                </a>
+              </span>
+            ))}
+          </p>
+        </div>
       </footer>
       <Toaster />
     </div>

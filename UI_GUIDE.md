@@ -443,13 +443,14 @@ Loại
 ├──────────────────────────────────────────────────────────────────────┤
 │                         nội dung, tối đa 1280px                       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ © 2026 Smart Trip Planner                                            │ nền trang, vạch `tide` ở trên
+│ © 2026 Smart Trip Planner      Nguồn dữ liệu: Bản đồ và địa điểm …  │ nền trang, vạch `tide` ở trên
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Thanh điều hướng** (Task 3.9, theo mockup "Teal Voyage"): nền **trắng**, cao 64px, vạch `tide` 1px ở đáy (thanh trắng trên nền trang gần trắng cần một ranh giới); logo chữ `ink`; tên người dùng `gray-700`; "Đăng xuất" là nút `ghost`. Chân trang không còn nền tối: chữ `gray-500` trên nền trang, vạch `tide` ở trên. Trước Task 3.9 cả hai có nền `ink`.
 - **Ô tìm chuyến đi** (`TripSearchBox`) nằm giữa thanh điều hướng: dạng **viên bo tròn hết cỡ** (ngoại lệ của quy tắc bo 6px cho ô nhập, theo mockup), nền `gray-100`, không viền, chữ `ink`, icon và chữ gợi ý `gray-500`; rê chuột có viền `tide`; khi focus nền trắng, viền và vòng `jade`. Chỉ tìm chuyến đi theo tên hoặc điểm đến (chưa tìm được theo hoạt động). Ở `/trips`: lọc khi ngừng gõ 300 ms, không thêm bước vào lịch sử trình duyệt, giữ chip trạng thái và cách sắp xếp. Ở trang khác: Enter mở `/trips?q=…`.
 - Dưới 768px: ô tìm xuống thành hàng riêng dưới logo, rộng hết chiều ngang.
+- **Chân trang ghi nguồn dữ liệu** (Task 3.8): bên trái "© 2026 Smart Trip Planner", bên phải dòng "Nguồn dữ liệu: Bản đồ và địa điểm **© OpenStreetMap**, Quãng đường **OSRM**, Thời tiết **Open-Meteo**" (các nguồn cách nhau 12px, không có dấu ngăn). Ba tên là link mở tab mới tới trang của từng nguồn (`openstreetmap.org/copyright`, `project-osrm.org`, `open-meteo.com`): chữ `gray-700` 12px/500 có gạch chân (link giữa dòng chữ nhỏ phải nhận ra được mà không cần màu), rê chuột chuyển `jade-dark`, vòng focus như mọi link. Phần chữ còn lại `gray-500`. Dưới 640px hai phần xếp thành hai hàng, dòng nguồn tự xuống dòng giữa các nguồn, không cắt giữa tên. Dòng này hiện ở **mọi trang đã đăng nhập** và không phụ thuộc máy chủ đang dùng nguồn nào: điều khoản của ba dịch vụ yêu cầu ghi nguồn (design.md 7.2), và dữ liệu địa điểm có sẵn cũng lấy từ OpenStreetMap. Bản đồ vẫn có dòng ghi nguồn riêng ở góc (mục 9).
 - Không có chuông thông báo, không có mục menu cho trang chưa tồn tại.
 
 ### 8.1. Chi tiết chuyến đi — màn hình trung tâm
