@@ -174,7 +174,7 @@ function TripDetailSkeleton() {
         <Skeleton className="h-10 w-2/3" />
         <Skeleton className="h-5 w-1/2" />
       </div>
-      <div className="space-y-3 lg:pl-[232px]">
+      <div className="space-y-3 lg:pl-[244px] xl:pl-[312px]">
         <Skeleton className="h-6 w-64" />
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="ml-16 h-20" />
