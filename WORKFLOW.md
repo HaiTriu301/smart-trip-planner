@@ -1288,7 +1288,7 @@ Commit 12 — test(place): add place and activity place flow integration test   
 > - `placeId` sai (không tồn tại, hoặc `MANUAL` của người khác) → **400 `VALIDATION_ERROR` ở field `placeId`**, "Địa điểm không tồn tại", không phải 404: đây là lỗi của một ô trong form.
 > - Địa điểm tự thêm **không gộp theo tên**; `category` không bắt buộc, có gửi thì thuộc 6 loại hoạt động.
 > - Địa điểm không còn activity nào dùng **không bị dọn** ở task này.
-> - Người được chia sẻ quyền sửa (Phase 4) **không** gắn được địa điểm `MANUAL` của chủ chuyến đi sang activity khác; họ vẫn thấy nó và sửa được activity. Xét lại ở Task 4.2.
+> - Người được chia sẻ quyền sửa (Phase 4) **không** gắn được địa điểm `MANUAL` của chủ chuyến đi sang activity khác; họ vẫn thấy nó và sửa được activity. Xét lại ở Task 4.3 Mốc 2 (rà Phase 4 ngày 2026-10-06: trước đó ghi là 4.2).
 > - `POST /places` luôn trả 200 (lưu mới hay đã có đều như nhau với người gọi).
 >
 > **Ý tưởng để sau (chưa gán task):** dọn địa điểm `MANUAL` không còn ai dùng; ô "đã làm" cho từng activity (design rule 14.22); hạn mức gói miễn phí chỉ tính chuyến đi chưa hoàn thành (xét ở Task 6.1 cùng rule 14.9).
@@ -1335,7 +1335,7 @@ Commit 12 — test(place): add place and activity place flow integration test   
 > **Việc cho Task 3.5:** `Activity.place` đã có toạ độ; quãng đường trong ngày đọc từ `findByTripDayIdOrderByOrderIndexAscIdAsc` (đã đọc kèm place), bỏ qua activity không có địa điểm.
 > **Việc cho Task 3.6:** form hoạt động gửi `placeId` khi chọn kết quả (gọi `POST /places` trước), `clearPlace: true` khi bấm bỏ; chỉ gửi `placeId` khi người dùng **đổi** địa điểm. `ActivityResponse.place` có đủ dữ liệu để chấm lên bản đồ, không cần gọi thêm.
 > **Việc cho Task 3.8:** `OsmMapProvider.provider()` trả `OSM`, thêm hằng `OSM` vào `PlaceProvider` (cột ENUM của V9 đã có sẵn, không cần migration); bản lưu `MOCK` cũ vẫn hiển thị trong activity nhưng không chọn mới được.
-> **Việc cho Task 4.2:** cộng tác viên gửi lại đúng `placeId` mà activity đang có, khi đó là địa điểm `MANUAL` của chủ chuyến đi, sẽ nhận 400 theo quy tắc hiện tại. Quyết định: hoặc coi "gửi lại địa điểm đang có" là không đổi, hoặc giữ nguyên và để giao diện chỉ gửi `placeId` khi đổi (Task 3.6 đã làm theo hướng này).
+> **Việc cho Task 4.3 (rà Phase 4 ngày 2026-10-06, trước đó ghi là 4.2):** cộng tác viên gửi lại đúng `placeId` mà activity đang có, khi đó là địa điểm `MANUAL` của chủ chuyến đi, sẽ nhận 400 theo quy tắc hiện tại. Quyết định: hoặc coi "gửi lại địa điểm đang có" là không đổi, hoặc giữ nguyên và để giao diện chỉ gửi `placeId` khi đổi (Task 3.6 đã làm theo hướng này).
 
 ---
 
@@ -1679,7 +1679,7 @@ Commit 17 — feat(frontend): show and set the trip destination on a small map  
 > - **Gợi ý loại theo địa điểm** chỉ khi người dùng chưa tự chọn loại trong lần mở hộp thoại đó; sửa hoạt động có sẵn thì không tự đổi loại.
 > - **Mockup Stitch:** chủ dự án không dựng trước; code theo mô tả của UI_GUIDE rồi xem trên trình duyệt và chỉnh. Prompt ở UI_GUIDE 15.3 vẫn được giữ đúng với thứ sẽ làm.
 > - Một ô tìm địa điểm (`PlaceSearchField`) dùng hai chỗ, chỉ trả về kết quả được chọn: form hoạt động gọi tiếp `POST /places` để có `placeId`; form chuyến đi chỉ lấy toạ độ, không lưu địa điểm nào.
-> - Chỉ gửi `placeId` khi người dùng **đổi** địa điểm (ghi chú của Task 3.2 cho cộng tác viên ở Task 4.2).
+> - Chỉ gửi `placeId` khi người dùng **đổi** địa điểm (ghi chú của Task 3.2 cho cộng tác viên, làm ở Task 4.3 Mốc 2).
 >
 > **Giới hạn đã biết:**
 > - Đã đặt vị trí điểm đến thì chỉ đổi được, chưa bỏ được: `PATCH /trips/{id}` chưa hỗ trợ xoá trắng trường tuỳ chọn (design 10.2). Hộp sửa chuyến đi không có nút "bỏ vị trí".
@@ -2007,7 +2007,7 @@ Số file là ước lượng theo code hiện tại và chưa tính `docs/testi
 
 **Nhớ:** hạn mức gọi `/places/search` theo người dùng (design 8.2) tới Task 8.1 mới có; trước đó cache của Task 3.4 và độ trễ 300ms ở ô tìm kiếm là thứ giữ cho app không gọi dịch vụ công cộng quá nhiều. Không bật provider thật trên bản deploy công khai trước khi có rate limit. `@Retry` / `@CircuitBreaker` đặt trên method `public` của provider và được gọi từ bean khác (các bean cache), nếu không proxy không chạy (CLAUDE.md mục 8). Báo cáo sau mỗi commit: file đã sửa, chức năng từng file và method, luồng chạy theo thứ tự các method, lệnh `git add` ghi từng file.
 
-> **Thực tế khi làm 3.8 (2026-10-05):** 11 commit code trên nhánh thay vì 10 của bảng đã duyệt (thêm một commit sửa lỗi), sau commit docs Mốc 0 trên `main` (`192155b`). Số PR và mã merge commit ghi ở lần cập nhật tài liệu kế tiếp.
+> **Thực tế khi làm 3.8 (2026-10-05):** 11 commit code trên nhánh thay vì 10 của bảng đã duyệt (thêm một commit sửa lỗi), sau commit docs Mốc 0 trên `main` (`192155b`). PR #25, merge commit `a31ff81`, docs đóng task `7596245`.
 >
 > | # | Commit | File code (duyệt → thật) | Ghi chú |
 > |:--:|---|:--:|---|
@@ -2053,78 +2053,284 @@ Số file là ước lượng theo code hiện tại và chưa tính `docs/testi
 
 ## PHASE 4 — Chia sẻ & Phân quyền
 
-> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
+> **Đã rà theo quy ước A.2 "Chia commit" (2026-10-06):** 4 task kiểu cũ → 6 task (4 backend, 2 giao diện), mỗi mốc là một lát cắt dọc. Bảng file chi tiết Claude đưa ra đầu từng task để duyệt.
+> **Tài liệu đã khớp (2026-10-06, commit docs đầu Phase 4):** `design.md` 5.2 (`trip_members`, `share_links`, `comments`), 6.2, 9, 10.2 (Trip, Sharing, Public, Comment), 10.3 (`MEMBER_ALREADY_EXISTS`), rule 14.23–14.28, 15; `UI_GUIDE.md` 14 và 15.3; `CLAUDE.md` rule 15.
 
-Đọc trước: **design.md mục 6.2 (ma trận quyền)** — đọc kỹ, đây là phần đáng giá nhất trong CV.
+Đọc trước: **design.md mục 6.2 (ma trận quyền — phần đáng giá nhất trong CV), 5.2 (`trip_members`, `share_links`, `comments`), 10.2 (Sharing, Public, Comment, "Quy ước Sharing API"), rule 14.6, 14.7, 14.12, 14.19, 14.23–14.28**; task giao diện đọc thêm **UI_GUIDE.md 7.5, 7.9, 8.5, 15.3**.
 
-### Task 4.1 — TripMember
+> **Vì sao đổi thứ tự (so với bản cũ):**
+> - Task 4.1 cũ tạo member mà tới 4.2 evaluator mới biết member: người đã nhận lời vẫn bị 403, code chưa có ai dùng (trái A.2 điểm 3). Nay evaluator mở rộng ngay trong 4.1, cùng mốc với "nhận lời mời".
+> - Task 4.2 cũ gộp evaluator + cache + rà `@PreAuthorize` + ma trận. Nay cache và ma trận là Task 4.3, sau khi cả thành viên lẫn liên kết đã có để ma trận kiểm được hết.
+> - Liên kết EDIT hoãn (quyết định 3): evaluator **không** cần biết liên kết; người cầm liên kết là khách trên endpoint công khai.
+> - Bình luận tách khỏi giao diện; giao diện chia hai task như Phase 3 (3.6 / 3.7).
+> - Số migration: V9 / V10 đã dùng cho `places` → Phase 4 là **V11, V12, V13**. Kiểm số lớn nhất trước khi tạo file (CLAUDE.md rule 7).
+>
+> **Quyết định dùng để chia mốc (chủ dự án chốt cả 12 điểm ngày 2026-10-06):**
+> 1. **Token lời mời** nằm trong `trip_members` (`invite_token_hash` SHA-256 + `invite_expires_at`, 7 ngày), không dùng `verification_tokens` (bảng đó bắt buộc `user_id`, người được mời có thể chưa có tài khoản). ✔
+> 2. **Chủ chuyến không có dòng trong `trip_members`.** `trips.owner_id` là nguồn sự thật; danh sách thành viên trả chủ ở đầu, API dùng `TripRole` (`OWNER`, `EDITOR`, `VIEWER`) còn cột `role` trong DB chỉ `EDITOR`, `VIEWER`. ✔
+> 3. **Liên kết chia sẻ chỉ có quyền xem** ở Phase 4; liên kết EDIT xét lại ở Phase 5 (khi có realtime). Cột `permission` giữ `ENUM('VIEW')`, thêm `EDIT` sau bằng ALTER. ✔
+> 4. **Không giới hạn số thành viên và số liên kết** cho mọi gói (sửa design 9); hai endpoint tạo không có quota. ✔
+> 5. **`GET /trips` là một danh sách chung**: chuyến tôi là thành viên `ACCEPTED` nằm cùng chuyến của tôi, thẻ có huy hiệu "Được chia sẻ" kèm tên chủ chuyến (`TripSummaryResponse` thêm `ownerId`, `ownerName`); chưa có bộ lọc riêng. **`GET /trips/{id}`** thêm `members` và `myRole`; số câu SQL 4 → 5 (một câu lấy thành viên), test đếm cập nhật kèm lý do. ✔
+> 6. **Địa điểm `MANUAL` với cộng tác viên** (nợ từ Task 3.2): gửi lại đúng `placeId` mà activity đang có thì coi như không đổi, không kiểm người tạo. ✔
+> 7. **Bình luận:** ai xem được chuyến đi thì bình luận được; xoá bởi tác giả hoặc chủ chuyến; không sửa; xoá bình luận gốc xoá luôn các trả lời; bình luận của activity đi theo activity khi activity bị xoá. ✔
+> 8. **`visibility`:** Phase 4 chỉ dùng token của `share_links`; `visibility` tự thành `LINK` khi có liên kết chưa thu hồi và về `PRIVATE` khi thu hồi liên kết cuối; `PUBLIC` theo `slug` để sau. ✔
+> 9. **Giao diện chia sẻ là hộp thoại** mở từ đầu trang chi tiết (UI_GUIDE 15.3), không có trang `/trips/:id/members` riêng (sửa design 15). ✔
+> 10. **Trang nhận lời mời** `/invite?trip={id}&token=...` trong `ProtectedRoute`: chưa đăng nhập → đăng nhập (hoặc đăng ký nếu email chưa có tài khoản) rồi quay lại; nhận xong vào thẳng chuyến đi. ✔
+> 11. **Gỡ thành viên giữ dòng** (`status = REMOVED`); mời lại cùng email cập nhật dòng cũ về `PENDING` với token mới (UNIQUE `(trip_id, user_id)` và `(trip_id, invited_email)`). ✔
+> 12. **Cache quyền trong Redis** (`trip:permission`, 5 phút): Redis tắt thì đọc DB như ba cache của Phase 3; evict khi nhận lời, đổi vai trò, gỡ thành viên. ✔
+>
+> **Quyết định thêm khi rà (Claude đề xuất, chủ dự án duyệt cùng commit docs này):**
+> - **Nhận lời mời phải đúng email:** email của tài khoản đang đăng nhập phải trùng `invited_email` (không phân biệt hoa thường), khác → 403 `FORBIDDEN`. Link mời chuyển tiếp cho người khác không dùng được.
+> - **Mời email đã là thành viên `ACCEPTED`** → 409 `MEMBER_ALREADY_EXISTS` (mã mới, design 10.3). Mời lại email đang `PENDING` = gửi lại mail với token mới (nút "Gửi lại" của giao diện gọi đúng `POST /members`).
+> - **`status` trong DB không có `DECLINED`:** chưa có endpoint từ chối, không để giá trị chưa ai dùng; thêm sau bằng ALTER.
+> - **Token liên kết lưu thô** (`CHAR(32)` ngẫu nhiên `[a-z0-9]`, UNIQUE), không băm: liên kết sinh ra để đưa cho người khác và chỉ cho xem; cần so sánh được để liệt kê và sao chép lại URL. Token mời thì băm vì nó cấp quyền trên tài khoản.
+> - **Trang công khai** trả tên chuyến, mô tả, điểm đến, ngày, các ngày và hoạt động kèm địa điểm; **không** trả email, tên chủ, thành viên, bình luận. Liên kết sai, hết hạn, đã thu hồi, chuyến đã xoá → cùng một 404. Mỗi lần mở tăng `view_count` bằng một câu `UPDATE ... + 1`. Thời tiết và quãng đường trên trang công khai: chưa làm (cần endpoint công khai riêng).
+> - **Ai nhìn thấy hộp thoại chia sẻ:** chủ chuyến thấy đủ (mời, đổi vai trò, gỡ, liên kết); thành viên chỉ thấy danh sách thành viên.
+> - **Câu "Bạn chỉ có quyền xem chuyến đi này"** (UI_GUIDE 10): backend không biết ngữ cảnh giao diện nên giữ message `FORBIDDEN` chung; giao diện ẩn mọi nút ghi với người chỉ xem (`myRole`) nên người dùng không gặp 403 trong thao tác bình thường.
+> - **Realtime:** sự kiện `MEMBER_JOINED`, `COMMENT_ADDED` (design 11.2) phát ở Phase 5, Phase 4 không phát gì.
+>
+> **Phụ thuộc:** không có dependency mới. Redis và MailHog đã có trong compose; mail mời xem ở MailHog. Mail mời là ngoại lệ của rule 14.12 (gửi cả khi người nhận chưa xác thực email hoặc chưa có tài khoản).
 
-Nhánh: `feat/T4.1-trip-members`
+### Task 4.1 — Thành viên chuyến đi
+
+Nhánh: `feat/T4.1-trip-members` · Test ghi vào `docs/testing/09-sharing.md` (file mới: thành viên, liên kết, trang công khai, ma trận quyền).
 
 ```
-1. model/TripMember.java + MemberRole + MemberStatus
-2. V9__create_trip_members.sql
-3. TripMemberRepository: findByTripIdAndUserId
-4. service/SharingService: invite(), acceptInvite(), changeRole(), remove()
-5. controller: 5 endpoint members
-6. mail template: mời tham gia chuyến đi
+Mốc 0 — docs (main): rà Phase 4, design.md + UI_GUIDE.md + CLAUDE.md theo 12 quyết định (đã soạn 2026-10-06)
+
+Mốc 1 — feat(sharing): add trip member model
+        V11__create_trip_members.sql (trip_id FK ON DELETE CASCADE, user_id FK nullable, invited_email, role ENUM('EDITOR','VIEWER'),
+        status ENUM('PENDING','ACCEPTED','REMOVED'), invite_token_hash CHAR(64) nullable UNIQUE, invite_expires_at, invited_by FK,
+        invited_at, accepted_at; UNIQUE (trip_id, user_id), UNIQUE (trip_id, invited_email)), model/TripMember,
+        model/enums/MemberRole, MemberStatus, repository/TripMemberRepository; test mapping @DataJpaTest: lưu / đọc lại,
+        hai UNIQUE, giá trị ENUM
+
+Mốc 2 — feat(sharing): invite a member by email
+        dto/request/InviteMemberRequest {email, role}, dto/response/MemberResponse, dto/TripRole (OWNER/EDITOR/VIEWER),
+        mapper/MemberMapper, service/SharingService + Impl (invite: chuẩn hoá email; email chủ chuyến → 400 rule 14.6;
+        đã ACCEPTED → 409 MEMBER_ALREADY_EXISTS; PENDING → token mới + gửi lại; REMOVED → về PENDING; gán user_id nếu email
+        đã có tài khoản; token 32 byte ngẫu nhiên, lưu SHA-256, hạn 7 ngày), service/MailService.sendInvitationMail +
+        templates/mail/trip-invitation.html (link {app.frontend-url}/invite?trip={id}&token=...), messages.properties,
+        controller/TripMemberController POST /trips/{tripId}/members (isOwner) → 201 MemberResponse;
+        test: service (các nhánh trên, mail nhận đúng link, không log token), WebMvc (email sai / role lạ → 400, EDITOR gọi → 403)
+
+Mốc 3 — feat(sharing): accept an invitation
+        dto/request/AcceptInvitationRequest {token}, SharingService.accept: băm token, tìm dòng PENDING của đúng trip;
+        sai / hết hạn / đã dùng → 400 INVALID_TOKEN; email tài khoản khác invited_email → 403 FORBIDDEN; ghi user_id,
+        ACCEPTED, accepted_at, xoá token hash; POST /trips/{tripId}/members/accept (Auth, không @PreAuthorize của trip) → 200
+        MemberResponse; test: happy path, 4 kiểu từ chối, nhận hai lần → 400
+
+Mốc 4 — feat(security): let accepted members view and edit the trip
+        TripRepository.findAccess(tripId, userId) (một câu: owner_id + role của member ACCEPTED, left join),
+        dto/internal/TripAccess, TripPermissionEvaluator: canView = chủ hoặc thành viên ACCEPTED; canEdit = chủ hoặc EDITOR;
+        isOwner = chủ; PENDING / REMOVED = người lạ; test: VIEWER GET /trips/{id} 200, PATCH 403 (test bắt buộc design 16
+        "Viewer sửa activity → 403"); EDITOR PATCH activity 200, DELETE trip 403, POST /members 403
+
+Mốc 5 — feat(sharing): list the members of a trip
+        GET /trips/{tripId}/members (canView): chủ đứng đầu (từ trips.owner, role OWNER, memberId null), rồi ACCEPTED và
+        PENDING theo invited_at; REMOVED không hiện; một câu SQL join fetch user; MemberResponse {memberId, userId, fullName,
+        email, avatarUrl, role, status, invitedAt, acceptedAt}; test: thứ tự, người lạ 403, không lộ password hash
+
+Mốc 6 — feat(sharing): change a member's role
+        dto/request/ChangeMemberRoleRequest {role}, PATCH /trips/{tripId}/members/{memberId} (isOwner): dòng phải thuộc trip
+        và ACCEPTED hoặc PENDING, không thì 404; gửi lại đúng role đang có → 200 không ghi; test: VIEWER → EDITOR rồi sửa
+        activity được ngay (evaluator đọc DB)
+
+Mốc 7 — feat(sharing): remove a member
+        DELETE /trips/{tripId}/members/{memberId} (isOwner): status REMOVED, giữ dòng; test: sau gỡ GET /trips/{id} → 403,
+        mời lại cùng email → dòng cũ về PENDING với token mới (không vi phạm UNIQUE)
+
+Mốc 8 — feat(trip): list the trips shared with me
+        repository/spec/TripSpecifications: chủ là tôi HOẶC có member (user = tôi, ACCEPTED) — áp dụng cho cả list và
+        countByStatus; TripSummaryResponse thêm ownerId, ownerName; test: VIEWER thấy chuyến được chia sẻ trong danh sách và
+        trong số đếm chip, PENDING / REMOVED không thấy; TripListActivityCountIntegrationTest vẫn không N+1
+
+Mốc 9 — feat(trip): include the members and my role in the trip detail
+        TripDetailResponse thêm members (như Mốc 5) và myRole (TripRole); TripService.get nhận userId; số câu SQL của
+        GET /trips/{id} 4 → 5, cập nhật ActivityPlaceFlowIntegrationTest kèm lý do; test: myRole đúng cho 3 vai
+
+Mốc 10 — test(sharing): add member invitation flow integration test
+        chủ mời → mail (MockMailProvider) → người được mời đăng ký đúng email, xác thực, đăng nhập → nhận lời → thấy chuyến
+        trong danh sách → sửa activity 403 → chủ đổi EDITOR → sửa 200 → chủ gỡ → 403
 ```
 
-**Commit:** `feat(sharing): add trip member invitation`
+**Nhớ:** `TripMemberController` dùng `@PreAuthorize("@tripPermission.isOwner(#tripId, principal)")` cho mời / đổi vai trò / gỡ, `canView` cho danh sách; `accept` chỉ cần đăng nhập (người nhận chưa có quyền gì trên trip). Trip không tồn tại vẫn 404 qua service (CLAUDE.md rule 15). Không log token mời (rule 17). `SharingService` là service có business phức tạp → interface + `Impl` (rule 5).
 
 ---
 
-### Task 4.2 — Permission Evaluator ⭐
+### Task 4.2 — Liên kết chia sẻ và trang công khai
 
-Nhánh: `feat/T4.2-permission-evaluator`
+Nhánh: `feat/T4.2-share-links` · Test ghi vào `docs/testing/09-sharing.md`.
 
 ```
-1. security/permission/TripPermissionEvaluator.java    ĐÃ CÓ từ Task 2.1 (chỉ kiểm owner) → mở rộng: member theo role, share link
-2. Cache kết quả vào Redis TTL 5 phút, key perm:{userId}:{tripId}
-3. Evict cache khi thay đổi member
-4. Rà @PreAuthorize ở TOÀN BỘ endpoint (trip/day/activity đã có từ Phase 2), bổ sung cho member/share/comment/expense
-   (từ Task 3.2: xét lại quy tắc "địa điểm MANUAL chỉ người tạo gắn được" khi chuyến đi có EDITOR — design rule 14.19)
-5. test ĐẦY ĐỦ MA TRẬN: với từng vai trò (OWNER/EDITOR/VIEWER/người lạ) × từng hành động
+Mốc 1 — feat(sharing): add share link model
+        V12__create_share_links.sql (trip_id FK ON DELETE CASCADE, token CHAR(32) UNIQUE, permission ENUM('VIEW'),
+        expires_at nullable, revoked_at nullable, view_count INT NOT NULL DEFAULT 0, created_by FK; không có deleted_at:
+        thu hồi là revoked_at), model/ShareLink, model/enums/SharePermission (VIEW), repository/ShareLinkRepository;
+        test mapping
+
+Mốc 2 — feat(sharing): create a share link
+        dto/request/CreateShareLinkRequest {expiresAt?} (nếu có phải ở tương lai), dto/response/ShareLinkResponse {id, token,
+        permission, expiresAt, revokedAt, viewCount, createdAt, expired}, mapper/ShareLinkMapper, SharingService.createLink:
+        token 32 ký tự [a-z0-9] từ SecureRandom, trùng thì sinh lại; trip.visibility → LINK;
+        POST /trips/{tripId}/share-links (isOwner) → 201; test: VIEWER / EDITOR → 403, expiresAt quá khứ → 400,
+        visibility đổi
+
+Mốc 3 — feat(sharing): list and revoke share links
+        GET /trips/{tripId}/share-links (isOwner): các liên kết chưa thu hồi, mới nhất trước, hết hạn vẫn hiện với
+        expired = true; DELETE /trips/{tripId}/share-links/{id} (isOwner): revoked_at = now, không còn liên kết chưa thu hồi
+        → visibility PRIVATE; thu hồi lần hai → 404; test
+
+Mốc 4 — feat(sharing): public trip page by share link
+        controller/PublicTripController GET /api/v1/public/trips/{token} (không cần đăng nhập; SecurityConfig.PUBLIC_PATHS
+        thêm /api/v1/public/**), dto/response/PublicTripResponse (title, description, destinationName / lat / lng, startDate,
+        endDate, days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note, place{name, address,
+        lat, lng}}]}]), service/PublicTripService (token không có / đã thu hồi / hết hạn / trip đã xoá → 404
+        RESOURCE_NOT_FOUND; ShareLinkRepository.incrementViewCount một câu UPDATE); test WebMvc với @Import(SecurityConfig):
+        không token Bearer vẫn 200; 4 kiểu 404 cùng body; view_count tăng; body không có email / ownerId / members
+
+Mốc 5 — test(sharing): add share link flow integration test
+        chủ tạo liên kết → khách (không đăng nhập) mở 200 → đếm lượt → chủ thu hồi → khách 404 → visibility về PRIVATE
 ```
 
-Đây là task đáng để viết nhiều test nhất. Một bảng test parameterized đúng theo ma trận ở design.md mục 6.2 là thứ rất đáng show khi phỏng vấn.
-
-**Commit:**
-```
-feat(security): extend trip permission evaluator with members and cache
-feat(security): apply authorization to all trip endpoints
-test(security): add full permission matrix tests
-```
+**Nhớ:** rate limit theo IP cho `/public/**` tới Task 8.1 (design 8.2); trước đó không đưa bản deploy công khai ra ngoài. `GET /trips/{id}` của chủ vẫn qua evaluator, trang công khai **không** đi qua evaluator (quyết định 3). Trang công khai không trả thời tiết / quãng đường.
 
 ---
 
-### Task 4.3 — Share link công khai
+### Task 4.3 — Cache quyền và ma trận test ⭐
 
-Nhánh: `feat/T4.3-share-links`
+Nhánh: `feat/T4.3-permission-cache` · Test ghi vào `docs/testing/09-sharing.md` và `01-platform.md` (Redis tắt).
 
 ```
-1. model/ShareLink.java + V10__create_share_links.sql
-2. service: create, revoke, resolve(token)
-3. controller/PublicTripController: GET /public/trips/{shareToken}  — không cần auth
-4. SecurityConfig: permitAll cho /api/v1/public/**
-5. test: link hết hạn → 404; link đã revoke → 404; link VIEW không sửa được
+Mốc 1 — feat(security): cache trip permissions in redis
+        CacheNames.TRIP_PERMISSION ("trip:permission", 5 phút, kiểu TripAccess cố định bằng JacksonJsonRedisSerializer)
+        trong config/CacheConfig; bean security/permission/TripAccessCache đứng giữa evaluator và TripRepository.findAccess
+        (theo mẫu PlaceSearchCache), khoá {userId}:{tripId}; SharingService evict (userId, tripId) khi nhận lời, đổi vai trò,
+        gỡ; test: lần gọi thứ hai không có SQL; sau đổi vai trò quyền đổi ngay; thêm kịch bản vào RedisDownIntegrationTest
+        (Redis tắt → vẫn 200 / 403 đúng, không 500)
+
+Mốc 2 — feat(place): let an editor keep the manual place already on an activity
+        ActivityService.update: placeId bằng place hiện tại → không gọi PlaceService.findAttachable (quyết định 6, rule 14.19);
+        test: EDITOR PATCH activity có MANUAL place của chủ với cùng placeId → 200; đổi sang MANUAL place khác của chủ → 400
+
+Mốc 3 — test(security): add the full permission matrix test
+        integration/TripPermissionMatrixIntegrationTest (@SpringBootTest + MockMvc, một ngữ cảnh): 7 người gọi
+        (OWNER, EDITOR, VIEWER, thành viên PENDING, thành viên REMOVED, người lạ đã đăng nhập, khách không token) ×
+        mọi hành động có trong design 6.2 đã làm tới Phase 4 (xem trip, sửa trip, đổi trạng thái, xoá trip, tạo / sửa / xoá /
+        reorder activity, route, weather, xem thành viên, mời, đổi vai trò, gỡ, tạo / xem / thu hồi liên kết);
+        @ParameterizedTest đọc bảng kỳ vọng; thêm test quét bằng reflection: mọi method của controller có {tripId} / {id}
+        của trip đều mang @PreAuthorize (rà "toàn bộ endpoint" của bản cũ bằng máy, không bằng mắt)
 ```
 
-**Commit:** `feat(sharing): add public share links`
+**Nhớ:** `@Cacheable` phải ở bean riêng, không ở method của evaluator gọi chính nó (CLAUDE.md mục 8). Khoá không cần tên nguồn (không phải provider). Trip bị xoá mềm sau khi cache: entry cũ cho qua evaluator, service vẫn 404 như trước, không cần evict khi xoá trip.
 
 ---
 
-### Task 4.4 — Comment + giao diện chia sẻ
+### Task 4.4 — Bình luận
 
-Nhánh: `feat/T4.4-comments-ui`
+Nhánh: `feat/T4.4-comments` · Test ghi vào `docs/testing/10-comment.md` (file mới).
 
 ```
-Backend: Comment entity + V11 + CRUD
-Frontend: features/sharing/MembersPanel.tsx, ShareLinkDialog.tsx, CommentThread.tsx
-          pages/PublicTripPage.tsx
+Mốc 1 — feat(comment): add comment model
+        V13__create_comments.sql (trip_id FK CASCADE, activity_id FK nullable ON DELETE CASCADE, user_id FK, parent_id FK self
+        nullable, content TEXT, deleted_at; index (trip_id, created_at)), model/Comment (@SQLDelete + @SQLRestriction như
+        các bảng khác), repository/CommentRepository; test mapping
+
+Mốc 2 — feat(comment): post a comment on a trip or an activity
+        dto/request/CreateCommentRequest {content 1–2000 ký tự sau trim, activityId?, parentId?}, dto/response/CommentResponse
+        {id, activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}, mapper/CommentMapper,
+        service/CommentService (activity phải thuộc trip → không thì 404; parent phải là bình luận gốc của cùng trip → không
+        thì 400; trả lời lấy activityId của cha, bỏ qua activityId gửi lên), POST /trips/{tripId}/comments (canView) → 201;
+        test: VIEWER đăng được, người lạ 403, trả lời của trả lời → 400, content rỗng / 2001 ký tự → 400
+
+Mốc 3 — feat(comment): list the comments of a trip
+        GET /trips/{tripId}/comments?activityId= (canView): danh sách phẳng theo createdAt tăng dần, có parentId để giao diện
+        lồng một cấp; một câu SQL join fetch user; test
+
+Mốc 4 — feat(comment): delete a comment
+        DELETE /trips/{tripId}/comments/{id} (canView; service kiểm tác giả hoặc chủ chuyến, không thì 403 FORBIDDEN):
+        xoá mềm, bình luận gốc kéo theo các trả lời trong cùng transaction; test: VIEWER xoá của người khác 403, chủ xoá
+        của VIEWER 200, xoá rồi GET không còn cả trả lời
+
+Mốc 5 — test(comment): add comment flow integration test
 ```
 
-**Commit:** `feat(comment): add trip comments` + `feat(frontend): add sharing panel and public trip view`
+**Nhớ:** kiểm "tác giả hoặc chủ" là quy tắc trên một bình luận, không phải quyền trên trip, nên nằm ở service (rule 15 chỉ cấm viết lại kiểm quyền trip). Activity bị xoá cứng kéo bình luận theo FK CASCADE; trip xoá mềm thì bình luận vẫn còn trong DB nhưng không còn đường vào.
+
+---
+
+### Task 4.5 — Giao diện: chia sẻ, thành viên, vai trò, trang công khai
+
+Nhánh: `feat/T4.5-sharing-ui` · Test ghi vào `docs/testing/11-sharing-ui.md` (file mới, gồm cả 4.6). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh. Dựng mockup Stitch trước theo prompt ở UI_GUIDE 15.3 (như 3.6, 3.7), chủ dự án duyệt rồi mới code; dừng xem trên trình duyệt sau mỗi màn.
+
+```
+Mốc 1 — feat(frontend): mark the trips shared with me
+        api/members.ts, types/member.ts (TripRole, MemberResponse), TripSummary thêm ownerId / ownerName; TripCard: huy hiệu
+        "Được chia sẻ" + "của {ownerName}" khi ownerId ≠ tôi (Badge tông info)
+
+Mốc 2 — feat(frontend): show the trip read-only to viewers
+        TripDetailPage đọc myRole: VIEWER → ẩn Sửa / Xoá / Thêm hoạt động / kéo thả / menu "⋮" / ô đổi trạng thái; huy hiệu
+        vai trò cạnh tên chuyến (OWNER brand, EDITOR info, VIEWER neutral); EDITOR ẩn Xoá (đã có isOwner)
+
+Mốc 3 — feat(frontend): open the sharing dialog with the member list
+        nút "Chia sẻ" (icon Share2) ở đầu trang chi tiết; features/sharing/ShareDialog.tsx (Modal 640px) với danh sách thành
+        viên: ảnh 32px, tên, email, huy hiệu vai trò; chủ có "Chủ sở hữu"; PENDING có huy hiệu "Đang chờ"; thành viên chỉ
+        thấy danh sách; trạng thái rỗng theo UI_GUIDE 7.9
+
+Mốc 4 — feat(frontend): invite a member
+        features/sharing/InviteMemberForm.tsx (email + vai trò, zod, nút chính "Mời"), 409 → lỗi ở ô email, nút "Gửi lại"
+        cho dòng PENDING gọi lại POST
+
+Mốc 5 — feat(frontend): change a role or remove a member
+        ô chọn vai trò trên từng dòng (chủ mới thấy), nút gỡ + ConfirmDialog; sau gỡ invalidate ['trip', id] và danh sách
+
+Mốc 6 — feat(frontend): create, copy and revoke share links
+        api/shareLinks.ts; mục "Liên kết chia sẻ" trong ShareDialog: nút "Tạo liên kết" (ngày hết hạn tuỳ chọn), danh sách
+        liên kết: URL chỉ đọc {origin}/share/{token} + "Sao chép" (navigator.clipboard, toast), "12 lượt xem", nhãn "Hết hạn",
+        nút ghost-danger "Thu hồi"; lib/shareUrl.ts + test
+
+Mốc 7 — feat(frontend): accept an invitation from the mail link
+        route /invite trong ProtectedRoute (GuestRoute / login giữ ?redirect về /invite?...); pages/InvitePage.tsx: gọi
+        accept ngay khi mở, thành công → navigate /trips/{id} + toast; 400 → "Lời mời không còn hiệu lực"; 403 → "Lời mời
+        này dành cho email khác" kèm nút đăng xuất; lib/inviteParams.ts + test
+
+Mốc 8 — feat(frontend): public trip page
+        route /share/:token ngoài AppLayout và ngoài guard; api/public.ts, types/publicTrip.ts; pages/PublicTripPage.tsx theo
+        UI_GUIDE 8.5: một cột 760px, logo nhỏ, tiêu đề, dòng thông tin, mô tả, ray thời gian từng ngày không có tay kéo / menu /
+        nút thêm, bản đồ tĩnh (MapFrame, mọi địa điểm của chuyến) sau phần tóm tắt, cuối trang nút phụ "Tạo chuyến đi của bạn"
+        + "Được chia sẻ qua Smart Trip Planner"; 404 → trang "Liên kết không còn hiệu lực"
+```
+
+**Nhớ:** mỗi màn một nút chính (UI_GUIDE 7.0): trong ShareDialog là "Mời"; trang công khai không có nút chính. Không vẽ ảnh thành viên ở nơi khác ngoài hộp thoại (ảnh người đang xem là Phase 5). Cập nhật UI_GUIDE 8.1 (nút Chia sẻ, huy hiệu vai trò), 8.2 (huy hiệu "Được chia sẻ") và mục 15.2 trong cùng commit.
+
+---
+
+### Task 4.6 — Giao diện: bình luận
+
+Nhánh: `feat/T4.6-comments-ui` · Test ghi vào `docs/testing/11-sharing-ui.md`.
+
+```
+Mốc 1 — feat(frontend): show the comments of a trip
+        api/comments.ts, types/comment.ts; lib/relativeTime.ts ("5 phút trước", lấy "bây giờ" qua useToday / Clock của
+        tài khoản) + test; lib/commentTree.ts (lồng một cấp từ danh sách phẳng) + test; features/comments/CommentPanel.tsx:
+        panel phải 360px mở từ nút "Bình luận" (icon MessageCircle) ở đầu trang chi tiết, danh sách ảnh + tên + thời gian +
+        nội dung, trả lời thụt vào; bình luận của activity có chip tên activity + chấm màu tuyến
+
+Mốc 2 — feat(frontend): post a comment or a reply
+        ô "Viết bình luận…" + nút chính "Gửi bình luận"; "Trả lời" dưới bình luận gốc mở ô trả lời; sau gửi invalidate
+        ['comments', tripId]
+
+Mốc 3 — feat(frontend): comment on an activity
+        mục "Bình luận" trong ActivityMenu mở panel với activityId điền sẵn (chip hiện trên ô nhập, bỏ được); số bình luận
+        nhỏ trên ActivityCard nếu > 0
+
+Mốc 4 — feat(frontend): delete a comment
+        nút xoá hiện với tác giả và chủ chuyến, ConfirmDialog, 403 hiện qua getErrorMessage
+```
+
+**Nhớ:** panel bình luận và hộp thoại chia sẻ không mở cùng lúc. Trên màn hẹp (< 1024px) panel chiếm toàn màn như tab bản đồ. Cập nhật UI_GUIDE 8.1 và 15.2 trong cùng commit.
+
+> ✅ Hết Phase 4 khi 6 task merge và `CLAUDE.md` mục 7 tick Phase 4. Trước khi sang Phase 5: rà lại Phase 5 theo quy ước A.2.
 
 ---
 
@@ -2469,7 +2675,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.6 UI: địa điểm + bản đồ | ☑ | 2026-10-04 |
 | 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☑ | 2026-10-05 |
 | 3 | 3.9 UI: làm lại trang chuyến đi + bảng màu theo mockup (làm trước 3.8) | ☑ | 2026-10-05 |
-| 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☐ | |
+| 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☑ | 2026-10-05 |
 | 4 | 4.1 Trip members | ☐ | |
 | 4 | 4.2 Permission evaluator | ☐ | |
 | 4 | 4.3 Share links | ☐ | |

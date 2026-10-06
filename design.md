@@ -453,19 +453,24 @@ Quy tắc (chốt 2026-10-01, rà soát Phase 3; danh sách cột chốt lại �
 #### `trip_members`
 | Cột | Ghi chú |
 |---|---|
-| id, trip_id FK, user_id FK (nullable) | nullable khi mời email chưa có tài khoản |
-| invited_email VARCHAR(255) | |
-| role ENUM | `OWNER`, `EDITOR`, `VIEWER` |
-| status ENUM | `PENDING`, `ACCEPTED`, `DECLINED`, `REMOVED` |
-| invited_by, invited_at, accepted_at | |
+| id, trip_id FK (ON DELETE CASCADE), user_id FK (nullable) | `user_id` nullable khi mời email chưa có tài khoản; gán lúc mời nếu email đã có tài khoản, hoặc lúc nhận lời |
+| invited_email VARCHAR(255) | lowercase, chuẩn hoá như `users.email` |
+| role ENUM | `EDITOR`, `VIEWER` — **không có `OWNER`** (chốt 2026-10-06, rà Phase 4): chủ chuyến không có dòng, `trips.owner_id` là nguồn sự thật; API trả vai trò `OWNER` tính từ đó (`TripRole` có 3 giá trị) |
+| status ENUM | `PENDING`, `ACCEPTED`, `REMOVED` (`DECLINED` bỏ: chưa có endpoint từ chối, thêm sau bằng ALTER khi cần) |
+| invite_token_hash CHAR(64) nullable UNIQUE, invite_expires_at DATETIME nullable | SHA-256 của token mời, hạn **7 ngày**; xoá khi nhận lời. Không dùng `verification_tokens` vì bảng đó bắt buộc `user_id` |
+| invited_by FK users, invited_at, accepted_at | |
 
-UNIQUE `(trip_id, user_id)`, UNIQUE `(trip_id, invited_email)`
+UNIQUE `(trip_id, user_id)`, UNIQUE `(trip_id, invited_email)`. Gỡ thành viên **giữ dòng** (`status = REMOVED`); mời lại cùng email cập nhật dòng cũ về `PENDING` với token mới. Không có `deleted_at`. Migration `V11` (Task 4.1).
 
 #### `share_links`
-`id, trip_id FK, token CHAR(32) UNIQUE, permission ENUM(VIEW, EDIT), expires_at, revoked_at, view_count INT, created_by, created_at`
+`id, trip_id FK (ON DELETE CASCADE), token CHAR(32) UNIQUE, permission ENUM(VIEW), expires_at nullable, revoked_at nullable, view_count INT NOT NULL DEFAULT 0, created_by FK users, created_at`
+
+Chốt 2026-10-06 (rà Phase 4): Phase 4 chỉ có liên kết **xem**; `EDIT` thêm sau bằng ALTER khi làm liên kết sửa (xét ở Phase 5). `token` lưu **thô** (32 ký tự `[a-z0-9]` từ `SecureRandom`), không băm: liên kết sinh ra để đưa cho người khác, chỉ cho xem, và phải liệt kê / sao chép lại được; token mời (`trip_members`) thì băm vì nó cấp quyền trên tài khoản. Thu hồi = `revoked_at`, không có `deleted_at`. Migration `V12` (Task 4.2).
 
 #### `comments`
-`id, trip_id FK, activity_id FK nullable, user_id FK, parent_id FK self nullable, content TEXT, created_at, deleted_at`
+`id, trip_id FK (ON DELETE CASCADE), activity_id FK nullable (ON DELETE CASCADE), user_id FK, parent_id FK self nullable, content TEXT (≤ 2000 ký tự, validate ở DTO), created_at, deleted_at`
+
+Index `(trip_id, created_at)`. Soft delete như các bảng khác; xoá bình luận gốc xoá mềm luôn các trả lời (chốt 2026-10-06). Trả lời chỉ **một cấp**: `parent_id` phải trỏ tới bình luận gốc (`parent_id IS NULL`) của cùng trip. Migration `V13` (Task 4.4).
 
 #### `expenses`
 `id, trip_id FK, activity_id FK nullable, paid_by_user_id FK, title, amount DECIMAL(15,2), currency CHAR(3), category ENUM, spent_at DATE, note`
@@ -528,17 +533,23 @@ Mọi lần refresh bị từ chối vì token (401, bước 1–4), response k�
 
 ### 6.2. Ma trận quyền trên Trip
 
-| Hành động | OWNER | EDITOR | VIEWER | Link VIEW | Link EDIT | Guest |
+| Hành động | OWNER | EDITOR | VIEWER | Link VIEW | Link EDIT (hoãn) | Guest |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Xem trip | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Sửa thông tin trip | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Đổi trạng thái trip | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Xoá trip | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| CRUD activity | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| Comment | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Mời / gỡ thành viên | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Tạo / thu hồi share link | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| CRUD activity, reorder | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Xem route / weather của trip | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Comment (đăng, xem) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Xoá comment | của mọi người | của mình | của mình | ❌ | ❌ | ❌ |
+| Xem danh sách thành viên | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Mời / đổi vai trò / gỡ thành viên | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Tạo / xem / thu hồi share link | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Quản lý expense | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Export PDF | ✅(Premium) | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+Thành viên `PENDING` (chưa nhận lời) và `REMOVED` (đã bị gỡ) là **người lạ**: cột Guest nếu chưa đăng nhập, không có quyền gì nếu đã đăng nhập. "Link VIEW" là khách mở `GET /public/trips/{token}`, không đi qua evaluator. **Link EDIT hoãn** (chốt 2026-10-06, rà Phase 4): chưa có cách để người cầm liên kết ghi dữ liệu mà không có tài khoản; xét lại ở Phase 5 cùng realtime.
 
 Implement bằng `TripPermissionEvaluator` + annotation tuỳ biến:
 
@@ -548,7 +559,7 @@ Implement bằng `TripPermissionEvaluator` + annotation tuỳ biến:
 
 Kết quả quyền của (userId, tripId) được **cache Redis TTL 5 phút**, evict khi thay đổi membership.
 
-> **Triển khai theo giai đoạn** (chốt 2026-09-26): bean `tripPermission` (`security/permission/TripPermissionEvaluator`) có từ **Task 2.1**, lúc đó chỉ kiểm chủ sở hữu (`canView` / `canEdit` / `isOwner` ⇔ `trip.owner_id = userId`). Task 4.2 mở rộng thêm member theo role, share link và cache Redis — controller không phải sửa.
+> **Triển khai theo giai đoạn** (chốt 2026-09-26, cập nhật 2026-10-06 khi rà Phase 4): bean `tripPermission` (`security/permission/TripPermissionEvaluator`) có từ **Task 2.1**, lúc đó chỉ kiểm chủ sở hữu (`canView` / `canEdit` / `isOwner` ⇔ `trip.owner_id = userId`). **Task 4.1** mở rộng cho thành viên: `canView` = chủ hoặc thành viên `ACCEPTED`, `canEdit` = chủ hoặc `EDITOR`, `isOwner` = chủ, bằng một câu SQL `TripRepository.findAccess(tripId, userId)`. **Task 4.3** đặt cache Redis (`trip:permission`, 5 phút) ở bean `TripAccessCache` giữa evaluator và repository, evict khi nhận lời / đổi vai trò / gỡ; Redis tắt → đọc DB. Liên kết chia sẻ **không** đi qua evaluator (chỉ xem, qua endpoint công khai). Controller không phải sửa ở cả hai task.
 > **Trip không tồn tại hoặc đã soft delete → 404 `RESOURCE_NOT_FOUND`**, không phải 403: evaluator trả `true` khi không tìm thấy trip để request đi tiếp, service ném `ResourceNotFoundException`. Trip tồn tại nhưng không có quyền → 403 `FORBIDDEN`.
 
 ### 6.3. Checklist bảo mật
@@ -726,8 +737,8 @@ Response khi vượt: HTTP 429 + header `X-RateLimit-Remaining`, `X-RateLimit-Re
 |---|---|---|
 | Số trip đang hoạt động (khác ARCHIVED) | 3 | không giới hạn |
 | Activity / ngày | 10 | không giới hạn |
-| Thành viên được mời / trip | 2 | 20 |
-| Share link đồng thời / trip | 1 | 10 |
+| Thành viên được mời / trip | không giới hạn | không giới hạn |
+| Share link đồng thời / trip | không giới hạn | không giới hạn |
 | Upload ảnh cover | ❌ (dùng ảnh mặc định) | ✅ |
 | AI gợi ý lịch trình | ❌ | ✅ 10 lần/ngày |
 | Export PDF / ICS | ❌ | ✅ |
@@ -810,7 +821,7 @@ Lỗi (`ErrorResponse`):
 | DELETE | `/me/sessions/{id}` | Đăng xuất thiết bị | Auth |
 
 **Trip** `/api/v1/trips`
-| GET | `` | Danh sách trip của tôi + trip được share, filter `status`, `q`, `from`, `to` | Auth |
+| GET | `` | Danh sách trip của tôi + trip được share (thành viên `ACCEPTED`, từ Task 4.1), filter `status`, `q`, `from`, `to` | Auth |
 | GET | `/status-counts?q=` | Số trip theo từng trạng thái cho chip lọc (Task 2.6) | Auth |
 | POST | `` | Tạo trip (tự sinh TripDay) | Auth + quota |
 | GET | `/{id}` | Chi tiết đầy đủ (days + activities + members) | canView |
@@ -821,13 +832,15 @@ Lỗi (`ErrorResponse`):
 | GET | `/{id}/summary` | Tổng quan: số ngày, số activity, tổng chi phí, quãng đường | canView |
 | GET | `/{id}/export?format=pdf\|ics` | Xuất file | owner + Premium |
 
-> **Phạm vi theo phase** (chốt 2026-09-26): Task 2.1 làm `GET ''` (chỉ trip của chính mình; "trip được share" thêm ở Phase 4), `POST`, `GET /{id}` (chỉ thông tin trip; `days` thêm ở 2.2, `activities` ở 2.3, `members` ở Phase 4), `PATCH /{id}`, `DELETE /{id}`. Quota của `POST` thêm ở Phase 6. `PATCH /{id}/status` làm ở Task 2.5. `clone` gán Task 6.1 (cùng quota), `summary` gán Task 7.1 (cần tổng chi phí; quãng đường cần route của Phase 3) — chốt 2026-09-30.
+> **Phạm vi theo phase** (chốt 2026-09-26): Task 2.1 làm `GET ''` (chỉ trip của chính mình; "trip được share" thêm ở Task 4.1 Mốc 8), `POST`, `GET /{id}` (chỉ thông tin trip; `days` thêm ở 2.2, `activities` ở 2.3, `members` + `myRole` ở Task 4.1 Mốc 9), `PATCH /{id}`, `DELETE /{id}`. Quota của `POST` thêm ở Phase 6. `PATCH /{id}/status` làm ở Task 2.5. `clone` gán Task 6.1 (cùng quota), `summary` gán Task 7.1 (cần tổng chi phí; quãng đường cần route của Phase 3) — chốt 2026-09-30.
 >
 > **Quy ước Trip API** (chốt 2026-09-26, áp dụng từ Task 2.1):
 > - `PATCH /{id}` là cập nhật **từng phần**: field `null` = giữ nguyên. Chưa hỗ trợ xoá trắng field tuỳ chọn (ví dụ bỏ ngân sách).
 > - `status`: tạo mới mặc định `DRAFT`; `PATCH /{id}` **không** đổi được `status` (chỉ qua `PATCH /{id}/status`).
 > - `PATCH /{id}/status` (chốt 2026-09-30, Task 2.5): body `{ "status": ... }`, bắt buộc (thiếu → 400 ở field `status`, giá trị lạ → 400). Chuyển **tự do** giữa 5 trạng thái, kể cả quay về `DRAFT`; hệ thống **không tự đổi** theo ngày; giao diện hỏi xác nhận hoàn thành khi chuyến đi đã qua ngày cuối (rule 14.22). Gửi lại đúng trạng thái đang có → 200, không ghi gì, `version` không tăng. Quyền `canEdit`.
 > - `visibility`: mặc định `PRIVATE`, đổi được qua `PATCH /{id}`; `LINK`/`PUBLIC` chỉ có tác dụng từ Phase 4.
+> - **Chuyến đi được chia sẻ trong danh sách** (chốt 2026-10-06, Task 4.1): `GET ''` và `GET /status-counts` gồm cả chuyến mà người gọi là thành viên `ACCEPTED`, chung một danh sách với chuyến của mình, không có bộ lọc riêng; `TripSummaryResponse` thêm `ownerId`, `ownerName` để thẻ hiện "Được chia sẻ · của {ownerName}". Lời mời `PENDING` và thành viên `REMOVED` không thấy chuyến.
+> - **`GET /{id}` trả thêm `members`** (như `GET /members`, chủ đứng đầu) **và `myRole`** (`OWNER` / `EDITOR` / `VIEWER`) để giao diện ẩn nút ghi với người chỉ xem. Số câu SQL 4 → **5** (một câu lấy thành viên kèm user, không tăng theo số thành viên); `ActivityPlaceFlowIntegrationTest` cập nhật theo.
 > - `version`: `TripResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
 > - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
 > - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
@@ -919,19 +932,31 @@ Lỗi (`ErrorResponse`):
 >   - Ngày có 0 hoặc 1 địa điểm: không hỏi nguồn bản đồ. `RouteService.forDay` không `@Transactional` (không giữ kết nối database trong lúc chờ nguồn).
 >   - Số câu SQL mỗi lần gọi: 4 (quyền, chuyến đi, ngày, các hoạt động kèm địa điểm), không tăng theo số hoạt động.
 
-**Sharing** `/api/v1/trips/{tripId}`
-| GET | `/members` | | canView |
-| POST | `/members` | `{email, role}` → gửi mail mời | owner + quota |
-| PATCH | `/members/{memberId}` | Đổi role | owner |
-| DELETE | `/members/{memberId}` | Gỡ thành viên | owner |
-| POST | `/members/accept` | `{inviteToken}` | Auth |
-| POST | `/share-links` | `{permission, expiresAt}` | owner + quota |
-| GET | `/share-links` | | owner |
-| DELETE | `/share-links/{id}` | Thu hồi | owner |
+**Sharing** `/api/v1/trips/{tripId}` (Task 4.1, 4.2)
+| GET | `/members` | Chủ đứng đầu (`role = OWNER`, `memberId = null`), rồi `ACCEPTED` và `PENDING` theo `invitedAt`; `REMOVED` không hiện | canView |
+| POST | `/members` | `{email, role}` (`role`: `EDITOR` \| `VIEWER`) → gửi mail mời, 201 `MemberResponse` | owner |
+| PATCH | `/members/{memberId}` | `{role}` — đổi vai trò | owner |
+| DELETE | `/members/{memberId}` | Gỡ thành viên (`status = REMOVED`, giữ dòng) | owner |
+| POST | `/members/accept` | `{token}` → 200 `MemberResponse` | Auth (chưa có quyền trên trip) |
+| POST | `/share-links` | `{expiresAt?}` → 201 `ShareLinkResponse` | owner |
+| GET | `/share-links` | Liên kết chưa thu hồi, mới nhất trước; hết hạn vẫn hiện với `expired = true` | owner |
+| DELETE | `/share-links/{id}` | Thu hồi (`revokedAt`) | owner |
 
-Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
+Public: `GET /api/v1/public/trips/{token}` — không cần auth (`SecurityConfig.PUBLIC_PATHS` thêm `/api/v1/public/**`), trả `PublicTripResponse`.
 
-**Comment** `/api/v1/trips/{tripId}/comments` — GET, POST, DELETE `/{id}`
+> **Quy ước Sharing API** (chốt 2026-10-06, rà Phase 4):
+> - **Mời** (`POST /members`): email chuẩn hoá như khi đăng ký. Email của chủ chuyến → 400 `VALIDATION_ERROR` ở field `email` (rule 14.6). Email đã là thành viên `ACCEPTED` → 409 `MEMBER_ALREADY_EXISTS`. Email đang `PENDING` → phát token mới, gửi lại mail, 201 (nút "Gửi lại" của giao diện gọi đúng endpoint này). Email từng `REMOVED` → dòng cũ về `PENDING` với token mới. Nếu email đã có tài khoản thì `user_id` gán ngay; không thì gán lúc nhận lời. Token mời 32 byte ngẫu nhiên, DB giữ SHA-256, hạn 7 ngày; link trong mail `{app.frontend-url}/invite?trip={tripId}&token={token}`. Mail mời gửi cả khi người nhận chưa có tài khoản hoặc chưa xác thực email (ngoại lệ của rule 14.12). Không có hạn mức số thành viên (mục 9).
+> - **Nhận lời** (`POST /members/accept`): token sai, hết hạn, đã dùng, hoặc không thuộc `{tripId}` → 400 `INVALID_TOKEN` (một mã chung như token verify / reset). Email của tài khoản đang đăng nhập khác `invited_email` → 403 `FORBIDDEN` (link mời chuyển tiếp cho người khác không dùng được). Thành công: `user_id`, `status = ACCEPTED`, `accepted_at`, xoá token hash; từ đây evaluator cho vào.
+> - **Đổi vai trò / gỡ**: `memberId` phải thuộc `{tripId}` và không phải `REMOVED`, nếu không 404. Đổi sang đúng vai trò đang có → 200, không ghi. Gỡ xong người đó mất quyền ngay (evaluator đọc DB; từ Task 4.3 evict cache).
+> - **Liên kết** (`POST /share-links`): chỉ quyền xem (`permission = VIEW`, không nhận từ client). `expiresAt` tuỳ chọn, nếu có phải ở tương lai. Tạo xong `trip.visibility = LINK`; thu hồi liên kết cuối cùng chưa thu hồi → `PRIVATE` (liên kết hết hạn nhưng chưa thu hồi vẫn giữ `LINK`; chấp nhận). Thu hồi lần hai → 404. Không có hạn mức số liên kết. URL đầy đủ do giao diện ghép: `{origin}/share/{token}`.
+> - **Trang công khai** (`GET /public/trips/{token}`): token không có, đã thu hồi, hết hạn, hoặc chuyến đã xoá mềm → **cùng một** 404 `RESOURCE_NOT_FOUND`. Mỗi lần gọi thành công tăng `view_count` bằng một câu `UPDATE ... SET view_count = view_count + 1`. `PublicTripResponse` gồm: `title`, `description`, `destinationName` / `destinationLat` / `destinationLng`, `startDate`, `endDate`, `days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note, place{name, address, lat, lng}}]}]`; **không** có email, `ownerId`, tên chủ, thành viên, bình luận, id người dùng. Chưa có thời tiết / quãng đường (cần endpoint công khai riêng). Rate limit theo IP: Task 8.1; trước đó không bật bản deploy công khai.
+
+**Comment** `/api/v1/trips/{tripId}/comments` (Task 4.4)
+| GET | `?activityId=` | Danh sách phẳng theo `createdAt` tăng dần, có `parentId` để giao diện lồng một cấp; lọc theo activity nếu có | canView |
+| POST | `` | `{content (1–2000 ký tự sau trim), activityId?, parentId?}` → 201 `CommentResponse` | canView |
+| DELETE | `/{id}` | Xoá mềm; bình luận gốc kéo theo các trả lời | canView + (tác giả hoặc chủ chuyến, nếu không 403) |
+
+> **Quy ước Comment API** (chốt 2026-10-06): `activityId` phải thuộc `{tripId}` (không thì 404). `parentId` phải là bình luận gốc của cùng trip (không thì 400 `VALIDATION_ERROR` ở field `parentId`); trả lời lấy `activityId` của bình luận cha, bỏ qua `activityId` gửi lên. `CommentResponse` = `{id, activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}`. Không sửa bình luận. Kiểm "tác giả hoặc chủ" nằm ở `CommentService` (quy tắc trên một bình luận, không phải quyền trên trip). Sự kiện realtime `COMMENT_ADDED` phát ở Phase 5.
 
 **Expense** `/api/v1/trips/{tripId}/expenses`
 | GET | `` | filter theo ngày/category | canView |
@@ -977,6 +1002,7 @@ Public: `GET /api/v1/public/trips/{shareToken}` — không cần auth.
 | `NOT_ACCEPTABLE` | 406 | Client đòi kiểu dữ liệu trả về mà API không có (header `Accept` không nhận JSON) — Task 2.7 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | Body gửi lên sai `Content-Type` (API chỉ nhận `application/json`) — Task 2.7 |
 | `EMAIL_ALREADY_EXISTS` | 409 | |
+| `MEMBER_ALREADY_EXISTS` | 409 | Mời email đã là thành viên `ACCEPTED` của chuyến đi (Task 4.1) |
 | `ACTIVITY_TIME_CONFLICT` | 409 | Trùng giờ trong cùng ngày. Client hỏi lại người dùng rồi gửi lại kèm `allowOverlap=true` |
 | `TRIP_DAY_HAS_ACTIVITIES` | 409 | Đổi ngày của trip làm cắt ngày đang có activity (rule 14.3). Client hỏi lại người dùng rồi gửi lại kèm `force=true` |
 | `STALE_VERSION` | 409 | Optimistic lock: dữ liệu đã bị người khác sửa (mục 11.3) |
@@ -1118,6 +1144,12 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
     - **Không tự đổi trạng thái.** Khi người dùng mở một chuyến đi đã qua ngày cuối mà trạng thái còn là `DRAFT`, `PLANNED` hoặc `ONGOING`, giao diện hỏi xác nhận đã hoàn thành. Đồng ý → `PATCH /trips/{id}/status` sang **`COMPLETED`** (không phải `ARCHIVED`: lưu trữ là thao tác riêng do người dùng chọn, và `ARCHIVED` gắn với hạn mức của rule 9). "Để sau" → không hỏi lại về chuyến đi đó cho tới lần đăng nhập sau.
     - Giao diện đánh dấu ngày "Đã qua" và "Hôm nay"; mở một chuyến đi đang diễn ra thì vào ngày hôm nay (Task 3.7). Backend không có thay đổi nào cho các điểm trên ngoài phần thời tiết (rule 20).
     - **Chưa làm:** đánh dấu "đã làm" cho từng activity (ý tưởng để sau, cần cột và endpoint mới).
+23. **Lời mời tham gia chuyến đi** (chốt 2026-10-06, Task 4.1): chỉ chủ chuyến mời; vai trò `EDITOR` hoặc `VIEWER`; mời theo email, người nhận có thể chưa có tài khoản. Token mời 7 ngày, một lần, lưu SHA-256 trong `trip_members`. Mời email đang chờ = gửi lại mail với token mới; mời email đã `ACCEPTED` → 409 `MEMBER_ALREADY_EXISTS`. Mail mời gửi không cần người nhận đã xác thực email (ngoại lệ của rule 12).
+24. **Nhận lời mời** (chốt 2026-10-06): phải đăng nhập bằng tài khoản có **đúng email được mời**; khác email → 403. Thành viên `PENDING` chưa có quyền gì trên chuyến đi; `ACCEPTED` mới có. Chưa có "từ chối lời mời"; chủ chuyến gỡ lời mời bằng `DELETE /members/{id}`.
+25. **Gỡ thành viên** (chốt 2026-10-06): giữ dòng với `status = REMOVED`, mất quyền ngay; mời lại cùng email dùng lại dòng đó. Không thể gỡ chủ chuyến (chủ không có dòng); chuyển quyền sở hữu vẫn là hành động riêng chưa làm (rule 7).
+26. **Liên kết chia sẻ** (chốt 2026-10-06, Task 4.2): chỉ chủ chuyến tạo / xem / thu hồi; Phase 4 chỉ có quyền **xem**; hết hạn tuỳ chọn; thu hồi không hoàn tác. Trang công khai mở bằng token không cần đăng nhập, không lộ thông tin người dùng. `visibility` của chuyến đi theo liên kết: `LINK` khi còn liên kết chưa thu hồi, `PRIVATE` khi không còn.
+27. **Bình luận** (chốt 2026-10-06, Task 4.4): ai xem được chuyến đi thì đọc và đăng được; gắn vào chuyến đi hoặc một hoạt động; trả lời **một cấp**; tối đa 2000 ký tự; không sửa; xoá bởi tác giả hoặc chủ chuyến; xoá bình luận gốc xoá luôn trả lời; hoạt động bị xoá kéo bình luận của nó theo.
+28. **Không giới hạn số thành viên và số liên kết** ở mọi gói (chốt 2026-10-06, sửa mục 9). Hạn mức khác của mục 9 giữ nguyên.
 
 ---
 
@@ -1132,8 +1164,9 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 | `/trips/new` | Wizard tạo trip | 3 bước: thông tin → điểm đến → ngày. Task 2.5: bước điểm đến chỉ nhập tên. Task 3.6 (chốt 2026-10-03): **tên điểm đến vẫn do người dùng tự gõ, vị trí chọn riêng** bằng tìm địa điểm hoặc bấm lên bản đồ nhỏ → `destinationLat` / `destinationLng` (đủ cả hai hoặc bỏ cả hai); chọn một gợi ý khi ô tên còn trống thì điền sẵn tên. Không lưu địa điểm nào vào bảng `places` cho việc này. Hộp sửa chuyến đi dùng cùng các ô; vị trí đã đặt chỉ đổi được, chưa bỏ được (PATCH chưa xoá trắng trường tuỳ chọn) |
 | `/trips/:id/days/:dayIndex` | **Màn hình chính** | Layout 3 cột: danh sách ngày ⟷ activity của **một ngày** (drag-drop) ⟷ bản đồ + weather của ngày đó. `dayIndex` là số thứ tự ngày 1..n; `/trips/:id` chuyển về ngày 1, hoặc về ngày hôm nay khi hôm nay nằm trong chuyến đi (Task 3.7, rule 14.22); `dayIndex` không tồn tại chuyển về ngày 1. Task 2.5 làm 2 cột với mọi ngày xếp dọc; Task 2.6 đổi sang một ngày một trang, chuyển ngày bằng thả lên tên ngày ở cột trái hoặc menu "⋮" (chi tiết bố cục: `UI_GUIDE.md` 8.1). Cột bản đồ thêm ở Task 3.6; thời tiết, quãng đường, nhãn ngày "Đã qua" / "Hôm nay" và hộp hỏi hoàn thành chuyến đi (rule 14.22) ở Task 3.7 |
 | `/trips/:id/expenses` | Chi phí | Chart + settlement |
-| `/trips/:id/members` | Chia sẻ | Mời, phân quyền, share link |
-| `/share/:token` | Trip công khai | Read-only, không cần đăng nhập |
+| (hộp thoại trên `/trips/:id/days/:dayIndex`) | Chia sẻ | Mời, đổi vai trò, gỡ, liên kết chia sẻ — là **hộp thoại** mở từ nút "Chia sẻ" ở đầu trang chi tiết (UI_GUIDE 15.3), không có trang `/trips/:id/members` riêng (chốt 2026-10-06, Task 4.5). Bình luận: panel phải 360px trên cùng trang (Task 4.6) |
+| `/invite?trip=&token=` | Nhận lời mời | Trong `ProtectedRoute`: chưa đăng nhập → đăng nhập / đăng ký rồi quay lại; nhận xong vào thẳng chuyến đi (Task 4.5) |
+| `/share/:token` | Trip công khai | Read-only, không cần đăng nhập, ngoài `AppLayout` (UI_GUIDE 8.5, Task 4.5) |
 | `/billing` | Nâng cấp | Bảng gói, nút checkout |
 | `/billing/success`, `/billing/cancel` | Kết quả thanh toán | |
 | `/settings` | Hồ sơ, đổi mật khẩu, thiết bị | |

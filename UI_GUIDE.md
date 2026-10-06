@@ -687,7 +687,8 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 3.6 | Ô tìm địa điểm trong hộp thoại hoạt động, cột bản đồ, tab bản đồ trên điện thoại, tự thêm địa điểm, chọn điểm đến trong wizard | Phase 3 |
 | 3.7 | Dải thời tiết, thời tiết trên thẻ danh sách, đoạn di chuyển giữa hai ga, ngày đã qua, hỏi hoàn thành chuyến đi (cảnh báo ngoài trời: hoãn) | Phase 3 |
 | 3.9 | Bảng màu mới cho toàn web và trang chuyến đi dạng thẻ theo mockup "Teal Voyage" (`trip-planner-screenshots/stitch_action_button_ui_redesign/`); kế hoạch và các quyết định ở `WORKFLOW.md` Task 3.9. Các mục 3, 5, 6, 8.1, 9 của file này được sửa dần theo từng commit của task | Phase 3 |
-| 4.4 | Panel chia sẻ, danh sách thành viên, trang công khai, bình luận, huy hiệu vai trò | Phase 4 |
+| 4.5 | Hộp thoại chia sẻ (mời, vai trò, gỡ, liên kết), huy hiệu vai trò, chế độ chỉ xem, thẻ "Được chia sẻ", trang nhận lời mời, trang công khai | Phase 4 (rà 2026-10-06) |
+| 4.6 | Panel bình luận, bình luận trên hoạt động | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
 | 7.x | Trang chi phí (biểu đồ), màn gợi ý AI | Phase 7 |
@@ -1057,29 +1058,42 @@ one jade teardrop marker; a helper line "Tìm theo tên hoặc bấm lên bản 
 and, after a choice, the coordinates in small tabular text "16.0544, 108.2022".
 ```
 
-#### Phase 4 — Task 4.4: chia sẻ và thành viên
+#### Phase 4 — Task 4.5: chia sẻ và thành viên (rà 2026-10-06)
 
-**Dữ liệu có thật (dự kiến):** thành viên: tên, email, ảnh đại diện, vai trò (Chủ sở hữu / Chỉnh sửa / Chỉ xem), trạng thái lời mời (đang chờ); liên kết chia sẻ: quyền (xem / sửa), ngày hết hạn, số lượt xem, thu hồi. Hạn mức gói FREE: 2 thành viên, 1 liên kết.
-**Không được thêm:** nhóm thành viên, phân quyền theo từng ngày, trò chuyện trực tiếp.
+**Dữ liệu có thật:** thành viên: tên, email, ảnh đại diện, vai trò (Chủ sở hữu / Chỉnh sửa / Chỉ xem), trạng thái lời mời (đang chờ); liên kết chia sẻ: chỉ quyền xem, ngày hết hạn (tuỳ chọn), số lượt xem, thu hồi. **Không có hạn mức** số thành viên hay số liên kết (design 9, chốt 2026-10-06). Thành viên không phải chủ chỉ thấy danh sách thành viên.
+**Không được thêm:** nhóm thành viên, phân quyền theo từng ngày, trò chuyện trực tiếp, ô chọn quyền của liên kết (chỉ có xem), công tắc bật / tắt liên kết (tạo và thu hồi là hai nút), ảnh thành viên ở ngoài hộp thoại.
 
 ```
 A panel titled "Chia sẻ chuyến đi" opened from the trip detail header (dialog 640px).
 Section "Mời thành viên": an email input, a role select "Chỉnh sửa" / "Chỉ xem" and a jade
-button "Mời". Under it the helper "Gói miễn phí mời được tối đa 2 người mỗi chuyến đi."
+button "Mời".
 A list of 3 members: 32px avatar, name, email in muted text, a role select and a remove
 icon button. The owner row shows a "Chủ sở hữu" badge and no select. One pending invite
 shows an amber badge "Đang chờ" and a ghost button "Gửi lại".
-A 1px divider, then section "Liên kết chia sẻ": a toggle, a permission select "Chỉ xem",
-an expiry date field, a read-only URL field with a "Sao chép" button, a muted line
-"Ai có liên kết đều xem được chuyến đi này." and "12 lượt xem". A ghost-danger button
-"Thu hồi liên kết".
+A 1px divider, then section "Liên kết chia sẻ" with a secondary button "Tạo liên kết" and an
+optional expiry date field. Below it one link row: a read-only URL field with a "Sao chép"
+button, a muted line "Ai có liên kết đều xem được chuyến đi này." and "12 lượt xem", and a
+ghost-danger button "Thu hồi".
 ```
 
 Trạng thái rỗng: "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." + nút "Mời thành viên".
 
-#### Phase 4 — trang chuyến đi công khai (`/share/:token`)
+Ngoài hộp thoại, cùng task: huy hiệu vai trò cạnh tên chuyến (`Badge`: Chủ sở hữu `brand`, Chỉnh sửa `info`, Chỉ xem `neutral`); người chỉ xem không thấy nút Sửa / Xoá / Thêm hoạt động / tay kéo / menu "⋮" / ô đổi trạng thái; thẻ ở danh sách có huy hiệu "Được chia sẻ · của {tên chủ}" (`info`).
 
-**Dữ liệu có thật (dự kiến):** như màn F nhưng chỉ đọc; không có thông tin tài khoản của người xem.
+#### Phase 4 — Task 4.5: trang nhận lời mời (`/invite?trip=&token=`)
+
+**Dữ liệu có thật:** kết quả của `POST /members/accept`. Trang không có form: mở ra là gọi ngay.
+
+```
+A small centered card 420px on the paper background, app logo above it. While accepting: a
+spinner and "Đang nhận lời mời…". On success the page navigates to the trip. Two error
+states, each with an icon and a secondary button: "Lời mời không còn hiệu lực" with "Về
+danh sách chuyến đi", and "Lời mời này dành cho email khác" with "Đăng xuất để đổi tài khoản".
+```
+
+#### Phase 4 — Task 4.5: trang chuyến đi công khai (`/share/:token`)
+
+**Dữ liệu có thật:** như màn F nhưng chỉ đọc; không có thông tin tài khoản của người xem, không có tên chủ chuyến, không có thời tiết và quãng đường (chưa có endpoint công khai).
 
 ```
 Public read-only trip page, one column 760px centered, no app navigation. At the top a
@@ -1089,9 +1103,9 @@ A static map (not sticky) after the summary. At the very end a centered secondar
 "Tạo chuyến đi của bạn" and a small line "Được chia sẻ qua Smart Trip Planner".
 ```
 
-#### Phase 4 — bình luận
+#### Phase 4 — Task 4.6: bình luận
 
-**Dữ liệu có thật (dự kiến):** bình luận của chuyến đi hoặc của một hoạt động, trả lời một cấp (`parent_id`), người viết, thời gian, xoá bình luận của mình.
+**Dữ liệu có thật:** bình luận của chuyến đi hoặc của một hoạt động, trả lời một cấp (`parent_id`), người viết, thời gian, xoá bình luận của mình (chủ chuyến xoá được của mọi người). Không sửa bình luận. Panel và hộp thoại chia sẻ không mở cùng lúc; dưới 1024px panel chiếm toàn màn như tab bản đồ.
 
 ```
 A right-side panel 360px "Bình luận" over the trip detail. A list of comments: avatar,
