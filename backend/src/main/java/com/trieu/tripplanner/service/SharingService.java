@@ -1,5 +1,6 @@
 package com.trieu.tripplanner.service;
 
+import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 
@@ -25,5 +26,18 @@ public interface SharingService {
      * @throws com.trieu.tripplanner.exception.MemberAlreadyExistsException the email has already accepted (409)
      */
     MemberResponse invite(Long tripId, InviteMemberRequest request);
+
+    /**
+     * Turns a PENDING invitation into an ACCEPTED membership of the signed-in account (design.md 10.2
+     * "Quy ước Sharing API", nhận lời). The link is one-time: the token hash is cleared, so the same link
+     * answers 400 afterwards. From here on the permission evaluator lets the account in.
+     *
+     * @param userId the signed-in account (CLAUDE.md rule 16); its email must be the invited one
+     * @throws com.trieu.tripplanner.exception.InvalidTokenException token unknown, expired, already used, or not
+     *                                                               an invitation to {@code tripId} (400)
+     * @throws com.trieu.tripplanner.exception.ForbiddenException    the account's email is not the invited one
+     *                                                               (403): a forwarded link does not work
+     */
+    MemberResponse accept(Long tripId, Long userId, AcceptInvitationRequest request);
 
 }

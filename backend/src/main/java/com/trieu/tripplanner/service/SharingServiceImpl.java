@@ -1,9 +1,12 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.util.SecureTokens;
+import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ForbiddenException;
+import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.MemberMapper;
@@ -38,6 +41,7 @@ public class SharingServiceImpl implements SharingService {
     static final Duration INVITE_TTL = Duration.ofDays(7);
 
     private static final String TRIP = "Trip";
+    private static final String USER = "User";
 
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
@@ -69,6 +73,42 @@ public class SharingServiceImpl implements SharingService {
                 request.role() == MemberRole.EDITOR, tripId, rawToken);
         // The email is personal data and the token is a secret: neither goes to the log
         log.info("Trip {}: invitation {} sent with role {}", tripId, saved.getId(), request.role());
+        return memberMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public MemberResponse accept(Long tripId, Long userId, AcceptInvitationRequest request) {
+        // Only the hash is ever compared: the raw token never touches the database or the log
+        TripMember member = tripMemberRepository.findByInviteTokenHash(SecureTokens.sha256Hex(request.token()))
+                .orElseThrow(() -> new InvalidTokenException("unknown invitation token"));
+        if (!member.getTrip().getId().equals(tripId)) {
+            throw new InvalidTokenException("invitation %d is not for trip %d".formatted(member.getId(), tripId));
+        }
+        if (member.getStatus() != MemberStatus.PENDING) {
+            throw new InvalidTokenException("invitation %d is %s".formatted(member.getId(), member.getStatus()));
+        }
+        Instant now = clock.instant();
+        if (!member.getInviteExpiresAt().isAfter(now)) {
+            throw new InvalidTokenException("invitation %d expired at %s".formatted(member.getId(),
+                    member.getInviteExpiresAt()));
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER, userId));
+        if (!user.getEmail().equalsIgnoreCase(member.getInvitedEmail())) {
+            // A forwarded link: the invitation stays pending for the person it was sent to
+            throw new ForbiddenException("invitation %d was sent to another email than user %d's"
+                    .formatted(member.getId(), userId));
+        }
+
+        member.setUser(user);
+        member.setStatus(MemberStatus.ACCEPTED);
+        member.setAcceptedAt(now);
+        // One-time link: nothing left to look up
+        member.setInviteTokenHash(null);
+        member.setInviteExpiresAt(null);
+        TripMember saved = tripMemberRepository.save(member);
+        log.info("Trip {}: invitation {} accepted by user {} as {}", tripId, saved.getId(), userId, saved.getRole());
         return memberMapper.toResponse(saved);
     }
 

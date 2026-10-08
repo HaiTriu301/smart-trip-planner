@@ -9,10 +9,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
+import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripRole;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ForbiddenException;
+import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.MemberRole;
@@ -196,6 +199,83 @@ class TripMemberControllerTest {
                 """))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    // ---- POST /trips/{tripId}/members/accept ---------------------------------------------------------------------
+
+    @Test
+    void acceptReturns200WithTheMembershipAndTakesTheUserFromTheToken() {
+        when(sharingService.accept(TRIP_ID, 7L, new AcceptInvitationRequest("raw-token")))
+                .thenReturn(new MemberResponse(31L, 7L, "Test owner@example.com", "owner@example.com", null,
+                        TripRole.VIEWER, MemberStatus.ACCEPTED, INVITED_AT, INVITED_AT.plusSeconds(60)));
+
+        assertThat(accept("""
+                { "token": "raw-token" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": { "memberId": 31, "userId": 7, "role": "VIEWER", "status": "ACCEPTED",
+                                    "acceptedAt": "2026-10-08T03:01:00Z" } }
+                        """);
+        // The caller has no permission on the trip yet, so the evaluator must not be asked
+        verifyNoInteractions(tripPermission);
+    }
+
+    @Test
+    void acceptWithoutTokenReturns401() {
+        assertThat(mvc.post().uri(MEMBERS_URL + "/accept").contentType(MediaType.APPLICATION_JSON).content("""
+                { "token": "raw-token" }
+                """))
+                .hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(sharingService);
+    }
+
+    @Test
+    void acceptWithBlankInvitationTokenReturns400OnTheTokenField() {
+        assertThat(accept("""
+                { "token": "  " }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "token", "message": "Thiếu mã xác thực" } ] }
+                        """);
+        verifyNoInteractions(sharingService);
+    }
+
+    @Test
+    void acceptWithARejectedTokenReturns400InvalidToken() {
+        when(sharingService.accept(eq(TRIP_ID), eq(7L), any())).thenThrow(new InvalidTokenException("expired"));
+
+        assertThat(accept("""
+                { "token": "old-token" }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "INVALID_TOKEN",
+                          "message": "Liên kết không hợp lệ hoặc đã hết hạn, vui lòng yêu cầu lại" }
+                        """);
+    }
+
+    @Test
+    void acceptForAnotherEmailReturns403WithTheGenericMessage() {
+        when(sharingService.accept(eq(TRIP_ID), eq(7L), any()))
+                .thenThrow(new ForbiddenException("invitation 31 was sent to another email"));
+
+        assertThat(accept("""
+                { "token": "forwarded-token" }
+                """))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "FORBIDDEN",
+                          "message": "Bạn không có quyền thực hiện thao tác này" }
+                        """);
+    }
+
+    private MvcTestResult accept(String body) {
+        return mvc.post().uri(MEMBERS_URL + "/accept").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body).exchange();
     }
 
     private MvcTestResult invite(String body) {

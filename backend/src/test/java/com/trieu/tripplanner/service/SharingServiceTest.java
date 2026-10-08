@@ -14,11 +14,14 @@ import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.common.util.SecureTokens;
+import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripRole;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
+import com.trieu.tripplanner.exception.ForbiddenException;
+import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.MemberMapper;
@@ -57,6 +60,7 @@ class SharingServiceTest {
     private static final long OWNER_ID = 7L;
     private static final long MEMBER_ID = 31L;
     private static final Instant NOW = Instant.parse("2026-10-08T03:00:00Z");
+    private static final String RAW_TOKEN = "raw-invitation-token-from-the-mail-link";
 
     @Mock
     private TripRepository tripRepository;
@@ -278,7 +282,134 @@ class SharingServiceTest {
         verifyNoInteractions(tripMemberRepository, mailService, userRepository);
     }
 
+    // ---- accept ------------------------------------------------------------------------------------------------
+
+    @Test
+    void acceptsAPendingInvitationForTheAccountItWasSentTo() {
+        TripMember pending = pendingInvitation("friend@example.com", RAW_TOKEN);
+        User friend = TestUsers.verified(9L, "friend@example.com");
+        when(userRepository.findById(9L)).thenReturn(Optional.of(friend));
+        saveReturnsArgument();
+
+        MemberResponse response = sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN));
+
+        // Looked up by hash only; the raw token is never handed to the repository
+        verify(tripMemberRepository).findByInviteTokenHash(SecureTokens.sha256Hex(RAW_TOKEN));
+        verify(tripMemberRepository, never()).findByInviteTokenHash(RAW_TOKEN);
+        assertThat(savedMember()).isSameAs(pending);
+        assertThat(pending.getUser()).isSameAs(friend);
+        assertThat(pending.getStatus()).isEqualTo(MemberStatus.ACCEPTED);
+        assertThat(pending.getAcceptedAt()).isEqualTo(NOW);
+        assertThat(pending.getInviteTokenHash()).as("one-time link").isNull();
+        assertThat(pending.getInviteExpiresAt()).isNull();
+        assertThat(pending.getRole()).isEqualTo(MemberRole.VIEWER);
+        assertThat(response).isEqualTo(new MemberResponse(MEMBER_ID, 9L, friend.getFullName(),
+                "friend@example.com", null, TripRole.VIEWER, MemberStatus.ACCEPTED, pending.getInvitedAt(), NOW));
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    void acceptIgnoresTheCaseOfTheAccountEmail() {
+        pendingInvitation("friend@example.com", RAW_TOKEN);
+        when(userRepository.findById(9L)).thenReturn(Optional.of(TestUsers.verified(9L, "Friend@Example.com")));
+        saveReturnsArgument();
+
+        sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN));
+
+        assertThat(savedMember().getStatus()).isEqualTo(MemberStatus.ACCEPTED);
+    }
+
+    @Test
+    void acceptWithAnUnknownTokenIs400() {
+        when(tripMemberRepository.findByInviteTokenHash(anyString())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest("made-up")))
+                .isInstanceOf(InvalidTokenException.class);
+        verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void acceptWithATokenOfAnotherTripIs400() {
+        pendingInvitation("friend@example.com", RAW_TOKEN);
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID + 1, 9L, new AcceptInvitationRequest(RAW_TOKEN)))
+                .isInstanceOf(InvalidTokenException.class);
+        verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void acceptWithAnExpiredTokenIs400() {
+        TripMember pending = pendingInvitation("friend@example.com", RAW_TOKEN);
+        // Expiry is exclusive: a link whose deadline is exactly now is already dead
+        pending.setInviteExpiresAt(NOW);
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN)))
+                .isInstanceOf(InvalidTokenException.class);
+        assertThat(pending.getStatus()).isEqualTo(MemberStatus.PENDING);
+        verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void acceptOnARowThatIsNoLongerPendingIs400() {
+        TripMember removed = pendingInvitation("friend@example.com", RAW_TOKEN);
+        removed.setStatus(MemberStatus.REMOVED);
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN)))
+                .isInstanceOf(InvalidTokenException.class);
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void acceptBySomeoneElseThanTheInvitedEmailIs403AndKeepsTheInvitationPending() {
+        TripMember pending = pendingInvitation("friend@example.com", RAW_TOKEN);
+        when(userRepository.findById(12L)).thenReturn(Optional.of(TestUsers.verified(12L, "stranger@example.com")));
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 12L, new AcceptInvitationRequest(RAW_TOKEN)))
+                .isInstanceOf(ForbiddenException.class)
+                .satisfies(ex -> assertThat(((ForbiddenException) ex).getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        // The right person can still use the link
+        assertThat(pending.getStatus()).isEqualTo(MemberStatus.PENDING);
+        assertThat(pending.getUser()).isNull();
+        assertThat(pending.getInviteTokenHash()).isEqualTo(SecureTokens.sha256Hex(RAW_TOKEN));
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void theSameLinkCannotBeUsedTwice() {
+        pendingInvitation("friend@example.com", RAW_TOKEN);
+        when(userRepository.findById(9L)).thenReturn(Optional.of(TestUsers.verified(9L, "friend@example.com")));
+        saveReturnsArgument();
+        sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN));
+
+        // The hash was cleared by the first call, so the database no longer finds the row by it
+        when(tripMemberRepository.findByInviteTokenHash(SecureTokens.sha256Hex(RAW_TOKEN)))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN)))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
+
+    /** A PENDING VIEWER row on the trip for the email, without an account yet, valid until NOW + 3 days. */
+    private TripMember pendingInvitation(String email, String rawToken) {
+        TripMember row = TripMember.builder()
+                .trip(trip)
+                .invitedEmail(email)
+                .role(MemberRole.VIEWER)
+                .inviteTokenHash(SecureTokens.sha256Hex(rawToken))
+                .inviteExpiresAt(NOW.plus(3, ChronoUnit.DAYS))
+                .invitedBy(owner)
+                .invitedAt(NOW.minus(4, ChronoUnit.DAYS))
+                .build();
+        ReflectionTestUtils.setField(row, "id", MEMBER_ID);
+        when(tripMemberRepository.findByInviteTokenHash(SecureTokens.sha256Hex(rawToken))).thenReturn(Optional.of(row));
+        return row;
+    }
 
     private void tripExists() {
         when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));

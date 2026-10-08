@@ -16,4 +16,10 @@ public interface TripMemberRepository extends JpaRepository<TripMember, Long> {
      */
     Optional<TripMember> findByTripIdAndInvitedEmail(Long tripId, String invitedEmail);
 
+    /**
+     * The pending invitation behind a link, by the SHA-256 of the raw token (served by
+     * uk_trip_members_invite_token_hash). Empty once accepted: the hash is cleared then.
+     */
+    Optional<TripMember> findByInviteTokenHash(String inviteTokenHash);
+
 }

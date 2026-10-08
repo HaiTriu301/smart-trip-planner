@@ -1,8 +1,10 @@
 package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
+import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.service.SharingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,6 +43,19 @@ public class TripMemberController {
     public ApiResponse<MemberResponse> invite(@PathVariable Long tripId,
                                               @Valid @RequestBody InviteMemberRequest request) {
         return ApiResponse.ok(sharingService.invite(tripId, request));
+    }
+
+    @Operation(summary = "Nhận lời mời",
+               description = "Người được mời, đã đăng nhập bằng đúng email được mời, gửi token lấy từ link trong "
+                       + "mail. Không cần quyền gì trên chuyến đi (chưa phải thành viên). 400 INVALID_TOKEN nếu "
+                       + "token sai, hết hạn, đã dùng hoặc không thuộc chuyến đi này; 403 nếu email tài khoản khác "
+                       + "email được mời. Từ đây tài khoản xem (và sửa, nếu EDITOR) được chuyến đi.")
+    @PostMapping("/accept")
+    public ApiResponse<MemberResponse> accept(@PathVariable Long tripId,
+                                              @AuthenticationPrincipal CustomUserDetails principal,
+                                              @Valid @RequestBody AcceptInvitationRequest request) {
+        // No @PreAuthorize on purpose: the caller has no permission on the trip yet, that is the point
+        return ApiResponse.ok(sharingService.accept(tripId, principal.getId(), request));
     }
 
 }
