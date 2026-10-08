@@ -48,6 +48,44 @@ class MailServiceTest {
                 .doesNotContain("verify-email");
     }
 
+    @Test
+    void invitationMailNamesInviterTripAndRoleAndLinksToTheInvitePage() {
+        mailService.sendInvitationMail("friend@example.com", "Nguyễn An", "Đà Lạt mùa hoa", true, 42L, "invite-789");
+
+        assertThat(mailProvider.sent()).hasSize(1);
+        MailMessage mail = mailProvider.sent().get(0);
+        assertThat(mail.to()).isEqualTo("friend@example.com");
+        assertThat(mail.subject()).isEqualTo("Nguyễn An mời bạn cùng lên kế hoạch cho chuyến đi \"Đà Lạt mùa hoa\"");
+        assertThat(mail.htmlBody())
+                .contains("Nguyễn An")
+                .contains("Đà Lạt mùa hoa")
+                .contains("cùng chỉnh sửa")
+                // Two query parameters: HTML writes the "&" between them as "&amp;", the mail client reads "&" back
+                .contains("http://localhost:5173/invite?trip=42&amp;token=invite-789")
+                .doesNotContain("trip=42&token")
+                .contains("7 ngày")
+                .doesNotContain("${");
+    }
+
+    @Test
+    void viewerInvitationSaysViewOnly() {
+        mailService.sendInvitationMail("friend@example.com", "Nguyễn An", "Huế 2 ngày", false, 7L, "invite-000");
+
+        assertThat(mailProvider.sent().get(0).htmlBody())
+                .contains("chỉ xem")
+                .doesNotContain("cùng chỉnh sửa");
+    }
+
+    @Test
+    void invitationMailEscapesHtmlInTheTripTitle() {
+        // The title is typed by the owner; a tag in it must show as text, not run in the invitee's mail client
+        mailService.sendInvitationMail("friend@example.com", "Nguyễn An", "<script>alert(1)</script>", false, 7L, "t");
+
+        assertThat(mailProvider.sent().get(0).htmlBody())
+                .doesNotContain("<script>")
+                .contains("&lt;script&gt;");
+    }
+
     private static TemplateEngine templateEngine() {
         // Same resolution Spring Boot configures: classpath:/templates/<name>.html, HTML mode, UTF-8.
         // SpringTemplateEngine evaluates ${...} with SpEL; the plain TemplateEngine would need OGNL, which Boot excludes.
