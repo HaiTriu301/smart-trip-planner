@@ -4,12 +4,14 @@ import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.MemberMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.MemberRole;
+import com.trieu.tripplanner.model.enums.MemberStatus;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -55,27 +57,58 @@ public class SharingServiceImpl implements SharingService {
                     "Trip %d: the owner invited their own email".formatted(tripId));
         }
 
-        String rawToken = SecureTokens.generate();
-        Instant now = clock.instant();
-        TripMember member = TripMember.builder()
-                .trip(trip)
-                // Known account → linked now; unknown → linked when the person accepts after registering
-                .user(userRepository.findByEmail(email).orElse(null))
-                .invitedEmail(email)
-                .role(request.role())
-                .inviteTokenHash(SecureTokens.sha256Hex(rawToken))
-                .inviteExpiresAt(now.plus(INVITE_TTL))
-                .invitedBy(owner)
-                .invitedAt(now)
-                .build();
+        // One row per email on a trip (UNIQUE): an existing row is reopened, never duplicated
+        TripMember member = tripMemberRepository.findByTripIdAndInvitedEmail(tripId, email)
+                .map(existing -> reopen(existing, request.role()))
+                .orElseGet(() -> newInvitation(trip, owner, email, request.role()));
+        String rawToken = issueToken(member);
         TripMember saved = tripMemberRepository.save(member);
 
         // @Async: returns at once; a failed delivery only shows in the log (design.md 14.17)
         mailService.sendInvitationMail(email, owner.getFullName(), trip.getTitle(),
                 request.role() == MemberRole.EDITOR, tripId, rawToken);
         // The email is personal data and the token is a secret: neither goes to the log
-        log.info("Trip {}: invitation {} created with role {}", tripId, saved.getId(), request.role());
+        log.info("Trip {}: invitation {} sent with role {}", tripId, saved.getId(), request.role());
         return memberMapper.toResponse(saved);
+    }
+
+    private TripMember newInvitation(Trip trip, User owner, String email, MemberRole role) {
+        return TripMember.builder()
+                .trip(trip)
+                // Known account → linked now; unknown → linked when the person accepts after registering
+                .user(userRepository.findByEmail(email).orElse(null))
+                .invitedEmail(email)
+                .role(role)
+                .invitedBy(owner)
+                .build();
+    }
+
+    /**
+     * PENDING: the owner asked for the mail again (maybe with another role). REMOVED: the person is welcome back;
+     * the account link survives the removal, so only the status and the role change. ACCEPTED: a conflict.
+     */
+    private TripMember reopen(TripMember existing, MemberRole role) {
+        if (existing.getStatus() == MemberStatus.ACCEPTED) {
+            throw new MemberAlreadyExistsException(existing.getTrip().getId(), existing.getId());
+        }
+        existing.setRole(role);
+        existing.setStatus(MemberStatus.PENDING);
+        existing.setAcceptedAt(null);
+        if (existing.getUser() == null) {
+            // The person may have registered since the first invitation
+            userRepository.findByEmail(existing.getInvitedEmail()).ifPresent(existing::setUser);
+        }
+        return existing;
+    }
+
+    /** Stamps a fresh token (hash + 7-day expiry + invitedAt) on the row and returns the raw value for the mail. */
+    private String issueToken(TripMember member) {
+        String rawToken = SecureTokens.generate();
+        Instant now = clock.instant();
+        member.setInviteTokenHash(SecureTokens.sha256Hex(rawToken));
+        member.setInviteExpiresAt(now.plus(INVITE_TTL));
+        member.setInvitedAt(now);
+        return rawToken;
     }
 
     private Trip findTrip(Long tripId) {

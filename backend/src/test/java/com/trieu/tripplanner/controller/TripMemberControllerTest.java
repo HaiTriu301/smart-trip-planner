@@ -13,6 +13,7 @@ import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripRole;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.model.enums.MemberRole;
 import com.trieu.tripplanner.model.enums.MemberStatus;
@@ -166,6 +167,21 @@ class TripMemberControllerTest {
                         { "success": false, "errorCode": "VALIDATION_ERROR",
                           "details": [ { "field": "email",
                                          "message": "Đây là email của chính bạn, chủ chuyến đi không cần được mời" } ] }
+                        """);
+    }
+
+    @Test
+    void inviteOfAnAcceptedMemberReturns409() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+        when(sharingService.invite(eq(TRIP_ID), any())).thenThrow(new MemberAlreadyExistsException(TRIP_ID, 31L));
+
+        assertThat(invite("""
+                { "email": "friend@example.com", "role": "VIEWER" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "MEMBER_ALREADY_EXISTS",
+                          "message": "Người này đã là thành viên của chuyến đi" }
                         """);
     }
 
