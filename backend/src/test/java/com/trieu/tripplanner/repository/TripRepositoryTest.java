@@ -3,12 +3,17 @@ package com.trieu.tripplanner.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.dto.internal.TripAccess;
 import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.internal.TripStatusCount;
 import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.MemberRole;
+import com.trieu.tripplanner.model.enums.MemberStatus;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.repository.spec.TripSpecifications;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,20 +52,58 @@ class TripRepositoryTest {
     }
 
     @Test
-    void findOwnerIdByIdReturnsOwnerOfLiveTrip() {
+    void findAccessGivesTheOwnerWithoutARoleForOwnerAndStranger() {
         Trip trip = tripRepository.saveAndFlush(trip(owner, "Đà Lạt", "da-lat-aaaaaa", OCT_1, OCT_1.plusDays(2)));
 
-        assertThat(tripRepository.findOwnerIdById(trip.getId())).contains(owner.getId());
+        assertThat(tripRepository.findAccess(trip.getId(), owner.getId())).contains(new TripAccess(owner.getId(), null));
+        assertThat(tripRepository.findAccess(trip.getId(), stranger.getId())).contains(new TripAccess(owner.getId(), null));
     }
 
     @Test
-    void findOwnerIdByIdIsEmptyForDeletedOrMissingTrip() {
+    void findAccessGivesTheRoleOfAnAcceptedMemberOnly() {
+        Trip trip = tripRepository.saveAndFlush(trip(owner, "Đà Lạt", "da-lat-aaaaaa", OCT_1, OCT_1.plusDays(2)));
+        User editor = entityManager.persist(user("editor@example.com"));
+        User pending = entityManager.persist(user("pending@example.com"));
+        User removed = entityManager.persist(user("removed@example.com"));
+        entityManager.persist(member(trip, editor, MemberRole.EDITOR, MemberStatus.ACCEPTED));
+        entityManager.persist(member(trip, pending, MemberRole.EDITOR, MemberStatus.PENDING));
+        entityManager.persist(member(trip, removed, MemberRole.EDITOR, MemberStatus.REMOVED));
+        entityManager.persist(member(trip, stranger, MemberRole.VIEWER, MemberStatus.ACCEPTED));
+        entityManager.flush();
+
+        assertThat(tripRepository.findAccess(trip.getId(), editor.getId()))
+                .contains(new TripAccess(owner.getId(), MemberRole.EDITOR));
+        assertThat(tripRepository.findAccess(trip.getId(), stranger.getId()))
+                .contains(new TripAccess(owner.getId(), MemberRole.VIEWER));
+        // Not accepted = no role, exactly like somebody who was never invited
+        assertThat(tripRepository.findAccess(trip.getId(), pending.getId())).contains(new TripAccess(owner.getId(), null));
+        assertThat(tripRepository.findAccess(trip.getId(), removed.getId())).contains(new TripAccess(owner.getId(), null));
+    }
+
+    @Test
+    void findAccessDoesNotMixUpTheMembershipsOfTwoTrips() {
+        Trip trip = tripRepository.saveAndFlush(trip(owner, "Đà Lạt", "da-lat-aaaaaa", OCT_1, OCT_1));
+        Trip other = tripRepository.saveAndFlush(trip(owner, "Huế", "hue-bbbbbb", OCT_1, OCT_1));
+        entityManager.persist(member(trip, stranger, MemberRole.EDITOR, MemberStatus.ACCEPTED));
+        entityManager.flush();
+
+        assertThat(tripRepository.findAccess(other.getId(), stranger.getId())).contains(new TripAccess(owner.getId(), null));
+    }
+
+    @Test
+    void findAccessIsEmptyForDeletedOrMissingTrip() {
         Trip trip = tripRepository.saveAndFlush(trip(owner, "Huế", "hue-bbbbbb", OCT_1, OCT_1));
-        tripRepository.delete(trip);
+        entityManager.persist(member(trip, stranger, MemberRole.EDITOR, MemberStatus.ACCEPTED));
+        entityManager.flush();
+        // Forget the member first: a managed row pointing at a removed entity makes the flush fail
+        entityManager.clear();
+        tripRepository.delete(tripRepository.findById(trip.getId()).orElseThrow());
         tripRepository.flush();
 
-        assertThat(tripRepository.findOwnerIdById(trip.getId())).isEmpty();
-        assertThat(tripRepository.findOwnerIdById(999_999L)).isEmpty();
+        // The membership row still exists, but a deleted trip is gone for everybody, members included
+        assertThat(tripRepository.findAccess(trip.getId(), owner.getId())).isEmpty();
+        assertThat(tripRepository.findAccess(trip.getId(), stranger.getId())).isEmpty();
+        assertThat(tripRepository.findAccess(999_999L, owner.getId())).isEmpty();
     }
 
     @Test
@@ -160,6 +203,18 @@ class TripRepositoryTest {
     private List<String> titles(TripFilter filter) {
         return tripRepository.findAll(TripSpecifications.matching(owner.getId(), filter), Sort.by("title"))
                 .stream().map(Trip::getTitle).toList();
+    }
+
+    private static TripMember member(Trip trip, User user, MemberRole role, MemberStatus status) {
+        return TripMember.builder()
+                .trip(trip)
+                .user(user)
+                .invitedEmail(user.getEmail())
+                .role(role)
+                .status(status)
+                .invitedBy(trip.getOwner())
+                .invitedAt(Instant.parse("2026-09-01T00:00:00Z"))
+                .build();
     }
 
     private static User user(String email) {
