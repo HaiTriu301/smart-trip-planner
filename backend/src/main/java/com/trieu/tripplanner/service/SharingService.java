@@ -3,6 +3,7 @@ package com.trieu.tripplanner.service;
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
+import java.util.List;
 
 /**
  * Members and invitations of a trip (design.md 10.2 "Sharing", rules 14.23–14.25). Permission checks are NOT
@@ -39,5 +40,14 @@ public interface SharingService {
      *                                                               (403): a forwarded link does not work
      */
     MemberResponse accept(Long tripId, Long userId, AcceptInvitationRequest request);
+
+    /**
+     * Everybody on the trip (design.md 10.2 "Sharing", GET /members): the owner first (role OWNER, no memberId),
+     * then accepted members, then pending invitations, each oldest first. Removed members are not listed.
+     * Two queries whatever the number of members.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     */
+    List<MemberResponse> listMembers(Long tripId);
 
 }

@@ -24,7 +24,9 @@ import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
 import com.trieu.tripplanner.service.SharingService;
 import com.trieu.tripplanner.support.TestUsers;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +70,59 @@ class TripMemberControllerTest {
     @BeforeEach
     void signIn() {
         bearer = "Bearer " + jwtTokenProvider.generateAccessToken(TestUsers.verified(7L, "owner@example.com")).token();
+    }
+
+    // ---- GET /trips/{tripId}/members -----------------------------------------------------------------------------
+
+    @Test
+    void listReturnsOwnerFirstWhenViewAllowedAndLeaksNoPassword() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(sharingService.listMembers(TRIP_ID)).thenReturn(List.of(
+                new MemberResponse(null, 7L, "Chủ chuyến", "owner@example.com", null, TripRole.OWNER,
+                        MemberStatus.ACCEPTED, null, null),
+                new MemberResponse(31L, 9L, "Bạn đồng hành", "friend@example.com", "https://img/9.png",
+                        TripRole.EDITOR, MemberStatus.ACCEPTED, INVITED_AT, INVITED_AT.plusSeconds(60)),
+                new MemberResponse(32L, null, null, "waiting@example.com", null, TripRole.VIEWER,
+                        MemberStatus.PENDING, INVITED_AT.plusSeconds(120), null)));
+
+        MvcTestResult result = mvc.get().uri(MEMBERS_URL).header(HttpHeaders.AUTHORIZATION, bearer).exchange();
+
+        assertThat(result).hasStatusOk().bodyJson().isLenientlyEqualTo("""
+                { "success": true,
+                  "data": [ { "memberId": null, "userId": 7, "fullName": "Chủ chuyến", "role": "OWNER", "status": "ACCEPTED" },
+                            { "memberId": 31, "userId": 9, "fullName": "Bạn đồng hành", "avatarUrl": "https://img/9.png",
+                              "role": "EDITOR", "status": "ACCEPTED", "acceptedAt": "2026-10-08T03:01:00Z" },
+                            { "memberId": 32, "userId": null, "fullName": null, "email": "waiting@example.com",
+                              "role": "VIEWER", "status": "PENDING", "acceptedAt": null } ] }
+                """);
+        assertThat(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8))
+                .doesNotContainIgnoringCase("password");
+    }
+
+    @Test
+    void listReturns403WhenViewDeniedAndNeverReachesService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.get().uri(MEMBERS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verify(sharingService, never()).listMembers(any());
+    }
+
+    @Test
+    void listReturns404WhenTripDoesNotExist() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(sharingService.listMembers(TRIP_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
+
+        assertThat(mvc.get().uri(MEMBERS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void listWithoutTokenReturns401() {
+        assertThat(mvc.get().uri(MEMBERS_URL)).hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(sharingService, tripPermission);
     }
 
     // ---- POST /trips/{tripId}/members ----------------------------------------------------------------------------

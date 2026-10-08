@@ -21,6 +21,8 @@ import com.trieu.tripplanner.repository.UserRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -110,6 +112,17 @@ public class SharingServiceImpl implements SharingService {
         TripMember saved = tripMemberRepository.save(member);
         log.info("Trip {}: invitation {} accepted by user {} as {}", tripId, saved.getId(), userId, saved.getRole());
         return memberMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberResponse> listMembers(Long tripId) {
+        Trip trip = findTrip(tripId);
+        List<MemberResponse> members = new ArrayList<>();
+        // trip.getOwner() loads the owner here (second query); the member rows come with their accounts (third)
+        members.add(memberMapper.toOwnerResponse(trip.getOwner()));
+        members.addAll(memberMapper.toResponses(tripMemberRepository.findActiveByTripId(tripId)));
+        return members;
     }
 
     private TripMember newInvitation(Trip trip, User owner, String email, MemberRole role) {

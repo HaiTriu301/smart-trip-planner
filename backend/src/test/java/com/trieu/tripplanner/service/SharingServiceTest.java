@@ -39,6 +39,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -393,6 +394,50 @@ class SharingServiceTest {
                 .isInstanceOf(InvalidTokenException.class);
     }
 
+    // ---- listMembers -------------------------------------------------------------------------------------------
+
+    @Test
+    void listMembersPutsTheOwnerFirstThenTheRowsInRepositoryOrder() {
+        tripExists();
+        User friend = TestUsers.verified(9L, "friend@example.com");
+        TripMember accepted = row("friend@example.com", MemberStatus.ACCEPTED, friend);
+        accepted.setInviteTokenHash(null);
+        accepted.setAcceptedAt(NOW.minus(1, ChronoUnit.DAYS));
+        TripMember pending = row("waiting@example.com", MemberStatus.PENDING, null);
+        ReflectionTestUtils.setField(pending, "id", MEMBER_ID + 1);
+        when(tripMemberRepository.findActiveByTripId(TRIP_ID)).thenReturn(List.of(accepted, pending));
+
+        List<MemberResponse> members = sharingService.listMembers(TRIP_ID);
+
+        assertThat(members).containsExactly(
+                new MemberResponse(null, OWNER_ID, owner.getFullName(), "owner@example.com", null, TripRole.OWNER,
+                        MemberStatus.ACCEPTED, null, null),
+                new MemberResponse(MEMBER_ID, 9L, friend.getFullName(), "friend@example.com", null, TripRole.VIEWER,
+                        MemberStatus.ACCEPTED, accepted.getInvitedAt(), accepted.getAcceptedAt()),
+                new MemberResponse(MEMBER_ID + 1, null, null, "waiting@example.com", null, TripRole.VIEWER,
+                        MemberStatus.PENDING, pending.getInvitedAt(), null));
+    }
+
+    @Test
+    void listMembersOfATripWithoutMembersIsJustTheOwner() {
+        tripExists();
+        when(tripMemberRepository.findActiveByTripId(TRIP_ID)).thenReturn(List.of());
+
+        assertThat(sharingService.listMembers(TRIP_ID)).singleElement()
+                .satisfies(member -> {
+                    assertThat(member.role()).isEqualTo(TripRole.OWNER);
+                    assertThat(member.memberId()).isNull();
+                });
+    }
+
+    @Test
+    void listMembersOfAMissingTripIs404() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.listMembers(TRIP_ID)).isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(tripMemberRepository);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
 
     /** A PENDING VIEWER row on the trip for the email, without an account yet, valid until NOW + 3 days. */
@@ -419,8 +464,15 @@ class SharingServiceTest {
         when(tripMemberRepository.findByTripIdAndInvitedEmail(TRIP_ID, email)).thenReturn(Optional.empty());
     }
 
-    /** A VIEWER row of the email on the trip, invited a month ago with token hash "a"*64, in the given status. */
+    /** {@link #row} plus the lookup by email finding it, for the re-invite cases. */
     private TripMember existingRow(String email, MemberStatus status, User user) {
+        TripMember row = row(email, status, user);
+        when(tripMemberRepository.findByTripIdAndInvitedEmail(TRIP_ID, email)).thenReturn(Optional.of(row));
+        return row;
+    }
+
+    /** A VIEWER row of the email on the trip, invited a month ago with token hash "a"*64, in the given status. */
+    private TripMember row(String email, MemberStatus status, User user) {
         TripMember row = TripMember.builder()
                 .trip(trip)
                 .user(user)
@@ -433,7 +485,6 @@ class SharingServiceTest {
                 .invitedAt(NOW.minus(30, ChronoUnit.DAYS))
                 .build();
         ReflectionTestUtils.setField(row, "id", MEMBER_ID);
-        when(tripMemberRepository.findByTripIdAndInvitedEmail(TRIP_ID, email)).thenReturn(Optional.of(row));
         return row;
     }
 

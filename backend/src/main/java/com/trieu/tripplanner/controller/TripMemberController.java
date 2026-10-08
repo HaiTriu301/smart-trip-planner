@@ -9,10 +9,12 @@ import com.trieu.tripplanner.service.SharingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,6 +34,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class TripMemberController {
 
     private final SharingService sharingService;
+
+    @Operation(summary = "Danh sách thành viên",
+               description = "Chủ chuyến đi đứng đầu (role OWNER, không có memberId), rồi thành viên đã nhận lời, "
+                       + "rồi lời mời đang chờ; mỗi nhóm theo thứ tự mời. Người đã bị gỡ không hiện. Ai xem được "
+                       + "chuyến đi thì xem được danh sách. 403 nếu không có quyền xem, 404 nếu chuyến đi không tồn tại.")
+    @GetMapping
+    @PreAuthorize("@tripPermission.canView(#tripId, principal)")
+    public ApiResponse<List<MemberResponse>> list(@PathVariable Long tripId) {
+        return ApiResponse.ok(sharingService.listMembers(tripId));
+    }
 
     @Operation(summary = "Mời thành viên theo email",
                description = "Chỉ chủ chuyến đi. Gửi mail có link nhận lời, hiệu lực 7 ngày; người được mời có thể "
