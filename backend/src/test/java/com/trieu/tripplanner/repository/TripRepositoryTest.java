@@ -16,13 +16,17 @@ import com.trieu.tripplanner.repository.spec.TripSpecifications;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
@@ -118,12 +122,48 @@ class TripRepositoryTest {
     }
 
     @Test
-    void matchingReturnsOnlyTheOwnersTrips() {
+    void matchingReturnsOwnTripsAndTripsSharedWithMeAsAnAcceptedMember() {
         tripRepository.save(trip(owner, "Của tôi", "cua-toi-dddddd", OCT_1, OCT_1));
-        tripRepository.save(trip(stranger, "Của người khác", "cua-nguoi-khac-eeeeee", OCT_1, OCT_1));
-        tripRepository.flush();
+        Trip shared = tripRepository.save(trip(stranger, "Được chia sẻ", "duoc-chia-se-eeeeee", OCT_1, OCT_1));
+        Trip invited = tripRepository.save(trip(stranger, "Mới được mời", "moi-duoc-moi-tttttt", OCT_1, OCT_1));
+        Trip left = tripRepository.save(trip(stranger, "Đã bị gỡ", "da-bi-go-uuuuuu", OCT_1, OCT_1));
+        tripRepository.save(trip(stranger, "Của người khác", "cua-nguoi-khac-vvvvvv", OCT_1, OCT_1));
+        entityManager.persist(member(shared, owner, MemberRole.VIEWER, MemberStatus.ACCEPTED));
+        entityManager.persist(member(invited, owner, MemberRole.EDITOR, MemberStatus.PENDING));
+        entityManager.persist(member(left, owner, MemberRole.EDITOR, MemberStatus.REMOVED));
+        entityManager.flush();
 
-        assertThat(titles(new TripFilter(null, null, null, null))).containsExactly("Của tôi");
+        // Only an accepted membership opens a trip; the other filters apply to shared trips like to own ones
+        assertThat(titles(new TripFilter(null, null, null, null))).containsExactly("Của tôi", "Được chia sẻ");
+        assertThat(titles(new TripFilter(null, "chia sẻ", null, null))).containsExactly("Được chia sẻ");
+        // The stranger's own list is untouched by the memberships they handed out
+        assertThat(tripRepository.findAll(TripSpecifications.matching(stranger.getId(),
+                new TripFilter(null, null, null, null)), Sort.by("title")))
+                .extracting(Trip::getTitle).doesNotContain("Của tôi").hasSize(4);
+    }
+
+    @Test
+    void withOwnerLoadsTheOwnerInTheListQueryAndStaysOutOfTheCountQueries() {
+        tripRepository.save(trip(owner, "Của tôi", "cua-toi-dddddd", OCT_1, OCT_1));
+        Trip shared = tripRepository.save(trip(stranger, "Được chia sẻ", "duoc-chia-se-eeeeee", OCT_1, OCT_1));
+        entityManager.persist(member(shared, owner, MemberRole.VIEWER, MemberStatus.ACCEPTED));
+        entityManager.flush();
+        entityManager.clear();
+        Specification<Trip> spec = TripSpecifications.matching(owner.getId(), new TripFilter(null, null, null, null))
+                .and(TripSpecifications.withOwner());
+
+        // A full page of one makes Spring Data run its COUNT query too: the fetch must not be applied there
+        Page<Trip> page = tripRepository.findAll(spec, PageRequest.of(0, 1, Sort.by("title").descending()));
+
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getContent()).singleElement().satisfies(trip -> {
+            assertThat(trip.getTitle()).isEqualTo("Được chia sẻ");
+            // Already loaded: the mapper reads the name without a second SELECT (CLAUDE.md section 8, N+1)
+            assertThat(Hibernate.isInitialized(trip.getOwner())).isTrue();
+            assertThat(trip.getOwner().getFullName()).isEqualTo("Test stranger@example.com");
+        });
+        // Same for the status grouping, which selects (status, count) and not trips
+        assertThat(tripRepository.countByStatus(spec)).containsExactly(new TripStatusCount(TripStatus.DRAFT, 2));
     }
 
     @Test
@@ -177,13 +217,17 @@ class TripRepositoryTest {
     // ---- countByStatus (status chips) -------------------------------------------------------------------------
 
     @Test
-    void countByStatusGroupsOnlyLiveTripsOfTheOwnerAndHonoursTheKeyword() {
+    void countByStatusGroupsLiveTripsOfTheOwnerAndSharedWithThemAndHonoursTheKeyword() {
         tripRepository.save(trip(owner, "Nháp 1", "nhap-1-oooooo", OCT_1, OCT_1));
         tripRepository.save(trip(owner, "Nháp 2", "nhap-2-pppppp", OCT_1, OCT_1));
         Trip planned = trip(owner, "Nghỉ lễ", "nghi-le-qqqqqq", OCT_1, OCT_1);
         planned.setStatus(TripStatus.PLANNED);
         planned.setDestinationName("Vũng Tàu");
         tripRepository.save(planned);
+        // Shared with the owner by somebody else: counted like their own (the chips match the list)
+        Trip shared = trip(stranger, "Chia sẻ", "chia-se-wwwwww", OCT_1, OCT_1);
+        shared.setStatus(TripStatus.PLANNED);
+        entityManager.persist(member(tripRepository.save(shared), owner, MemberRole.VIEWER, MemberStatus.ACCEPTED));
         Trip deleted = trip(owner, "Đã xoá", "da-xoa-rrrrrr", OCT_1, OCT_1);
         deleted.setStatus(TripStatus.PLANNED);
         tripRepository.delete(tripRepository.saveAndFlush(deleted));
@@ -193,7 +237,7 @@ class TripRepositoryTest {
         assertThat(tripRepository.countByStatus(TripSpecifications.matching(owner.getId(),
                 new TripFilter(null, null, null, null))))
                 .containsExactlyInAnyOrder(new TripStatusCount(TripStatus.DRAFT, 2),
-                        new TripStatusCount(TripStatus.PLANNED, 1));
+                        new TripStatusCount(TripStatus.PLANNED, 2));
         // Keyword on the destination, case- and accent-insensitive like the list
         assertThat(tripRepository.countByStatus(TripSpecifications.matching(owner.getId(),
                 new TripFilter(null, "VŨNG TÀU", null, null))))

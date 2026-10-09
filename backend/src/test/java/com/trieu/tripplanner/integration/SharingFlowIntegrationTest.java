@@ -206,6 +206,28 @@ class SharingFlowIntegrationTest {
         assertThat(send("GET", TRIPS_URL + "/" + tripId, strangerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
     }
 
+    // ---- the shared trip in my list (design.md 10.2 "Chuyến đi được chia sẻ trong danh sách") -------------------
+
+    @Test
+    void acceptedMembersSeeTheSharedTripInTheirListAndChipsWhilePendingRemovedAndStrangersDoNot() {
+        for (String bearer : new String[] {editorBearer, viewerBearer}) {
+            assertThat(send("GET", TRIPS_URL, bearer, null)).hasStatusOk().bodyJson().isLenientlyEqualTo(
+                    "{ \"data\": { \"totalElements\": 1, \"items\": [ { \"id\": " + tripId + ", \"title\": \"Đà Lạt\", "
+                            + "\"ownerId\": " + owner.getId() + ", \"ownerName\": \"Test owner@example.com\" } ] } }");
+            assertThat(send("GET", TRIPS_URL + "/status-counts", bearer, null)).hasStatusOk()
+                    .bodyJson().extractingPath("$.data.total").isEqualTo(1);
+        }
+        for (String bearer : new String[] {pendingBearer, removedBearer, strangerBearer}) {
+            assertThat(send("GET", TRIPS_URL, bearer, null)).hasStatusOk()
+                    .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
+            assertThat(send("GET", TRIPS_URL + "/status-counts", bearer, null)).hasStatusOk()
+                    .bodyJson().extractingPath("$.data.total").isEqualTo(0);
+        }
+        // The owner's own card: ownerId is the caller, so the UI shows no "Được chia sẻ" badge
+        assertThat(send("GET", TRIPS_URL, ownerBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.items[0].ownerId").isEqualTo(owner.getId().intValue());
+    }
+
     // ---- changing a role takes effect at once (design.md 10.2 "đổi vai trò") ------------------------------------
 
     @Test

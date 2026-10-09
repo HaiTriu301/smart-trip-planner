@@ -400,6 +400,9 @@ class TripServiceTest {
                     new TripFilter(null, null, null, null), pageable);
 
             assertThat(page.items()).extracting(TripSummaryResponse::id).containsExactly(TRIP_ID);
+            // The card needs the owner to say "Được chia sẻ · của {ownerName}" when it is not the caller's trip
+            assertThat(page.items()).extracting(TripSummaryResponse::ownerId, TripSummaryResponse::ownerName)
+                    .containsExactly(tuple(USER_ID, "Test owner@example.com"));
             assertThat(page.totalElements()).isEqualTo(21);
             assertThat(page.hasNext()).isTrue();
         }

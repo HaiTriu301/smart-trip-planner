@@ -7,10 +7,14 @@ import java.time.LocalDate;
 
 /**
  * One row of the trip list (a card in the grid). Not related to GET /trips/{id}/summary
- * (design.md 10.2 "Quy ước Trip API"). Holds nothing that needs a join, so the list stays one query.
+ * (design.md 10.2 "Quy ước Trip API"). The owner is the only thing from another table: the list query fetches
+ * it along with the trips (TripSpecifications.withOwner), so the card can say "Được chia sẻ · của {ownerName}"
+ * when ownerId is not the caller.
  */
 public record TripSummaryResponse(
         Long id,
+        Long ownerId,
+        String ownerName,
         String title,
         String slug,
         String coverImageUrl,

@@ -50,8 +50,10 @@ public class TripController {
 
     private final TripService tripService;
 
-    @Operation(summary = "Danh sách chuyến đi của tôi",
-               description = "Lọc theo status, q (tên hoặc điểm đến), from/to (khoảng ngày giao nhau). "
+    @Operation(summary = "Danh sách chuyến đi của tôi và được chia sẻ với tôi",
+               description = "Chuyến đi tôi tạo và chuyến đi tôi là thành viên đã nhận lời, chung một danh sách; "
+                       + "ownerId và ownerName cho biết chủ (khác tôi thì là chuyến được chia sẻ). "
+                       + "Lọc theo status, q (tên hoặc điểm đến), from/to (khoảng ngày giao nhau). "
                        + "Mặc định size=20 (tối đa 100), sort=createdAt,desc; sort được: createdAt, updatedAt, startDate, title.")
     @GetMapping
     public ApiResponse<PageResponse<TripSummaryResponse>> list(
@@ -66,8 +68,8 @@ public class TripController {
     }
 
     @Operation(summary = "Số chuyến đi theo trạng thái",
-               description = "Đếm chuyến đi của tôi theo từng trạng thái cho các chip lọc, có tính từ khoá q giống "
-                       + "GET /trips. Đủ 5 trạng thái, trạng thái không có chuyến nào trả 0.")
+               description = "Đếm chuyến đi của tôi và được chia sẻ với tôi theo từng trạng thái cho các chip lọc, "
+                       + "có tính từ khoá q giống GET /trips. Đủ 5 trạng thái, trạng thái không có chuyến nào trả 0.")
     @GetMapping("/status-counts")
     public ApiResponse<TripStatusCountsResponse> statusCounts(
             @AuthenticationPrincipal CustomUserDetails principal,

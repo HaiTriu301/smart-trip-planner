@@ -65,7 +65,9 @@ public class TripServiceImpl implements TripService {
     @Transactional(readOnly = true)
     public PageResponse<TripSummaryResponse> list(Long userId, TripFilter filter, Pageable pageable) {
         validateSort(pageable.getSort());
-        Page<Trip> page = tripRepository.findAll(TripSpecifications.matching(userId, filter), pageable);
+        // Own and shared trips, with their owners in the same query (the card names the owner of a shared trip)
+        Page<Trip> page = tripRepository.findAll(
+                TripSpecifications.matching(userId, filter).and(TripSpecifications.withOwner()), pageable);
         Map<Long, Long> activityCounts = countActivities(page.getContent());
         return PageResponse.from(page.map(trip -> tripMapper.toSummary(trip, activityCounts.getOrDefault(trip.getId(), 0L))));
     }
@@ -77,7 +79,7 @@ public class TripServiceImpl implements TripService {
         for (TripStatus status : TripStatus.values()) {
             counts.put(status, 0L);
         }
-        // Same filter as the list, status left open: the chips show every status
+        // Same filter as the list (own and shared trips), status left open: the chips show every status
         TripFilter filter = new TripFilter(null, q, null, null);
         for (TripStatusCount row : tripRepository.countByStatus(TripSpecifications.matching(userId, filter))) {
             counts.put(row.status(), row.count());
