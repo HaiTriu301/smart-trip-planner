@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
@@ -10,12 +11,17 @@ import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.MemberRole;
 import com.trieu.tripplanner.model.enums.MemberStatus;
+import com.trieu.tripplanner.provider.mail.MailMessage;
+import com.trieu.tripplanner.provider.mail.MockMailProvider;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,9 +41,9 @@ import java.util.List;
 /**
  * Sharing through every layer against real MySQL (design.md 6.2, 10.2 "Sharing"). Grown milestone by milestone
  * of Task 4.1: first what each role may do on the existing trip endpoints once the evaluator knows members,
- * later the whole invitation story over HTTP.
- * The member rows of this class are written through the repository: the invitation endpoints have their own
- * tests, and this one asks what a membership is worth once it exists.
+ * then the whole invitation story over HTTP (the last test), from the mail to the removal.
+ * The member rows of the fixture are written through the repository: those tests ask what a membership is
+ * worth once it exists. Mail is sent @Async, so the invitation story waits for it with Awaitility.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -49,6 +55,11 @@ class SharingFlowIntegrationTest {
     private static final Instant SEPT_1 = Instant.parse("2026-09-01T00:00:00Z");
     /** The raw token of the one pending invitation; only its SHA-256 is in the row, as in production. */
     private static final String PENDING_RAW_TOKEN = "raw-token-of-the-pending-invitation-for-testing";
+    /** The link in the invitation mail; Thymeleaf writes the ampersand in an href as &amp;. */
+    private static final Pattern INVITE_LINK = Pattern.compile("/invite\\?trip=(\\d+)(?:&amp;|&)token=([A-Za-z0-9_-]{64})");
+    private static final Pattern VERIFY_LINK = Pattern.compile("verify-email\\?token=([A-Za-z0-9_-]{64})");
+    private static final String FRIEND_EMAIL = "friend@example.com";
+    private static final String FRIEND_PASSWORD = "MatKhau123";
 
     @Autowired
     private MockMvcTester mvc;
@@ -68,6 +79,9 @@ class SharingFlowIntegrationTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @Autowired
+    private MockMailProvider mailProvider;
+
     private User owner;
     private String ownerBearer;
     private String editorBearer;
@@ -86,6 +100,7 @@ class SharingFlowIntegrationTest {
 
     @BeforeEach
     void createTripAndMembers() {
+        mailProvider.clear();
         owner = userRepository.save(user("owner@example.com"));
         User editor = userRepository.save(user("editor@example.com"));
         User viewer = userRepository.save(user("viewer@example.com"));
@@ -116,9 +131,131 @@ class SharingFlowIntegrationTest {
 
     @AfterEach
     void cleanUp() {
-        // trip_days, activities and trip_members go with their trips (ON DELETE CASCADE); trips before users
+        // trip_days, activities and trip_members go with their trips (ON DELETE CASCADE); trips before users;
+        // the tokens of the account the friend registers go with the users
         jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM users");
+        mailProvider.clear();
+    }
+
+    // ---- the whole story over HTTP (design.md 10.2 "Sharing", rules 14.23–14.25) ------------------------------
+
+    @Test
+    void aFriendWithoutAnAccountIsInvitedRegistersAcceptsEditsAfterAPromotionAndIsRemoved() {
+        // 1. The owner invites an email that has no account yet
+        MvcTestResult invited = send("POST", TRIPS_URL + "/" + tripId + "/members", ownerBearer, """
+                { "email": "Friend@Example.com", "role": "VIEWER" }
+                """);
+        assertThat(invited).hasStatus(HttpStatus.CREATED).bodyJson().isLenientlyEqualTo("""
+                { "data": { "userId": null, "email": "friend@example.com", "role": "VIEWER", "status": "PENDING" } }
+                """);
+        long memberId = ((Number) JsonPath.read(body(invited), "$.data.memberId")).longValue();
+
+        // 2. The mail carries the trip id and the raw token; the database holds only the token's hash
+        MailMessage mail = mailSentTo(1, FRIEND_EMAIL);
+        assertThat(mail.subject()).contains("Test owner@example.com").contains("Đà Lạt");
+        Matcher link = INVITE_LINK.matcher(mail.htmlBody());
+        assertThat(link.find()).as("invitation link in the mail").isTrue();
+        assertThat(Long.parseLong(link.group(1))).isEqualTo(tripId);
+        String token = link.group(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT invite_token_hash FROM trip_members WHERE id = ?",
+                String.class, memberId)).isNotEqualTo(token).hasSize(64);
+
+        // 3. The friend registers with the invited email (2nd mail: verification), verifies and logs in
+        String friendBearer = registerVerifyAndLogIn();
+
+        // 4. Registered is not accepted: nothing of the trip is visible yet
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
+
+        // 5. The link is for this trip and this email only
+        assertThat(send("POST", TRIPS_URL + "/" + (tripId + 1) + "/members/accept", friendBearer, tokenBody(token)))
+                .hasStatus(HttpStatus.BAD_REQUEST).bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", strangerBearer, tokenBody(token)))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", friendBearer, tokenBody(token)))
+                .hasStatusOk().bodyJson().isLenientlyEqualTo("{ \"data\": { \"memberId\": " + memberId
+                        + ", \"email\": \"friend@example.com\", \"role\": \"VIEWER\", \"status\": \"ACCEPTED\" } }");
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", friendBearer, tokenBody(token)))
+                .as("one-time link").hasStatus(HttpStatus.BAD_REQUEST);
+
+        // 6. A viewer now: the trip is in the list and in the detail with the right role, but read-only
+        assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk().bodyJson().isLenientlyEqualTo(
+                "{ \"data\": { \"totalElements\": 1, \"items\": [ { \"id\": " + tripId + ", \"ownerId\": " + owner.getId()
+                        + ", \"ownerName\": \"Test owner@example.com\" } ] } }");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("VIEWER");
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+                { "title": "Chưa được sửa" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+
+        // 7. Promoted to editor: writes work on the very next request
+        assertThat(send("PATCH", memberUrl(memberId), ownerBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatusOk();
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+                { "title": "Đà Lạt mùa hoa" }
+                """)).hasStatusOk();
+        assertThat(send("POST", activitiesUrl(), friendBearer, """
+                { "title": "Ăn sáng" }
+                """)).hasStatus(HttpStatus.CREATED);
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("EDITOR");
+
+        // 8. Removed: locked out at once, the row stays, the trip leaves the list
+        assertThat(send("DELETE", memberUrl(memberId), ownerBearer, null)).hasStatusOk();
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+                { "title": "Hết sửa được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class, memberId))
+                .isEqualTo("REMOVED");
+
+        // 9. Invited again: same row, new mail, the account is linked already, and the new link works
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members", ownerBearer, """
+                { "email": "friend@example.com", "role": "EDITOR" }
+                """)).hasStatus(HttpStatus.CREATED).bodyJson().isLenientlyEqualTo("{ \"data\": { \"memberId\": "
+                + memberId + ", \"status\": \"PENDING\", \"fullName\": \"Bạn Mới\" } }");
+        Matcher secondLink = INVITE_LINK.matcher(mailSentTo(3, FRIEND_EMAIL).htmlBody());
+        assertThat(secondLink.find()).isTrue();
+        assertThat(secondLink.group(2)).as("a fresh token, not the used one").isNotEqualTo(token);
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", friendBearer, tokenBody(secondLink.group(2))))
+                .hasStatusOk();
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("EDITOR");
+        assertThat(count("trip_members")).as("never a second row for the same email").isEqualTo(5);
+        // The whole story sent exactly three mails: two invitations and one verification
+        assertThat(mailProvider.sent()).hasSize(3);
+    }
+
+    /** The Phase 1 story in three calls, as the invited person would live it from the sign-up page. */
+    private String registerVerifyAndLogIn() {
+        assertThat(send("POST", "/api/v1/auth/register", null, """
+                { "email": "%s", "password": "%s", "confirmPassword": "%s", "fullName": "Bạn Mới" }
+                """.formatted(FRIEND_EMAIL, FRIEND_PASSWORD, FRIEND_PASSWORD))).hasStatus(HttpStatus.CREATED);
+        Matcher verify = VERIFY_LINK.matcher(mailSentTo(2, FRIEND_EMAIL).htmlBody());
+        assertThat(verify.find()).as("verification link in the mail").isTrue();
+        assertThat(send("POST", "/api/v1/auth/verify-email", null, tokenBody(verify.group(1)))).hasStatusOk();
+        MvcTestResult login = send("POST", "/api/v1/auth/login", null, """
+                { "email": "%s", "password": "%s" }
+                """.formatted(FRIEND_EMAIL, FRIEND_PASSWORD));
+        assertThat(login).hasStatusOk();
+        return "Bearer " + JsonPath.read(body(login), "$.data.accessToken");
+    }
+
+    /** Waits for the n-th mail (1-based) to leave on the async thread and checks who it went to. */
+    private MailMessage mailSentTo(int expectedCount, String expectedRecipient) {
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(mailProvider.sent()).hasSize(expectedCount));
+        MailMessage mail = mailProvider.sent().get(expectedCount - 1);
+        assertThat(mail.to()).isEqualTo(expectedRecipient);
+        return mail;
+    }
+
+    private static String tokenBody(String token) {
+        return "{ \"token\": \"" + token + "\" }";
     }
 
     // ---- what each role may do (design.md 6.2, test bắt buộc design 16 "Viewer sửa activity → 403") -------------
@@ -391,7 +528,10 @@ class SharingFlowIntegrationTest {
             case "DELETE" -> mvc.delete();
             default -> mvc.get();
         };
-        var prepared = request.uri(url).header(HttpHeaders.AUTHORIZATION, bearer);
+        var prepared = request.uri(url);
+        if (bearer != null) {
+            prepared = prepared.header(HttpHeaders.AUTHORIZATION, bearer);
+        }
         if (json != null) {
             prepared = prepared.contentType(MediaType.APPLICATION_JSON).content(json);
         }
