@@ -75,6 +75,8 @@ class SharingFlowIntegrationTest {
     /** A trip 01/10 → 03/10 of the owner with one member of every kind. */
     private long tripId;
     private long dayId;
+    private long viewerMemberId;
+    private long removedMemberId;
 
     @BeforeEach
     void createTripAndMembers() {
@@ -101,9 +103,9 @@ class SharingFlowIntegrationTest {
 
         Trip trip = tripRepository.findById(tripId).orElseThrow();
         tripMemberRepository.save(member(trip, editor, MemberRole.EDITOR, MemberStatus.ACCEPTED));
-        tripMemberRepository.save(member(trip, viewer, MemberRole.VIEWER, MemberStatus.ACCEPTED));
+        viewerMemberId = tripMemberRepository.save(member(trip, viewer, MemberRole.VIEWER, MemberStatus.ACCEPTED)).getId();
         tripMemberRepository.save(member(trip, pending, MemberRole.EDITOR, MemberStatus.PENDING));
-        tripMemberRepository.save(member(trip, removed, MemberRole.EDITOR, MemberStatus.REMOVED));
+        removedMemberId = tripMemberRepository.save(member(trip, removed, MemberRole.EDITOR, MemberStatus.REMOVED)).getId();
     }
 
     @AfterEach
@@ -199,7 +201,59 @@ class SharingFlowIntegrationTest {
         assertThat(send("GET", TRIPS_URL + "/" + tripId, strangerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
     }
 
+    // ---- changing a role takes effect at once (design.md 10.2 "đổi vai trò") ------------------------------------
+
+    @Test
+    void promotingAViewerToEditorLetsThemEditOnTheVeryNextRequest() {
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Chưa được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+
+        assertThat(send("PATCH", memberUrl(viewerMemberId), ownerBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatusOk().bodyJson().extractingPath("$.data.role").isEqualTo("EDITOR");
+
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Giờ thì được" }
+                """)).hasStatusOk();
+        assertThat(send("POST", activitiesUrl(), viewerBearer, """
+                { "title": "Ăn sáng" }
+                """)).hasStatus(HttpStatus.CREATED);
+
+        // and back: demoting cuts the write access just as fast
+        assertThat(send("PATCH", memberUrl(viewerMemberId), ownerBearer, """
+                { "role": "VIEWER" }
+                """)).hasStatusOk();
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Hết được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void onlyTheOwnerChangesRolesAndOnlyOfCurrentMembersOfThisTrip() {
+        assertThat(send("PATCH", memberUrl(viewerMemberId), editorBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", memberUrl(removedMemberId), ownerBearer, """
+                { "role": "VIEWER" }
+                """)).hasStatus(HttpStatus.NOT_FOUND);
+
+        MvcTestResult other = send("POST", TRIPS_URL, ownerBearer, """
+                { "title": "Huế", "startDate": "2026-11-01", "endDate": "2026-11-02" }
+                """);
+        assertThat(send("PATCH", TRIPS_URL + "/" + id(other) + "/members/" + viewerMemberId, ownerBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatus(HttpStatus.NOT_FOUND);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT role FROM trip_members WHERE id = ?", String.class, viewerMemberId))
+                .isEqualTo("VIEWER");
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------------
+
+    private String memberUrl(long memberId) {
+        return TRIPS_URL + "/" + tripId + "/members/" + memberId;
+    }
 
     private String activitiesUrl() {
         return TRIPS_URL + "/" + tripId + "/days/" + dayId + "/activities";

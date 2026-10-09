@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
+import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
@@ -44,6 +45,7 @@ public class SharingServiceImpl implements SharingService {
 
     private static final String TRIP = "Trip";
     private static final String USER = "User";
+    private static final String TRIP_MEMBER = "TripMember";
 
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
@@ -123,6 +125,32 @@ public class SharingServiceImpl implements SharingService {
         members.add(memberMapper.toOwnerResponse(trip.getOwner()));
         members.addAll(memberMapper.toResponses(tripMemberRepository.findActiveByTripId(tripId)));
         return members;
+    }
+
+    @Override
+    @Transactional
+    public MemberResponse changeRole(Long tripId, Long memberId, ChangeMemberRoleRequest request) {
+        TripMember member = findActiveMember(tripId, memberId);
+        if (member.getRole() == request.role()) {
+            // Nothing to write: Hibernate would find no dirty field anyway, and the log stays quiet
+            return memberMapper.toResponse(member);
+        }
+        MemberRole previous = member.getRole();
+        member.setRole(request.role());
+        TripMember saved = tripMemberRepository.save(member);
+        log.info("Trip {}: member {} role {} -> {}", tripId, memberId, previous, request.role());
+        return memberMapper.toResponse(saved);
+    }
+
+    /**
+     * A row of this trip that is still part of it (ACCEPTED or PENDING). The trip itself is checked first so a
+     * deleted trip answers 404 before anything is read from trip_members (CLAUDE.md rule 15).
+     */
+    private TripMember findActiveMember(Long tripId, Long memberId) {
+        findTrip(tripId);
+        return tripMemberRepository.findByIdAndTripId(memberId, tripId)
+                .filter(member -> member.getStatus() != MemberStatus.REMOVED)
+                .orElseThrow(() -> new ResourceNotFoundException(TRIP_MEMBER, memberId));
     }
 
     private TripMember newInvitation(Trip trip, User owner, String email, MemberRole role) {

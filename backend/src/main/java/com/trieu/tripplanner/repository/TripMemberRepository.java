@@ -26,6 +26,12 @@ public interface TripMemberRepository extends JpaRepository<TripMember, Long> {
     Optional<TripMember> findByInviteTokenHash(String inviteTokenHash);
 
     /**
+     * A member row addressed by the owner (change role, remove): the id must belong to the trip of the URL, so a
+     * memberId of another trip is simply "not found". Any status; the service decides what REMOVED means.
+     */
+    Optional<TripMember> findByIdAndTripId(Long id, Long tripId);
+
+    /**
      * The people shown on a trip besides the owner (design.md 10.2 "Sharing", GET /members): accepted members
      * first, then pending invitations, each group oldest invitation first; REMOVED rows are hidden. The account
      * is fetched in the same query, so mapping the names costs no further SQL. The CASE is spelt out because

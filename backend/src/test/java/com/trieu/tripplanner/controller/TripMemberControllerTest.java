@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
+import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripRole;
@@ -254,6 +255,75 @@ class TripMemberControllerTest {
                 """))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    // ---- PATCH /trips/{tripId}/members/{memberId} ----------------------------------------------------------------
+
+    @Test
+    void changeRoleReturnsTheMemberWhenOwner() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+        when(sharingService.changeRole(TRIP_ID, 31L, new ChangeMemberRoleRequest(MemberRole.EDITOR)))
+                .thenReturn(new MemberResponse(31L, 9L, "Bạn đồng hành", "friend@example.com", null,
+                        TripRole.EDITOR, MemberStatus.ACCEPTED, INVITED_AT, INVITED_AT.plusSeconds(60)));
+
+        assertThat(changeRole(31L, """
+                { "role": "EDITOR" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": { "memberId": 31, "role": "EDITOR", "status": "ACCEPTED" } }
+                        """);
+    }
+
+    @Test
+    void changeRoleReturns403WhenNotOwnerAndNeverReachesService() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(changeRole(31L, """
+                { "role": "EDITOR" }
+                """))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        verify(sharingService, never()).changeRole(any(), any(), any());
+    }
+
+    @Test
+    void changeRoleWithoutRoleReturns400OnTheRoleField() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(changeRole(31L, "{}"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("role");
+        verifyNoInteractions(sharingService);
+    }
+
+    @Test
+    void changeRoleToOwnerReturns400BecauseTheValueDoesNotExist() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(changeRole(31L, """
+                { "role": "OWNER" }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(sharingService);
+    }
+
+    @Test
+    void changeRoleOfUnknownMemberReturns404() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+        when(sharingService.changeRole(eq(TRIP_ID), eq(99L), any()))
+                .thenThrow(new ResourceNotFoundException("TripMember", 99L));
+
+        assertThat(changeRole(99L, """
+                { "role": "EDITOR" }
+                """))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    private MvcTestResult changeRole(long memberId, String body) {
+        return mvc.patch().uri(MEMBERS_URL + "/" + memberId).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body).exchange();
     }
 
     // ---- POST /trips/{tripId}/members/accept ---------------------------------------------------------------------

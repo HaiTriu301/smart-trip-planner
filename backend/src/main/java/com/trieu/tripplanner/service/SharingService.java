@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
+import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import java.util.List;
@@ -49,5 +50,16 @@ public interface SharingService {
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
      */
     List<MemberResponse> listMembers(Long tripId);
+
+    /**
+     * Sets the role of a member or of a pending invitation (design.md 10.2 "Quy ước Sharing API", đổi vai trò).
+     * Takes effect on the member's next request: the evaluator reads the database (Task 4.3 adds a cache and
+     * evicts it here). Sending the current role again answers 200 without writing.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException the trip does not exist, or memberId is
+     *                                                                   not a row of this trip, or the member was
+     *                                                                   removed (404)
+     */
+    MemberResponse changeRole(Long tripId, Long memberId, ChangeMemberRoleRequest request);
 
 }

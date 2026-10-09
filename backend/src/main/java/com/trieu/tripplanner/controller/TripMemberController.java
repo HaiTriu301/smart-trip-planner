@@ -2,6 +2,7 @@ package com.trieu.tripplanner.controller;
 
 import com.trieu.tripplanner.common.ApiResponse;
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
+import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.security.CustomUserDetails;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -55,6 +57,17 @@ public class TripMemberController {
     public ApiResponse<MemberResponse> invite(@PathVariable Long tripId,
                                               @Valid @RequestBody InviteMemberRequest request) {
         return ApiResponse.ok(sharingService.invite(tripId, request));
+    }
+
+    @Operation(summary = "Đổi vai trò thành viên",
+               description = "Chỉ chủ chuyến đi. Áp dụng cho thành viên đã nhận lời lẫn lời mời đang chờ; có hiệu "
+                       + "lực ngay ở request kế tiếp của người đó. Gửi lại vai trò đang có vẫn 200. 404 nếu memberId "
+                       + "không thuộc chuyến đi này hoặc người đó đã bị gỡ.")
+    @PatchMapping("/{memberId}")
+    @PreAuthorize("@tripPermission.isOwner(#tripId, principal)")
+    public ApiResponse<MemberResponse> changeRole(@PathVariable Long tripId, @PathVariable Long memberId,
+                                                  @Valid @RequestBody ChangeMemberRoleRequest request) {
+        return ApiResponse.ok(sharingService.changeRole(tripId, memberId, request));
     }
 
     @Operation(summary = "Nhận lời mời",

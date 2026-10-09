@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
+import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripRole;
@@ -438,7 +439,89 @@ class SharingServiceTest {
         verifyNoInteractions(tripMemberRepository);
     }
 
+    // ---- changeRole --------------------------------------------------------------------------------------------
+
+    @Test
+    void changeRolePromotesAViewerToEditor() {
+        tripExists();
+        TripMember viewer = memberOfTrip(MemberStatus.ACCEPTED);
+        saveReturnsArgument();
+
+        MemberResponse response = sharingService.changeRole(TRIP_ID, MEMBER_ID,
+                new ChangeMemberRoleRequest(MemberRole.EDITOR));
+
+        assertThat(savedMember()).isSameAs(viewer);
+        assertThat(viewer.getRole()).isEqualTo(MemberRole.EDITOR);
+        assertThat(viewer.getStatus()).as("status untouched").isEqualTo(MemberStatus.ACCEPTED);
+        assertThat(response.role()).isEqualTo(TripRole.EDITOR);
+    }
+
+    @Test
+    void changeRoleAlsoWorksOnAPendingInvitation() {
+        tripExists();
+        TripMember pending = memberOfTrip(MemberStatus.PENDING);
+        saveReturnsArgument();
+
+        sharingService.changeRole(TRIP_ID, MEMBER_ID, new ChangeMemberRoleRequest(MemberRole.EDITOR));
+
+        assertThat(pending.getRole()).isEqualTo(MemberRole.EDITOR);
+        assertThat(pending.getStatus()).isEqualTo(MemberStatus.PENDING);
+    }
+
+    @Test
+    void changeRoleToTheCurrentRoleAnswersWithoutWriting() {
+        tripExists();
+        memberOfTrip(MemberStatus.ACCEPTED);
+
+        MemberResponse response = sharingService.changeRole(TRIP_ID, MEMBER_ID,
+                new ChangeMemberRoleRequest(MemberRole.VIEWER));
+
+        assertThat(response.role()).isEqualTo(TripRole.VIEWER);
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRoleOfARemovedMemberIs404() {
+        tripExists();
+        TripMember removed = memberOfTrip(MemberStatus.REMOVED);
+
+        assertThatThrownBy(() -> sharingService.changeRole(TRIP_ID, MEMBER_ID,
+                new ChangeMemberRoleRequest(MemberRole.EDITOR)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThat(removed.getRole()).isEqualTo(MemberRole.VIEWER);
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRoleOfAMemberIdThatIsNotOnThisTripIs404() {
+        tripExists();
+        when(tripMemberRepository.findByIdAndTripId(MEMBER_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.changeRole(TRIP_ID, MEMBER_ID,
+                new ChangeMemberRoleRequest(MemberRole.EDITOR)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRoleOnAMissingTripIs404BeforeTheMemberIsLookedUp() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.changeRole(TRIP_ID, MEMBER_ID,
+                new ChangeMemberRoleRequest(MemberRole.EDITOR)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(tripMemberRepository);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
+
+    /** A VIEWER row (MEMBER_ID) of friend@example.com on the trip, found by id + trip, in the given status. */
+    private TripMember memberOfTrip(MemberStatus status) {
+        TripMember row = row("friend@example.com", status,
+                status == MemberStatus.PENDING ? null : TestUsers.verified(9L, "friend@example.com"));
+        when(tripMemberRepository.findByIdAndTripId(MEMBER_ID, TRIP_ID)).thenReturn(Optional.of(row));
+        return row;
+    }
 
     /** A PENDING VIEWER row on the trip for the email, without an account yet, valid until NOW + 3 days. */
     private TripMember pendingInvitation(String email, String rawToken) {
