@@ -30,6 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import java.util.List;
 
 /**
  * Sharing through every layer against real MySQL (design.md 6.2, 10.2 "Sharing"). Grown milestone by milestone
@@ -204,6 +205,27 @@ class SharingFlowIntegrationTest {
 
         assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(send("GET", TRIPS_URL + "/" + tripId, strangerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    // ---- the detail tells everybody their role (design.md 10.2 "GET /{id} trả thêm members và myRole") ----------
+
+    @Test
+    void tripDetailTellsEachPersonTheirRoleAndListsTheMembersOwnerFirst() {
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, ownerBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("OWNER");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("EDITOR");
+        MvcTestResult viewed = send("GET", TRIPS_URL + "/" + tripId, viewerBearer, null);
+        assertThat(viewed).hasStatusOk().bodyJson().extractingPath("$.data.myRole").isEqualTo("VIEWER");
+
+        // The same list as GET /members: owner, accepted members, pending invitation; the removed one is absent
+        assertThat(JsonPath.<List<String>>read(body(viewed), "$.data.members[*].email")).containsExactly(
+                "owner@example.com", "editor@example.com", "viewer@example.com", "pending@example.com");
+        assertThat(JsonPath.<List<String>>read(body(viewed), "$.data.members[*].role")).containsExactly(
+                "OWNER", "EDITOR", "VIEWER", "EDITOR");
+        assertThat(JsonPath.<List<String>>read(body(viewed), "$.data.members[*].status")).containsExactly(
+                "ACCEPTED", "ACCEPTED", "ACCEPTED", "PENDING");
+        assertThat(body(viewed)).doesNotContainIgnoringCase("password");
     }
 
     // ---- the shared trip in my list (design.md 10.2 "Chuyến đi được chia sẻ trong danh sách") -------------------

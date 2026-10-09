@@ -55,6 +55,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.dto.response.TripRole;
+import com.trieu.tripplanner.model.enums.MemberStatus;
+import java.nio.charset.StandardCharsets;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
  * Web layer only: TripService and the tripPermission bean are mocks, so these tests pin down routing,
@@ -248,13 +253,16 @@ class TripControllerTest {
     @Test
     void getReturnsTripWhenViewAllowed() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(tripService.get(TRIP_ID)).thenReturn(sampleDetail());
+        // The user id comes from the token, never from the request (CLAUDE.md rule 16)
+        when(tripService.get(TRIP_ID, USER_ID)).thenReturn(sampleDetail());
 
-        assertThat(mvc.get().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+        MvcTestResult result = mvc.get().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer).exchange();
+
+        assertThat(result)
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": true,
-                          "data": { "id": 5, "title": "Đà Lạt 3 ngày", "slug": "da-lat-x7k2qp",
+                          "data": { "id": 5, "title": "Đà Lạt 3 ngày", "slug": "da-lat-x7k2qp", "myRole": "OWNER",
                                     "days": [ { "id": 11, "dayIndex": 1, "date": "2026-10-01", "title": "Đến nơi",
                                                 "activities": [
                                                   { "id": 21, "dayId": 11, "title": "Ăn sáng", "type": "FOOD",
@@ -262,8 +270,13 @@ class TripControllerTest {
                                                   { "id": 22, "dayId": 11, "title": "Dạo hồ", "startTime": null,
                                                     "orderIndex": 2000 } ] },
                                               { "id": 12, "dayIndex": 2, "date": "2026-10-02", "title": null,
-                                                "activities": [] } ] } }
+                                                "activities": [] } ],
+                                    "members": [ { "memberId": null, "userId": 7, "role": "OWNER", "status": "ACCEPTED" },
+                                                 { "memberId": 31, "userId": 9, "fullName": "Bạn đồng hành",
+                                                   "role": "EDITOR", "status": "ACCEPTED" } ] } }
                         """);
+        assertThat(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8))
+                .doesNotContainIgnoringCase("password");
 
         // The evaluator receives the principal built from the token, not something from the request
         verify(tripPermission).canView(eq(TRIP_ID),
@@ -277,13 +290,13 @@ class TripControllerTest {
         assertThat(mvc.get().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
-        verify(tripService, never()).get(any());
+        verify(tripService, never()).get(any(), any());
     }
 
     @Test
     void getReturns404WhenTripDoesNotExist() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(tripService.get(TRIP_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
+        when(tripService.get(TRIP_ID, USER_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
 
         assertThat(mvc.get().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.NOT_FOUND)
@@ -533,7 +546,13 @@ class TripControllerTest {
                 List.of(new TripDayDetailResponse(11L, 1, LocalDate.of(2026, 10, 1), "Đến nơi", null, List.of(
                                 activity(21L, "Ăn sáng", ActivityType.FOOD, LocalTime.of(9, 0), LocalTime.of(10, 0), 1000),
                                 activity(22L, "Dạo hồ", ActivityType.OTHER, null, null, 2000))),
-                        new TripDayDetailResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null, List.of())));
+                        new TripDayDetailResponse(12L, 2, LocalDate.of(2026, 10, 2), null, null, List.of())),
+                List.of(new MemberResponse(null, USER_ID, "Chủ chuyến", "owner@example.com", null, TripRole.OWNER,
+                                MemberStatus.ACCEPTED, null, null),
+                        new MemberResponse(31L, 9L, "Bạn đồng hành", "friend@example.com", null, TripRole.EDITOR,
+                                MemberStatus.ACCEPTED, Instant.parse("2026-09-01T00:00:00Z"),
+                                Instant.parse("2026-09-01T00:01:00Z"))),
+                TripRole.OWNER);
     }
 
     private static ActivityResponse activity(long id, String title, ActivityType type, LocalTime start, LocalTime end,

@@ -43,12 +43,16 @@ public interface TripService {
     TripResponse create(Long userId, CreateTripRequest request);
 
     /**
-     * The trip with its days in calendar order and the activities of each day in display order
-     * (design.md 10.2): three queries whatever the number of days and activities.
+     * The trip with its days in calendar order and the activities of each day in display order, plus its members
+     * (owner first, like GET /members) and the caller's own role (design.md 10.2): four queries whatever the
+     * number of days, activities and members.
      *
+     * @param userId the caller (CLAUDE.md rule 16), already let in by the permission evaluator
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     * @throws com.trieu.tripplanner.exception.ForbiddenException        the caller turns out to have no role,
+     *                                                                   i.e. lost it between the check and the read
      */
-    TripDetailResponse get(Long tripId);
+    TripDetailResponse get(Long tripId, Long userId);
 
     /**
      * Partial update; rules are checked on the merged result. The slug and status never change here.

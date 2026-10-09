@@ -63,6 +63,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
+import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.dto.response.TripRole;
+import com.trieu.tripplanner.exception.ForbiddenException;
+import com.trieu.tripplanner.model.enums.MemberStatus;
+import java.time.Instant;
 
 /**
  * Pure unit test: repositories and the slug generator are mocked, the MapStruct mapper is real.
@@ -91,6 +96,9 @@ class TripServiceTest {
     @Mock
     private ActivityRepository activityRepository;
 
+    @Mock
+    private SharingService sharingService;
+
     // Real generated mapper
     private final TripMapper tripMapper = new TripMapperImpl();
 
@@ -99,7 +107,7 @@ class TripServiceTest {
     @BeforeEach
     void setUp() {
         tripService = new TripServiceImpl(tripRepository, userRepository, tripMapper, slugGenerator, tripDayService,
-                activityRepository);
+                activityRepository, sharingService);
     }
 
     @Nested
@@ -343,30 +351,64 @@ class TripServiceTest {
     @Nested
     class ReadAndDelete {
 
+        private static final MemberResponse OWNER_ROW = new MemberResponse(null, USER_ID, "Test owner@example.com",
+                "owner@example.com", null, TripRole.OWNER, MemberStatus.ACCEPTED, null, null);
+        private static final MemberResponse EDITOR_ROW = new MemberResponse(31L, 9L, "Bạn đồng hành",
+                "friend@example.com", null, TripRole.EDITOR, MemberStatus.ACCEPTED,
+                Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2026-09-01T00:01:00Z"));
+        private static final MemberResponse PENDING_ROW = new MemberResponse(32L, 12L, "Chưa nhận lời",
+                "waiting@example.com", null, TripRole.VIEWER, MemberStatus.PENDING,
+                Instant.parse("2026-09-02T00:00:00Z"), null);
+
         @Test
-        void getReturnsTheTripWithItsDaysAndTheirActivities() {
+        void getReturnsTheTripWithItsDaysActivitiesMembersAndTheOwnersRole() {
             Trip trip = withId(minimalTrip(), TRIP_ID);
             ActivityResponse breakfast = TestActivities.response(21L, 11L, "Ăn sáng", ActivityType.FOOD, null, null,
                     1000, null, null, null, null, USER_ID, 0L, null, null);
             List<TripDayDetailResponse> days = List.of(
                     new TripDayDetailResponse(11L, 1, OCT_1, "Đến nơi", null, List.of(breakfast)),
                     new TripDayDetailResponse(12L, 2, OCT_1.plusDays(1), null, null, List.of()));
-            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+            when(tripRepository.findWithOwnerById(TRIP_ID)).thenReturn(Optional.of(trip));
+            when(sharingService.listMembers(TRIP_ID)).thenReturn(List.of(OWNER_ROW, EDITOR_ROW, PENDING_ROW));
             when(tripDayService.listWithActivities(TRIP_ID)).thenReturn(days);
 
-            TripDetailResponse detail = tripService.get(TRIP_ID);
+            TripDetailResponse detail = tripService.get(TRIP_ID, USER_ID);
 
             assertThat(detail.id()).isEqualTo(TRIP_ID);
             assertThat(detail.ownerId()).isEqualTo(USER_ID);
             assertThat(detail.title()).isEqualTo("Huế");
             assertThat(detail.days()).isEqualTo(days);
+            // The member list is passed through as the sharing service built it (owner first)
+            assertThat(detail.members()).containsExactly(OWNER_ROW, EDITOR_ROW, PENDING_ROW);
+            assertThat(detail.myRole()).isEqualTo(TripRole.OWNER);
         }
 
         @Test
-        void getMissingTripThrowsNotFoundWithoutLoadingDaysOrActivities() {
-            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+        void getTellsAnAcceptedMemberTheirOwnRole() {
+            when(tripRepository.findWithOwnerById(TRIP_ID)).thenReturn(Optional.of(withId(minimalTrip(), TRIP_ID)));
+            when(sharingService.listMembers(TRIP_ID)).thenReturn(List.of(OWNER_ROW, EDITOR_ROW, PENDING_ROW));
+            when(tripDayService.listWithActivities(TRIP_ID)).thenReturn(List.of());
 
-            assertThatThrownBy(() -> tripService.get(TRIP_ID)).isInstanceOf(ResourceNotFoundException.class);
+            assertThat(tripService.get(TRIP_ID, 9L).myRole()).isEqualTo(TripRole.EDITOR);
+        }
+
+        @Test
+        void getBySomebodyWithoutAnAcceptedRoleIsForbiddenBeforeTheDaysAreLoaded() {
+            when(tripRepository.findWithOwnerById(TRIP_ID)).thenReturn(Optional.of(withId(minimalTrip(), TRIP_ID)));
+            when(sharingService.listMembers(TRIP_ID)).thenReturn(List.of(OWNER_ROW, EDITOR_ROW, PENDING_ROW));
+
+            // A pending invitation is not a role; the evaluator would not have let 12 in, this is the safety net
+            assertThatThrownBy(() -> tripService.get(TRIP_ID, 12L)).isInstanceOf(ForbiddenException.class);
+            assertThatThrownBy(() -> tripService.get(TRIP_ID, 99L)).isInstanceOf(ForbiddenException.class);
+            verify(tripDayService, never()).listWithActivities(any());
+        }
+
+        @Test
+        void getMissingTripThrowsNotFoundWithoutLoadingMembersDaysOrActivities() {
+            when(tripRepository.findWithOwnerById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> tripService.get(TRIP_ID, USER_ID)).isInstanceOf(ResourceNotFoundException.class);
+            verifyNoInteractions(sharingService);
             verify(tripDayService, never()).listWithActivities(any());
         }
 

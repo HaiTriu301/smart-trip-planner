@@ -111,6 +111,23 @@ class TripRepositoryTest {
     }
 
     @Test
+    void findWithOwnerByIdLoadsTheOwnerInTheSameQueryAndHidesDeletedTrips() {
+        Trip trip = tripRepository.saveAndFlush(trip(owner, "Đà Lạt", "da-lat-aaaaaa", OCT_1, OCT_1));
+        Trip deleted = tripRepository.saveAndFlush(trip(owner, "Đã xoá", "da-xoa-nnnnnn", OCT_1, OCT_1));
+        tripRepository.delete(deleted);
+        tripRepository.flush();
+        entityManager.clear();
+
+        assertThat(tripRepository.findWithOwnerById(trip.getId())).hasValueSatisfying(found -> {
+            // Already loaded: the member list reads the owner's name without a second SELECT
+            assertThat(Hibernate.isInitialized(found.getOwner())).isTrue();
+            assertThat(found.getOwner().getEmail()).isEqualTo("owner@example.com");
+        });
+        assertThat(tripRepository.findWithOwnerById(deleted.getId())).isEmpty();
+        assertThat(tripRepository.findWithOwnerById(999_999L)).isEmpty();
+    }
+
+    @Test
     void countBySlugIncludingDeletedStillSeesSoftDeletedTrips() {
         Trip trip = tripRepository.saveAndFlush(trip(owner, "Sa Pa", "sa-pa-cccccc", OCT_1, OCT_1));
         tripRepository.delete(trip);

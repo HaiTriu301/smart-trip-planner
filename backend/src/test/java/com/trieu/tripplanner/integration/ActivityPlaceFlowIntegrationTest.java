@@ -288,8 +288,9 @@ class ActivityPlaceFlowIntegrationTest {
         // The numbers of the tests written before places existed (ActivityFlow, TripDayFlow, ActivityReorderFlow)
         // list of a day: permission + trip exists + day of trip + activities
         assertThat(statementsFor("GET", dayUrl(0), null)).isEqualTo(4);
-        // trip detail: permission + trip + days + activities
-        assertThat(statementsFor("GET", TRIPS_URL + "/" + tripId, null)).isEqualTo(4);
+        // trip detail: permission + trip with its owner + members with their accounts + days + activities
+        // (4 before Task 4.1: the members and the caller's role came with the detail, design.md 10.2)
+        assertThat(statementsFor("GET", TRIPS_URL + "/" + tripId, null)).isEqualTo(5);
         // reorder: permission + trip exists + activities of the batch + days + UPDATE + activities of the day
         assertThat(statementsFor("PUT", TRIPS_URL + "/" + tripId + "/activities/reorder", """
                 { "items": [ { "activityId": %d, "dayId": %d, "orderIndex": 500 } ] }

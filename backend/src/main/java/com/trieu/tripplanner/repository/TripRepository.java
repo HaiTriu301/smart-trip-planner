@@ -31,6 +31,13 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
     Optional<TripAccess> findAccess(@Param("tripId") Long tripId, @Param("userId") Long userId);
 
     /**
+     * The trip and its owner in one SELECT, for the detail page: the member list names the owner, so loading
+     * them separately would be a second query on every GET /trips/{id}. Live trips only (@SQLRestriction).
+     */
+    @Query("select t from Trip t join fetch t.owner where t.id = :id")
+    Optional<Trip> findWithOwnerById(@Param("id") Long id);
+
+    /**
      * Native on purpose: soft-deleted rows still hold their slug in the UNIQUE key, and a JPQL query would
      * not see them because of @SQLRestriction.
      */

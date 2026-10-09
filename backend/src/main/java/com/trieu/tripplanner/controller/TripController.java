@@ -87,11 +87,14 @@ public class TripController {
     }
 
     @Operation(summary = "Chi tiết chuyến đi",
-               description = "Kèm danh sách ngày theo thứ tự. 403 nếu không có quyền xem, 404 nếu không tồn tại.")
+               description = "Kèm danh sách ngày theo thứ tự, danh sách thành viên (chủ đứng đầu, như GET /members) "
+                       + "và myRole (OWNER / EDITOR / VIEWER) của người gọi để giao diện ẩn nút ghi với người chỉ xem. "
+                       + "403 nếu không có quyền xem, 404 nếu không tồn tại.")
     @GetMapping("/{id}")
     @PreAuthorize("@tripPermission.canView(#id, principal)")
-    public ApiResponse<TripDetailResponse> get(@PathVariable Long id) {
-        return ApiResponse.ok(tripService.get(id));
+    public ApiResponse<TripDetailResponse> get(@PathVariable Long id,
+                                               @AuthenticationPrincipal CustomUserDetails principal) {
+        return ApiResponse.ok(tripService.get(id, principal.getId()));
     }
 
     @Operation(summary = "Sửa chuyến đi",

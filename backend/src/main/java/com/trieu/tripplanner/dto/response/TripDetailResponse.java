@@ -12,7 +12,8 @@ import java.util.List;
  * days in calendar order, each with its activities in display order. Flat on purpose so the client reads the
  * same field names as TripResponse.
  * POST / PATCH keep returning the lighter TripResponse, so a write never has to load the days.
- * Members are added in Phase 4.
+ * Since Task 4.1 also the members (same list as GET /members, owner first) and the caller's own role, so the UI
+ * can hide every write control from a viewer without a second request.
  */
 public record TripDetailResponse(
         Long id,
@@ -33,5 +34,8 @@ public record TripDetailResponse(
         Long version,
         Instant createdAt,
         Instant updatedAt,
-        List<TripDayDetailResponse> days) {
+        List<TripDayDetailResponse> days,
+        List<MemberResponse> members,
+        // What the caller is to this trip: OWNER, EDITOR or VIEWER (the evaluator let nobody else in)
+        TripRole myRole) {
 }

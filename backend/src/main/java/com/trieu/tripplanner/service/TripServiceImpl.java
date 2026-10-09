@@ -7,15 +7,19 @@ import com.trieu.tripplanner.dto.internal.TripFilter;
 import com.trieu.tripplanner.dto.internal.TripStatusCount;
 import com.trieu.tripplanner.dto.request.CreateTripRequest;
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripRole;
 import com.trieu.tripplanner.dto.response.TripStatusCountsResponse;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ForbiddenException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.exception.SlugGenerationException;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.enums.MemberStatus;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
 import com.trieu.tripplanner.repository.ActivityRepository;
@@ -60,6 +64,7 @@ public class TripServiceImpl implements TripService {
     private final SlugGenerator slugGenerator;
     private final TripDayService tripDayService;
     private final ActivityRepository activityRepository;
+    private final SharingService sharingService;
 
     @Override
     @Transactional(readOnly = true)
@@ -120,10 +125,21 @@ public class TripServiceImpl implements TripService {
 
     @Override
     @Transactional(readOnly = true)
-    public TripDetailResponse get(Long tripId) {
-        Trip trip = findTrip(tripId);
+    public TripDetailResponse get(Long tripId, Long userId) {
+        // The owner comes with the trip: the member list names them, and that must not cost a query of its own
+        Trip trip = tripRepository.findWithOwnerById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException(TRIP, tripId));
+        // Same transaction, same persistence context: the sharing service finds the trip loaded above, no SELECT
+        List<MemberResponse> members = sharingService.listMembers(tripId);
+        TripRole myRole = members.stream()
+                .filter(member -> userId.equals(member.userId()) && member.status() == MemberStatus.ACCEPTED)
+                .map(MemberResponse::role)
+                .findFirst()
+                // The evaluator let the caller in, so this only happens when the membership went between its
+                // check and this read; the owner is in the list too, as its first row
+                .orElseThrow(() -> new ForbiddenException("user %d has no role on trip %d".formatted(userId, tripId)));
         // Days and activities by trip id, one query each, instead of lazy collections per trip and per day
-        return tripMapper.toDetail(trip, tripDayService.listWithActivities(tripId));
+        return tripMapper.toDetail(trip, tripDayService.listWithActivities(tripId), members, myRole);
     }
 
     @Override

@@ -131,8 +131,9 @@ class TripDayFlowIntegrationTest {
         long shortQueries = statementsFor(shortTrip);
         long longQueries = statementsFor(longTrip);
 
-        // permission check + trip + days + activities: independent of how many there are, i.e. no N+1
-        assertThat(shortQueries).isEqualTo(4);
+        // permission check + trip with its owner + members + days + activities: independent of how many there
+        // are, i.e. no N+1 (4 before Task 4.1, which put the members and the caller's role into the detail)
+        assertThat(shortQueries).isEqualTo(5);
         assertThat(longQueries).isEqualTo(shortQueries);
 
         // ...and the activities really are in the answer, under their own day

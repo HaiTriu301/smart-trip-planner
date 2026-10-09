@@ -1,9 +1,11 @@
 package com.trieu.tripplanner.mapper;
 
 import com.trieu.tripplanner.dto.request.UpdateTripRequest;
+import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
 import com.trieu.tripplanner.dto.response.TripResponse;
+import com.trieu.tripplanner.dto.response.TripRole;
 import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.model.Trip;
 import java.util.List;
@@ -35,12 +37,16 @@ public interface TripMapper {
     TripSummaryResponse toSummary(Trip trip, long activityCount);
 
     /**
-     * Two sources: the trip and its days with their activities, assembled by TripDayService from one query per
-     * table (no N+1). The list arrives as DTOs, so this mapper needs no other mapper.
+     * Four sources: the trip, its days with their activities (TripDayService, one query per table), the member
+     * list (SharingService, owner first) and the caller's role. Everything but the trip arrives as DTOs, so this
+     * mapper needs no other mapper.
      */
     @Mapping(target = "ownerId", source = "trip.owner.id")
     @Mapping(target = "days", source = "days")
-    TripDetailResponse toDetail(Trip trip, List<TripDayDetailResponse> days);
+    @Mapping(target = "members", source = "members")
+    @Mapping(target = "myRole", source = "myRole")
+    TripDetailResponse toDetail(Trip trip, List<TripDayDetailResponse> days, List<MemberResponse> members,
+                                TripRole myRole);
 
     /**
      * PATCH semantics: null in the request keeps the current value. Only fields with a setter on Trip are
