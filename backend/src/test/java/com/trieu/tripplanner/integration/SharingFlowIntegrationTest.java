@@ -1,0 +1,568 @@
+package com.trieu.tripplanner.integration;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import com.jayway.jsonpath.JsonPath;
+import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.common.util.SecureTokens;
+import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.TripMember;
+import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.MemberRole;
+import com.trieu.tripplanner.model.enums.MemberStatus;
+import com.trieu.tripplanner.provider.mail.MailMessage;
+import com.trieu.tripplanner.provider.mail.MockMailProvider;
+import com.trieu.tripplanner.repository.TripMemberRepository;
+import com.trieu.tripplanner.repository.TripRepository;
+import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.security.JwtTokenProvider;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import java.util.List;
+
+/**
+ * Sharing through every layer against real MySQL (design.md 6.2, 10.2 "Sharing"). Grown milestone by milestone
+ * of Task 4.1: first what each role may do on the existing trip endpoints once the evaluator knows members,
+ * then the whole invitation story over HTTP (the last test), from the mail to the removal.
+ * The member rows of the fixture are written through the repository: those tests ask what a membership is
+ * worth once it exists. Mail is sent @Async, so the invitation story waits for it with Awaitility.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Import(TestcontainersConfiguration.class)
+class SharingFlowIntegrationTest {
+
+    private static final String TRIPS_URL = "/api/v1/trips";
+    private static final Instant SEPT_1 = Instant.parse("2026-09-01T00:00:00Z");
+    /** The raw token of the one pending invitation; only its SHA-256 is in the row, as in production. */
+    private static final String PENDING_RAW_TOKEN = "raw-token-of-the-pending-invitation-for-testing";
+    /** The link in the invitation mail; Thymeleaf writes the ampersand in an href as &amp;. */
+    private static final Pattern INVITE_LINK = Pattern.compile("/invite\\?trip=(\\d+)(?:&amp;|&)token=([A-Za-z0-9_-]{64})");
+    private static final Pattern VERIFY_LINK = Pattern.compile("verify-email\\?token=([A-Za-z0-9_-]{64})");
+    private static final String FRIEND_EMAIL = "friend@example.com";
+    private static final String FRIEND_PASSWORD = "MatKhau123";
+
+    @Autowired
+    private MockMvcTester mvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private TripRepository tripRepository;
+
+    @Autowired
+    private TripMemberRepository tripMemberRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private MockMailProvider mailProvider;
+
+    private User owner;
+    private String ownerBearer;
+    private String editorBearer;
+    private String viewerBearer;
+    private String pendingBearer;
+    private String removedBearer;
+    private String strangerBearer;
+
+    /** A trip 01/10 → 03/10 of the owner with one member of every kind. */
+    private long tripId;
+    private long dayId;
+    private long editorMemberId;
+    private long viewerMemberId;
+    private long pendingMemberId;
+    private long removedMemberId;
+
+    @BeforeEach
+    void createTripAndMembers() {
+        mailProvider.clear();
+        owner = userRepository.save(user("owner@example.com"));
+        User editor = userRepository.save(user("editor@example.com"));
+        User viewer = userRepository.save(user("viewer@example.com"));
+        User pending = userRepository.save(user("pending@example.com"));
+        User removed = userRepository.save(user("removed@example.com"));
+        User stranger = userRepository.save(user("stranger@example.com"));
+        ownerBearer = bearerFor(owner);
+        editorBearer = bearerFor(editor);
+        viewerBearer = bearerFor(viewer);
+        pendingBearer = bearerFor(pending);
+        removedBearer = bearerFor(removed);
+        strangerBearer = bearerFor(stranger);
+
+        MvcTestResult created = send("POST", TRIPS_URL, ownerBearer, """
+                { "title": "Đà Lạt", "startDate": "2026-10-01", "endDate": "2026-10-03" }
+                """);
+        assertThat(created).hasStatus(HttpStatus.CREATED);
+        tripId = id(created);
+        dayId = ((Number) JsonPath.read(body(send("GET", TRIPS_URL + "/" + tripId + "/days", ownerBearer, null)),
+                "$.data[0].id")).longValue();
+
+        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        editorMemberId = tripMemberRepository.save(member(trip, editor, MemberRole.EDITOR, MemberStatus.ACCEPTED)).getId();
+        viewerMemberId = tripMemberRepository.save(member(trip, viewer, MemberRole.VIEWER, MemberStatus.ACCEPTED)).getId();
+        pendingMemberId = tripMemberRepository.save(member(trip, pending, MemberRole.EDITOR, MemberStatus.PENDING)).getId();
+        removedMemberId = tripMemberRepository.save(member(trip, removed, MemberRole.EDITOR, MemberStatus.REMOVED)).getId();
+    }
+
+    @AfterEach
+    void cleanUp() {
+        // trip_days, activities and trip_members go with their trips (ON DELETE CASCADE); trips before users;
+        // the tokens of the account the friend registers go with the users
+        jdbcTemplate.update("DELETE FROM trips");
+        jdbcTemplate.update("DELETE FROM users");
+        mailProvider.clear();
+    }
+
+    // ---- the whole story over HTTP (design.md 10.2 "Sharing", rules 14.23–14.25) ------------------------------
+
+    @Test
+    void aFriendWithoutAnAccountIsInvitedRegistersAcceptsEditsAfterAPromotionAndIsRemoved() {
+        // 1. The owner invites an email that has no account yet
+        MvcTestResult invited = send("POST", TRIPS_URL + "/" + tripId + "/members", ownerBearer, """
+                { "email": "Friend@Example.com", "role": "VIEWER" }
+                """);
+        assertThat(invited).hasStatus(HttpStatus.CREATED).bodyJson().isLenientlyEqualTo("""
+                { "data": { "userId": null, "email": "friend@example.com", "role": "VIEWER", "status": "PENDING" } }
+                """);
+        long memberId = ((Number) JsonPath.read(body(invited), "$.data.memberId")).longValue();
+
+        // 2. The mail carries the trip id and the raw token; the database holds only the token's hash
+        MailMessage mail = mailSentTo(1, FRIEND_EMAIL);
+        assertThat(mail.subject()).contains("Test owner@example.com").contains("Đà Lạt");
+        Matcher link = INVITE_LINK.matcher(mail.htmlBody());
+        assertThat(link.find()).as("invitation link in the mail").isTrue();
+        assertThat(Long.parseLong(link.group(1))).isEqualTo(tripId);
+        String token = link.group(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT invite_token_hash FROM trip_members WHERE id = ?",
+                String.class, memberId)).isNotEqualTo(token).hasSize(64);
+
+        // 3. The friend registers with the invited email (2nd mail: verification), verifies and logs in
+        String friendBearer = registerVerifyAndLogIn();
+
+        // 4. Registered is not accepted: nothing of the trip is visible yet
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
+
+        // 5. The link is for this trip and this email only
+        assertThat(send("POST", TRIPS_URL + "/" + (tripId + 1) + "/members/accept", friendBearer, tokenBody(token)))
+                .hasStatus(HttpStatus.BAD_REQUEST).bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", strangerBearer, tokenBody(token)))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", friendBearer, tokenBody(token)))
+                .hasStatusOk().bodyJson().isLenientlyEqualTo("{ \"data\": { \"memberId\": " + memberId
+                        + ", \"email\": \"friend@example.com\", \"role\": \"VIEWER\", \"status\": \"ACCEPTED\" } }");
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", friendBearer, tokenBody(token)))
+                .as("one-time link").hasStatus(HttpStatus.BAD_REQUEST);
+
+        // 6. A viewer now: the trip is in the list and in the detail with the right role, but read-only
+        assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk().bodyJson().isLenientlyEqualTo(
+                "{ \"data\": { \"totalElements\": 1, \"items\": [ { \"id\": " + tripId + ", \"ownerId\": " + owner.getId()
+                        + ", \"ownerName\": \"Test owner@example.com\" } ] } }");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("VIEWER");
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+                { "title": "Chưa được sửa" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+
+        // 7. Promoted to editor: writes work on the very next request
+        assertThat(send("PATCH", memberUrl(memberId), ownerBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatusOk();
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+                { "title": "Đà Lạt mùa hoa" }
+                """)).hasStatusOk();
+        assertThat(send("POST", activitiesUrl(), friendBearer, """
+                { "title": "Ăn sáng" }
+                """)).hasStatus(HttpStatus.CREATED);
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("EDITOR");
+
+        // 8. Removed: locked out at once, the row stays, the trip leaves the list
+        assertThat(send("DELETE", memberUrl(memberId), ownerBearer, null)).hasStatusOk();
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+                { "title": "Hết sửa được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class, memberId))
+                .isEqualTo("REMOVED");
+
+        // 9. Invited again: same row, new mail, the account is linked already, and the new link works
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members", ownerBearer, """
+                { "email": "friend@example.com", "role": "EDITOR" }
+                """)).hasStatus(HttpStatus.CREATED).bodyJson().isLenientlyEqualTo("{ \"data\": { \"memberId\": "
+                + memberId + ", \"status\": \"PENDING\", \"fullName\": \"Bạn Mới\" } }");
+        Matcher secondLink = INVITE_LINK.matcher(mailSentTo(3, FRIEND_EMAIL).htmlBody());
+        assertThat(secondLink.find()).isTrue();
+        assertThat(secondLink.group(2)).as("a fresh token, not the used one").isNotEqualTo(token);
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", friendBearer, tokenBody(secondLink.group(2))))
+                .hasStatusOk();
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("EDITOR");
+        assertThat(count("trip_members")).as("never a second row for the same email").isEqualTo(5);
+        // The whole story sent exactly three mails: two invitations and one verification
+        assertThat(mailProvider.sent()).hasSize(3);
+    }
+
+    /** The Phase 1 story in three calls, as the invited person would live it from the sign-up page. */
+    private String registerVerifyAndLogIn() {
+        assertThat(send("POST", "/api/v1/auth/register", null, """
+                { "email": "%s", "password": "%s", "confirmPassword": "%s", "fullName": "Bạn Mới" }
+                """.formatted(FRIEND_EMAIL, FRIEND_PASSWORD, FRIEND_PASSWORD))).hasStatus(HttpStatus.CREATED);
+        Matcher verify = VERIFY_LINK.matcher(mailSentTo(2, FRIEND_EMAIL).htmlBody());
+        assertThat(verify.find()).as("verification link in the mail").isTrue();
+        assertThat(send("POST", "/api/v1/auth/verify-email", null, tokenBody(verify.group(1)))).hasStatusOk();
+        MvcTestResult login = send("POST", "/api/v1/auth/login", null, """
+                { "email": "%s", "password": "%s" }
+                """.formatted(FRIEND_EMAIL, FRIEND_PASSWORD));
+        assertThat(login).hasStatusOk();
+        return "Bearer " + JsonPath.read(body(login), "$.data.accessToken");
+    }
+
+    /** Waits for the n-th mail (1-based) to leave on the async thread and checks who it went to. */
+    private MailMessage mailSentTo(int expectedCount, String expectedRecipient) {
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(mailProvider.sent()).hasSize(expectedCount));
+        MailMessage mail = mailProvider.sent().get(expectedCount - 1);
+        assertThat(mail.to()).isEqualTo(expectedRecipient);
+        return mail;
+    }
+
+    private static String tokenBody(String token) {
+        return "{ \"token\": \"" + token + "\" }";
+    }
+
+    // ---- what each role may do (design.md 6.2, test bắt buộc design 16 "Viewer sửa activity → 403") -------------
+
+    @Test
+    void viewerReadsEverythingOfTheTripButChangesNothing() {
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, viewerBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.title").isEqualTo("Đà Lạt");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId + "/days", viewerBearer, null)).hasStatusOk();
+        assertThat(send("GET", TRIPS_URL + "/" + tripId + "/days/" + dayId + "/activities", viewerBearer, null))
+                .hasStatusOk();
+        assertThat(send("GET", "/api/v1/weather/trips/" + tripId, viewerBearer, null)).hasStatusOk();
+
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Đổi tên" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId + "/status", viewerBearer, """
+                { "status": "PLANNED" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("POST", activitiesUrl(), viewerBearer, """
+                { "title": "Ăn sáng" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("DELETE", TRIPS_URL + "/" + tripId, viewerBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members", viewerBearer, """
+                { "email": "x@example.com", "role": "VIEWER" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+
+        // Nothing of the above got through
+        assertThat(JsonPath.<String>read(body(send("GET", TRIPS_URL + "/" + tripId, ownerBearer, null)),
+                "$.data.title")).isEqualTo("Đà Lạt");
+        assertThat(count("activities")).isZero();
+    }
+
+    @Test
+    void editorEditsTheTripAndItsActivitiesButNeitherDeletesItNorManagesMembers() {
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+                { "title": "Đà Lạt mùa hoa" }
+                """)).hasStatusOk();
+        MvcTestResult activity = send("POST", activitiesUrl(), editorBearer, """
+                { "title": "Ăn sáng" }
+                """);
+        assertThat(activity).hasStatus(HttpStatus.CREATED);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId + "/activities/" + id(activity), editorBearer, """
+                { "title": "Ăn sáng ở chợ" }
+                """)).hasStatusOk();
+
+        assertThat(send("DELETE", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members", editorBearer, """
+                { "email": "x@example.com", "role": "VIEWER" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT title FROM trips WHERE id = ?", String.class, tripId))
+                .isEqualTo("Đà Lạt mùa hoa");
+        assertThat(jdbcTemplate.queryForObject("SELECT deleted_at FROM trips WHERE id = ?", Object.class, tripId))
+                .isNull();
+        assertThat(count("trip_members")).isEqualTo(4);
+    }
+
+    @Test
+    void pendingRemovedAndStrangerAreAllTreatedAlike() {
+        for (String bearer : new String[] {pendingBearer, removedBearer, strangerBearer}) {
+            assertThat(send("GET", TRIPS_URL + "/" + tripId, bearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+            assertThat(send("GET", TRIPS_URL + "/" + tripId + "/days", bearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+            assertThat(send("PATCH", TRIPS_URL + "/" + tripId, bearer, """
+                    { "title": "Đổi tên" }
+                    """)).hasStatus(HttpStatus.FORBIDDEN);
+        }
+    }
+
+    @Test
+    void membersOfOneTripHaveNoAccessToAnotherTripOfTheSameOwner() {
+        MvcTestResult other = send("POST", TRIPS_URL, ownerBearer, """
+                { "title": "Huế", "startDate": "2026-11-01", "endDate": "2026-11-02" }
+                """);
+        long otherId = id(other);
+
+        assertThat(send("GET", TRIPS_URL + "/" + otherId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("GET", TRIPS_URL + "/" + otherId, viewerBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void aMemberOfADeletedTripGets404LikeEverybodyElse() {
+        assertThat(send("DELETE", TRIPS_URL + "/" + tripId, ownerBearer, null)).hasStatusOk();
+
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, strangerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    // ---- the detail tells everybody their role (design.md 10.2 "GET /{id} trả thêm members và myRole") ----------
+
+    @Test
+    void tripDetailTellsEachPersonTheirRoleAndListsTheMembersOwnerFirst() {
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, ownerBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("OWNER");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.myRole").isEqualTo("EDITOR");
+        MvcTestResult viewed = send("GET", TRIPS_URL + "/" + tripId, viewerBearer, null);
+        assertThat(viewed).hasStatusOk().bodyJson().extractingPath("$.data.myRole").isEqualTo("VIEWER");
+
+        // The same list as GET /members: owner, accepted members, pending invitation; the removed one is absent
+        assertThat(JsonPath.<List<String>>read(body(viewed), "$.data.members[*].email")).containsExactly(
+                "owner@example.com", "editor@example.com", "viewer@example.com", "pending@example.com");
+        assertThat(JsonPath.<List<String>>read(body(viewed), "$.data.members[*].role")).containsExactly(
+                "OWNER", "EDITOR", "VIEWER", "EDITOR");
+        assertThat(JsonPath.<List<String>>read(body(viewed), "$.data.members[*].status")).containsExactly(
+                "ACCEPTED", "ACCEPTED", "ACCEPTED", "PENDING");
+        assertThat(body(viewed)).doesNotContainIgnoringCase("password");
+    }
+
+    // ---- the shared trip in my list (design.md 10.2 "Chuyến đi được chia sẻ trong danh sách") -------------------
+
+    @Test
+    void acceptedMembersSeeTheSharedTripInTheirListAndChipsWhilePendingRemovedAndStrangersDoNot() {
+        for (String bearer : new String[] {editorBearer, viewerBearer}) {
+            assertThat(send("GET", TRIPS_URL, bearer, null)).hasStatusOk().bodyJson().isLenientlyEqualTo(
+                    "{ \"data\": { \"totalElements\": 1, \"items\": [ { \"id\": " + tripId + ", \"title\": \"Đà Lạt\", "
+                            + "\"ownerId\": " + owner.getId() + ", \"ownerName\": \"Test owner@example.com\" } ] } }");
+            assertThat(send("GET", TRIPS_URL + "/status-counts", bearer, null)).hasStatusOk()
+                    .bodyJson().extractingPath("$.data.total").isEqualTo(1);
+        }
+        for (String bearer : new String[] {pendingBearer, removedBearer, strangerBearer}) {
+            assertThat(send("GET", TRIPS_URL, bearer, null)).hasStatusOk()
+                    .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
+            assertThat(send("GET", TRIPS_URL + "/status-counts", bearer, null)).hasStatusOk()
+                    .bodyJson().extractingPath("$.data.total").isEqualTo(0);
+        }
+        // The owner's own card: ownerId is the caller, so the UI shows no "Được chia sẻ" badge
+        assertThat(send("GET", TRIPS_URL, ownerBearer, null)).hasStatusOk()
+                .bodyJson().extractingPath("$.data.items[0].ownerId").isEqualTo(owner.getId().intValue());
+    }
+
+    // ---- changing a role takes effect at once (design.md 10.2 "đổi vai trò") ------------------------------------
+
+    @Test
+    void promotingAViewerToEditorLetsThemEditOnTheVeryNextRequest() {
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Chưa được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+
+        assertThat(send("PATCH", memberUrl(viewerMemberId), ownerBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatusOk().bodyJson().extractingPath("$.data.role").isEqualTo("EDITOR");
+
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Giờ thì được" }
+                """)).hasStatusOk();
+        assertThat(send("POST", activitiesUrl(), viewerBearer, """
+                { "title": "Ăn sáng" }
+                """)).hasStatus(HttpStatus.CREATED);
+
+        // and back: demoting cuts the write access just as fast
+        assertThat(send("PATCH", memberUrl(viewerMemberId), ownerBearer, """
+                { "role": "VIEWER" }
+                """)).hasStatusOk();
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+                { "title": "Hết được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void onlyTheOwnerChangesRolesAndOnlyOfCurrentMembersOfThisTrip() {
+        assertThat(send("PATCH", memberUrl(viewerMemberId), editorBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", memberUrl(removedMemberId), ownerBearer, """
+                { "role": "VIEWER" }
+                """)).hasStatus(HttpStatus.NOT_FOUND);
+
+        MvcTestResult other = send("POST", TRIPS_URL, ownerBearer, """
+                { "title": "Huế", "startDate": "2026-11-01", "endDate": "2026-11-02" }
+                """);
+        assertThat(send("PATCH", TRIPS_URL + "/" + id(other) + "/members/" + viewerMemberId, ownerBearer, """
+                { "role": "EDITOR" }
+                """)).hasStatus(HttpStatus.NOT_FOUND);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT role FROM trip_members WHERE id = ?", String.class, viewerMemberId))
+                .isEqualTo("VIEWER");
+    }
+
+    // ---- removing a member (design.md rule 14.25) ----------------------------------------------------------------
+
+    @Test
+    void removingAnEditorCutsTheirAccessAtOnceAndReinvitingThemReusesTheRow() {
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+                { "title": "Còn sửa được" }
+                """)).hasStatusOk();
+
+        assertThat(send("DELETE", memberUrl(editorMemberId), ownerBearer, null)).hasStatusOk();
+
+        // Gone from the trip on the very next request, and gone from the list
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+                { "title": "Hết sửa được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(body(send("GET", TRIPS_URL + "/" + tripId + "/members", ownerBearer, null)))
+                .doesNotContain("editor@example.com");
+
+        // The row was kept with status REMOVED: inviting the same email again reopens it instead of adding one
+        MvcTestResult reinvited = send("POST", TRIPS_URL + "/" + tripId + "/members", ownerBearer, """
+                { "email": "editor@example.com", "role": "VIEWER" }
+                """);
+        assertThat(reinvited).hasStatus(HttpStatus.CREATED)
+                .bodyJson().isLenientlyEqualTo("{ \"data\": { \"memberId\": " + editorMemberId
+                        + ", \"role\": \"VIEWER\", \"status\": \"PENDING\" } }");
+        assertThat(count("trip_members")).isEqualTo(4);
+        // Pending again: still no access until the new invitation is accepted
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void withdrawingAPendingInvitationKillsTheLinkInTheMail() {
+        assertThat(send("DELETE", memberUrl(pendingMemberId), ownerBearer, null)).hasStatusOk();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class,
+                pendingMemberId)).isEqualTo("REMOVED");
+        assertThat(jdbcTemplate.queryForObject("SELECT invite_token_hash FROM trip_members WHERE id = ?",
+                String.class, pendingMemberId)).isNull();
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", pendingBearer,
+                "{ \"token\": \"" + PENDING_RAW_TOKEN + "\" }"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+    }
+
+    @Test
+    void onlyTheOwnerRemovesMembersAndOnlyCurrentMembersOfThisTrip() {
+        assertThat(send("DELETE", memberUrl(viewerMemberId), editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("DELETE", memberUrl(viewerMemberId), viewerBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("DELETE", memberUrl(removedMemberId), ownerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
+
+        MvcTestResult other = send("POST", TRIPS_URL, ownerBearer, """
+                { "title": "Huế", "startDate": "2026-11-01", "endDate": "2026-11-02" }
+                """);
+        assertThat(send("DELETE", TRIPS_URL + "/" + id(other) + "/members/" + viewerMemberId, ownerBearer, null))
+                .hasStatus(HttpStatus.NOT_FOUND);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class,
+                viewerMemberId)).isEqualTo("ACCEPTED");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, viewerBearer, null)).hasStatusOk();
+    }
+
+    // ---- helpers -------------------------------------------------------------------------------------------------
+
+    private String memberUrl(long memberId) {
+        return TRIPS_URL + "/" + tripId + "/members/" + memberId;
+    }
+
+    private String activitiesUrl() {
+        return TRIPS_URL + "/" + tripId + "/days/" + dayId + "/activities";
+    }
+
+    private TripMember member(Trip trip, User user, MemberRole role, MemberStatus status) {
+        return TripMember.builder()
+                .trip(trip)
+                .user(user)
+                .invitedEmail(user.getEmail())
+                .role(role)
+                .status(status)
+                .inviteTokenHash(status == MemberStatus.PENDING ? SecureTokens.sha256Hex(PENDING_RAW_TOKEN) : null)
+                .inviteExpiresAt(status == MemberStatus.PENDING ? Instant.now().plusSeconds(3600) : null)
+                .invitedBy(owner)
+                .invitedAt(SEPT_1)
+                .acceptedAt(status == MemberStatus.PENDING ? null : SEPT_1.plusSeconds(60))
+                .build();
+    }
+
+    private MvcTestResult send(String method, String url, String bearer, String json) {
+        var request = switch (method) {
+            case "POST" -> mvc.post();
+            case "PATCH" -> mvc.patch();
+            case "DELETE" -> mvc.delete();
+            default -> mvc.get();
+        };
+        var prepared = request.uri(url);
+        if (bearer != null) {
+            prepared = prepared.header(HttpHeaders.AUTHORIZATION, bearer);
+        }
+        if (json != null) {
+            prepared = prepared.contentType(MediaType.APPLICATION_JSON).content(json);
+        }
+        return prepared.exchange();
+    }
+
+    private int count(String table) {
+        Integer rows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
+        return rows == null ? 0 : rows;
+    }
+
+    private static long id(MvcTestResult result) {
+        return ((Number) JsonPath.read(body(result), "$.data.id")).longValue();
+    }
+
+    // Explicit UTF-8: MockHttpServletResponse otherwise decodes as ISO-8859-1 and mangles Vietnamese
+    private static String body(MvcTestResult result) {
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private String bearerFor(User user) {
+        return "Bearer " + jwtTokenProvider.generateAccessToken(user).token();
+    }
+
+    private static User user(String email) {
+        return User.builder()
+                .email(email)
+                .passwordHash("$2a$12$placeholder-bcrypt-hash-not-real")
+                .fullName("Test " + email)
+                .emailVerified(true)
+                .build();
+    }
+
+}

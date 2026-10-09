@@ -4,6 +4,7 @@ import com.trieu.tripplanner.config.properties.AppProperties;
 import com.trieu.tripplanner.provider.mail.MailMessage;
 import com.trieu.tripplanner.provider.mail.MailProvider;
 import java.util.Locale;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -28,8 +29,11 @@ public class MailService {
 
     static final String VERIFY_EMAIL_TEMPLATE = "mail/verify-email";
     static final String RESET_PASSWORD_TEMPLATE = "mail/reset-password";
+    static final String TRIP_INVITATION_TEMPLATE = "mail/trip-invitation";
     static final String VERIFY_EMAIL_PATH = "/verify-email?token=";
     static final String RESET_PASSWORD_PATH = "/reset-password?token=";
+    /** Query string read by the /invite page (design.md 10.2 "Quy ước Sharing API"): trip id first, then the token. */
+    static final String TRIP_INVITATION_PATH = "/invite?trip=%d&token=%s";
 
     private final TemplateEngine templateEngine;
     private final MailProvider mailProvider;
@@ -48,12 +52,35 @@ public class MailService {
                 appProperties.frontendUrl() + RESET_PASSWORD_PATH + rawToken);
     }
 
+    /**
+     * Invitation to join a trip (design.md rule 14.23). Sent to the invited address whether or not it belongs to
+     * an account yet, so the greeting has no name; the subject names the inviter and the trip instead.
+     *
+     * @param canEdit  true for an EDITOR invitation, false for VIEWER; the mail says which one
+     * @param rawToken the one-time token, URL-safe already (SecureTokens.generate), carried by the link only
+     */
+    @Async
+    public void sendInvitationMail(String toEmail, String inviterName, String tripTitle, boolean canEdit,
+                                   Long tripId, String rawToken) {
+        Map<String, Object> variables = Map.of(
+                "inviterName", inviterName,
+                "tripTitle", tripTitle,
+                "canEdit", canEdit,
+                "actionUrl", appProperties.frontendUrl() + TRIP_INVITATION_PATH.formatted(tripId, rawToken));
+        send(toEmail, "mail.trip-invitation.subject", new Object[] {inviterName, tripTitle},
+                TRIP_INVITATION_TEMPLATE, variables);
+    }
+
     private void send(String toEmail, String subjectKey, String template, String fullName, String actionUrl) {
+        send(toEmail, subjectKey, null, template, Map.of("fullName", fullName, "actionUrl", actionUrl));
+    }
+
+    private void send(String toEmail, String subjectKey, Object[] subjectArgs, String template,
+                      Map<String, Object> variables) {
         Context context = new Context(Locale.forLanguageTag("vi"));
-        context.setVariable("fullName", fullName);
-        context.setVariable("actionUrl", actionUrl);
+        context.setVariables(variables);
         String html = templateEngine.process(template, context);
-        String subject = messageSource.getMessage(subjectKey, null, Locale.ROOT);
+        String subject = messageSource.getMessage(subjectKey, subjectArgs, Locale.ROOT);
 
         // Log the recipient only: the body contains the one-time token
         log.debug("Sending \"{}\" to {}", subject, toEmail);

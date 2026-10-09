@@ -21,6 +21,7 @@ public enum ErrorCode {
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "error.not-acceptable"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "error.unsupported-media-type"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.email-already-exists"),
+    MEMBER_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.member-already-exists"),
     ACTIVITY_TIME_CONFLICT(HttpStatus.CONFLICT, "error.activity-time-conflict"),
     TRIP_DAY_HAS_ACTIVITIES(HttpStatus.CONFLICT, "error.trip-day-has-activities"),
     STALE_VERSION(HttpStatus.CONFLICT, "error.stale-version"),

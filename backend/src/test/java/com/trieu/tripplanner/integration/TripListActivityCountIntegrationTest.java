@@ -4,11 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.MemberRole;
+import com.trieu.tripplanner.model.enums.MemberStatus;
+import com.trieu.tripplanner.repository.TripMemberRepository;
+import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import jakarta.persistence.EntityManagerFactory;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,8 +38,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
- * Activity count on the trip cards (GET /trips) against real MySQL: the number of each trip, and a query count
- * that does not grow with the number of trips on the page (one grouped count, no N+1).
+ * The trip cards (GET /trips) against real MySQL: the activity count of each trip, the owner of a shared trip,
+ * and a query count that grows neither with the number of trips on the page nor with the number of shared ones
+ * (one grouped activity count, owners fetched with the trips, no N+1).
  * Same Spring context as ActivityReorderFlowIntegrationTest (Hibernate statistics on), so it is reused.
  */
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
@@ -53,23 +61,33 @@ class TripListActivityCountIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private TripRepository tripRepository;
+
+    @Autowired
+    private TripMemberRepository tripMemberRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
 
+    private User owner;
+    private User stranger;
     private String ownerBearer;
     private String strangerBearer;
 
     @BeforeEach
     void createUsers() {
-        ownerBearer = bearerFor(userRepository.save(user("owner@example.com")));
-        strangerBearer = bearerFor(userRepository.save(user("stranger@example.com")));
+        owner = userRepository.save(user("owner@example.com"));
+        stranger = userRepository.save(user("stranger@example.com"));
+        ownerBearer = bearerFor(owner);
+        strangerBearer = bearerFor(stranger);
     }
 
     @AfterEach
     void cleanUp() {
-        // trip_days and activities go with their trips (ON DELETE CASCADE); trips must go before users (no cascade)
+        // trip_days, activities and trip_members go with their trips (ON DELETE CASCADE); trips before users
         jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM users");
     }
@@ -98,26 +116,76 @@ class TripListActivityCountIntegrationTest {
     void queryCountDoesNotGrowWithTheNumberOfTripsOnThePage() {
         long first = createTrip(ownerBearer, "Chuyến 1", "2026-10-01", "2026-10-01");
         addActivity(ownerBearer, first, dayIds(first).get(0), "Hoạt động 1");
-        long oneTrip = statementsForList();
+        long oneTrip = statementsForList(ownerBearer);
 
         for (int i = 2; i <= 6; i++) {
             long trip = createTrip(ownerBearer, "Chuyến " + i, "2026-10-01", "2026-10-01");
             addActivity(ownerBearer, trip, dayIds(trip).get(0), "Hoạt động " + i);
         }
-        long sixTrips = statementsForList();
+        long sixTrips = statementsForList(ownerBearer);
 
         // trips of the page + one grouped activity count; no count per card
         assertThat(sixTrips).isEqualTo(oneTrip);
         assertThat(oneTrip).isEqualTo(2);
     }
 
+    // ---- shared trips on the cards (design.md 10.2 "Chuyến đi được chia sẻ trong danh sách") --------------------
+
+    @Test
+    void sharedTripsAreListedWithTheirOwnerAndCountedWithoutAnExtraQueryPerCard() {
+        long shared = createTrip(ownerBearer, "Của chủ, chia sẻ cho tôi", "2026-10-01", "2026-10-01");
+        long onlyInvited = createTrip(ownerBearer, "Mới mời, chưa nhận", "2026-10-02", "2026-10-02");
+        createTrip(strangerBearer, "Của tôi", "2026-10-03", "2026-10-03");
+        share(shared, stranger, MemberStatus.ACCEPTED);
+        share(onlyInvited, stranger, MemberStatus.PENDING);
+        addActivity(ownerBearer, shared, dayIds(shared).get(0), "Ăn sáng");
+
+        MvcTestResult list = list(strangerBearer);
+
+        assertThat(list).hasStatusOk();
+        assertThat(JsonPath.<List<String>>read(body(list), "$.data.items[*].title"))
+                .containsExactlyInAnyOrder("Của chủ, chia sẻ cho tôi", "Của tôi");
+        // The shared card names its owner, so the UI can show "Được chia sẻ · của {ownerName}"
+        assertThat(JsonPath.<List<Integer>>read(body(list), "$.data.items[?(@.title == 'Của chủ, chia sẻ cho tôi')].ownerId"))
+                .containsExactly(owner.getId().intValue());
+        assertThat(JsonPath.<List<String>>read(body(list), "$.data.items[?(@.title == 'Của chủ, chia sẻ cho tôi')].ownerName"))
+                .containsExactly("Test owner@example.com");
+        assertThat(JsonPath.<List<Integer>>read(body(list), "$.data.items[?(@.title == 'Của tôi')].ownerId"))
+                .containsExactly(stranger.getId().intValue());
+        assertThat(countsByTitle(list)).containsEntry("Của chủ, chia sẻ cho tôi", 1);
+
+        // The chips agree with the list: the shared trip counts, the pending one does not
+        assertThat(mvc.get().uri(TRIPS_URL + "/status-counts").header(HttpHeaders.AUTHORIZATION, strangerBearer))
+                .hasStatusOk().bodyJson().extractingPath("$.data.total").isEqualTo(2);
+
+        // Owners come with the trips: still trips of the page + one grouped activity count
+        assertThat(statementsForList(strangerBearer)).isEqualTo(2);
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------------
 
-    private long statementsForList() {
+    private long statementsForList(String bearer) {
         Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.clear();
-        assertThat(list(ownerBearer)).hasStatusOk();
+        assertThat(list(bearer)).hasStatusOk();
         return statistics.getPrepareStatementCount();
+    }
+
+    /** A membership row written directly: inviting and accepting have their own tests (SharingFlowIntegrationTest). */
+    private void share(long tripId, User user, MemberStatus status) {
+        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        tripMemberRepository.save(TripMember.builder()
+                .trip(trip)
+                .user(user)
+                .invitedEmail(user.getEmail())
+                .role(MemberRole.VIEWER)
+                .status(status)
+                .inviteTokenHash(status == MemberStatus.PENDING ? "hash-for-" + user.getEmail() : null)
+                .inviteExpiresAt(status == MemberStatus.PENDING ? Instant.now().plusSeconds(3600) : null)
+                .invitedBy(trip.getOwner())
+                .invitedAt(Instant.parse("2026-09-01T00:00:00Z"))
+                .acceptedAt(status == MemberStatus.ACCEPTED ? Instant.parse("2026-09-01T00:01:00Z") : null)
+                .build());
     }
 
     private MvcTestResult list(String bearer) {
