@@ -3,6 +3,7 @@ package com.trieu.tripplanner.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -324,6 +325,50 @@ class TripMemberControllerTest {
     private MvcTestResult changeRole(long memberId, String body) {
         return mvc.patch().uri(MEMBERS_URL + "/" + memberId).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON).content(body).exchange();
+    }
+
+    // ---- DELETE /trips/{tripId}/members/{memberId} ---------------------------------------------------------------
+
+    @Test
+    void removeReturns200WithoutDataWhenOwner() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(remove(31L))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null }
+                        """);
+        verify(sharingService).remove(TRIP_ID, 31L);
+    }
+
+    @Test
+    void removeReturns403WhenNotOwnerAndNeverReachesService() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(remove(31L))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verify(sharingService, never()).remove(any(), any());
+    }
+
+    @Test
+    void removeWithoutTokenReturns401() {
+        assertThat(mvc.delete().uri(MEMBERS_URL + "/31")).hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(sharingService, tripPermission);
+    }
+
+    @Test
+    void removeOfUnknownMemberReturns404() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+        doThrow(new ResourceNotFoundException("TripMember", 99L)).when(sharingService).remove(TRIP_ID, 99L);
+
+        assertThat(remove(99L))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    private MvcTestResult remove(long memberId) {
+        return mvc.delete().uri(MEMBERS_URL + "/" + memberId).header(HttpHeaders.AUTHORIZATION, bearer).exchange();
     }
 
     // ---- POST /trips/{tripId}/members/accept ---------------------------------------------------------------------

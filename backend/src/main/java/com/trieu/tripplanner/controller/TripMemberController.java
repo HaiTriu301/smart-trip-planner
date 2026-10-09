@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -68,6 +69,18 @@ public class TripMemberController {
     public ApiResponse<MemberResponse> changeRole(@PathVariable Long tripId, @PathVariable Long memberId,
                                                   @Valid @RequestBody ChangeMemberRoleRequest request) {
         return ApiResponse.ok(sharingService.changeRole(tripId, memberId, request));
+    }
+
+    @Operation(summary = "Gỡ thành viên",
+               description = "Chỉ chủ chuyến đi. Gỡ thành viên đã nhận lời hoặc rút lại lời mời đang chờ (link "
+                       + "trong mail hết tác dụng). Người đó mất quyền ngay ở request kế tiếp; mời lại cùng email "
+                       + "thì được. 404 nếu memberId không thuộc chuyến đi này hoặc người đó đã bị gỡ. Chủ chuyến "
+                       + "đi không có memberId nên không gỡ được.")
+    @DeleteMapping("/{memberId}")
+    @PreAuthorize("@tripPermission.isOwner(#tripId, principal)")
+    public ApiResponse<Void> remove(@PathVariable Long tripId, @PathVariable Long memberId) {
+        sharingService.remove(tripId, memberId);
+        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "Nhận lời mời",

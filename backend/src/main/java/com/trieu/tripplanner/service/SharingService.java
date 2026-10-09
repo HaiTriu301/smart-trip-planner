@@ -62,4 +62,17 @@ public interface SharingService {
      */
     MemberResponse changeRole(Long tripId, Long memberId, ChangeMemberRoleRequest request);
 
+    /**
+     * Removes a member or withdraws a pending invitation (design.md rule 14.25): the row stays with status
+     * REMOVED, so inviting the same email again reuses it. The account link and the role are kept as history;
+     * the invitation token is cleared, so a pending link dies with the removal. Access ends on the person's next
+     * request (the evaluator reads the database; Task 4.3 evicts the cache here). The owner has no row and so
+     * can never be removed.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException the trip does not exist, or memberId is
+     *                                                                   not a row of this trip, or the member was
+     *                                                                   already removed (404)
+     */
+    void remove(Long tripId, Long memberId);
+
 }

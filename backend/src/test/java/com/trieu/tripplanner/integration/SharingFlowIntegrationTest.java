@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
@@ -45,6 +46,8 @@ class SharingFlowIntegrationTest {
 
     private static final String TRIPS_URL = "/api/v1/trips";
     private static final Instant SEPT_1 = Instant.parse("2026-09-01T00:00:00Z");
+    /** The raw token of the one pending invitation; only its SHA-256 is in the row, as in production. */
+    private static final String PENDING_RAW_TOKEN = "raw-token-of-the-pending-invitation-for-testing";
 
     @Autowired
     private MockMvcTester mvc;
@@ -75,7 +78,9 @@ class SharingFlowIntegrationTest {
     /** A trip 01/10 → 03/10 of the owner with one member of every kind. */
     private long tripId;
     private long dayId;
+    private long editorMemberId;
     private long viewerMemberId;
+    private long pendingMemberId;
     private long removedMemberId;
 
     @BeforeEach
@@ -102,9 +107,9 @@ class SharingFlowIntegrationTest {
                 "$.data[0].id")).longValue();
 
         Trip trip = tripRepository.findById(tripId).orElseThrow();
-        tripMemberRepository.save(member(trip, editor, MemberRole.EDITOR, MemberStatus.ACCEPTED));
+        editorMemberId = tripMemberRepository.save(member(trip, editor, MemberRole.EDITOR, MemberStatus.ACCEPTED)).getId();
         viewerMemberId = tripMemberRepository.save(member(trip, viewer, MemberRole.VIEWER, MemberStatus.ACCEPTED)).getId();
-        tripMemberRepository.save(member(trip, pending, MemberRole.EDITOR, MemberStatus.PENDING));
+        pendingMemberId = tripMemberRepository.save(member(trip, pending, MemberRole.EDITOR, MemberStatus.PENDING)).getId();
         removedMemberId = tripMemberRepository.save(member(trip, removed, MemberRole.EDITOR, MemberStatus.REMOVED)).getId();
     }
 
@@ -249,6 +254,67 @@ class SharingFlowIntegrationTest {
                 .isEqualTo("VIEWER");
     }
 
+    // ---- removing a member (design.md rule 14.25) ----------------------------------------------------------------
+
+    @Test
+    void removingAnEditorCutsTheirAccessAtOnceAndReinvitingThemReusesTheRow() {
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+                { "title": "Còn sửa được" }
+                """)).hasStatusOk();
+
+        assertThat(send("DELETE", memberUrl(editorMemberId), ownerBearer, null)).hasStatusOk();
+
+        // Gone from the trip on the very next request, and gone from the list
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+                { "title": "Hết sửa được" }
+                """)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(body(send("GET", TRIPS_URL + "/" + tripId + "/members", ownerBearer, null)))
+                .doesNotContain("editor@example.com");
+
+        // The row was kept with status REMOVED: inviting the same email again reopens it instead of adding one
+        MvcTestResult reinvited = send("POST", TRIPS_URL + "/" + tripId + "/members", ownerBearer, """
+                { "email": "editor@example.com", "role": "VIEWER" }
+                """);
+        assertThat(reinvited).hasStatus(HttpStatus.CREATED)
+                .bodyJson().isLenientlyEqualTo("{ \"data\": { \"memberId\": " + editorMemberId
+                        + ", \"role\": \"VIEWER\", \"status\": \"PENDING\" } }");
+        assertThat(count("trip_members")).isEqualTo(4);
+        // Pending again: still no access until the new invitation is accepted
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void withdrawingAPendingInvitationKillsTheLinkInTheMail() {
+        assertThat(send("DELETE", memberUrl(pendingMemberId), ownerBearer, null)).hasStatusOk();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class,
+                pendingMemberId)).isEqualTo("REMOVED");
+        assertThat(jdbcTemplate.queryForObject("SELECT invite_token_hash FROM trip_members WHERE id = ?",
+                String.class, pendingMemberId)).isNull();
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", pendingBearer,
+                "{ \"token\": \"" + PENDING_RAW_TOKEN + "\" }"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
+    }
+
+    @Test
+    void onlyTheOwnerRemovesMembersAndOnlyCurrentMembersOfThisTrip() {
+        assertThat(send("DELETE", memberUrl(viewerMemberId), editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("DELETE", memberUrl(viewerMemberId), viewerBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(send("DELETE", memberUrl(removedMemberId), ownerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
+
+        MvcTestResult other = send("POST", TRIPS_URL, ownerBearer, """
+                { "title": "Huế", "startDate": "2026-11-01", "endDate": "2026-11-02" }
+                """);
+        assertThat(send("DELETE", TRIPS_URL + "/" + id(other) + "/members/" + viewerMemberId, ownerBearer, null))
+                .hasStatus(HttpStatus.NOT_FOUND);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class,
+                viewerMemberId)).isEqualTo("ACCEPTED");
+        assertThat(send("GET", TRIPS_URL + "/" + tripId, viewerBearer, null)).hasStatusOk();
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------------
 
     private String memberUrl(long memberId) {
@@ -266,7 +332,7 @@ class SharingFlowIntegrationTest {
                 .invitedEmail(user.getEmail())
                 .role(role)
                 .status(status)
-                .inviteTokenHash(status == MemberStatus.PENDING ? "hash-for-" + user.getEmail() : null)
+                .inviteTokenHash(status == MemberStatus.PENDING ? SecureTokens.sha256Hex(PENDING_RAW_TOKEN) : null)
                 .inviteExpiresAt(status == MemberStatus.PENDING ? Instant.now().plusSeconds(3600) : null)
                 .invitedBy(owner)
                 .invitedAt(SEPT_1)

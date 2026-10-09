@@ -513,6 +513,71 @@ class SharingServiceTest {
         verifyNoInteractions(tripMemberRepository);
     }
 
+    // ---- remove ------------------------------------------------------------------------------------------------
+
+    @Test
+    void removeMarksAnAcceptedMemberRemovedAndKeepsTheAccountLinkAndRole() {
+        tripExists();
+        TripMember accepted = memberOfTrip(MemberStatus.ACCEPTED);
+        accepted.setInviteTokenHash(null);
+        accepted.setInviteExpiresAt(null);
+        accepted.setAcceptedAt(NOW.minus(1, ChronoUnit.DAYS));
+        saveReturnsArgument();
+
+        sharingService.remove(TRIP_ID, MEMBER_ID);
+
+        // The row is kept (design.md rule 14.25): re-inviting reuses it, the history stays readable
+        assertThat(savedMember()).isSameAs(accepted);
+        assertThat(accepted.getStatus()).isEqualTo(MemberStatus.REMOVED);
+        assertThat(accepted.getUser()).isNotNull();
+        assertThat(accepted.getRole()).isEqualTo(MemberRole.VIEWER);
+        assertThat(accepted.getAcceptedAt()).isEqualTo(NOW.minus(1, ChronoUnit.DAYS));
+        verifyNoInteractions(mailService, userRepository);
+    }
+
+    @Test
+    void removeWithdrawsAPendingInvitationByClearingItsToken() {
+        tripExists();
+        TripMember pending = memberOfTrip(MemberStatus.PENDING);
+        saveReturnsArgument();
+
+        sharingService.remove(TRIP_ID, MEMBER_ID);
+
+        assertThat(pending.getStatus()).isEqualTo(MemberStatus.REMOVED);
+        // Without the hash the link in the mail no longer finds any row: it is dead, not just "not pending"
+        assertThat(pending.getInviteTokenHash()).isNull();
+        assertThat(pending.getInviteExpiresAt()).isNull();
+    }
+
+    @Test
+    void removeOfAnAlreadyRemovedMemberIs404AndWritesNothing() {
+        tripExists();
+        memberOfTrip(MemberStatus.REMOVED);
+
+        assertThatThrownBy(() -> sharingService.remove(TRIP_ID, MEMBER_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void removeOfAMemberIdThatIsNotOnThisTripIs404() {
+        tripExists();
+        when(tripMemberRepository.findByIdAndTripId(MEMBER_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.remove(TRIP_ID, MEMBER_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(tripMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void removeOnAMissingTripIs404BeforeTheMemberIsLookedUp() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.remove(TRIP_ID, MEMBER_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(tripMemberRepository);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
 
     /** A VIEWER row (MEMBER_ID) of friend@example.com on the trip, found by id + trip, in the given status. */

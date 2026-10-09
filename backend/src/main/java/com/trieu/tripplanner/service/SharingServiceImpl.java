@@ -142,6 +142,19 @@ public class SharingServiceImpl implements SharingService {
         return memberMapper.toResponse(saved);
     }
 
+    @Override
+    @Transactional
+    public void remove(Long tripId, Long memberId) {
+        TripMember member = findActiveMember(tripId, memberId);
+        MemberStatus previous = member.getStatus();
+        member.setStatus(MemberStatus.REMOVED);
+        // A withdrawn invitation must not be acceptable any more: nothing left to look the link up by
+        member.setInviteTokenHash(null);
+        member.setInviteExpiresAt(null);
+        tripMemberRepository.save(member);
+        log.info("Trip {}: member {} removed (was {} {})", tripId, memberId, previous, member.getRole());
+    }
+
     /**
      * A row of this trip that is still part of it (ACCEPTED or PENDING). The trip itself is checked first so a
      * deleted trip answers 404 before anything is read from trip_members (CLAUDE.md rule 15).
