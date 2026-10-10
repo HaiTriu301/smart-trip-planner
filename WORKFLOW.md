@@ -2154,6 +2154,33 @@ Mốc 10 — test(sharing): add member invitation flow integration test
         trong danh sách → sửa activity 403 → chủ đổi EDITOR → sửa 200 → chủ gỡ → 403
 ```
 
+> **Thực tế khi làm 4.1 (2026-10-07 → 2026-10-09):** 12 commit code trên nhánh (bảng duyệt 10 mốc; Mốc 2 tách thành 2a mail / 2b mời / 2c mời lại email đã có dòng, để mỗi commit một hành vi). PR #26, merge commit `5004457` (Merge commit, giữ lịch sử). Docs Mốc 0 đã commit trước trên `main` (`6d4bd94`).
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `3c66957` feat(sharing): add trip member model | 6 | `V11__create_trip_members.sql`, `TripMember`, `MemberRole`, `MemberStatus`, `TripMemberRepository`, test mapping 16 lượt |
+> | `eb009c8` feat(mail): add the trip invitation email | 4 | `MailService.sendInvitationMail`, `trip-invitation.html`, key tiêu đề; message commit gõ nhầm "invatation", giữ nguyên |
+> | `ac83f4e` feat(sharing): invite a member by email | 10 | `InviteMemberRequest`, `MemberResponse`, `TripRole`, `MemberMapper`, `SharingService` + `Impl.invite`, `TripMemberController` POST, `MemberAlreadyExistsException` |
+> | `5b92632` feat(sharing): handle inviting an email that is already a member | 8 | `reopen`: `PENDING` → token mới, `REMOVED` → về `PENDING` giữ tài khoản, `ACCEPTED` → 409 |
+> | `e2158db` feat(sharing): accept an invitation | 8 | `AcceptInvitationRequest`, `accept`, `ForbiddenException` (email khác → 403), `POST /members/accept` không `@PreAuthorize` |
+> | `6a1ec45` feat(security): let accepted members view and edit the trip | 6 | `TripRepository.findAccess` thay `findOwnerIdById`, `TripAccess`, `TripPermissionEvaluator` theo vai trò, `SharingFlowIntegrationTest` |
+> | `6617fce` feat(sharing): list the members of a trip | 8 | `findActiveByTripId` (join fetch user, `ACCEPTED` trước), `toOwnerResponse`, `GET /members` (canView) |
+> | `99d46a7` feat(sharing): change a member's role | 8 | `ChangeMemberRoleRequest`, `findByIdAndTripId`, `changeRole`, `PATCH /members/{memberId}` |
+> | `a18ce26` feat(sharing): remove a member | 6 | `remove`: `REMOVED` giữ dòng, xoá token; `DELETE /members/{memberId}` |
+> | `c0dfcfd` feat(trip): list the trips shared with me | 10 | `TripSpecifications.accessibleBy` (EXISTS) + `withOwner` (fetch chỉ ở câu lấy trang), `TripSummaryResponse.ownerId/ownerName` |
+> | `0a41839` feat(trip): include the members and my role in the trip detail | 12 | `findWithOwnerById`, `TripDetailResponse.members/myRole`, `TripService.get(tripId, userId)`; `TripDayFlowIntegrationTest` 4 → 5 (`BUG-SHARE-001`) |
+> | `f7d317f` test(sharing): add member invitation flow integration test | 1 | Mời → mail → đăng ký → nhận lời → xem → nâng vai trò → sửa → gỡ → mời lại, qua HTTP |
+>
+> Endpoint mới: `GET` / `POST /api/v1/trips/{tripId}/members`, `POST /members/accept`, `PATCH` / `DELETE /members/{memberId}`. 104 lượt test mới, toàn dự án **1059 lượt** (889 method, 75 file test); `09-sharing.md` 121 kịch bản tự động, 9 bài thủ công `MT-SHARE-01` đến `MT-SHARE-09` **chưa chạy**.
+>
+> Quyết định khi làm (chưa có trong design.md, ghi ở đây):
+> - Danh sách chuyến đi lấy chuyến được chia sẻ bằng subquery `EXISTS` thay vì `LEFT JOIN`: không ra dòng trùng, câu `COUNT` phân trang giữ nguyên. Chủ chuyến nạp kèm bằng spec `withOwner()` riêng, tự kiểm `query.getResultType() == Trip.class` nên câu đếm không bị fetch.
+> - Gỡ thành viên xoá luôn `invite_token_hash` / `invite_expires_at`: link của lời mời bị rút chết hẳn (không tìm thấy dòng), không chỉ "không còn PENDING". Vai trò và `accepted_at` giữ lại tới khi mời lại.
+> - Đổi vai trò áp dụng cho cả lời mời `PENDING`; người đã gỡ → 404 như không tồn tại.
+> - `TripService.get` dùng lại `SharingService.listMembers` trong cùng transaction (không tốn câu `findById` thứ hai) và suy `myRole` từ chính danh sách; không có dòng `ACCEPTED` của người gọi → `ForbiddenException` (lưới an toàn khi quyền mất giữa lúc kiểm và lúc đọc).
+> - `BUG-SHARE-001`: bài đếm câu SQL của Task 2.2 (`TripDayFlowIntegrationTest`) còn mong 4; design chỉ nhắc `ActivityPlaceFlowIntegrationTest`. Sửa cả hai thành 5, ghi nhắc ở CLAUDE.md mục 8.
+> - Hạn chế đã biết: hai request mời cùng một email mới **cùng lúc** → request sau 500 vì UNIQUE (`TC-SHARE` phần D); chấp nhận, giao diện chỉ có một nút.
+
 **Nhớ:** `TripMemberController` dùng `@PreAuthorize("@tripPermission.isOwner(#tripId, principal)")` cho mời / đổi vai trò / gỡ, `canView` cho danh sách; `accept` chỉ cần đăng nhập (người nhận chưa có quyền gì trên trip). Trip không tồn tại vẫn 404 qua service (CLAUDE.md rule 15). Không log token mời (rule 17). `SharingService` là service có business phức tạp → interface + `Impl` (rule 5).
 
 ---
@@ -2676,7 +2703,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.7 UI: thời tiết + quãng đường + ngày đã qua | ☑ | 2026-10-05 |
 | 3 | 3.9 UI: làm lại trang chuyến đi + bảng màu theo mockup (làm trước 3.8) | ☑ | 2026-10-05 |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☑ | 2026-10-05 |
-| 4 | 4.1 Trip members | ☐ | |
+| 4 | 4.1 Trip members | ☑ | 2026-10-09 |
 | 4 | 4.2 Permission evaluator | ☐ | |
 | 4 | 4.3 Share links | ☐ | |
 | 4 | 4.4 Comment + UI | ☐ | |

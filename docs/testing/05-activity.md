@@ -281,7 +281,7 @@ Màn hình chính của ứng dụng cần cả chuyến đi, các ngày và cá
 | TC-ACT-095 | Chuyến đi có ngày chưa có hoạt động | Ngày đó vẫn xuất hiện, với danh sách hoạt động rỗng chứ không bị thiếu | Biên | Đạt |
 | TC-ACT-096 | Chuyến đi chưa có hoạt động nào | Mọi ngày đều có danh sách rỗng | Biên | Đạt |
 | TC-ACT-097 | Hệ thống có chuyến đi khác cũng có hoạt động | Chi tiết chỉ chứa hoạt động của đúng chuyến đi được hỏi | Bảo mật | Đạt |
-| TC-ACT-098 | Xem chi tiết chuyến đi 2 ngày không có hoạt động, rồi chuyến đi 60 ngày có 30 hoạt động | Cả hai lần đều tốn đúng **4 câu truy vấn**. Thêm ngày hay thêm hoạt động không làm tăng số câu truy vấn | Biên | Đạt |
+| TC-ACT-098 | Xem chi tiết chuyến đi 2 ngày không có hoạt động, rồi chuyến đi 60 ngày có 30 hoạt động | Cả hai lần đều tốn đúng **4 câu truy vấn** (từ Task 4.1 là **5**: thêm câu lấy thành viên, xem `TC-SHARE-114` và `BUG-SHARE-001` ở [09-sharing.md](09-sharing.md)). Thêm ngày hay thêm hoạt động không làm tăng số câu truy vấn | Biên | Đạt |
 | TC-ACT-099 | Xem chi tiết chuyến đi không tồn tại | 404, hệ thống không tải ngày hay hoạt động | Sai | Đạt |
 | TC-ACT-100 | Xem danh sách ngày, hoặc sửa tiêu đề ngày | Phản hồi vẫn gọn như cũ, **không** kèm hoạt động | Đúng | Đạt |
 
@@ -578,7 +578,7 @@ Chạy cả ứng dụng thật với MySQL, không giả lập tầng nào: đ�
 | TC-ACT-199 | Hai người mỗi người tự thêm một địa điểm. Người thứ nhất gắn địa điểm của mình; rồi thử gắn địa điểm của người kia; rồi thử một mã không tồn tại; rồi thử đổi hoạt động đang có sang địa điểm của người kia kèm tên mới | Địa điểm của mình: gắn được. Hai lần thử sau trả lời **giống nhau từng chữ** (400, ô `placeId`, "Địa điểm không tồn tại"), không hoạt động nào được tạo. Lần sửa cũng bị từ chối: tên, địa điểm và phiên bản của hoạt động không đổi | Bảo mật | Đạt |
 | TC-ACT-200 | Sửa hoạt động, gửi cả `placeId` lẫn `clearPlace: true` | 400 ở ô `clearPlace`. Trong database địa điểm và phiên bản không đổi | Sai | Đạt |
 | TC-ACT-201 | Ngày đã có "Ăn sáng" 08:00–09:00. Thêm hoạt động 08:30–09:30 với `placeId` không tồn tại | 400 ở ô `placeId`, không phải 409 trùng giờ. Không hoạt động nào được tạo | Biên | Đạt |
-| TC-ACT-202 | Một ngày có 5 hoạt động gắn 5 địa điểm khác nhau và 1 hoạt động không địa điểm. Đếm câu SQL của: danh sách ngày, chi tiết chuyến đi, sắp xếp lại, sửa tên | Danh sách ngày 4 câu, chi tiết chuyến đi 4 câu, sắp xếp lại 6 câu: **đúng bằng** các con số trước khi có địa điểm. Sửa tên hoạt động có địa điểm tốn bằng sửa hoạt động không có. Phản hồi vẫn có đủ 5 địa điểm | Biên | Đạt |
+| TC-ACT-202 | Một ngày có 5 hoạt động gắn 5 địa điểm khác nhau và 1 hoạt động không địa điểm. Đếm câu SQL của: danh sách ngày, chi tiết chuyến đi, sắp xếp lại, sửa tên | Danh sách ngày 4 câu, chi tiết chuyến đi 4 câu (từ Task 4.1 là 5, xem `TC-SHARE-114`), sắp xếp lại 6 câu: **đúng bằng** các con số trước khi có địa điểm. Sửa tên hoạt động có địa điểm tốn bằng sửa hoạt động không có. Phản hồi vẫn có đủ 5 địa điểm | Biên | Đạt |
 
 Kiểm chứng ngược (2026-10-02): tạm bỏ phần đọc kèm địa điểm trong các truy vấn thì `TC-ACT-202` đỏ, danh sách ngày tốn 9 câu thay vì 4 (thêm một câu cho mỗi địa điểm). Bật lại thì xanh.
 

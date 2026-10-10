@@ -1,6 +1,6 @@
 # 03 · Chuyến đi
 
-> Cập nhật: 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-09 · từ Task 4.1 Mốc 8, danh sách và chip trạng thái gồm cả chuyến được chia sẻ với mình (kịch bản ở [09-sharing.md](09-sharing.md) phần J; các kịch bản "của người khác" dưới đây hiểu là người khác **không** chia sẻ cho mình) · 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
 
 Tính năng này cho người dùng tạo, xem danh sách, xem chi tiết, sửa và xoá chuyến đi. Làm ở Task 2.1.
 Đổi trạng thái chuyến đi (phần H) làm ở Task 2.5 Mốc 5. Giới hạn mô tả 1000 ký tự (phần I) chốt ở Task 2.5, trước đó là 5000. Số hoạt động trên thẻ chuyến đi (phần J) và số chuyến đi theo trạng thái (phần K) làm trên Task 2.6 (`feat/T2.6-ui-guide`).
@@ -157,7 +157,7 @@ TC-TRIP-058 được kiểm chứng ngược: sửa tạm code cho đếm từng
 
 > **Yêu cầu:** Task 2.6 (`feat/T2.6-ui-guide`), mockup trang danh sách (chip "Tất cả 6", "Nháp 1"...), endpoint `GET /api/v1/trips/status-counts?q=` · **Kiểm bởi:** `TripRepositoryTest`, `TripServiceTest`, `TripControllerTest`, `TripFlowIntegrationTest`
 
-Con số trên từng chip trạng thái của trang danh sách. Dùng đúng bộ lọc của danh sách (chỉ chuyến của mình, từ khoá tìm kiếm, bỏ chuyến đã xoá), nên số trên chip luôn khớp với kết quả khi bấm chip đó.
+Con số trên từng chip trạng thái của trang danh sách. Dùng đúng bộ lọc của danh sách (chuyến của mình và chuyến được chia sẻ với mình từ Task 4.1, từ khoá tìm kiếm, bỏ chuyến đã xoá), nên số trên chip luôn khớp với kết quả khi bấm chip đó.
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
@@ -165,7 +165,7 @@ Con số trên từng chip trạng thái của trang danh sách. Dùng đúng b�
 | TC-TRIP-060 | Trạng thái không có chuyến nào | Vẫn có mặt trong kết quả với số 0, đủ 5 trạng thái theo đúng thứ tự | Biên | Đạt |
 | TC-TRIP-061 | Tài khoản chưa có chuyến đi nào | Tất cả là 0 | Biên | Đạt |
 | TC-TRIP-062 | Đang tìm "hội an" (viết hoa, có dấu hay không đều được) | Chỉ đếm các chuyến có tên hoặc điểm đến khớp từ khoá, giống danh sách | Đúng | Đạt |
-| TC-TRIP-063 | Chuyến đi của người khác, và chuyến đi đã xoá | Không được đếm | Bảo mật | Đạt |
+| TC-TRIP-063 | Chuyến đi của người khác (không chia sẻ cho mình), và chuyến đi đã xoá | Không được đếm | Bảo mật | Đạt |
 | TC-TRIP-064 | Gọi khi chưa đăng nhập | 401 | Bảo mật | Đạt |
 | TC-TRIP-065 | Từ khoá dài hơn 200 ký tự | 400 `VALIDATION_ERROR`, không đếm gì | Sai | Đạt |
 

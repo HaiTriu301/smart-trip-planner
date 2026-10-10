@@ -238,7 +238,7 @@ Khi review code, kiểm tra lại các điểm này:
 - Trả Entity thay vì DTO ở controller
 - Thiếu `@Transactional` khi ghi nhiều bảng trong một thao tác
 - Query N+1 ở `GET /trips/{id}` (kiểm tra số câu SQL trong log)
-- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 4 / 4 / 6 câu — Task 3.2
+- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 4 / 4 / 6 câu — Task 3.2 (chi tiết chuyến đi là 5 từ Task 4.1: thêm câu lấy thành viên; `TripDayFlowIntegrationTest` đếm cùng con số, sửa cả hai khi đổi)
 - Quên `@PreAuthorize` trên endpoint thao tác trip
 - Sửa file migration cũ thay vì tạo file mới (Flyway báo `checksum mismatch`, app không lên)
 - Thêm hằng vào enum Java mà không `ALTER TABLE ... MODIFY col ENUM(...)` → `Data truncated for column` lúc INSERT
