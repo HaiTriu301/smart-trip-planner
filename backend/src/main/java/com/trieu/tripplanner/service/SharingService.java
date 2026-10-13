@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
+import com.trieu.tripplanner.dto.request.CreateShareLinkRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.ShareLinkResponse;
@@ -80,9 +81,15 @@ public interface SharingService {
      * Creates a link that lets anybody holding it view the trip without an account (design.md rule 14.26): a
      * VIEW link with a random token of 32 characters [a-z0-9], unique among all links. The trip's visibility
      * becomes LINK. A trip may have any number of links.
+     * <p>
+     * The link may carry an expiry, which must lie in the future and is fixed for good; it is kept to the
+     * microsecond, the precision of the column, so the answer equals what is read back later.
      *
+     * @param request may be null (the call had no body): the link then never expires, as with a null expiresAt
      * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     the expiry is now or in the past, reported
+     *                                                                   on the {@code expiresAt} field (400)
      */
-    ShareLinkResponse createLink(Long tripId);
+    ShareLinkResponse createLink(Long tripId, CreateShareLinkRequest request);
 
 }

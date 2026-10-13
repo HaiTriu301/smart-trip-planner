@@ -3,6 +3,7 @@ package com.trieu.tripplanner.service;
 import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
+import com.trieu.tripplanner.dto.request.CreateShareLinkRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
 import com.trieu.tripplanner.dto.response.ShareLinkResponse;
@@ -27,6 +28,7 @@ import com.trieu.tripplanner.repository.UserRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -169,11 +171,13 @@ public class SharingServiceImpl implements SharingService {
 
     @Override
     @Transactional
-    public ShareLinkResponse createLink(Long tripId) {
+    public ShareLinkResponse createLink(Long tripId, CreateShareLinkRequest request) {
         Trip trip = findTrip(tripId);
+        Instant expiresAt = linkExpiry(tripId, request);
         ShareLink link = shareLinkRepository.save(ShareLink.builder()
                 .trip(trip)
                 .token(unusedLinkToken())
+                .expiresAt(expiresAt)
                 // Only the owner reaches this method (controller guard), so the owner is the creator
                 .createdBy(trip.getOwner())
                 .build());
@@ -181,7 +185,8 @@ public class SharingServiceImpl implements SharingService {
         // the version stays, when the trip already has a link
         trip.setVisibility(TripVisibility.LINK);
         // The token opens the trip to whoever reads it: the log names the link by its id only (CLAUDE.md rule 17)
-        log.info("Trip {}: share link {} created", tripId, link.getId());
+        log.info("Trip {}: share link {} created, expires {}", tripId, link.getId(),
+                expiresAt != null ? expiresAt : "never");
         return shareLinkMapper.toResponse(link);
     }
 
@@ -233,6 +238,23 @@ public class SharingServiceImpl implements SharingService {
         member.setInviteExpiresAt(now.plus(INVITE_TTL));
         member.setInvitedAt(now);
         return rawToken;
+    }
+
+    /**
+     * The expiry the owner asked for, or null for a link that never expires (no body, or no expiresAt). "Now"
+     * comes from the Clock bean, never from the system clock (CLAUDE.md section 8). Cut to microseconds: MySQL
+     * DATETIME(6) would round the nanoseconds, and the answer of this call must equal what a later read returns.
+     */
+    private Instant linkExpiry(Long tripId, CreateShareLinkRequest request) {
+        if (request == null || request.expiresAt() == null) {
+            return null;
+        }
+        Instant expiresAt = request.expiresAt().truncatedTo(ChronoUnit.MICROS);
+        if (!expiresAt.isAfter(clock.instant())) {
+            throw BusinessRuleException.invalidField("expiresAt", "error.share-link.expires-not-future",
+                    "Trip %d: share link expiry %s is not in the future".formatted(tripId, expiresAt));
+        }
+        return expiresAt;
     }
 
     /**

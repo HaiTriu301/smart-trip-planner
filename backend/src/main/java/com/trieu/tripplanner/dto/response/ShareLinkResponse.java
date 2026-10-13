@@ -9,12 +9,14 @@ import java.time.Instant;
  * from it and lets the owner copy it again later.
  *
  * @param permission always VIEW in Phase 4; set by the server, never taken from the client
+ * @param expiresAt  the moment the link stops working; null = it never expires
  * @param viewCount  successful openings of the public page through this link
  */
 public record ShareLinkResponse(
         Long id,
         String token,
         SharePermission permission,
+        Instant expiresAt,
         int viewCount,
         Instant createdAt) {
 }
