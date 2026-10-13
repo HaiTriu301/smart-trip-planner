@@ -1,6 +1,5 @@
 package com.trieu.tripplanner.dto.request;
 
-import com.trieu.tripplanner.model.enums.TripVisibility;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -12,8 +11,9 @@ import java.time.LocalDate;
 /**
  * Body of PATCH /api/v1/trips/{id}: partial update, a null field keeps its current value
  * (design.md 10.2 "Quy ước Trip API"). Clearing an optional field is not supported yet.
- * No {@code status}: it changes only through PATCH /{id}/status. Constraints mirror {@link CreateTripRequest};
- * every annotation used here ignores null, so omitted fields are never rejected.
+ * No {@code status}: it changes only through PATCH /{id}/status. No {@code visibility}: only the share links
+ * of the trip change it (design.md rule 14.26). Constraints mirror {@link CreateTripRequest}; every annotation
+ * used here ignores null, so omitted fields are never rejected.
  */
 public record UpdateTripRequest(
         // @NotBlank would reject null; this only rejects a present-but-blank title
@@ -50,7 +50,5 @@ public record UpdateTripRequest(
         BigDecimal budgetAmount,
 
         @Pattern(regexp = "^[A-Z]{3}$", message = "{validation.trip.currency.invalid}")
-        String currency,
-
-        TripVisibility visibility) {
+        String currency) {
 }

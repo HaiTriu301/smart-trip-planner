@@ -142,15 +142,14 @@ class TripServiceTest {
         }
 
         @Test
-        void keepsCurrencyAndVisibilityGivenByClient() {
+        void keepsCurrencyAndBudgetGivenByClient() {
             CreateTripRequest request = new CreateTripRequest("Tokyo", null, null, null, null, null,
-                    OCT_1, OCT_1, new BigDecimal("1500.50"), "USD", TripVisibility.LINK);
+                    OCT_1, OCT_1, new BigDecimal("1500.50"), "USD");
 
             tripService.create(USER_ID, request);
 
             Trip saved = savedTrip();
             assertThat(saved.getCurrency()).isEqualTo("USD");
-            assertThat(saved.getVisibility()).isEqualTo(TripVisibility.LINK);
             assertThat(saved.getBudgetAmount()).isEqualByComparingTo("1500.50");
         }
 
@@ -236,10 +235,9 @@ class TripServiceTest {
 
         @Test
         void changesOnlyTheFieldsSentAndKeepsSlugAndStatus() {
-            TripResponse response = update(updateRequest("  Đà Lạt mùa hoa ", null, null, null, TripVisibility.PUBLIC));
+            TripResponse response = update(updateRequest("  Đà Lạt mùa hoa ", null, null, null));
 
             assertThat(stored.getTitle()).isEqualTo("Đà Lạt mùa hoa");
-            assertThat(stored.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
             assertThat(stored.getDescription()).isEqualTo("Mô tả cũ");
             assertThat(stored.getEndDate()).isEqualTo(OCT_1.plusDays(2));
             assertThat(stored.getSlug()).isEqualTo("da-lat-abc123");
@@ -251,8 +249,18 @@ class TripServiceTest {
         }
 
         @Test
+        void leavesTheVisibilityToTheShareLinks() {
+            // A trip with a live share link (design.md rule 14.26): a PATCH of the trip must not reset the label
+            stored.setVisibility(TripVisibility.LINK);
+
+            update(updateRequest("Đà Lạt mùa hoa", null, null, null));
+
+            assertThat(stored.getVisibility()).isEqualTo(TripVisibility.LINK);
+        }
+
+        @Test
         void reconcilesDaysWithThePreviousRangeWhenDatesChange() {
-            update(updateRequest(null, OCT_1.plusDays(7), OCT_1.plusDays(9), null, null));
+            update(updateRequest(null, OCT_1.plusDays(7), OCT_1.plusDays(9), null));
 
             assertThat(stored.getStartDate()).isEqualTo(OCT_1.plusDays(7));
             verify(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2), false);
@@ -260,7 +268,7 @@ class TripServiceTest {
 
         @Test
         void forceIsHandedToTheDayReconciliation() {
-            tripService.update(TRIP_ID, updateRequest(null, null, OCT_1.plusDays(1), null, null), true);
+            tripService.update(TRIP_ID, updateRequest(null, null, OCT_1.plusDays(1), null), true);
 
             verify(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2), true);
         }
@@ -270,7 +278,7 @@ class TripServiceTest {
             doThrow(new BusinessRuleException(ErrorCode.TRIP_DAY_HAS_ACTIVITIES, "blocked"))
                     .when(tripDayService).reconcileDays(stored, OCT_1, OCT_1.plusDays(2), false);
 
-            assertThatThrownBy(() -> update(updateRequest("Tên mới", null, OCT_1.plusDays(1), null, null)))
+            assertThatThrownBy(() -> update(updateRequest("Tên mới", null, OCT_1.plusDays(1), null)))
                     .isInstanceOfSatisfying(BusinessRuleException.class,
                             ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.TRIP_DAY_HAS_ACTIVITIES));
             // The exception leaves the @Transactional method, so the title and dates already set on the
@@ -280,14 +288,14 @@ class TripServiceTest {
 
         @Test
         void sendingTheSameDatesDoesNotReconcile() {
-            update(updateRequest(null, OCT_1, OCT_1.plusDays(2), null, null));
+            update(updateRequest(null, OCT_1, OCT_1.plusDays(2), null));
 
             verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
         }
 
         @Test
         void validatesEndDateAgainstStoredStartDate() {
-            assertThatThrownBy(() -> update(updateRequest(null, null, OCT_1.minusDays(1), null, null)))
+            assertThatThrownBy(() -> update(updateRequest(null, null, OCT_1.minusDays(1), null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.end-before-start"));
             verify(tripRepository, never()).saveAndFlush(any());
             verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
@@ -296,13 +304,13 @@ class TripServiceTest {
         @Test
         void validatesNewStartDateAgainstStoredEndDate() {
             // Moving start 70 days earlier makes the stored range 73 days long
-            assertThatThrownBy(() -> update(updateRequest(null, OCT_1.minusDays(70), null, null, null)))
+            assertThatThrownBy(() -> update(updateRequest(null, OCT_1.minusDays(70), null, null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.too-long", 60));
         }
 
         @Test
         void validatesCoordinatesOnMergedState() {
-            assertThatThrownBy(() -> update(updateRequest(null, null, null, new BigDecimal("16.46"), null)))
+            assertThatThrownBy(() -> update(updateRequest(null, null, null, new BigDecimal("16.46"))))
                     .satisfies(ex -> assertSingleViolation(ex, "destinationLng", "error.trip.coordinates-incomplete"));
         }
 
@@ -533,12 +541,12 @@ class TripServiceTest {
 
     private static CreateTripRequest createRequest(String title, LocalDate start, LocalDate end,
                                                    BigDecimal lat, BigDecimal lng) {
-        return new CreateTripRequest(title, null, null, null, lat, lng, start, end, null, null, null);
+        return new CreateTripRequest(title, null, null, null, lat, lng, start, end, null, null);
     }
 
     private static UpdateTripRequest updateRequest(String title, LocalDate start, LocalDate end,
-                                                   BigDecimal lat, TripVisibility visibility) {
-        return new UpdateTripRequest(title, null, null, null, lat, null, start, end, null, null, visibility);
+                                                   BigDecimal lat) {
+        return new UpdateTripRequest(title, null, null, null, lat, null, start, end, null, null);
     }
 
     private static Trip minimalTrip() {
