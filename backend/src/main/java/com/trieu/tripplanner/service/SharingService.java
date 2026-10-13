@@ -4,12 +4,13 @@ import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.dto.response.ShareLinkResponse;
 import java.util.List;
 
 /**
- * Members and invitations of a trip (design.md 10.2 "Sharing", rules 14.23–14.25). Permission checks are NOT
- * done here: the controller guards every call with {@code @tripPermission} (CLAUDE.md rule 15), so a method
- * taking a tripId only has to answer 404 when the trip does not exist.
+ * Members, invitations and share links of a trip (design.md 10.2 "Sharing", rules 14.23–14.26). Permission
+ * checks are NOT done here: the controller guards every call with {@code @tripPermission} (CLAUDE.md rule 15),
+ * so a method taking a tripId only has to answer 404 when the trip does not exist.
  */
 public interface SharingService {
 
@@ -74,5 +75,14 @@ public interface SharingService {
      *                                                                   already removed (404)
      */
     void remove(Long tripId, Long memberId);
+
+    /**
+     * Creates a link that lets anybody holding it view the trip without an account (design.md rule 14.26): a
+     * VIEW link with a random token of 32 characters [a-z0-9], unique among all links. The trip's visibility
+     * becomes LINK. A trip may have any number of links.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     */
+    ShareLinkResponse createLink(Long tripId);
 
 }

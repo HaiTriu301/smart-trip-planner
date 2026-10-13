@@ -8,14 +8,16 @@ import java.util.Base64;
 import java.util.HexFormat;
 
 /**
- * Opaque one-time tokens handed to clients (refresh token, email verification, password reset).
+ * Opaque one-time tokens handed to clients (refresh token, email verification, password reset, invitation).
  * The client keeps the raw value; the database only ever stores {@link #sha256Hex(String)} of it,
  * so a leaked table cannot be replayed (design.md 5.2, 6.1).
+ * The one exception is the token of a share link ({@link #alphanumeric(int)}), stored raw on purpose.
  */
 public final class SecureTokens {
 
     /** 48 random bytes → 64 base64url characters, no padding. */
     private static final int RAW_TOKEN_BYTES = 48;
+    private static final String ALPHANUMERIC = "abcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private SecureTokens() {
@@ -26,6 +28,20 @@ public final class SecureTokens {
         byte[] bytes = new byte[RAW_TOKEN_BYTES];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * Random token of {@code length} characters out of [a-z0-9], every character drawn independently from
+     * {@link SecureRandom}: about 5.17 bits each, so 32 characters cannot be guessed. For tokens that are stored
+     * and shown as they are (share links); everything that grants access to an account uses {@link #generate()}
+     * and is stored hashed.
+     */
+    public static String alphanumeric(int length) {
+        StringBuilder token = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            token.append(ALPHANUMERIC.charAt(RANDOM.nextInt(ALPHANUMERIC.length())));
+        }
+        return token.toString();
     }
 
     /** Deterministic SHA-256 of the raw token as 64 lowercase hex chars, the form stored in *_hash columns. */

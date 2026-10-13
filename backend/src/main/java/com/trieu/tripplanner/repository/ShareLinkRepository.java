@@ -8,4 +8,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * every row, revoked and expired ones included; callers decide what those mean.
  */
 public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
+
+    /**
+     * Whether a token is already in use by any link, revoked ones included (served by uk_share_links_token).
+     * Asked before a new link is stored, so a collision is answered by drawing again instead of by a failed
+     * INSERT.
+     */
+    boolean existsByToken(String token);
+
 }

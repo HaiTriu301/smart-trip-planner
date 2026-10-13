@@ -5,17 +5,22 @@ import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.dto.response.ShareLinkResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.ForbiddenException;
 import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.MemberMapper;
+import com.trieu.tripplanner.mapper.ShareLinkMapper;
+import com.trieu.tripplanner.model.ShareLink;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.MemberRole;
 import com.trieu.tripplanner.model.enums.MemberStatus;
+import com.trieu.tripplanner.model.enums.TripVisibility;
+import com.trieu.tripplanner.repository.ShareLinkRepository;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -34,6 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Invitation lifecycle on trip_members. Only the owner reaches these methods (controller guard), so the owner is
  * also the inviter. The raw token exists only on its way to the mail: never stored, never logged (CLAUDE.md
  * rule 17).
+ * <p>
+ * Share links on share_links (rule 14.26): owner-only too. Their token is stored, but never logged either.
  */
 @Slf4j
 @Service
@@ -47,10 +54,15 @@ public class SharingServiceImpl implements SharingService {
     private static final String USER = "User";
     private static final String TRIP_MEMBER = "TripMember";
 
+    /** design.md 5.2 "share_links": the token column is CHAR(32). */
+    static final int LINK_TOKEN_LENGTH = 32;
+
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
+    private final ShareLinkRepository shareLinkRepository;
     private final UserRepository userRepository;
     private final MemberMapper memberMapper;
+    private final ShareLinkMapper shareLinkMapper;
     private final MailService mailService;
     private final Clock clock;
 
@@ -155,6 +167,24 @@ public class SharingServiceImpl implements SharingService {
         log.info("Trip {}: member {} removed (was {} {})", tripId, memberId, previous, member.getRole());
     }
 
+    @Override
+    @Transactional
+    public ShareLinkResponse createLink(Long tripId) {
+        Trip trip = findTrip(tripId);
+        ShareLink link = shareLinkRepository.save(ShareLink.builder()
+                .trip(trip)
+                .token(unusedLinkToken())
+                // Only the owner reaches this method (controller guard), so the owner is the creator
+                .createdBy(trip.getOwner())
+                .build());
+        // The trip is managed: the new label is written when the transaction commits. Nothing is written, and
+        // the version stays, when the trip already has a link
+        trip.setVisibility(TripVisibility.LINK);
+        // The token opens the trip to whoever reads it: the log names the link by its id only (CLAUDE.md rule 17)
+        log.info("Trip {}: share link {} created", tripId, link.getId());
+        return shareLinkMapper.toResponse(link);
+    }
+
     /**
      * A row of this trip that is still part of it (ACCEPTED or PENDING). The trip itself is checked first so a
      * deleted trip answers 404 before anything is read from trip_members (CLAUDE.md rule 15).
@@ -203,6 +233,18 @@ public class SharingServiceImpl implements SharingService {
         member.setInviteExpiresAt(now.plus(INVITE_TTL));
         member.setInvitedAt(now);
         return rawToken;
+    }
+
+    /**
+     * A token no link uses yet. 36^32 possible values make a collision a theoretical event, but the UNIQUE key
+     * would turn one into a 500, so the token is checked and drawn again instead.
+     */
+    private String unusedLinkToken() {
+        String token;
+        do {
+            token = SecureTokens.alphanumeric(LINK_TOKEN_LENGTH);
+        } while (shareLinkRepository.existsByToken(token));
+        return token;
     }
 
     private Trip findTrip(Long tripId) {

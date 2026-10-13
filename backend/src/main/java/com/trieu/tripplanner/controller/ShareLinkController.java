@@ -1,0 +1,44 @@
+package com.trieu.tripplanner.controller;
+
+import com.trieu.tripplanner.common.ApiResponse;
+import com.trieu.tripplanner.dto.response.ShareLinkResponse;
+import com.trieu.tripplanner.service.SharingService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Share links of a trip (design.md 10.2 "Sharing", rule 14.26). Everything here is owner-only, guarded by
+ * {@code tripPermission.isOwner} (CLAUDE.md rule 15): 403 when the trip exists but the caller does not own it,
+ * 404 from the service when it does not exist. Opening a link is not here: that is the public page, which needs
+ * no account.
+ */
+// Same Swagger group as TripMemberController, which carries the description of the tag
+@Tag(name = "Sharing")
+@RestController
+@RequestMapping("/api/v1/trips/{tripId}/share-links")
+@RequiredArgsConstructor
+public class ShareLinkController {
+
+    private final SharingService sharingService;
+
+    @Operation(summary = "Tạo liên kết chia sẻ",
+               description = "Chỉ chủ chuyến đi. Tạo một liên kết chỉ xem: ai cầm liên kết cũng xem được lịch trình "
+                       + "mà không cần tài khoản. Giao diện ghép địa chỉ {origin}/share/{token} từ token trả về. Một "
+                       + "chuyến đi có thể có nhiều liên kết. Chuyến đi chuyển sang visibility LINK. 403 nếu không "
+                       + "phải chủ, 404 nếu chuyến đi không tồn tại.")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("@tripPermission.isOwner(#tripId, principal)")
+    public ApiResponse<ShareLinkResponse> create(@PathVariable Long tripId) {
+        return ApiResponse.ok(sharingService.createLink(tripId));
+    }
+
+}

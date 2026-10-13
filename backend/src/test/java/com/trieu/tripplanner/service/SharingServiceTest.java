@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -18,6 +19,7 @@ import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.dto.response.ShareLinkResponse;
 import com.trieu.tripplanner.dto.response.TripRole;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
@@ -26,11 +28,16 @@ import com.trieu.tripplanner.exception.InvalidTokenException;
 import com.trieu.tripplanner.exception.MemberAlreadyExistsException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.MemberMapper;
+import com.trieu.tripplanner.mapper.ShareLinkMapper;
+import com.trieu.tripplanner.model.ShareLink;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.MemberRole;
 import com.trieu.tripplanner.model.enums.MemberStatus;
+import com.trieu.tripplanner.model.enums.SharePermission;
+import com.trieu.tripplanner.model.enums.TripVisibility;
+import com.trieu.tripplanner.repository.ShareLinkRepository;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -61,6 +68,7 @@ class SharingServiceTest {
     private static final long TRIP_ID = 5L;
     private static final long OWNER_ID = 7L;
     private static final long MEMBER_ID = 31L;
+    private static final long LINK_ID = 41L;
     private static final Instant NOW = Instant.parse("2026-10-08T03:00:00Z");
     private static final String RAW_TOKEN = "raw-invitation-token-from-the-mail-link";
 
@@ -69,6 +77,9 @@ class SharingServiceTest {
 
     @Mock
     private TripMemberRepository tripMemberRepository;
+
+    @Mock
+    private ShareLinkRepository shareLinkRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -91,8 +102,9 @@ class SharingServiceTest {
                 .endDate(LocalDate.of(2026, 10, 3))
                 .build();
         ReflectionTestUtils.setField(trip, "id", TRIP_ID);
-        sharingService = new SharingServiceImpl(tripRepository, tripMemberRepository, userRepository,
-                Mappers.getMapper(MemberMapper.class), mailService, Clock.fixed(NOW, ZoneOffset.UTC));
+        sharingService = new SharingServiceImpl(tripRepository, tripMemberRepository, shareLinkRepository,
+                userRepository, Mappers.getMapper(MemberMapper.class), Mappers.getMapper(ShareLinkMapper.class),
+                mailService, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -578,6 +590,74 @@ class SharingServiceTest {
         verifyNoInteractions(tripMemberRepository);
     }
 
+    // ---- share links -------------------------------------------------------------------------------------------
+
+    @Test
+    void createsAViewLinkWithARandomTokenAndMarksTheTripAsSharedByLink() {
+        tripExists();
+        linkSaveAssignsId();
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PRIVATE);
+
+        ShareLinkResponse response = sharingService.createLink(TRIP_ID);
+
+        ShareLink saved = savedLink();
+        assertThat(saved.getTrip()).isSameAs(trip);
+        assertThat(saved.getCreatedBy()).isSameAs(owner);
+        assertThat(saved.getToken()).matches("[a-z0-9]{32}");
+        assertThat(saved.getPermission()).isEqualTo(SharePermission.VIEW);
+        assertThat(saved.getExpiresAt()).isNull();
+        assertThat(saved.getRevokedAt()).isNull();
+        assertThat(saved.getViewCount()).isZero();
+        // The label of the trip follows its links (design.md rule 14.26)
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.LINK);
+
+        assertThat(response.id()).isEqualTo(LINK_ID);
+        assertThat(response.token()).isEqualTo(saved.getToken());
+        assertThat(response.permission()).isEqualTo(SharePermission.VIEW);
+        assertThat(response.viewCount()).isZero();
+        assertThat(response.createdAt()).isEqualTo(NOW);
+        // Nothing about members is touched, and nothing is mailed
+        verifyNoInteractions(tripMemberRepository, mailService);
+    }
+
+    @Test
+    void everyLinkOfATripGetsItsOwnToken() {
+        tripExists();
+        linkSaveAssignsId();
+
+        String first = sharingService.createLink(TRIP_ID).token();
+        String second = sharingService.createLink(TRIP_ID).token();
+
+        assertThat(second).matches("[a-z0-9]{32}").isNotEqualTo(first);
+        verify(shareLinkRepository, times(2)).save(any(ShareLink.class));
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.LINK);
+    }
+
+    @Test
+    void drawsAnotherTokenWhenTheFirstOneIsAlreadyInUse() {
+        tripExists();
+        linkSaveAssignsId();
+        when(shareLinkRepository.existsByToken(anyString())).thenReturn(true, false);
+
+        sharingService.createLink(TRIP_ID);
+
+        ArgumentCaptor<String> candidates = ArgumentCaptor.forClass(String.class);
+        verify(shareLinkRepository, times(2)).existsByToken(candidates.capture());
+        String taken = candidates.getAllValues().get(0);
+        String free = candidates.getAllValues().get(1);
+        assertThat(free).isNotEqualTo(taken);
+        assertThat(savedLink().getToken()).isEqualTo(free);
+    }
+
+    @Test
+    void createLinkOnAMissingTripIs404AndStoresNothing() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.createLink(TRIP_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(shareLinkRepository);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
 
     /** A VIEWER row (MEMBER_ID) of friend@example.com on the trip, found by id + trip, in the given status. */
@@ -653,6 +733,22 @@ class SharingServiceTest {
     private TripMember savedMember() {
         ArgumentCaptor<TripMember> captor = ArgumentCaptor.forClass(TripMember.class);
         verify(tripMemberRepository).save(captor.capture());
+        return captor.getValue();
+    }
+
+    /** The database would give the new link an id and Hibernate its creation time; the mapper reads both. */
+    private void linkSaveAssignsId() {
+        when(shareLinkRepository.save(any(ShareLink.class))).thenAnswer(invocation -> {
+            ShareLink link = invocation.getArgument(0);
+            ReflectionTestUtils.setField(link, "id", LINK_ID);
+            ReflectionTestUtils.setField(link, "createdAt", NOW);
+            return link;
+        });
+    }
+
+    private ShareLink savedLink() {
+        ArgumentCaptor<ShareLink> captor = ArgumentCaptor.forClass(ShareLink.class);
+        verify(shareLinkRepository).save(captor.capture());
         return captor.getValue();
     }
 
