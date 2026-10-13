@@ -92,4 +92,14 @@ public interface SharingService {
      */
     ShareLinkResponse createLink(Long tripId, CreateShareLinkRequest request);
 
+    /**
+     * The share links of a trip that were not revoked, newest first (design.md 10.2 "Sharing", GET /share-links).
+     * A link past its expiry is still listed, with {@code expired = true}, so the owner sees why it stopped
+     * working and can revoke it. Every link of the answer is judged against one reading of the clock. A trip
+     * without links answers an empty list.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     */
+    List<ShareLinkResponse> listLinks(Long tripId);
+
 }

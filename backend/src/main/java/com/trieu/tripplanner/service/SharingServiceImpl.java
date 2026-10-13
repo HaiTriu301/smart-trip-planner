@@ -173,7 +173,9 @@ public class SharingServiceImpl implements SharingService {
     @Transactional
     public ShareLinkResponse createLink(Long tripId, CreateShareLinkRequest request) {
         Trip trip = findTrip(tripId);
-        Instant expiresAt = linkExpiry(tripId, request);
+        // One reading of the clock for the whole call: the expiry is checked and reported against the same instant
+        Instant now = clock.instant();
+        Instant expiresAt = linkExpiry(tripId, request, now);
         ShareLink link = shareLinkRepository.save(ShareLink.builder()
                 .trip(trip)
                 .token(unusedLinkToken())
@@ -187,7 +189,17 @@ public class SharingServiceImpl implements SharingService {
         // The token opens the trip to whoever reads it: the log names the link by its id only (CLAUDE.md rule 17)
         log.info("Trip {}: share link {} created, expires {}", tripId, link.getId(),
                 expiresAt != null ? expiresAt : "never");
-        return shareLinkMapper.toResponse(link);
+        return shareLinkMapper.toResponse(link, now);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShareLinkResponse> listLinks(Long tripId) {
+        // Only here for the 404 of a missing or deleted trip: the links are found by the trip id alone
+        findTrip(tripId);
+        return shareLinkMapper.toResponses(
+                shareLinkRepository.findByTripIdAndRevokedAtIsNullOrderByCreatedAtDescIdDesc(tripId),
+                clock.instant());
     }
 
     /**
@@ -245,12 +257,12 @@ public class SharingServiceImpl implements SharingService {
      * comes from the Clock bean, never from the system clock (CLAUDE.md section 8). Cut to microseconds: MySQL
      * DATETIME(6) would round the nanoseconds, and the answer of this call must equal what a later read returns.
      */
-    private Instant linkExpiry(Long tripId, CreateShareLinkRequest request) {
+    private Instant linkExpiry(Long tripId, CreateShareLinkRequest request, Instant now) {
         if (request == null || request.expiresAt() == null) {
             return null;
         }
         Instant expiresAt = request.expiresAt().truncatedTo(ChronoUnit.MICROS);
-        if (!expiresAt.isAfter(clock.instant())) {
+        if (!expiresAt.isAfter(now)) {
             throw BusinessRuleException.invalidField("expiresAt", "error.share-link.expires-not-future",
                     "Trip %d: share link expiry %s is not in the future".formatted(tripId, expiresAt));
         }

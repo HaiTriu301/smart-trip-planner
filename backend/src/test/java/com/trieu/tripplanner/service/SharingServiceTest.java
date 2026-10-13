@@ -74,6 +74,8 @@ class SharingServiceTest {
     private static final long OWNER_ID = 7L;
     private static final long MEMBER_ID = 31L;
     private static final long LINK_ID = 41L;
+    private static final String LINK_TOKEN = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
+    private static final String OTHER_LINK_TOKEN = "z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4";
     private static final Instant NOW = Instant.parse("2026-10-08T03:00:00Z");
     private static final String RAW_TOKEN = "raw-invitation-token-from-the-mail-link";
 
@@ -622,6 +624,7 @@ class SharingServiceTest {
         assertThat(response.expiresAt()).isNull();
         assertThat(response.viewCount()).isZero();
         assertThat(response.createdAt()).isEqualTo(NOW);
+        assertThat(response.expired()).isFalse();
         // Nothing about members is touched, and nothing is mailed
         verifyNoInteractions(tripMemberRepository, mailService);
     }
@@ -665,6 +668,7 @@ class SharingServiceTest {
 
         assertThat(savedLink().getExpiresAt()).isEqualTo(inAWeek);
         assertThat(response.expiresAt()).isEqualTo(inAWeek);
+        assertThat(response.expired()).isFalse();
         assertThat(trip.getVisibility()).isEqualTo(TripVisibility.LINK);
     }
 
@@ -735,6 +739,76 @@ class SharingServiceTest {
         when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> sharingService.createLink(TRIP_ID, null))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(shareLinkRepository);
+    }
+
+    @Test
+    void listsTheLiveLinksOfTheTripInTheOrderOfTheQueryWithEveryDetail() {
+        tripExists();
+        Instant inAWeek = NOW.plus(7, ChronoUnit.DAYS);
+        ShareLink newer = existingLink(42L, OTHER_LINK_TOKEN, inAWeek, 0, NOW.minusSeconds(60));
+        ShareLink older = existingLink(LINK_ID, LINK_TOKEN, null, 12, NOW.minusSeconds(3600));
+        linksOfTheTrip(newer, older);
+
+        List<ShareLinkResponse> links = sharingService.listLinks(TRIP_ID);
+
+        // Newest first is the order of the query (ShareLinkRepositoryTest); the service must not reshuffle it
+        assertThat(links).extracting(ShareLinkResponse::id).containsExactly(42L, LINK_ID);
+        ShareLinkResponse first = links.get(0);
+        assertThat(first.token()).isEqualTo(OTHER_LINK_TOKEN);
+        assertThat(first.permission()).isEqualTo(SharePermission.VIEW);
+        assertThat(first.expiresAt()).isEqualTo(inAWeek);
+        assertThat(first.viewCount()).isZero();
+        assertThat(first.createdAt()).isEqualTo(NOW.minusSeconds(60));
+        assertThat(first.expired()).isFalse();
+        ShareLinkResponse second = links.get(1);
+        assertThat(second.token()).isEqualTo(LINK_TOKEN);
+        assertThat(second.expiresAt()).isNull();
+        assertThat(second.viewCount()).isEqualTo(12);
+        assertThat(second.expired()).isFalse();
+        // Reading the list changes nothing: no row is written and the label of the trip stays
+        verify(shareLinkRepository, never()).save(any(ShareLink.class));
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PRIVATE);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("expiriesAndWhetherTheyArePast")
+    void aListedLinkIsExpiredOnceItsExpiryIsNoLongerAhead(String label, Instant expiresAt, boolean expired) {
+        tripExists();
+        linksOfTheTrip(existingLink(LINK_ID, LINK_TOKEN, expiresAt, 3, NOW.minusSeconds(3600)));
+
+        List<ShareLinkResponse> links = sharingService.listLinks(TRIP_ID);
+
+        // An expired link is still listed: the owner sees why it stopped working and can revoke it
+        assertThat(links).hasSize(1);
+        assertThat(links.get(0).expired()).isEqualTo(expired);
+        assertThat(links.get(0).expiresAt()).isEqualTo(expiresAt);
+    }
+
+    static Stream<Arguments> expiriesAndWhetherTheyArePast() {
+        return Stream.of(
+                Arguments.of("no expiry", null, false),
+                Arguments.of("one microsecond ahead", NOW.plus(1, ChronoUnit.MICROS), false),
+                // The boundary of creation: an expiry that is not after "now" is refused there, and expired here
+                Arguments.of("exactly now", NOW, true),
+                Arguments.of("one microsecond ago", NOW.minus(1, ChronoUnit.MICROS), true),
+                Arguments.of("a day ago", NOW.minus(1, ChronoUnit.DAYS), true));
+    }
+
+    @Test
+    void aTripWithoutLinksHasAnEmptyList() {
+        tripExists();
+        linksOfTheTrip();
+
+        assertThat(sharingService.listLinks(TRIP_ID)).isEmpty();
+    }
+
+    @Test
+    void listLinksOnAMissingTripIs404AndReadsNoLink() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.listLinks(TRIP_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
         verifyNoInteractions(shareLinkRepository);
     }
@@ -831,6 +905,26 @@ class SharingServiceTest {
         ArgumentCaptor<ShareLink> captor = ArgumentCaptor.forClass(ShareLink.class);
         verify(shareLinkRepository).save(captor.capture());
         return captor.getValue();
+    }
+
+    /** A live VIEW link of the trip as the database would hand it back: id and creation time are filled in. */
+    private ShareLink existingLink(long id, String token, Instant expiresAt, int viewCount, Instant createdAt) {
+        ShareLink link = ShareLink.builder()
+                .trip(trip)
+                .token(token)
+                .expiresAt(expiresAt)
+                .viewCount(viewCount)
+                .createdBy(owner)
+                .build();
+        ReflectionTestUtils.setField(link, "id", id);
+        ReflectionTestUtils.setField(link, "createdAt", createdAt);
+        return link;
+    }
+
+    /** What the query of the list returns for the trip: its live links, already newest first. */
+    private void linksOfTheTrip(ShareLink... links) {
+        when(shareLinkRepository.findByTripIdAndRevokedAtIsNullOrderByCreatedAtDescIdDesc(TRIP_ID))
+                .thenReturn(List.of(links));
     }
 
     private String mailedToken() {

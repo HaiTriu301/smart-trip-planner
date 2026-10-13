@@ -7,9 +7,11 @@ import com.trieu.tripplanner.service.SharingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,6 +48,16 @@ public class ShareLinkController {
                                                  @Valid @RequestBody(required = false) CreateShareLinkRequest request) {
         // No body → null: the service treats it like a body without expiresAt
         return ApiResponse.ok(sharingService.createLink(tripId, request));
+    }
+
+    @Operation(summary = "Danh sách liên kết chia sẻ",
+               description = "Chỉ chủ chuyến đi. Các liên kết chưa thu hồi, mới nhất đứng đầu. Liên kết đã hết hạn "
+                       + "vẫn hiện với expired = true để chủ biết vì sao nó không mở được nữa. Chuyến đi chưa có "
+                       + "liên kết thì trả mảng rỗng. 403 nếu không phải chủ, 404 nếu chuyến đi không tồn tại.")
+    @GetMapping
+    @PreAuthorize("@tripPermission.isOwner(#tripId, principal)")
+    public ApiResponse<List<ShareLinkResponse>> list(@PathVariable Long tripId) {
+        return ApiResponse.ok(sharingService.listLinks(tripId));
     }
 
 }

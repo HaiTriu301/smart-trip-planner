@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.repository;
 
 import com.trieu.tripplanner.model.ShareLink;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -15,5 +16,12 @@ public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
      * INSERT.
      */
     boolean existsByToken(String token);
+
+    /**
+     * The links of a trip that were not revoked, newest first; expired ones are among them. Two links created in
+     * the same microsecond come out by id, so the order never changes between two calls. Served by
+     * idx_share_links_trip_created; reads share_links only (neither the trip nor the creator is joined).
+     */
+    List<ShareLink> findByTripIdAndRevokedAtIsNullOrderByCreatedAtDescIdDesc(Long tripId);
 
 }
