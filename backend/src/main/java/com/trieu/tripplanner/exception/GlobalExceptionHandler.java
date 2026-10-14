@@ -9,6 +9,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -48,6 +49,9 @@ public class GlobalExceptionHandler {
             .comparing(ErrorResponse.FieldError::field)
             .thenComparing(ErrorResponse.FieldError::message, Comparator.nullsFirst(Comparator.naturalOrder()));
 
+    /** The path of the public trip page carries the token of a share link, a secret (CLAUDE.md rule 17). */
+    private static final Pattern PUBLIC_TRIP_TOKEN = Pattern.compile("^(/api/v1/public/trips/)[^/]+");
+
     private final MessageSource messageSource;
     private final RefreshTokenCookies refreshTokenCookies;
 
@@ -55,10 +59,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAppException(AppException ex, HttpServletRequest request) {
         ErrorCode errorCode = ex.getErrorCode();
         if (errorCode.getHttpStatus().is5xxServerError()) {
-            log.error("Application error {} on {}: {}", errorCode, request.getRequestURI(), ex.getMessage(), ex);
+            log.error("Application error {} on {}: {}", errorCode, loggablePath(request), ex.getMessage(), ex);
         }
         else {
-            log.warn("Application error {} on {}: {}", errorCode, request.getRequestURI(), ex.getMessage());
+            log.warn("Application error {} on {}: {}", errorCode, loggablePath(request), ex.getMessage());
         }
         List<ErrorResponse.FieldError> details = ex.getDetails().stream()
                 .map(violation -> new ErrorResponse.FieldError(
@@ -75,7 +79,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException ex,
                                                                    HttpServletRequest request) {
-        log.warn("Application error {} on {}: {}", ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
+        log.warn("Application error {} on {}: {}", ex.getErrorCode(), loggablePath(request), ex.getMessage());
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.SET_COOKIE, refreshTokenCookies.clear().toString());
         return build(ex.getErrorCode(), headers, request);
@@ -115,7 +119,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
                                                                       HttpServletRequest request) {
         // Log only the cause type: parser messages can echo raw body content such as passwords
-        log.warn("Unreadable request body on {}: {}", request.getRequestURI(),
+        log.warn("Unreadable request body on {}: {}", loggablePath(request),
                 ex.getMostSpecificCause().getClass().getSimpleName());
         return build(ErrorCode.VALIDATION_ERROR, message(MALFORMED_BODY_KEY), List.of(), request);
     }
@@ -167,14 +171,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
-        log.warn("Access denied on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        log.warn("Access denied on {} {}: {}", request.getMethod(), loggablePath(request), ex.getMessage());
         ErrorCode errorCode = ErrorCode.FORBIDDEN;
         return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
-        log.error("Unexpected error on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        log.error("Unexpected error on {} {}", request.getMethod(), loggablePath(request), ex);
         ErrorCode errorCode = ErrorCode.INTERNAL_ERROR;
         return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
     }
@@ -208,6 +212,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(errorCode.getHttpStatus())
                 .headers(headers)
                 .contentType(MediaType.APPLICATION_JSON);
+    }
+
+    /**
+     * The request path as it may go to the log: the token of a share link is replaced by "***". The error body
+     * keeps the real path: it only goes back to the caller, who sent the token in the first place.
+     */
+    private static String loggablePath(HttpServletRequest request) {
+        return PUBLIC_TRIP_TOKEN.matcher(request.getRequestURI()).replaceFirst("$1***");
     }
 
     private String message(String key, Object... args) {

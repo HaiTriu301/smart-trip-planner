@@ -4,6 +4,8 @@ import com.trieu.tripplanner.model.ShareLink;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Share links of trips (design.md 5.2 "share_links"). ShareLink has no soft delete, so every query here sees
@@ -37,5 +39,17 @@ public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
      * database yet. An expired link that was never revoked counts (design.md 10.2: the trip keeps its LINK label).
      */
     boolean existsByTripIdAndRevokedAtIsNullAndIdNot(Long tripId, Long id);
+
+    /**
+     * The link of a token together with its trip, in one query: the first statement of the public page. Revoked
+     * and expired links are returned too; the caller decides, so it can log why a link was refused. The trip may
+     * come back soft-deleted or the row may not come back at all, depending on whether Hibernate applies the
+     * trip's @SQLRestriction to the join; the caller treats both as "not found".
+     * <p>
+     * The token must have been checked against [a-z0-9]{32} first: the _ci collation of the column would let an
+     * upper-case token find a lower-case one.
+     */
+    @Query("select l from ShareLink l join fetch l.trip where l.token = :token")
+    Optional<ShareLink> findWithTripByToken(@Param("token") String token);
 
 }
