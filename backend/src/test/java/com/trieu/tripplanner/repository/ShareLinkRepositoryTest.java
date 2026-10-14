@@ -8,6 +8,7 @@ import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.User;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,8 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Real MySQL (Testcontainers): the list of links is filtered and ordered SQL that only a real database can
- * prove. Each test runs in a rolled-back transaction.
+ * Real MySQL (Testcontainers): the list of links is filtered and ordered SQL, and the view count is raised by
+ * native SQL; only a real database can prove either. Each test runs in a rolled-back transaction.
  */
 @DataJpaTest
 @ActiveProfiles("test")
@@ -176,6 +177,52 @@ class ShareLinkRepositoryTest {
         assertThat(liveLinksOf(trip)).extracting(ShareLink::getId).containsExactly(kept.getId());
         // The row is still there: revoking never deletes
         assertThat(shareLinkRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void eachIncrementAddsOneViewWithoutTouchingUpdatedAtOrOtherLinks() {
+        ShareLink counted = entityManager.persist(link(TOKEN_A).build());
+        ShareLink other = entityManager.persist(link(TOKEN_B).build());
+        entityManager.flush();
+        LocalDateTime updatedAt = updatedAtOf(counted);
+
+        shareLinkRepository.incrementViewCount(counted.getId());
+        shareLinkRepository.incrementViewCount(counted.getId());
+
+        assertThat(viewCountOf(counted)).isEqualTo(2);
+        assertThat(viewCountOf(other)).isZero();
+        // updated_at stays the last change of the owner: a view is not a change of the link
+        assertThat(updatedAtOf(counted)).isEqualTo(updatedAt);
+        // An id that matches no row changes nothing and raises nothing
+        shareLinkRepository.incrementViewCount(999_999L);
+        assertThat(viewCountOf(counted)).isEqualTo(2);
+    }
+
+    @Test
+    void savingALinkLoadedBeforeTheViewsCannotWriteBackItsOlderCount() {
+        ShareLink created = entityManager.persist(link(TOKEN_A).build());
+        entityManager.flush();
+        entityManager.clear();
+        // Loaded with 0 views, then counted behind its back, as when a guest opens the page during a revoke
+        ShareLink loaded = shareLinkRepository.findByIdAndTripId(created.getId(), trip.getId()).orElseThrow();
+        shareLinkRepository.incrementViewCount(created.getId());
+
+        loaded.revoke(REVOKED_AT);
+        shareLinkRepository.saveAndFlush(loaded);
+
+        assertThat(viewCountOf(created)).isEqualTo(1);
+        assertThat(loaded.getViewCount()).isZero();
+    }
+
+    private int viewCountOf(ShareLink link) {
+        return jdbcTemplate.queryForObject("SELECT view_count FROM share_links WHERE id = ?", Integer.class,
+                link.getId());
+    }
+
+    /** The column as stored, read in SQL: the entity in memory would not see the native UPDATE. */
+    private LocalDateTime updatedAtOf(ShareLink link) {
+        return jdbcTemplate.queryForObject("SELECT updated_at FROM share_links WHERE id = ?",
+                LocalDateTime.class, link.getId());
     }
 
     private List<ShareLink> liveLinksOf(Trip ofTrip) {

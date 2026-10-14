@@ -46,15 +46,21 @@ public class PublicTripService {
     private final Clock clock;
 
     /**
-     * The trip of a live link with all its days and activities. Three queries whatever the size of the trip: the
-     * link with its trip, the days, the activities with their places (grouped by day in memory, no N+1).
+     * The trip of a live link with all its days and activities, counted as one view of the link. Four statements
+     * whatever the size of the trip: the link with its trip, the activities with their places (grouped by day in
+     * memory, no N+1), the days, and the UPDATE of the view count.
+     * <p>
+     * A write transaction because of that UPDATE (a read-only one would make MySQL refuse it). The UPDATE comes
+     * last: every refusal has thrown before it, so only a page that is served is counted, and the lock it takes
+     * on the link row is held only until the commit that follows.
      *
      * @throws ResourceNotFoundException the token is malformed or unknown, the link is revoked or expired, or the
      *                                   trip was deleted (404, the same answer for all)
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public PublicTripResponse open(String token) {
-        Trip trip = openableLink(token).getTrip();
+        ShareLink link = openableLink(token);
+        Trip trip = link.getTrip();
         // groupingBy keeps the order of the query inside each day
         Map<Long, List<Activity>> activitiesByDay = activityRepository.findByTripIdInDisplayOrder(trip.getId())
                 .stream()
@@ -62,7 +68,9 @@ public class PublicTripService {
         List<PublicDay> days = tripDayRepository.findByTripIdOrderByDate(trip.getId()).stream()
                 .map(day -> publicTripMapper.toDay(day, activitiesByDay.getOrDefault(day.getId(), List.of())))
                 .toList();
-        return publicTripMapper.toResponse(trip, days);
+        PublicTripResponse page = publicTripMapper.toResponse(trip, days);
+        shareLinkRepository.incrementViewCount(link.getId());
+        return page;
     }
 
     private ShareLink openableLink(String token) {

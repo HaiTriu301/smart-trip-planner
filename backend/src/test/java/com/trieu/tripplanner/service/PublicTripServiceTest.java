@@ -3,7 +3,12 @@ package com.trieu.tripplanner.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.dto.response.PublicTripResponse;
@@ -41,13 +46,15 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mapstruct.factory.Mappers;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Unit test of the public page: repositories are mocks, the mapper is the generated one, the clock stands still.
- * That the three queries really find the rows on MySQL is proven by the flow test of Mốc 9.
+ * That the four statements really find and count the rows on MySQL is proven by ShareLinkRepositoryTest and by
+ * the flow test of Mốc 9.
  */
 @ExtendWith(MockitoExtension.class)
 class PublicTripServiceTest {
@@ -142,6 +149,23 @@ class PublicTripServiceTest {
         assertThat(publicTripService.open(TOKEN).title()).isEqualTo("Đà Lạt 3 ngày");
     }
 
+    @Test
+    void aServedPageCountsOneViewOfItsLinkAfterEverythingWasRead() {
+        linkOfTheToken(link(null));
+        when(tripDayRepository.findByTripIdOrderByDate(TRIP_ID)).thenReturn(List.of());
+        when(activityRepository.findByTripIdInDisplayOrder(TRIP_ID)).thenReturn(List.of());
+
+        publicTripService.open(TOKEN);
+
+        // Counted by the id of the link, once, as the last statement: nothing after it can still refuse the page
+        InOrder order = inOrder(shareLinkRepository, activityRepository, tripDayRepository);
+        order.verify(shareLinkRepository).findWithTripByToken(TOKEN);
+        order.verify(activityRepository).findByTripIdInDisplayOrder(TRIP_ID);
+        order.verify(tripDayRepository).findByTripIdOrderByDate(TRIP_ID);
+        order.verify(shareLinkRepository).incrementViewCount(LINK_ID);
+        verifyNoMoreInteractions(shareLinkRepository, activityRepository, tripDayRepository);
+    }
+
     @ParameterizedTest(name = "\"{0}\"")
     @ValueSource(strings = {
             "",
@@ -160,17 +184,18 @@ class PublicTripServiceTest {
     }
 
     @Test
-    void anUnknownTokenIs404AndTheMessageDoesNotCarryIt() {
+    void anUnknownTokenIs404CountsNothingAndTheMessageDoesNotCarryIt() {
         when(shareLinkRepository.findWithTripByToken(TOKEN)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> publicTripService.open(TOKEN))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageNotContaining(TOKEN);
         verifyNoInteractions(tripDayRepository, activityRepository);
+        verify(shareLinkRepository, never()).incrementViewCount(anyLong());
     }
 
     @Test
-    void aRevokedLinkIs404AndNothingOfTheTripIsRead() {
+    void aRevokedLinkIs404AndNothingIsReadOrCounted() {
         ShareLink revoked = link(null);
         revoked.revoke(NOW.minus(1, ChronoUnit.HOURS));
         linkOfTheToken(revoked);
@@ -181,11 +206,12 @@ class PublicTripServiceTest {
                 .hasMessageContaining("41 (revoked")
                 .hasMessageNotContaining(TOKEN);
         verifyNoInteractions(tripDayRepository, activityRepository);
+        verify(shareLinkRepository, never()).incrementViewCount(anyLong());
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("expiriesThatAreNoLongerAhead")
-    void anExpiredLinkIs404AndNothingOfTheTripIsRead(String label, Instant expiresAt) {
+    void anExpiredLinkIs404AndNothingIsReadOrCounted(String label, Instant expiresAt) {
         linkOfTheToken(link(expiresAt));
 
         assertThatThrownBy(() -> publicTripService.open(TOKEN))
@@ -193,6 +219,7 @@ class PublicTripServiceTest {
                 .hasMessageContaining("41 (expired")
                 .hasMessageNotContaining(TOKEN);
         verifyNoInteractions(tripDayRepository, activityRepository);
+        verify(shareLinkRepository, never()).incrementViewCount(anyLong());
     }
 
     static Stream<Arguments> expiriesThatAreNoLongerAhead() {
@@ -204,7 +231,7 @@ class PublicTripServiceTest {
     }
 
     @Test
-    void aLiveLinkOfADeletedTripIs404AndNothingOfTheTripIsRead() {
+    void aLiveLinkOfADeletedTripIs404AndNothingIsReadOrCounted() {
         ReflectionTestUtils.setField(trip, "deletedAt", NOW.minus(1, ChronoUnit.DAYS));
         linkOfTheToken(link(null));
 
@@ -213,6 +240,7 @@ class PublicTripServiceTest {
                 .hasMessageContaining("Trip")
                 .hasMessageNotContaining(TOKEN);
         verifyNoInteractions(tripDayRepository, activityRepository);
+        verify(shareLinkRepository, never()).incrementViewCount(anyLong());
     }
 
     // ---- helpers -----------------------------------------------------------------------------------------------

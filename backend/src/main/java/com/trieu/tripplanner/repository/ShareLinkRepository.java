@@ -4,6 +4,7 @@ import com.trieu.tripplanner.model.ShareLink;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -51,5 +52,16 @@ public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
      */
     @Query("select l from ShareLink l join fetch l.trip where l.token = :token")
     Optional<ShareLink> findWithTripByToken(@Param("token") String token);
+
+    /**
+     * One more successful opening of the public page (design.md 10.2): the database adds one to the value it
+     * holds, so two guests opening the page at the same moment both count, which reading the count and saving
+     * it back would not guarantee. Native SQL so that nothing but view_count is written: updated_at keeps the
+     * last change the owner made (design.md 5.2 "share_links"). The entity already in memory keeps its old
+     * count; view_count is not updatable through it, so saving it later cannot undo this.
+     */
+    @Modifying
+    @Query(value = "UPDATE share_links SET view_count = view_count + 1 WHERE id = :id", nativeQuery = true)
+    void incrementViewCount(@Param("id") Long id);
 
 }
