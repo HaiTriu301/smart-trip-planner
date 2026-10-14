@@ -102,4 +102,17 @@ public interface SharingService {
      */
     List<ShareLinkResponse> listLinks(Long tripId);
 
+    /**
+     * Revokes a share link (design.md rule 14.26): the row stays and gets its revoked_at, the link leaves the
+     * list and, from the public page on, opens nothing. There is no way back. When the trip is left without any
+     * link that was not revoked, its visibility goes back to PRIVATE; an expired link that was never revoked
+     * still counts, so the label stays LINK until that one is revoked too. An expired link can be revoked like
+     * any other.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException the trip does not exist, or linkId is
+     *                                                                   not a link of this trip, or the link was
+     *                                                                   already revoked (404)
+     */
+    void revokeLink(Long tripId, Long linkId);
+
 }

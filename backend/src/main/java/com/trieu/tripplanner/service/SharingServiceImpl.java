@@ -55,6 +55,7 @@ public class SharingServiceImpl implements SharingService {
     private static final String TRIP = "Trip";
     private static final String USER = "User";
     private static final String TRIP_MEMBER = "TripMember";
+    private static final String SHARE_LINK = "ShareLink";
 
     /** design.md 5.2 "share_links": the token column is CHAR(32). */
     static final int LINK_TOKEN_LENGTH = 32;
@@ -200,6 +201,26 @@ public class SharingServiceImpl implements SharingService {
         return shareLinkMapper.toResponses(
                 shareLinkRepository.findByTripIdAndRevokedAtIsNullOrderByCreatedAtDescIdDesc(tripId),
                 clock.instant());
+    }
+
+    @Override
+    @Transactional
+    public void revokeLink(Long tripId, Long linkId) {
+        Trip trip = findTrip(tripId);
+        // A link of another trip and a link revoked before both answer like a link that does not exist
+        ShareLink link = shareLinkRepository.findByIdAndTripId(linkId, tripId)
+                .filter(found -> found.getRevokedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException(SHARE_LINK, linkId));
+        link.revoke(clock.instant());
+        shareLinkRepository.save(link);
+
+        // The label follows the links (rule 14.26): the last one gone, the trip is private again. The trip is
+        // managed, so the label is written at commit; with another link left, nothing of the trip is written
+        boolean lastLink = !shareLinkRepository.existsByTripIdAndRevokedAtIsNullAndIdNot(tripId, linkId);
+        if (lastLink) {
+            trip.setVisibility(TripVisibility.PRIVATE);
+        }
+        log.info("Trip {}: share link {} revoked{}", tripId, linkId, lastLink ? ", trip is private again" : "");
     }
 
     /**

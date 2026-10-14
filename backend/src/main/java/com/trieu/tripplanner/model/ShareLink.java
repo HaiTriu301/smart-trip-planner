@@ -59,7 +59,7 @@ public class ShareLink extends BaseEntity {
     @Column(name = "expires_at", updatable = false)
     private Instant expiresAt;
 
-    /** Null = live. */
+    /** Null = live. Only ever set by {@link #revoke}. */
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
@@ -72,5 +72,13 @@ public class ShareLink extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false, updatable = false)
     private User createdBy;
+
+    /**
+     * Ends the link for good: the one change a link ever goes through. There is no way back, a new link has to
+     * be created instead. The caller makes sure the link is still live.
+     */
+    public void revoke(Instant now) {
+        this.revokedAt = now;
+    }
 
 }

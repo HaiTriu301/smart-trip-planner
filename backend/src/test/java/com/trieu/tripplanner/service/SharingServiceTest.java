@@ -813,6 +813,93 @@ class SharingServiceTest {
         verifyNoInteractions(shareLinkRepository);
     }
 
+    @Test
+    void revokingALinkStampsItWithTheCurrentInstantAndKeepsTheLabelWhileAnotherLinkIsLeft() {
+        tripExists();
+        trip.setVisibility(TripVisibility.LINK);
+        ShareLink link = linkOfTheTrip(null);
+        anotherLinkIsLeft(true);
+
+        sharingService.revokeLink(TRIP_ID, LINK_ID);
+
+        assertThat(link.getRevokedAt()).isEqualTo(NOW);
+        verify(shareLinkRepository).save(link);
+        // The other link still opens the trip
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.LINK);
+        // What makes the link stays as it was: revoking is not deleting
+        assertThat(link.getToken()).isEqualTo(LINK_TOKEN);
+        assertThat(link.getViewCount()).isEqualTo(3);
+        verifyNoInteractions(tripMemberRepository, mailService);
+    }
+
+    @Test
+    void revokingTheLastLinkMakesTheTripPrivateAgain() {
+        tripExists();
+        trip.setVisibility(TripVisibility.LINK);
+        ShareLink link = linkOfTheTrip(null);
+        anotherLinkIsLeft(false);
+
+        sharingService.revokeLink(TRIP_ID, LINK_ID);
+
+        assertThat(link.getRevokedAt()).isEqualTo(NOW);
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PRIVATE);
+    }
+
+    @Test
+    void anExpiredLinkCanBeRevokedLikeAnyOther() {
+        tripExists();
+        trip.setVisibility(TripVisibility.LINK);
+        ShareLink expired = linkOfTheTrip(NOW.minus(1, ChronoUnit.DAYS));
+        anotherLinkIsLeft(false);
+
+        sharingService.revokeLink(TRIP_ID, LINK_ID);
+
+        assertThat(expired.getRevokedAt()).isEqualTo(NOW);
+        // The expiry is history and stays; only now does the trip lose its label
+        assertThat(expired.getExpiresAt()).isEqualTo(NOW.minus(1, ChronoUnit.DAYS));
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PRIVATE);
+    }
+
+    @Test
+    void revokingALinkASecondTimeIs404AndKeepsTheFirstRevocation() {
+        tripExists();
+        trip.setVisibility(TripVisibility.LINK);
+        ShareLink link = linkOfTheTrip(null);
+        Instant firstRevocation = NOW.minus(2, ChronoUnit.HOURS);
+        link.revoke(firstRevocation);
+
+        assertThatThrownBy(() -> sharingService.revokeLink(TRIP_ID, LINK_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        assertThat(link.getRevokedAt()).isEqualTo(firstRevocation);
+        verify(shareLinkRepository, never()).save(any(ShareLink.class));
+        // A refused call must not touch the label either
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.LINK);
+    }
+
+    @Test
+    void revokingALinkThatIsNotOfThisTripIs404AndChangesNothing() {
+        tripExists();
+        trip.setVisibility(TripVisibility.LINK);
+        // The link exists, on another trip: looked up by id + trip, it is not found
+        when(shareLinkRepository.findByIdAndTripId(LINK_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.revokeLink(TRIP_ID, LINK_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(shareLinkRepository, never()).save(any(ShareLink.class));
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.LINK);
+    }
+
+    @Test
+    void revokeLinkOnAMissingTripIs404AndReadsNoLink() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.revokeLink(TRIP_ID, LINK_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(shareLinkRepository);
+    }
+
     // ---- helpers -----------------------------------------------------------------------------------------------
 
     /** A VIEWER row (MEMBER_ID) of friend@example.com on the trip, found by id + trip, in the given status. */
@@ -919,6 +1006,18 @@ class SharingServiceTest {
         ReflectionTestUtils.setField(link, "id", id);
         ReflectionTestUtils.setField(link, "createdAt", createdAt);
         return link;
+    }
+
+    /** LINK_ID is a live link of the trip with 3 views, found by id + trip, for the revoke cases. */
+    private ShareLink linkOfTheTrip(Instant expiresAt) {
+        ShareLink link = existingLink(LINK_ID, LINK_TOKEN, expiresAt, 3, NOW.minusSeconds(3600));
+        when(shareLinkRepository.findByIdAndTripId(LINK_ID, TRIP_ID)).thenReturn(Optional.of(link));
+        return link;
+    }
+
+    /** Whether the trip has a link that was not revoked besides LINK_ID. */
+    private void anotherLinkIsLeft(boolean left) {
+        when(shareLinkRepository.existsByTripIdAndRevokedAtIsNullAndIdNot(TRIP_ID, LINK_ID)).thenReturn(left);
     }
 
     /** What the query of the list returns for the trip: its live links, already newest first. */

@@ -3,6 +3,7 @@ package com.trieu.tripplanner.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -260,6 +261,60 @@ class ShareLinkControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(sharingService);
+    }
+
+    // ---- DELETE /trips/{tripId}/share-links/{linkId} -------------------------------------------------------------
+
+    @Test
+    void revokeReturns200WithoutDataWhenOwner() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(revoke("41"))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null }
+                        """);
+        verify(sharingService).revokeLink(TRIP_ID, 41L);
+    }
+
+    @Test
+    void revokeReturns403WhenNotOwnerAndNeverReachesService() {
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(revoke("41"))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verifyNoInteractions(sharingService);
+    }
+
+    @Test
+    void revokeWithoutTokenReturns401() {
+        assertThat(mvc.delete().uri(LINKS_URL + "/41")).hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(sharingService, tripPermission);
+    }
+
+    @Test
+    void revokeOfAnUnknownOrAlreadyRevokedLinkReturns404() {
+        // One answer for a link that never existed, belongs to another trip, or was revoked before
+        when(tripPermission.isOwner(eq(TRIP_ID), any())).thenReturn(true);
+        doThrow(new ResourceNotFoundException("ShareLink", 99L)).when(sharingService).revokeLink(TRIP_ID, 99L);
+
+        assertThat(revoke("99"))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void revokeWithNonNumericLinkIdReturns400() {
+        // The token is not the address of a link here: only its id is
+        assertThat(revoke(TOKEN))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(sharingService);
+    }
+
+    private MvcTestResult revoke(String linkId) {
+        return mvc.delete().uri(LINKS_URL + "/" + linkId).header(HttpHeaders.AUTHORIZATION, bearer).exchange();
     }
 
     private MvcTestResult create(String json) {

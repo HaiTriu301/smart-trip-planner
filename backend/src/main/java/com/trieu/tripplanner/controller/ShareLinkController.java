@@ -11,6 +11,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,19 @@ public class ShareLinkController {
     @PreAuthorize("@tripPermission.isOwner(#tripId, principal)")
     public ApiResponse<List<ShareLinkResponse>> list(@PathVariable Long tripId) {
         return ApiResponse.ok(sharingService.listLinks(tripId));
+    }
+
+    @Operation(summary = "Thu hồi liên kết chia sẻ",
+               description = "Chỉ chủ chuyến đi. Liên kết hết tác dụng và không còn trong danh sách; không bật lại "
+                       + "được, muốn chia sẻ tiếp thì tạo liên kết mới. Thu hồi liên kết cuối cùng chưa thu hồi "
+                       + "thì chuyến đi về visibility PRIVATE. Liên kết đã hết hạn vẫn thu hồi được. 403 nếu không "
+                       + "phải chủ, 404 nếu chuyến đi không tồn tại, linkId không thuộc chuyến đi này hoặc liên kết "
+                       + "đã thu hồi rồi.")
+    @DeleteMapping("/{linkId}")
+    @PreAuthorize("@tripPermission.isOwner(#tripId, principal)")
+    public ApiResponse<Void> revoke(@PathVariable Long tripId, @PathVariable Long linkId) {
+        sharingService.revokeLink(tripId, linkId);
+        return ApiResponse.ok(null);
     }
 
 }

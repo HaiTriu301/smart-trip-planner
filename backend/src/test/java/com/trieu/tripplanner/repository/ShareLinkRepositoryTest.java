@@ -31,6 +31,8 @@ class ShareLinkRepositoryTest {
     private static final String TOKEN_B = "b1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
     private static final String TOKEN_C = "c1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
     private static final String TOKEN_D = "d1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";
+    // Whole microseconds: DATETIME(6) would round anything finer (CLAUDE.md section 8)
+    private static final Instant REVOKED_AT = Instant.parse("2026-10-10T08:30:00.654321Z");
 
     @Autowired
     private ShareLinkRepository shareLinkRepository;
@@ -109,6 +111,71 @@ class ShareLinkRepositoryTest {
         assertThat(liveLinksOf(trip)).extracting(ShareLink::getToken).containsExactly(TOKEN_A);
         assertThat(liveLinksOf(other)).extracting(ShareLink::getToken).containsExactly(TOKEN_B);
         assertThat(shareLinkRepository.findByTripIdAndRevokedAtIsNullOrderByCreatedAtDescIdDesc(999_999L)).isEmpty();
+    }
+
+    @Test
+    void findByIdAndTripIdFindsALinkOnlyUnderItsOwnTrip() {
+        Trip other = entityManager.persist(trip(owner, "hue-bbbbbb"));
+        ShareLink mine = entityManager.persist(link(TOKEN_A).build());
+        ShareLink revoked = entityManager.persist(link(TOKEN_B).revokedAt(REVOKED_AT).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(shareLinkRepository.findByIdAndTripId(mine.getId(), trip.getId()))
+                .get().extracting(ShareLink::getToken).isEqualTo(TOKEN_A);
+        // The right id under the wrong trip: an owner cannot reach into somebody else's trip by guessing ids
+        assertThat(shareLinkRepository.findByIdAndTripId(mine.getId(), other.getId())).isEmpty();
+        // A revoked link is found too: answering 404 for it is the decision of the service
+        assertThat(shareLinkRepository.findByIdAndTripId(revoked.getId(), trip.getId()))
+                .get().extracting(ShareLink::getRevokedAt).isEqualTo(REVOKED_AT);
+        assertThat(shareLinkRepository.findByIdAndTripId(999_999L, trip.getId())).isEmpty();
+    }
+
+    @Test
+    void aTripWhoseOtherLinksAreAllRevokedHasNoLinkLeftBesidesTheGivenOne() {
+        Trip other = entityManager.persist(trip(owner, "hue-bbbbbb"));
+        ShareLink last = entityManager.persist(link(TOKEN_A).build());
+        entityManager.persist(link(TOKEN_B).revokedAt(REVOKED_AT).build());
+        // A live link of another trip does not keep this trip shared
+        entityManager.persist(ShareLink.builder().trip(other).token(TOKEN_C).createdBy(owner).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(shareLinkRepository.existsByTripIdAndRevokedAtIsNullAndIdNot(trip.getId(), last.getId()))
+                .isFalse();
+    }
+
+    @Test
+    void aSecondLiveLinkIsLeftBesidesTheGivenOneEvenWhenItHasExpired() {
+        ShareLink first = entityManager.persist(link(TOKEN_A).build());
+        // Expired and never revoked: it still keeps the LINK label of the trip (design.md 10.2)
+        ShareLink expired = entityManager.persist(link(TOKEN_B).expiresAt(Instant.parse("2020-01-01T00:00:00Z"))
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(shareLinkRepository.existsByTripIdAndRevokedAtIsNullAndIdNot(trip.getId(), first.getId()))
+                .isTrue();
+        assertThat(shareLinkRepository.existsByTripIdAndRevokedAtIsNullAndIdNot(trip.getId(), expired.getId()))
+                .isTrue();
+    }
+
+    @Test
+    void revokingThroughTheEntityWritesTheInstantAndTakesTheLinkOutOfTheList() {
+        ShareLink kept = entityManager.persist(link(TOKEN_A).build());
+        ShareLink gone = entityManager.persist(link(TOKEN_B).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        ShareLink loaded = shareLinkRepository.findByIdAndTripId(gone.getId(), trip.getId()).orElseThrow();
+        loaded.revoke(REVOKED_AT);
+        shareLinkRepository.saveAndFlush(loaded);
+        entityManager.clear();
+
+        assertThat(shareLinkRepository.findById(gone.getId()).orElseThrow().getRevokedAt()).isEqualTo(REVOKED_AT);
+        assertThat(liveLinksOf(trip)).extracting(ShareLink::getId).containsExactly(kept.getId());
+        // The row is still there: revoking never deletes
+        assertThat(shareLinkRepository.count()).isEqualTo(2);
     }
 
     private List<ShareLink> liveLinksOf(Trip ofTrip) {
