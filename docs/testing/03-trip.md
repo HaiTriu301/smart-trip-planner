@@ -1,6 +1,6 @@
 # 03 · Chuyến đi
 
-> Cập nhật: 2026-10-09 · từ Task 4.1 Mốc 8, danh sách và chip trạng thái gồm cả chuyến được chia sẻ với mình (kịch bản ở [09-sharing.md](09-sharing.md) phần J; các kịch bản "của người khác" dưới đây hiểu là người khác **không** chia sẻ cho mình) · 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-13 · Task 4.2 Mốc 2: tạo và sửa chuyến đi không còn nhận chế độ hiển thị từ người gọi (phần L, `TC-TRIP-066` đến `TC-TRIP-068`; `TC-TRIP-002` sửa lại), tại `2a1faec` (1072 lượt test) · 2026-10-09 · từ Task 4.1 Mốc 8, danh sách và chip trạng thái gồm cả chuyến được chia sẻ với mình (kịch bản ở [09-sharing.md](09-sharing.md) phần J; các kịch bản "của người khác" dưới đây hiểu là người khác **không** chia sẻ cho mình) · 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
 
 Tính năng này cho người dùng tạo, xem danh sách, xem chi tiết, sửa và xoá chuyến đi. Làm ở Task 2.1.
 Đổi trạng thái chuyến đi (phần H) làm ở Task 2.5 Mốc 5. Giới hạn mô tả 1000 ký tự (phần I) chốt ở Task 2.5, trước đó là 5000. Số hoạt động trên thẻ chuyến đi (phần J) và số chuyến đi theo trạng thái (phần K) làm trên Task 2.6 (`feat/T2.6-ui-guide`).
@@ -24,7 +24,7 @@ Vài từ dùng trong file:
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
 | TC-TRIP-001 | Tạo chuyến đi với tên và ngày hợp lệ | 201. Trạng thái là bản nháp, chế độ riêng tư, tiền tệ VND. Chủ sở hữu là **người đang đăng nhập** | Đúng | Đạt |
-| TC-TRIP-002 | Tạo chuyến đi và tự chọn tiền tệ, chế độ hiển thị | Giữ đúng giá trị người dùng chọn | Đúng | Đạt |
+| TC-TRIP-002 | Tạo chuyến đi và tự chọn tiền tệ, ngân sách | Giữ đúng giá trị người dùng chọn. (Trước Task 4.2 kịch bản này gồm cả chế độ hiển thị; nay người gọi không chọn được nữa, xem phần L) | Đúng | Đạt |
 | TC-TRIP-003 | Tạo chuyến đi dài **đúng 60 ngày** | Tạo thành công | Biên | Đạt |
 | TC-TRIP-004 | Tạo chuyến đi dài **61 ngày** | 400, lỗi ở ô ngày kết thúc: "Chuyến đi dài tối đa 60 ngày" | Biên | Đạt |
 | TC-TRIP-005 | Ngày kết thúc trước ngày bắt đầu | 400, lỗi ở ô ngày kết thúc | Sai | Đạt |
@@ -170,6 +170,18 @@ Con số trên từng chip trạng thái của trang danh sách. Dùng đúng b�
 | TC-TRIP-065 | Từ khoá dài hơn 200 ký tự | 400 `VALIDATION_ERROR`, không đếm gì | Sai | Đạt |
 
 ---
+
+## L. Chế độ hiển thị do hệ thống đặt
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Trip API" (`visibility`, chốt 2026-10-13), rule 14.26 · **Kiểm bởi:** `TripControllerTest`, `TripServiceTest`
+
+Chế độ hiển thị của chuyến đi (riêng tư / chia sẻ qua liên kết) là nhãn do hệ thống tự đặt theo các liên kết chia sẻ (Task 4.2, [09-sharing.md](09-sharing.md)). Người gọi API không còn gửi được nó khi tạo hay sửa chuyến đi: nếu vẫn gửi, giá trị bị bỏ qua. Nhờ vậy nhãn không thể nói "riêng tư" trong lúc một liên kết còn mở được.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-TRIP-066 | Tạo chuyến đi và gửi kèm chế độ hiển thị `PUBLIC` | 201, không báo lỗi. Giá trị gửi kèm bị bỏ qua; chuyến đi mới luôn ở chế độ riêng tư (kiểm ở `TC-TRIP-001`) | Bảo mật | Đạt |
+| TC-TRIP-067 | Sửa tên chuyến đi và gửi kèm chế độ hiển thị `PUBLIC` | 200. Tên vẫn được sửa; chế độ hiển thị gửi kèm không đi tới phần xử lý | Bảo mật | Đạt |
+| TC-TRIP-068 | Sửa tên một chuyến đi đang có nhãn "chia sẻ qua liên kết" (`LINK`) | Nhãn giữ nguyên `LINK`: việc sửa chuyến đi không đặt lại nhãn | Đúng | Đạt |
 
 ## Kiểm tra thủ công
 

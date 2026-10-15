@@ -1,6 +1,6 @@
 # 09 · Chia sẻ chuyến đi
 
-> Cập nhật: 2026-10-09 · **Task 4.1 xong**: PR #26, merge commit `5004457`, 12 commit từ `3c66957` đến `f7d317f`, build xanh 1059 lượt test · Mốc 10 tại `f7d317f` (1059 lượt test) · Mốc 9 tại `0a41839` (1058 lượt test; `BUG-SHARE-001` đã sửa) · Mốc 8 tại `c0dfcfd` (1054 lượt test) · Mốc 7 tại `a18ce26` (1051 lượt test) · Mốc 6 tại `99d46a7` (1039 lượt test) · Mốc 5 tại `6617fce` (1026 lượt test) · Mốc 4 tại `6a1ec45` (1016 lượt test) · Mốc 3 tại `e2158db` (1007 lượt test) · Mốc 2c tại `5b92632` (994 lượt test) · Mốc 2b tại `ac83f4e` (988 lượt test) · Mốc 2a tại `eb009c8` (974 lượt test) · Mốc 1 tại `3c66957` (971 lượt test) · kiểm tra thủ công `MT-SHARE-01` đến `MT-SHARE-09` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-15 · **Task 4.2 xong**: 9 commit từ `7068e23` đến `1fdf57d` trên nhánh `feat/T4.2-share-links`, gộp vào `main` qua pull request, build xanh 1155 lượt test · Mốc 9 (test toàn luồng của liên kết chia sẻ) tại `1fdf57d` (1155 lượt test) · Mốc 8 (đếm lượt xem của liên kết) tại `e811cc2` (1151 lượt test) · Mốc 7 (trang công khai của chuyến đi) tại `226742a` (1148 lượt test) · Mốc 6 (thu hồi liên kết chia sẻ) tại `937349b` (1126 lượt test) · Mốc 5 (danh sách liên kết chia sẻ) tại `bac6e6a` (1111 lượt test) · Mốc 4 (liên kết có hạn dùng) tại `2c9397d` (1093 lượt test) · Mốc 3 (tạo liên kết chia sẻ) tại `055cc33` (1081 lượt test) · Mốc 2 (tạo / sửa chuyến đi không còn nhận chế độ hiển thị) tại `2a1faec` (1072 lượt test) · Mốc 1 (bảng lưu liên kết chia sẻ) tại `7068e23` (1069 lượt test) · kiểm tra thủ công `MT-SHARE-10` đến `MT-SHARE-16` chưa chạy · 2026-10-09 · **Task 4.1 xong**: PR #26, merge commit `5004457`, 12 commit từ `3c66957` đến `f7d317f`, build xanh 1059 lượt test · Mốc 10 tại `f7d317f` (1059 lượt test) · Mốc 9 tại `0a41839` (1058 lượt test; `BUG-SHARE-001` đã sửa) · Mốc 8 tại `c0dfcfd` (1054 lượt test) · Mốc 7 tại `a18ce26` (1051 lượt test) · Mốc 6 tại `99d46a7` (1039 lượt test) · Mốc 5 tại `6617fce` (1026 lượt test) · Mốc 4 tại `6a1ec45` (1016 lượt test) · Mốc 3 tại `e2158db` (1007 lượt test) · Mốc 2c tại `5b92632` (994 lượt test) · Mốc 2b tại `ac83f4e` (988 lượt test) · Mốc 2a tại `eb009c8` (974 lượt test) · Mốc 1 tại `3c66957` (971 lượt test) · kiểm tra thủ công `MT-SHARE-01` đến `MT-SHARE-09` chưa chạy · [Về trang chính](README.md)
 
 Chủ chuyến đi mời người khác vào chuyến của mình theo email và quyết định họ chỉ được xem hay được cùng sửa. Người được mời bấm link trong mail để nhận lời. Chủ có thể đổi vai trò hoặc gỡ một thành viên bất cứ lúc nào. Phần thành viên làm ở Task 4.1; liên kết chia sẻ cho người không có tài khoản ở Task 4.2; bảng kiểm quyền đầy đủ ở Task 4.3; giao diện ở Task 4.5.
 
@@ -21,6 +21,20 @@ File này được ghi dần theo từng mốc của Task 4.1:
 | 9 | Chi tiết chuyến đi (`GET /api/v1/trips/{id}`) trả thêm `members` và `myRole`; 5 câu SQL thay vì 4 | K | `0a41839` |
 | 10 | Test toàn luồng mời qua HTTP: mời → mail → đăng ký → nhận lời → xem → nâng vai trò → sửa → gỡ → mời lại | L | `f7d317f` |
 
+Task 4.2 (liên kết chia sẻ và trang công khai) ghi tiếp vào file này, cũng theo từng mốc:
+
+| Mốc | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 1 | Bảng lưu liên kết chia sẻ của một chuyến đi | M | `7068e23` |
+| 2 | Tạo và sửa chuyến đi (`POST`, `PATCH /api/v1/trips`) không còn nhận chế độ hiển thị từ người gọi: nhãn này từ nay chỉ do liên kết chia sẻ quyết định | [03-trip.md](03-trip.md) phần L | `2a1faec` |
+| 3 | Chủ chuyến đi tạo một liên kết chia sẻ (`POST /api/v1/trips/{tripId}/share-links`); chuyến đi được gắn nhãn "chia sẻ qua liên kết" | N | `055cc33` |
+| 4 | Liên kết có thể có hạn dùng: chủ gửi kèm thời điểm hết hạn khi tạo, thời điểm đó phải ở tương lai | O | `2c9397d` |
+| 5 | Chủ xem lại các liên kết chưa thu hồi của chuyến đi (`GET /api/v1/trips/{tripId}/share-links`), mới nhất trước; liên kết hết hạn vẫn hiện kèm dấu `expired` | P | `bac6e6a` |
+| 6 | Chủ thu hồi một liên kết (`DELETE /api/v1/trips/{tripId}/share-links/{linkId}`); thu hồi liên kết cuối cùng thì chuyến đi về nhãn riêng tư | Q | `937349b` |
+| 7 | Người không có tài khoản mở trang công khai của chuyến đi bằng liên kết (`GET /api/v1/public/trips/{token}`); mọi trường hợp bị từ chối là cùng một 404 | R | `226742a` |
+| 8 | Mỗi lần trang công khai mở thành công, lượt xem của liên kết tăng 1; lần bị từ chối không tính | S | `e811cc2` |
+| 9 | Test toàn luồng trên MySQL thật: chủ tạo liên kết, khách mở, lượt xem tăng, 4 câu SQL, chủ thu hồi, khách nhận 404; chuyến đi đã xoá và liên kết hết hạn cũng 404 | T | `1fdf57d` |
+
 Vài từ dùng trong file:
 
 | Từ | Nghĩa |
@@ -30,6 +44,9 @@ Vài từ dùng trong file:
 | Vai trò | `EDITOR` được xem và sửa nội dung chuyến đi; `VIEWER` chỉ được xem. Trên API còn có vai trò `OWNER` dành cho chủ, nhưng giá trị này không bao giờ được ghi vào bảng |
 | Trạng thái lời mời | `PENDING` đã gửi mail, chưa nhận lời · `ACCEPTED` đã nhận lời · `REMOVED` đã bị chủ gỡ. Chỉ `ACCEPTED` mới có quyền |
 | Token mời | Chuỗi bí mật nằm trong link của mail mời, dùng một lần, sống 7 ngày. Hệ thống chỉ lưu bản băm (SHA-256) của nó, giống token đặt lại mật khẩu |
+| Liên kết chia sẻ | Đường link chủ chuyến đi tạo ra để người **không có tài khoản** xem được lịch trình. Chỉ cho xem, không cho sửa. Mỗi liên kết một dòng trong bảng `share_links` |
+| Token liên kết | Chuỗi 32 ký tự ngẫu nhiên nằm trong đường link. Khác token mời, hệ thống lưu nguyên chuỗi này (không băm) vì chủ cần xem lại và sao chép lại liên kết; nó chỉ mở được quyền xem |
+| Thu hồi | Chủ tắt một liên kết. Dòng không bị xoá mà được ghi thời điểm thu hồi; không bật lại được |
 
 ---
 
@@ -264,6 +281,158 @@ Câu chuyện đầy đủ như người dùng trải qua, đi qua mọi tầng 
 | TC-SHARE-120 | Chủ gỡ, người đó xem, sửa, xem danh sách | 200; xem 403, sửa 403, danh sách 0 chuyến; dòng trong cơ sở dữ liệu `REMOVED` | Bảo mật | Đạt |
 | TC-SHARE-121 | Chủ mời lại cùng email với vai trò cùng sửa, người đó nhận lời bằng link mới | 201 với **cùng `memberId`**, `PENDING`, đã có tên tài khoản; mail thứ ba có token **khác** token cũ; nhận lời 200; `myRole` = `EDITOR`; bảng thành viên không thêm dòng; cả câu chuyện gửi đúng 3 mail | Đúng | Đạt |
 
+## M. Bảng lưu liên kết chia sẻ
+
+> **Yêu cầu:** design.md 5.2 bảng `share_links`, rule 14.26, quyết định 3 của bản rà Phase 4 (liên kết chỉ có quyền xem) · **Kiểm bởi:** `ShareLinkMappingTest`
+
+Mốc 1 của Task 4.2 chỉ tạo chỗ lưu, chưa có API. Các kịch bản kiểm rằng chỗ lưu giữ đúng dữ liệu, mỗi token chỉ thuộc về một liên kết, và những gì làm nên một liên kết không bị đổi sau khi tạo.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-122 | Lưu một liên kết có đủ mọi giá trị (token, hạn dùng, lúc thu hồi, 12 lượt xem, người tạo) rồi đọc lại | Mọi giá trị đọc lại y nguyên, kể cả phần triệu giây của hai thời điểm; quyền là `VIEW` | Đúng | Đạt |
+| TC-SHARE-123 | Lưu một liên kết chỉ có chuyến đi, token và người tạo | Quyền mặc định là `VIEW`; không có hạn dùng; chưa thu hồi; 0 lượt xem | Đúng | Đạt |
+| TC-SHARE-124 | Hai liên kết của hai chuyến đi khác nhau dùng cùng một token | Bị từ chối, nêu tên khoá `uk_share_links_token`: trang công khai tìm chuyến đi chỉ bằng token, nên một token không được thuộc về hai liên kết | Bảo mật | Đạt |
+| TC-SHARE-125 | Một chuyến đi có hai liên kết với hai token khác nhau | Cả hai lưu được: không giới hạn số liên kết của một chuyến | Đúng | Đạt |
+| TC-SHARE-126 | Lưu một liên kết có token dài 33 ký tự | Bị từ chối (`Data too long for column 'token'`): token luôn đúng 32 ký tự | Biên | Đạt |
+| TC-SHARE-127 | Lưu lần lượt từng quyền có trong code (hiện chỉ có `VIEW`) | Cột ENUM của MySQL nhận và đọc lại đúng. Nếu sau này code thêm quyền mới mà quên sửa cột, test này đỏ | Đúng | Đạt |
+| TC-SHARE-128 | Ghi thẳng vào bảng một liên kết có quyền `EDIT` | MySQL từ chối (`Data truncated for column 'permission'`): liên kết chỉ cho xem | Bảo mật | Đạt |
+| TC-SHARE-129 | Xoá hẳn khỏi cơ sở dữ liệu một chuyến đi có hai liên kết, một còn sống và một đã thu hồi (việc bộ dọn dẹp sẽ làm với chuyến đã xoá mềm quá 30 ngày) | Cả hai liên kết mất theo, không còn dòng mồ côi | Đúng | Đạt |
+| TC-SHARE-130 | Sau khi lưu, cố đổi chuyến đi, token, hạn dùng và người tạo của một liên kết, rồi lưu lại cùng lúc với việc ghi thời điểm thu hồi | Bốn giá trị kia không đổi trong cơ sở dữ liệu; chỉ thời điểm thu hồi được ghi | Bảo mật | Đạt |
+| TC-SHARE-131 | Chủ đang giữ một liên kết đọc ra lúc có 0 lượt xem; trong lúc đó có 7 lượt mở trang công khai; rồi chủ lưu lại liên kết (thu hồi) | Lượt xem vẫn là 7: việc lưu liên kết không bao giờ ghi đè số lượt xem bằng con số cũ | Biên | Đạt |
+
+## N. Tạo liên kết chia sẻ
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Sharing API" (liên kết), 6.2 (chỉ chủ tạo liên kết), rule 14.26 · **Kiểm bởi:** `SharingServiceTest`, `ShareLinkControllerTest`
+
+Chủ chuyến đi bấm tạo là có ngay một liên kết chỉ xem, không phải nhập gì. Hệ thống tự sinh token ngẫu nhiên và gắn nhãn "chia sẻ qua liên kết" cho chuyến đi. Ở mốc này liên kết chưa có hạn dùng (Mốc 4), chưa xem lại được danh sách (Mốc 5), chưa thu hồi được (Mốc 6) và chưa mở được trang công khai (Mốc 7). Việc nhãn và liên kết thật sự nằm trong cơ sở dữ liệu được kiểm ở test toàn luồng của Mốc 9 và bài thủ công `MT-SHARE-11`.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-132 | Chủ tạo liên kết cho một chuyến đi đang riêng tư | Một liên kết được lưu: thuộc đúng chuyến đi, người tạo là chủ, quyền `VIEW`, token gồm đúng 32 ký tự chữ thường và số, không có hạn dùng, chưa thu hồi, 0 lượt xem. Nhãn của chuyến đi đổi từ `PRIVATE` sang `LINK`. Không đụng tới thành viên, không gửi mail | Đúng | Đạt |
+| TC-SHARE-133 | Chủ tạo hai liên kết cho cùng một chuyến đi | Cả hai được lưu, mỗi liên kết một token khác nhau; nhãn chuyến đi vẫn là `LINK` | Đúng | Đạt |
+| TC-SHARE-134 | Token vừa sinh ra trùng với token của một liên kết đã có | Hệ thống sinh token khác và lưu liên kết với token chưa ai dùng, thay vì để cơ sở dữ liệu báo lỗi | Biên | Đạt |
+| TC-SHARE-135 | Tạo liên kết cho chuyến đi không tồn tại hoặc đã xoá | 404 `RESOURCE_NOT_FOUND`, không lưu liên kết nào | Sai | Đạt |
+| TC-SHARE-136 | Chủ gọi API tạo liên kết, không gửi nội dung gì | 201; câu trả lời có mã liên kết, token, quyền `VIEW`, 0 lượt xem và lúc tạo | Đúng | Đạt |
+| TC-SHARE-137 | Người không phải chủ (kể cả thành viên cùng sửa hoặc chỉ xem) gọi API tạo liên kết | 403 `FORBIDDEN`, yêu cầu không đi tới phần xử lý | Bảo mật | Đạt |
+| TC-SHARE-138 | Gọi API tạo liên kết khi chưa đăng nhập | 401, không kiểm quyền, không xử lý gì | Bảo mật | Đạt |
+| TC-SHARE-139 | Mã chuyến đi trên đường dẫn là chữ (`/trips/abc/share-links`) | 400 `VALIDATION_ERROR`, không xử lý gì | Sai | Đạt |
+
+## O. Liên kết có hạn dùng
+
+> **Yêu cầu:** design.md 10.2 "Quy ước Sharing API" (`expiresAt` tuỳ chọn, phải ở tương lai, body không bắt buộc), rule 14.26 · **Kiểm bởi:** `SharingServiceTest`, `ShareLinkControllerTest`
+
+Khi tạo liên kết, chủ có thể gửi kèm thời điểm hết hạn. Không gửi thì liên kết không bao giờ hết hạn. Thời điểm hết hạn được chốt lúc tạo, không sửa được về sau. Hệ thống so với "bây giờ" bằng đồng hồ của ứng dụng, nên test đứng yên ở một thời điểm cố định và không phụ thuộc ngày chạy. Mốc này mới lưu và trả lại hạn dùng; việc liên kết hết hạn thật sự không mở được nữa thuộc trang công khai (Mốc 7).
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-140 | Chủ tạo liên kết kèm hạn dùng 7 ngày sau | 201. Liên kết lưu đúng thời điểm đó và câu trả lời có `expiresAt` bằng đúng giá trị gửi lên; chuyến đi được gắn nhãn `LINK` | Đúng | Đạt |
+| TC-SHARE-141 | Chủ gửi nội dung rỗng `{}` (không có hạn dùng) | 201. Liên kết không có hạn dùng, `expiresAt` trong câu trả lời là `null`, giống hệt khi không gửi nội dung gì (`TC-SHARE-136`) | Đúng | Đạt |
+| TC-SHARE-142 | Hạn dùng chỉ sau "bây giờ" đúng một phần triệu giây | Được chấp nhận và lưu nguyên giá trị | Biên | Đạt |
+| TC-SHARE-143 | Hạn dùng có phần lẻ mịn hơn một phần triệu giây (0,123456789 giây) | Phần mịn hơn bị cắt bỏ (còn 0,123456): giá trị lưu và giá trị trả lời bằng nhau, đúng độ chính xác mà cơ sở dữ liệu giữ được, nên lần đọc sau cho cùng con số | Biên | Đạt |
+| TC-SHARE-144 | Hạn dùng ở quá khứ (1 giây trước), đúng bằng "bây giờ", hoặc chỉ hơn "bây giờ" 999 phần tỉ giây | 400 `VALIDATION_ERROR`, lỗi ở ô `expiresAt`: "Thời điểm hết hạn của liên kết phải ở tương lai". Không lưu liên kết nào; nhãn của chuyến đi vẫn là `PRIVATE` | Sai | Đạt |
+| TC-SHARE-145 | Hạn dùng chỉ có ngày, không có giờ (`2026-11-01`) | 400 `VALIDATION_ERROR` ngay khi đọc nội dung, không đi tới phần xử lý | Sai | Đạt |
+| TC-SHARE-146 | Gửi kèm quyền `"permission": "EDIT"` khi tạo liên kết | 201. Giá trị gửi kèm bị bỏ qua; liên kết vẫn chỉ có quyền `VIEW` | Bảo mật | Đạt |
+
+## P. Danh sách liên kết chia sẻ
+
+> **Yêu cầu:** design.md 10.2 "Sharing" (`GET /share-links`) và "Quy ước Sharing API" (`expired`, không có `revokedAt`), 6.2 (chỉ chủ) · **Kiểm bởi:** `ShareLinkRepositoryTest`, `SharingServiceTest`, `ShareLinkControllerTest`
+
+Chủ chuyến đi xem lại các liên kết mình đã tạo để sao chép lại hoặc chọn cái cần thu hồi. Danh sách chỉ gồm liên kết chưa thu hồi, cái mới tạo đứng đầu. Liên kết đã quá hạn vẫn nằm trong danh sách với `expired = true`, để chủ hiểu vì sao người nhận không mở được nữa. Dấu `expired` do máy chủ tính theo đồng hồ của ứng dụng tại lúc gọi; nó không được lưu trong cơ sở dữ liệu. Thứ tự và việc lọc được kiểm trên MySQL thật; phần còn lại kiểm ở tầng xử lý và tầng web.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-147 | Một chuyến đi có ba liên kết tạo cách nhau 10 phút, lưu vào cơ sở dữ liệu không theo thứ tự thời gian | Danh sách trả về theo lúc tạo, mới nhất đứng đầu | Đúng | Đạt |
+| TC-SHARE-148 | Ba liên kết có cùng một thời điểm tạo | Thứ tự vẫn xác định: liên kết có mã lớn hơn (tạo sau) đứng trước, nên hai lần gọi liên tiếp không đổi chỗ các dòng | Biên | Đạt |
+| TC-SHARE-149 | Chuyến đi có bốn liên kết: một còn dùng được, một đã thu hồi, một quá hạn nhưng chưa thu hồi, một quá hạn rồi bị thu hồi | Danh sách có đúng hai liên kết chưa thu hồi (cái còn dùng được và cái quá hạn). Hai liên kết đã thu hồi không hiện | Đúng | Đạt |
+| TC-SHARE-150 | Hai chuyến đi, mỗi chuyến một liên kết | Danh sách của chuyến nào chỉ có liên kết của chuyến đó; mã chuyến đi không có liên kết nào cho danh sách rỗng | Bảo mật | Đạt |
+| TC-SHARE-151 | Chủ xem danh sách của chuyến đi có hai liên kết (một có hạn 7 ngày sau và 0 lượt xem, một không hạn và 12 lượt xem) | Mỗi dòng có mã, token, quyền `VIEW`, hạn dùng, số lượt xem, lúc tạo và `expired`; thứ tự giữ nguyên như cơ sở dữ liệu trả về. Việc xem không ghi gì và không đổi nhãn của chuyến đi | Đúng | Đạt |
+| TC-SHARE-152 | Liên kết không có hạn dùng, hoặc có hạn còn sau "bây giờ" đúng một phần triệu giây | `expired` = `false` | Biên | Đạt |
+| TC-SHARE-153 | Liên kết có hạn đúng bằng "bây giờ", trước "bây giờ" một phần triệu giây, hoặc trước một ngày | Liên kết vẫn nằm trong danh sách, `expired` = `true`, `expiresAt` giữ nguyên. Ranh giới trùng với lúc tạo (`TC-SHARE-144`): thời điểm bị từ chối khi tạo cũng là thời điểm bị coi là hết hạn | Biên | Đạt |
+| TC-SHARE-154 | Chủ vừa tạo một liên kết, có hoặc không có hạn dùng | Câu trả lời của `POST` có thêm `expired` = `false` | Đúng | Đạt |
+| TC-SHARE-155 | Chuyến đi chưa có liên kết nào | 200 với mảng rỗng `[]`, không phải `null` | Biên | Đạt |
+| TC-SHARE-156 | Xem danh sách liên kết của chuyến đi không tồn tại hoặc đã xoá | 404 `RESOURCE_NOT_FOUND`, không đọc bảng liên kết | Sai | Đạt |
+| TC-SHARE-157 | Chủ gọi `GET /api/v1/trips/{tripId}/share-links` | 200; hai liên kết đúng thứ tự. Mỗi dòng có đúng bảy trường `id`, `token`, `permission`, `expiresAt`, `viewCount`, `createdAt`, `expired`; không có `revokedAt`, không có thông tin chuyến đi hay người tạo | Đúng | Đạt |
+| TC-SHARE-158 | Người không phải chủ (kể cả thành viên cùng sửa hoặc chỉ xem) gọi API danh sách | 403 `FORBIDDEN`, yêu cầu không đi tới phần xử lý: token của liên kết chỉ chủ được thấy | Bảo mật | Đạt |
+| TC-SHARE-159 | Gọi API danh sách khi chưa đăng nhập | 401, không kiểm quyền, không xử lý gì | Bảo mật | Đạt |
+| TC-SHARE-160 | Mã chuyến đi trên đường dẫn là chữ (`GET /trips/abc/share-links`) | 400 `VALIDATION_ERROR`, không xử lý gì | Sai | Đạt |
+
+## Q. Thu hồi liên kết chia sẻ
+
+> **Yêu cầu:** design.md 10.2 "Sharing" (`DELETE /share-links/{id}`) và "Quy ước Sharing API" (thu hồi liên kết cuối → `PRIVATE`, thu hồi lần hai → 404), rule 14.26 · **Kiểm bởi:** `ShareLinkRepositoryTest`, `SharingServiceTest`, `ShareLinkControllerTest`
+
+Chủ chuyến đi tắt một liên kết đã phát ra. Dòng của liên kết không bị xoá mà được ghi thời điểm thu hồi, và không bật lại được: muốn chia sẻ tiếp thì tạo liên kết mới. Liên kết đã thu hồi rời khỏi danh sách (phần P). Nhãn của chuyến đi đi theo các liên kết: còn một liên kết chưa thu hồi thì vẫn là `LINK`, hết thì về `PRIVATE`. Liên kết quá hạn nhưng chưa thu hồi vẫn được tính là "còn". Mốc này mới ghi việc thu hồi; việc người cầm liên kết đã thu hồi nhận 404 thuộc trang công khai (Mốc 7) và test toàn luồng (Mốc 9).
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-161 | Chủ thu hồi một liên kết trong khi chuyến đi còn liên kết khác chưa thu hồi | Liên kết được ghi thời điểm thu hồi bằng đúng "bây giờ"; token và số lượt xem giữ nguyên. Nhãn của chuyến đi vẫn là `LINK`. Không đụng tới thành viên, không gửi mail | Đúng | Đạt |
+| TC-SHARE-162 | Chủ thu hồi liên kết cuối cùng chưa thu hồi của chuyến đi | Liên kết được ghi thời điểm thu hồi; nhãn của chuyến đi đổi từ `LINK` về `PRIVATE` | Đúng | Đạt |
+| TC-SHARE-163 | Chủ thu hồi một liên kết đã quá hạn từ hôm qua, cũng là liên kết cuối cùng | Thu hồi được như mọi liên kết khác; hạn dùng cũ giữ nguyên; lúc này nhãn của chuyến đi mới về `PRIVATE` | Biên | Đạt |
+| TC-SHARE-164 | Thu hồi lần thứ hai một liên kết đã thu hồi | 404 `RESOURCE_NOT_FOUND`. Thời điểm thu hồi lần đầu giữ nguyên, không ghi gì, nhãn của chuyến đi không đổi | Sai | Đạt |
+| TC-SHARE-165 | Thu hồi với mã của một liên kết thuộc chuyến đi khác | 404 `RESOURCE_NOT_FOUND`, giống hệt mã không tồn tại. Không ghi gì, nhãn của chuyến đi không đổi | Bảo mật | Đạt |
+| TC-SHARE-166 | Thu hồi liên kết của chuyến đi không tồn tại hoặc đã xoá | 404 `RESOURCE_NOT_FOUND`, không đọc bảng liên kết | Sai | Đạt |
+| TC-SHARE-167 | Tìm một liên kết theo mã của nó kèm mã chuyến đi (trên MySQL thật) | Đúng chuyến đi: tìm thấy, kể cả khi liên kết đã thu hồi. Đúng mã nhưng sai chuyến đi, hoặc mã không có: không tìm thấy | Bảo mật | Đạt |
+| TC-SHARE-168 | Chuyến đi có một liên kết đang dùng và một liên kết đã thu hồi; một chuyến đi khác có liên kết đang dùng | Hỏi "ngoài liên kết đang dùng này, chuyến đi còn liên kết nào chưa thu hồi không": không. Liên kết của chuyến đi khác không được tính | Đúng | Đạt |
+| TC-SHARE-169 | Chuyến đi có hai liên kết chưa thu hồi, một trong hai đã quá hạn | Với mỗi liên kết, câu hỏi "còn liên kết nào khác chưa thu hồi không" đều trả lời có: liên kết quá hạn vẫn giữ nhãn `LINK` cho chuyến đi | Biên | Đạt |
+| TC-SHARE-170 | Thu hồi một trong hai liên kết rồi đọc lại từ cơ sở dữ liệu | Thời điểm thu hồi được lưu đúng tới phần triệu giây; danh sách chỉ còn liên kết kia; bảng vẫn có đủ hai dòng | Đúng | Đạt |
+| TC-SHARE-171 | Chủ gọi `DELETE /api/v1/trips/{tripId}/share-links/{linkId}` | 200, `data` là `null` | Đúng | Đạt |
+| TC-SHARE-172 | Người không phải chủ (kể cả thành viên cùng sửa hoặc chỉ xem) gọi API thu hồi | 403 `FORBIDDEN`, yêu cầu không đi tới phần xử lý | Bảo mật | Đạt |
+| TC-SHARE-173 | Gọi API thu hồi khi chưa đăng nhập | 401, không kiểm quyền, không xử lý gì | Bảo mật | Đạt |
+| TC-SHARE-174 | Chủ gọi API thu hồi với mã liên kết không có hoặc đã thu hồi | 404 `RESOURCE_NOT_FOUND` | Sai | Đạt |
+| TC-SHARE-175 | Đặt token của liên kết vào chỗ mã liên kết trên đường dẫn | 400 `VALIDATION_ERROR`, không xử lý gì: liên kết chỉ được thu hồi theo mã số | Sai | Đạt |
+
+## R. Trang công khai của chuyến đi
+
+> **Yêu cầu:** design.md 10.2 "Trang công khai" (không cần đăng nhập, cùng một 404, token sai dạng không hỏi cơ sở dữ liệu, nội dung `PublicTripResponse`), rule 14.26; CLAUDE.md rule 17 (không ghi token vào log) · **Kiểm bởi:** `PublicTripServiceTest`, `PublicTripControllerTest`
+
+Ai cầm liên kết cũng mở được lịch trình mà không cần tài khoản. Trang chỉ cho thấy những gì người xem cần để theo lịch trình: tên, mô tả, điểm đến, ngày đi và về, từng ngày với các hoạt động (giờ, ghi chú của hoạt động, địa điểm). Thông tin của chủ và thành viên, chi phí, link đặt chỗ, ghi chú của ngày không bao giờ ra ngoài. Token không đúng dạng, không tồn tại, liên kết đã thu hồi hoặc đã hết hạn, chuyến đi đã xoá: người xem đều nhận cùng một câu trả lời 404, nên không đoán được token nào từng có thật. Lý do thật chỉ ghi vào log, kèm mã liên kết chứ không kèm token. Mốc này kiểm ở tầng xử lý và tầng web; việc tìm đúng dòng trên MySQL thật, số câu SQL của mỗi lần mở và lượt xem thuộc Mốc 8 và test toàn luồng của Mốc 9.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-176 | Khách (không đăng nhập) mở trang bằng liên kết còn dùng của chuyến đi hai ngày: ngày 1 có hai hoạt động (một có địa điểm, một không), ngày 2 chưa có hoạt động | 200. Có tên, mô tả, điểm đến và toạ độ, ngày đi và về. Hai ngày theo thứ tự lịch; hoạt động giữ thứ tự hiển thị; giờ dạng `07:30`; hoạt động có ghi chú và địa điểm (tên, địa chỉ, toạ độ); hoạt động không có địa điểm thì `place` = `null`; ngày 2 có danh sách hoạt động rỗng | Đúng | Đạt |
+| TC-SHARE-177 | Đọc kỹ nội dung trang của một chuyến đi có ngân sách, ghi chú của ngày, chi phí và link đặt chỗ của hoạt động | Mỗi tầng chỉ có đúng các trường đã chốt. Không có mã của bất kỳ dòng nào, không có chủ, email, thành viên, ngân sách, chi phí, link đặt chỗ, ghi chú của ngày, trạng thái hay chế độ hiển thị | Bảo mật | Đạt |
+| TC-SHARE-178 | Liên kết có hạn còn sau "bây giờ" đúng một phần triệu giây | Mở được | Biên | Đạt |
+| TC-SHARE-179 | Token không đúng dạng: rỗng, 31 ký tự, 33 ký tự, chữ hoa, có dấu gạch, có khoảng trắng, có chữ có dấu, chuỗi kiểu tấn công SQL | 404 `RESOURCE_NOT_FOUND`, không hỏi cơ sở dữ liệu. Token chữ hoa phải bị từ chối trước khi hỏi, vì cơ sở dữ liệu so chữ không phân biệt hoa thường và sẽ tìm ra liên kết thật | Bảo mật | Đạt |
+| TC-SHARE-180 | Token đúng dạng nhưng không thuộc liên kết nào | 404 `RESOURCE_NOT_FOUND`, không đọc ngày hay hoạt động | Sai | Đạt |
+| TC-SHARE-181 | Mở bằng liên kết đã thu hồi | 404 `RESOURCE_NOT_FOUND`, không đọc gì của chuyến đi | Bảo mật | Đạt |
+| TC-SHARE-182 | Mở bằng liên kết có hạn đúng bằng "bây giờ", trước "bây giờ" một phần triệu giây, hoặc trước một tuần | 404 `RESOURCE_NOT_FOUND`. Ranh giới trùng với dấu `expired` trong danh sách của chủ (phần P) | Biên | Đạt |
+| TC-SHARE-183 | Liên kết chưa thu hồi, còn hạn, nhưng chuyến đi đã bị xoá | 404 `RESOURCE_NOT_FOUND`, không đọc ngày hay hoạt động | Sai | Đạt |
+| TC-SHARE-184 | Lý do từ chối mà hệ thống ghi lại (token lạ, liên kết đã thu hồi, hết hạn, chuyến đi đã xoá) | Nêu mã liên kết và lý do, không bao giờ chứa token | Bảo mật | Đạt |
+| TC-SHARE-185 | Người mở trang gửi kèm một token đăng nhập hỏng hoặc đã hết hạn | Vẫn 200: trang công khai không đòi đăng nhập, nên chủ có phiên đăng nhập cũ vẫn mở được liên kết của mình | Đúng | Đạt |
+| TC-SHARE-186 | Trang bị từ chối, bất kể lý do | 404 với cùng một nội dung: `RESOURCE_NOT_FOUND`, câu "Không tìm thấy dữ liệu yêu cầu" | Bảo mật | Đạt |
+| TC-SHARE-187 | Dòng log của một lần trả 404 trên trang công khai | Đường dẫn được ghi với token thay bằng `***` (`/api/v1/public/trips/***`); token không xuất hiện ở đâu trong log | Bảo mật | Đạt |
+| TC-SHARE-188 | Gửi `POST` hoặc `DELETE` tới địa chỉ trang công khai | 405, không xử lý gì: phần không cần đăng nhập chỉ cho đọc | Bảo mật | Đạt |
+
+## S. Lượt xem của liên kết
+
+> **Yêu cầu:** design.md 10.2 "Trang công khai" (mỗi lần gọi thành công tăng `view_count` bằng một câu `UPDATE ... SET view_count = view_count + 1`), design.md 5.2 "share_links" (lượt xem không làm đổi `updated_at`) · **Kiểm bởi:** `PublicTripServiceTest`, `ShareLinkRepositoryTest`
+
+Mỗi lần ai đó mở được trang công khai, liên kết họ dùng được cộng thêm một lượt xem; chủ thấy con số này trong danh sách liên kết (phần P). Lần bị từ chối (404) không được tính. Mọi lần mở thành công đều tính, kể cả chủ tự mở và mỗi lần tải lại. Cơ sở dữ liệu tự cộng vào con số nó đang giữ, nên hai người mở cùng lúc đều được tính. Lượt xem không phải là một thay đổi của liên kết: thời điểm sửa gần nhất của liên kết giữ nguyên. Việc đếm trên toàn luồng HTTP và số câu SQL của mỗi lần mở (4) kiểm ở Mốc 9.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-189 | Khách mở được trang công khai | Lượt xem của đúng liên kết đó tăng 1, một lần, và là việc cuối cùng sau khi đã đọc xong chuyến đi, các ngày và hoạt động | Đúng | Đạt |
+| TC-SHARE-190 | Trang bị từ chối: token lạ, liên kết đã thu hồi, đã hết hạn, chuyến đi đã xoá, token sai dạng | Không liên kết nào được tăng lượt xem | Sai | Đạt |
+| TC-SHARE-191 | Trên MySQL thật, tăng lượt xem của một liên kết hai lần liên tiếp | Liên kết đó có 2 lượt; liên kết khác của cùng chuyến đi vẫn 0; tăng cho một mã không tồn tại không đổi gì và không báo lỗi | Đúng | Đạt |
+| TC-SHARE-192 | Thời điểm sửa gần nhất (`updated_at`) của liên kết sau khi tăng lượt xem | Không đổi | Biên | Đạt |
+| TC-SHARE-193 | Liên kết được đọc lên lúc còn 0 lượt, sau đó một khách mở trang, rồi chủ thu hồi chính liên kết đã đọc lên đó | Lượt xem vẫn là 1: lưu việc thu hồi không ghi đè con số cũ | Biên | Đạt |
+
+## T. Toàn luồng liên kết chia sẻ qua HTTP
+
+> **Yêu cầu:** design.md 10.2 "Liên kết", "Trang công khai", rule 14.26; CLAUDE.md mục 8 (đếm số câu SQL) · **Kiểm bởi:** `ShareLinkFlowIntegrationTest`
+
+Đi qua mọi tầng như người dùng thật, trên MySQL thật: phân quyền thật, bảo mật thật, cơ sở dữ liệu thật. Đây là nơi duy nhất chứng minh token tìm đúng liên kết và lịch trình trong cơ sở dữ liệu, mỗi lần mở trang tốn đúng 4 câu SQL, và các kiểu từ chối thật sự ra cùng một 404 qua HTTP. Lần chạy đầu cho thấy với chuyến đi đã xoá, câu tìm liên kết không trả dòng nào (Hibernate áp điều kiện "chưa xoá" của chuyến đi vào câu tìm), nên log ghi lý do là "token lạ"; bước kiểm "chuyến đi đã xoá" trong phần xử lý là lớp chặn thứ hai. Người xem vẫn nhận cùng một 404.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-194 | Toàn luồng: chủ tạo liên kết không gửi body → khách (không đăng nhập) mở trang → mở lại → chủ xem danh sách → chủ thu hồi → khách mở lại | Tạo: 201, quyền xem, không hạn, 0 lượt xem, chuyến đi gắn nhãn "chia sẻ qua liên kết". Khách: 200 với tên, mô tả, ngày đi và về, ba ngày theo thứ tự, hai hoạt động của ngày 1 theo thứ tự với giờ, ghi chú, địa điểm. Danh sách: 2 lượt xem. Thu hồi: 200; thu hồi lần hai 404. Sau thu hồi: khách nhận 404 giống hệt token chưa từng có; chuyến đi về riêng tư; danh sách rỗng; dòng liên kết vẫn còn, giữ 2 lượt xem | Đúng | Đạt |
+| TC-SHARE-195 | Trang công khai của một chuyến đi có ngân sách, ghi chú của ngày, chi phí và link đặt chỗ | Không có email hay tên chủ, link đặt chỗ, ghi chú của ngày, số tiền chi phí hay ngân sách, mã của dòng nào, chế độ hiển thị | Bảo mật | Đạt |
+| TC-SHARE-196 | Người lạ (đã đăng nhập, không phải chủ) tạo hoặc thu hồi liên kết của chuyến đi | 403; không liên kết nào được tạo, liên kết của chủ vẫn còn | Phân quyền | Đạt |
+| TC-SHARE-197 | Số câu SQL của một lần mở trang công khai | Đúng 4: liên kết kèm chuyến đi, các hoạt động kèm địa điểm, các ngày, câu tăng lượt xem | Hiệu năng | Đạt |
+| TC-SHARE-198 | Mở bằng token đúng nhưng viết chữ hoa, trên MySQL thật (cơ sở dữ liệu so chữ không phân biệt hoa thường) | 404, lượt xem không tăng | Bảo mật | Đạt |
+| TC-SHARE-199 | Chủ xoá chuyến đi trong khi liên kết còn dùng được | Khách nhận 404 giống hệt token chưa từng có; liên kết không bị đánh dấu thu hồi; lần bị từ chối không tính lượt xem | Sai | Đạt |
+| TC-SHARE-200 | Liên kết có hạn, khách mở được, rồi tới lúc hết hạn | Khách nhận 404 giống hệt token chưa từng có; danh sách của chủ vẫn có liên kết, đánh dấu hết hạn, giữ lượt xem; chuyến đi vẫn mang nhãn "chia sẻ qua liên kết" tới khi chủ thu hồi | Biên | Đạt |
+| TC-SHARE-201 | Chuyến đi có hai liên kết, chủ thu hồi một | Liên kết bị thu hồi: 404; liên kết còn lại vẫn mở được; chuyến đi giữ nhãn "chia sẻ qua liên kết"; danh sách chỉ còn liên kết đó | Đúng | Đạt |
+
 ## Kiểm tra thủ công
 
 | Mã | Các bước | Kết quả mong đợi | Trạng thái |
@@ -277,6 +446,13 @@ Câu chuyện đầy đủ như người dùng trải qua, đi qua mọi tầng 
 | MT-SHARE-07 | Tiếp `MT-SHARE-06`: A gọi `DELETE /api/v1/trips/{id}/members/{memberId của B}`. B gọi `GET /api/v1/trips/{id}`. A gọi `GET /api/v1/trips/{id}/members`. A mời lại `b@example.com` với `{"role": "EDITOR"}` rồi mở MailHog | A gỡ: 200, `data` null. B: 403 ngay lần đầu. Danh sách: không còn B. Mời lại: 201 với `memberId` **giống hệt** mã cũ, `status` = `PENDING`; MailHog có mail mời mới cho B | Chưa chạy |
 | MT-SHARE-08 | Tiếp `MT-SHARE-04` (B đã nhận lời làm `EDITOR`): bằng token của B gọi `GET /api/v1/trips` và `GET /api/v1/trips/status-counts`. Bằng token của C gọi hai URL đó | B: danh sách có chuyến của A với `ownerId` = mã của A, `ownerName` = tên A; `total` của chip tính chuyến đó. C: danh sách không có chuyến của A, `total` không tính | Chưa chạy |
 | MT-SHARE-09 | Tiếp `MT-SHARE-06` (B là `VIEWER`): bằng token của A rồi của B gọi `GET /api/v1/trips/{id}` | A: `myRole` = `OWNER`. B: `myRole` = `VIEWER`. Cả hai: `members` có A (`OWNER`, `memberId` null) đứng đầu, rồi B, rồi D (`PENDING`); không có trường mật khẩu | Chưa chạy |
+| MT-SHARE-10 | Chạy backend profile `local`, đăng nhập trong Swagger. Gọi `POST /api/v1/trips` với `{"title": "Thu visibility", "startDate": "2026-11-01", "endDate": "2026-11-02", "visibility": "PUBLIC"}`. Rồi gọi `PATCH /api/v1/trips/{id}` với `{"title": "Doi ten", "visibility": "LINK"}`, và `GET /api/v1/trips/{id}` | Tạo: 201, `visibility` trong câu trả lời là `PRIVATE`. Sửa: 200, tên đổi thành "Doi ten", `visibility` vẫn `PRIVATE`. Xem lại: `PRIVATE`. Khung body mẫu của hai API trong Swagger không còn trường `visibility` | Chưa chạy |
+| MT-SHARE-11 | Chạy backend profile `local`. Đăng nhập bằng A (chủ một chuyến đi) trong Swagger, gọi `POST /api/v1/trips/{id}/share-links` không có body, gọi thêm lần nữa, rồi `GET /api/v1/trips/{id}`. Đăng nhập bằng B (thành viên `EDITOR` hoặc `VIEWER` của chuyến đó) gọi cùng `POST`. Xem log backend và chạy `SELECT id, token, permission, view_count FROM share_links;` trong MySQL | A: hai lần đều 201, `permission` = `VIEW`, `viewCount` = 0, hai `token` khác nhau, mỗi token đúng 32 ký tự chữ thường và số; chi tiết chuyến đi có `visibility` = `LINK`. B: 403. Log có hai dòng `share link ... created` chỉ ghi mã liên kết, **không** in token. Bảng có đúng hai dòng với hai token đó | Chưa chạy |
+| MT-SHARE-12 | Tiếp `MT-SHARE-11` (A là chủ). Trong Swagger gọi `POST /api/v1/trips/{id}/share-links` ba lần, với body lần lượt: `{"expiresAt": "2030-01-01T00:00:00Z"}`, `{"expiresAt": "2020-01-01T00:00:00Z"}`, `{}` | Lần một: 201, `expiresAt` = `2030-01-01T00:00:00Z`. Lần hai: 400 `VALIDATION_ERROR`, `details` có ô `expiresAt` với câu "Thời điểm hết hạn của liên kết phải ở tương lai"; bảng `share_links` không thêm dòng. Lần ba: 201, `expiresAt` = `null` | Chưa chạy |
+| MT-SHARE-13 | Tiếp `MT-SHARE-12` (chuyến đi của A đã có bốn liên kết từ hai bài trước). Bằng tài khoản A gọi `GET /api/v1/trips/{id}/share-links`. Trong MySQL chạy `UPDATE share_links SET expires_at = '2020-01-01' WHERE id = {mã một liên kết};` rồi gọi lại. Bằng tài khoản B (thành viên của chuyến đó) gọi cùng URL. Tạo một chuyến đi mới bằng A và gọi danh sách liên kết của nó | Lần một: 200, bốn liên kết, cái tạo sau cùng đứng đầu, tất cả `expired` = `false`; token trùng với token đã nhận lúc tạo. Lần hai: liên kết vừa sửa vẫn có mặt, với `expired` = `true`. B: 403. Chuyến đi mới: 200 với `data` = `[]` | Chưa chạy |
+| MT-SHARE-14 | Tiếp `MT-SHARE-13` (chuyến đi của A có bốn liên kết). Bằng tài khoản B (thành viên) gọi `DELETE /api/v1/trips/{id}/share-links/{mã một liên kết}`. Bằng A gọi cùng lệnh đó hai lần liên tiếp, rồi `GET /api/v1/trips/{id}/share-links` và `GET /api/v1/trips/{id}`. Sau đó A thu hồi lần lượt ba liên kết còn lại và gọi lại `GET /api/v1/trips/{id}`. Trong MySQL chạy `SELECT id, revoked_at FROM share_links;` | B: 403. A lần một: 200, `data` = `null`; lần hai: 404 `RESOURCE_NOT_FOUND`. Danh sách còn ba liên kết, không có cái vừa thu hồi; chuyến đi vẫn `visibility` = `LINK`. Sau khi thu hồi hết: danh sách rỗng, `visibility` = `PRIVATE`. Bảng vẫn đủ bốn dòng, cả bốn có `revoked_at` | Chưa chạy |
+| MT-SHARE-15 | Chạy backend profile `local`. Bằng tài khoản A (Swagger): trong một chuyến đi, ghi chú cho ngày 1, thêm một hoạt động có ghi chú, chi phí, link đặt chỗ và địa điểm; tạo một liên kết, chép `token`. Không đăng nhập, chạy `curl.exe -s -i http://localhost:8080/api/v1/public/trips/{token}`. Chạy lại với một chữ của token đổi thành chữ hoa. A thu hồi liên kết rồi chạy lại lệnh đầu. Xem log backend. Mở Swagger, tìm nhóm "Public" | Lần đầu: 200, có lịch trình, giờ dạng `HH:mm`, ghi chú và địa điểm của hoạt động; **không** có chi phí, link đặt chỗ, ghi chú của ngày, email, tên chủ, mã nào. Token chữ hoa: 404. Sau khi thu hồi: 404 với nội dung giống hệt (trừ `timestamp`, `path`). Log có dòng `RESOURCE_NOT_FOUND on /api/v1/public/trips/***`, không in token. Swagger: endpoint không có biểu tượng khoá | Chưa chạy |
+| MT-SHARE-16 | Chạy backend profile `local`. Bằng tài khoản A (Swagger): tạo một liên kết mới, chép `token`, xem danh sách liên kết (`GET /api/v1/trips/{tripId}/share-links`). Không đăng nhập, chạy hai lần `curl.exe -s -o NUL -w "%{http_code}" http://localhost:8080/api/v1/public/trips/{token}`, rồi một lần với token đổi chữ cuối. Xem lại danh sách của A | Lúc tạo: `viewCount` = 0. Hai lần đầu in `200`, lần sau in `404`. Danh sách sau đó: `viewCount` = 2 (lần 404 không tính) | Chưa chạy |
 
 ## Lỗi đã phát hiện
 

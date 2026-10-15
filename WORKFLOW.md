@@ -2242,6 +2242,29 @@ Mốc 9 — test(sharing): add share link flow integration test                 
         visibility về PRIVATE; chuyến xoá mềm → 404; liên kết hết hạn → 404
 ```
 
+> **Thực tế khi làm 4.2 (2026-10-13 → 2026-10-14):** 9 commit code trên nhánh, đúng 9 mốc của bảng duyệt; 4 mốc nhiều file hơn bảng vì thêm test trên MySQL thật hoặc một chỗ sửa phát hiện khi làm (cột "File" ghi số thật). Docs Mốc 0 đã commit trước trên `main` (`44828e7`).
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `7068e23` feat(sharing): add share link model | 5 | `V12__create_share_links.sql`, `ShareLink`, `SharePermission`, `ShareLinkRepository`, `ShareLinkMappingTest` |
+> | `2a1faec` fix(trip): stop taking visibility from the client | 6 | `CreateTripRequest` / `UpdateTripRequest` bỏ `visibility`, `TripMapper` bỏ qua, `TripServiceImpl.create` luôn `PRIVATE` |
+> | `055cc33` feat(sharing): create a share link | 9 (bảng: 8) | `ShareLinkResponse`, `ShareLinkMapper`, `SharingService.createLink`, `POST /share-links`; thêm `SecureTokens.alphanumeric` (token 32 ký tự `[a-z0-9]`) |
+> | `2c9397d` feat(sharing): let a share link expire | 8 | `CreateShareLinkRequest {expiresAt?}`, body không bắt buộc, kiểm "ở tương lai" bằng bean `Clock`, key message |
+> | `bac6e6a` feat(sharing): list the share links of a trip | 9 (bảng: 8) | `GET /share-links`, `expired` tính trong mapper với `@Context Instant now`; thêm `ShareLinkRepositoryTest` (thứ tự `created_at DESC, id DESC` trên MySQL thật) |
+> | `937349b` feat(sharing): revoke a share link | 8 (bảng: 6) | `DELETE /share-links/{linkId}`, `ShareLink.revoke`, `findByIdAndTripId`, `existsByTripIdAndRevokedAtIsNullAndIdNot`; test repository |
+> | `226742a` feat(sharing): public trip page by share link | 9 (bảng: 8) | `GET /api/v1/public/trips/{token}`, `PublicTripResponse`, `PublicTripMapper`, `PublicTripService`, `PUBLIC_PATHS`; thêm `GlobalExceptionHandler` che token trong log |
+> | `e811cc2` feat(sharing): count the views of a share link | 4 | `incrementViewCount` (SQL gốc), `open` thành transaction ghi, câu UPDATE đặt cuối |
+> | `1fdf57d` test(sharing): add share link flow integration test | 1 | `ShareLinkFlowIntegrationTest`: tạo → mở → đếm → 4 câu SQL → thu hồi → 404 → `PRIVATE`; chuyến đã xoá, hết hạn, thu hồi 1 trong 2 |
+>
+> Endpoint mới: `POST` / `GET /api/v1/trips/{tripId}/share-links`, `DELETE /share-links/{linkId}`, `GET /api/v1/public/trips/{token}` (không cần đăng nhập). 96 lượt test mới, toàn dự án **1155 lượt** (970 method, 81 file test); `09-sharing.md` thêm 80 kịch bản tự động (`TC-SHARE-122` đến `TC-SHARE-201`), `03-trip.md` thêm 3 (`TC-TRIP-066` đến `TC-TRIP-068`); 7 bài thủ công `MT-SHARE-10` đến `MT-SHARE-16` **chưa chạy**. Không có lỗi test ngoài dự kiến.
+>
+> Quyết định khi làm (chưa có trong design.md, ghi ở đây):
+> - `GlobalExceptionHandler` ghi đường dẫn của request vào log mỗi lần trả lỗi; đường dẫn của trang công khai chứa token nên mỗi lần 404 sẽ ghi token (CLAUDE.md rule 17). `loggablePath` thay token bằng `***` ở cả 6 dòng log; body lỗi trả người gọi vẫn giữ đường dẫn thật. `JwtAuthenticationFilter` còn ghi đường dẫn ở mức DEBUG (đang tắt): chưa sửa.
+> - Kiểm trên MySQL thật: Hibernate 7 áp `@SQLRestriction` của `Trip` vào `join fetch l.trip`, nên liên kết của chuyến đã xoá không được tìm thấy và log ghi "token lạ". Bước kiểm `trip.isDeleted()` trong `PublicTripService` là lớp chặn thứ hai, giữ lại phòng khi nâng Hibernate đổi hành vi.
+> - Thu hồi hỏi "còn liên kết nào khác chưa thu hồi" bằng cách loại chính liên kết đó theo id, nên kết quả không phụ thuộc việc Hibernate đã ghi `revoked_at` xuống database hay chưa.
+> - Lượt xem tăng bằng SQL gốc (`UPDATE share_links SET view_count = view_count + 1`) để chắc chỉ cột đó được ghi, `updated_at` giữ nguyên; câu UPDATE đặt cuối `open` để chỉ trang được trả mới tính và khoá dòng ngắn nhất.
+> - Hạn chế đã biết: thu hồi **cùng lúc** hai liên kết cuối cùng có thể để nhãn `LINK` ở lại; chỉ là nhãn, trang công khai đọc dòng liên kết chứ không đọc nhãn. Ghi để Task 4.3 xem lại: `SharingServiceImpl.accept` chưa kiểm chuyến đi còn tồn tại.
+
 **Nhớ:** rate limit theo IP cho `/public/**` tới Task 8.1 (design 8.2); trước đó không đưa bản deploy công khai ra ngoài. `GET /trips/{id}` của chủ vẫn qua evaluator, trang công khai **không** đi qua evaluator (quyết định 3). Trang công khai không trả thời tiết / quãng đường.
 
 ---
@@ -2726,9 +2749,11 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.9 UI: làm lại trang chuyến đi + bảng màu theo mockup (làm trước 3.8) | ☑ | 2026-10-05 |
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☑ | 2026-10-05 |
 | 4 | 4.1 Trip members | ☑ | 2026-10-09 |
-| 4 | 4.2 Permission evaluator | ☐ | |
-| 4 | 4.3 Share links | ☐ | |
-| 4 | 4.4 Comment + UI | ☐ | |
+| 4 | 4.2 Liên kết chia sẻ và trang công khai | ☑ | 2026-10-14 |
+| 4 | 4.3 Cache quyền và ma trận test | ☐ | |
+| 4 | 4.4 Bình luận | ☐ | |
+| 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☐ | |
+| 4 | 4.6 UI: bình luận | ☐ | |
 | 5 | 5.1 WebSocket setup | ☐ | |
 | 5 | 5.2 Broadcast events | ☐ | |
 | 5 | 5.3 Presence + locking | ☐ | |

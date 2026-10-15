@@ -238,13 +238,14 @@ Khi review code, kiểm tra lại các điểm này:
 - Trả Entity thay vì DTO ở controller
 - Thiếu `@Transactional` khi ghi nhiều bảng trong một thao tác
 - Query N+1 ở `GET /trips/{id}` (kiểm tra số câu SQL trong log)
-- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 4 / 4 / 6 câu — Task 3.2 (chi tiết chuyến đi là 5 từ Task 4.1: thêm câu lấy thành viên; `TripDayFlowIntegrationTest` đếm cùng con số, sửa cả hai khi đổi)
+- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 4 / 4 / 6 câu — Task 3.2 (chi tiết chuyến đi là 5 từ Task 4.1: thêm câu lấy thành viên; `TripDayFlowIntegrationTest` đếm cùng con số, sửa cả hai khi đổi); trang công khai 4 câu (`ShareLinkFlowIntegrationTest`, Task 4.2)
 - Quên `@PreAuthorize` trên endpoint thao tác trip
 - Sửa file migration cũ thay vì tạo file mới (Flyway báo `checksum mismatch`, app không lên)
 - Thêm hằng vào enum Java mà không `ALTER TABLE ... MODIFY col ENUM(...)` → `Data truncated for column` lúc INSERT
 - Assert so sánh chuỗi phân biệt hoa thường qua JPA trong khi collation MySQL là `_ci` (so sánh không phân biệt)
 - Ghi DB rồi cố ý ném `AppException` trong cùng `@Transactional` mà quên `noRollbackFor` → lệnh ghi bị rollback âm thầm (ví dụ revoke token khi phát hiện trộm). Unit test với mock không bắt được, chỉ integration test mới lộ
 - So `Instant` trước/sau round-trip DB mà không `truncatedTo(ChronoUnit.MICROS)`: `DATETIME(6)` làm tròn nano → test lúc xanh lúc đỏ
+- Đặt bí mật (token) vào đường dẫn của endpoint mà không che trong log: `GlobalExceptionHandler` ghi đường dẫn mỗi lần trả lỗi, nên mỗi lần 404 là một token vào log. Thêm mẫu đường dẫn vào `GlobalExceptionHandler.loggablePath` (đang che `/api/v1/public/trips/{token}`) kèm test đọc log — Task 4.2
 - Gọi Stripe/Map SDK trực tiếp trong service thay vì qua provider
 - Broadcast WebSocket trước khi commit
 - `catch (Exception e) { }` rỗng
