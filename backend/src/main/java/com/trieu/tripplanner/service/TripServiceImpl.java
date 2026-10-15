@@ -21,7 +21,6 @@ import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.enums.MemberStatus;
 import com.trieu.tripplanner.model.enums.TripStatus;
-import com.trieu.tripplanner.model.enums.TripVisibility;
 import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -113,7 +112,7 @@ public class TripServiceImpl implements TripService {
                 .endDate(request.endDate())
                 .budgetAmount(request.budgetAmount())
                 .currency(request.currency() != null ? request.currency() : Trip.DEFAULT_CURRENCY)
-                .visibility(request.visibility() != null ? request.visibility() : TripVisibility.PRIVATE)
+                // visibility keeps its default, PRIVATE: only the share links change it (design.md rule 14.26)
                 .build();
 
         Trip saved = tripRepository.save(trip);

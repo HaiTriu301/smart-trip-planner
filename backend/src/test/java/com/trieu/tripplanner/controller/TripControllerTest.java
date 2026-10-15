@@ -210,6 +210,24 @@ class TripControllerTest {
     }
 
     @Test
+    void createIgnoresAVisibilitySentByTheClient() {
+        when(tripService.create(eq(USER_ID), any())).thenReturn(sampleTrip());
+
+        // CreateTripRequest has no such field (design.md rule 14.26): the value is dropped, not rejected
+        assertThat(mvc.post().uri(TRIPS_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Da Lat", "startDate": "2026-10-01", "endDate": "2026-10-03",
+                          "visibility": "PUBLIC" }
+                        """))
+                .hasStatus(HttpStatus.CREATED);
+
+        ArgumentCaptor<CreateTripRequest> request = ArgumentCaptor.forClass(CreateTripRequest.class);
+        verify(tripService).create(eq(USER_ID), request.capture());
+        assertThat(request.getValue().title()).isEqualTo("Da Lat");
+    }
+
+    @Test
     void createWithInvalidBodyReturns400WithFieldDetails() {
         assertThat(mvc.post().uri(TRIPS_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -320,7 +338,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Da Lat moi", "visibility": "LINK" }
+                        { "title": "Da Lat moi" }
                         """))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.data.id").isEqualTo(5);
@@ -328,8 +346,25 @@ class TripControllerTest {
         ArgumentCaptor<UpdateTripRequest> request = ArgumentCaptor.forClass(UpdateTripRequest.class);
         verify(tripService).update(eq(TRIP_ID), request.capture(), eq(false));
         assertThat(request.getValue().title()).isEqualTo("Da Lat moi");
-        assertThat(request.getValue().visibility()).isEqualTo(TripVisibility.LINK);
         assertThat(request.getValue().startDate()).isNull(); // omitted fields stay null → "keep current value"
+    }
+
+    @Test
+    void updateIgnoresAVisibilitySentByTheClient() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripService.update(eq(TRIP_ID), any(), eq(false))).thenReturn(sampleTrip());
+
+        // UpdateTripRequest has no such field (design.md rule 14.26): the rest of the body is still applied
+        assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Da Lat moi", "visibility": "PUBLIC" }
+                        """))
+                .hasStatusOk();
+
+        ArgumentCaptor<UpdateTripRequest> request = ArgumentCaptor.forClass(UpdateTripRequest.class);
+        verify(tripService).update(eq(TRIP_ID), request.capture(), eq(false));
+        assertThat(request.getValue().title()).isEqualTo("Da Lat moi");
     }
 
     @Test

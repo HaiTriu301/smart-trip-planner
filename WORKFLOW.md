@@ -2189,35 +2189,57 @@ Mốc 10 — test(sharing): add member invitation flow integration test
 
 Nhánh: `feat/T4.2-share-links` · Test ghi vào `docs/testing/09-sharing.md`.
 
+> **Rà lại bảng commit (2026-10-13, chủ dự án duyệt):** 5 mốc của bản rà Phase 4 thành 9 commit, vì Mốc 2, 3, 4 cũ mỗi mốc vượt 8 file (A.2 điểm 5). Quyết định cùng ngày: (1) `visibility` không còn nhận từ client ở `POST` / `PATCH /trips`, hệ thống tự đặt theo liên kết (thêm Mốc 2); (2) `ShareLinkResponse` không có `revokedAt` (luôn `null`); (3) trang công khai hiện ghi chú của hoạt động, không trả ghi chú của ngày; (4) body của `POST /share-links` không bắt buộc, `expiresAt` kiểm ở service bằng bean `Clock`; (5) token sai dạng → 404 không hỏi database; (6) bảng có `updated_at` (BaseEntity). Chi tiết ở design.md 5.2, 10.2, rule 14.26.
+
 ```
-Mốc 1 — feat(sharing): add share link model
+Mốc 0 — docs (main): design.md + WORKFLOW.md theo các quyết định ngày 2026-10-13
+
+Mốc 1 — feat(sharing): add share link model                                                          (5 file)
         V12__create_share_links.sql (trip_id FK ON DELETE CASCADE, token CHAR(32) UNIQUE, permission ENUM('VIEW'),
-        expires_at nullable, revoked_at nullable, view_count INT NOT NULL DEFAULT 0, created_by FK; không có deleted_at:
-        thu hồi là revoked_at), model/ShareLink, model/enums/SharePermission (VIEW), repository/ShareLinkRepository;
-        test mapping
+        expires_at nullable, revoked_at nullable, view_count INT NOT NULL DEFAULT 0, created_by FK, created_at,
+        updated_at; không có deleted_at: thu hồi là revoked_at), model/ShareLink (trip, token, permission, expires_at,
+        created_by, view_count không ghi được qua entity: lượt xem chỉ tăng bằng câu UPDATE của Mốc 8),
+        model/enums/SharePermission (VIEW), repository/ShareLinkRepository; test mapping
 
-Mốc 2 — feat(sharing): create a share link
-        dto/request/CreateShareLinkRequest {expiresAt?} (nếu có phải ở tương lai), dto/response/ShareLinkResponse {id, token,
-        permission, expiresAt, revokedAt, viewCount, createdAt, expired}, mapper/ShareLinkMapper, SharingService.createLink:
-        token 32 ký tự [a-z0-9] từ SecureRandom, trùng thì sinh lại; trip.visibility → LINK;
-        POST /trips/{tripId}/share-links (isOwner) → 201; test: VIEWER / EDITOR → 403, expiresAt quá khứ → 400,
-        visibility đổi
+Mốc 2 — fix(trip): stop taking visibility from the client                                            (6 file)
+        CreateTripRequest, UpdateTripRequest bỏ trường visibility; TripMapper.updateFromRequest bỏ qua visibility;
+        TripServiceImpl.create luôn PRIVATE; test: body có "visibility" bị bỏ qua, chuyến vẫn PRIVATE
 
-Mốc 3 — feat(sharing): list and revoke share links
-        GET /trips/{tripId}/share-links (isOwner): các liên kết chưa thu hồi, mới nhất trước, hết hạn vẫn hiện với
-        expired = true; DELETE /trips/{tripId}/share-links/{id} (isOwner): revoked_at = now, không còn liên kết chưa thu hồi
-        → visibility PRIVATE; thu hồi lần hai → 404; test
+Mốc 3 — feat(sharing): create a share link                                                           (8 file)
+        dto/response/ShareLinkResponse {id, token, permission, viewCount, createdAt}, mapper/ShareLinkMapper,
+        SharingService.createLink: token 32 ký tự [a-z0-9] từ SecureRandom (SecureTokens), trùng thì sinh lại;
+        trip.visibility → LINK; controller/ShareLinkController POST /trips/{tripId}/share-links (isOwner) → 201,
+        chưa có body; test: VIEWER / EDITOR → 403, visibility đổi
 
-Mốc 4 — feat(sharing): public trip page by share link
+Mốc 4 — feat(sharing): let a share link expire                                                       (8 file)
+        dto/request/CreateShareLinkRequest {expiresAt?}, body không bắt buộc; expiresAt không ở tương lai → 400
+        VALIDATION_ERROR ở field expiresAt (kiểm ở service bằng bean Clock); ShareLinkResponse thêm expiresAt;
+        messages.properties
+
+Mốc 5 — feat(sharing): list the share links of a trip                                                (8 file)
+        GET /trips/{tripId}/share-links (isOwner): các liên kết chưa thu hồi, mới nhất trước; ShareLinkResponse thêm
+        expired (liên kết hết hạn vẫn hiện, với expired = true)
+
+Mốc 6 — feat(sharing): revoke a share link                                                           (6 file)
+        DELETE /trips/{tripId}/share-links/{id} (isOwner): revoked_at = now; không còn liên kết chưa thu hồi →
+        visibility PRIVATE; id của chuyến khác hoặc thu hồi lần hai → 404
+
+Mốc 7 — feat(sharing): public trip page by share link                                                (8 file)
         controller/PublicTripController GET /api/v1/public/trips/{token} (không cần đăng nhập; SecurityConfig.PUBLIC_PATHS
-        thêm /api/v1/public/**), dto/response/PublicTripResponse (title, description, destinationName / lat / lng, startDate,
-        endDate, days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note, place{name, address,
-        lat, lng}}]}]), service/PublicTripService (token không có / đã thu hồi / hết hạn / trip đã xoá → 404
-        RESOURCE_NOT_FOUND; ShareLinkRepository.incrementViewCount một câu UPDATE); test WebMvc với @Import(SecurityConfig):
-        không token Bearer vẫn 200; 4 kiểu 404 cùng body; view_count tăng; body không có email / ownerId / members
+        thêm /api/v1/public/**), dto/response/PublicTripResponse (title, description, destinationName / lat / lng,
+        startDate, endDate, days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note,
+        place{name, address, lat, lng}}]}]), mapper/PublicTripMapper, service/PublicTripService (token sai dạng /
+        không có / đã thu hồi / hết hạn / trip đã xoá → cùng một 404 RESOURCE_NOT_FOUND); test WebMvc với
+        @Import(SecurityConfig): không token Bearer vẫn 200; các kiểu 404 cùng body; body không có email / ownerId /
+        members / chi phí / link đặt chỗ
 
-Mốc 5 — test(sharing): add share link flow integration test
-        chủ tạo liên kết → khách (không đăng nhập) mở 200 → đếm lượt → chủ thu hồi → khách 404 → visibility về PRIVATE
+Mốc 8 — feat(sharing): count the views of a share link                                               (4 file)
+        ShareLinkRepository.incrementViewCount (một câu UPDATE ... + 1), gọi khi đã chắc trả 200; test trên MySQL
+        thật: hai lần tăng liên tiếp, updated_at không đổi
+
+Mốc 9 — test(sharing): add share link flow integration test                                          (1 file)
+        chủ tạo liên kết → khách (không đăng nhập) mở 200 → lượt xem tăng → 4 câu SQL → chủ thu hồi → khách 404 →
+        visibility về PRIVATE; chuyến xoá mềm → 404; liên kết hết hạn → 404
 ```
 
 **Nhớ:** rate limit theo IP cho `/public/**` tới Task 8.1 (design 8.2); trước đó không đưa bản deploy công khai ra ngoài. `GET /trips/{id}` của chủ vẫn qua evaluator, trang công khai **không** đi qua evaluator (quyết định 3). Trang công khai không trả thời tiết / quãng đường.

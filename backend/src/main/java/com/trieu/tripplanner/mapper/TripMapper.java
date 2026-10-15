@@ -19,7 +19,7 @@ import org.mapstruct.ReportingPolicy;
 /**
  * Trip ↔ DTO mapping, generated at compile time. unmappedTargetPolicy=ERROR: a new response field without a
  * source fails the build. Creation is done by TripService with the entity builder instead, because a mapper
- * would pass null into currency/visibility and wipe their @Builder.Default values.
+ * would pass null into currency and wipe its @Builder.Default value.
  */
 @Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface TripMapper {
@@ -50,10 +50,12 @@ public interface TripMapper {
 
     /**
      * PATCH semantics: null in the request keeps the current value. Only fields with a setter on Trip are
-     * targets, so owner/slug/version can never be overwritten; status is excluded explicitly.
+     * targets, so owner/slug/version can never be overwritten. Excluded explicitly: status (it has its own
+     * endpoint) and visibility (set by the share links only, design.md rule 14.26).
      */
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "visibility", ignore = true)
     void updateFromRequest(UpdateTripRequest request, @MappingTarget Trip trip);
 
 }

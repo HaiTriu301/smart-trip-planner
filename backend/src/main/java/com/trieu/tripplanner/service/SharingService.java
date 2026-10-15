@@ -2,14 +2,16 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.AcceptInvitationRequest;
 import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
+import com.trieu.tripplanner.dto.request.CreateShareLinkRequest;
 import com.trieu.tripplanner.dto.request.InviteMemberRequest;
 import com.trieu.tripplanner.dto.response.MemberResponse;
+import com.trieu.tripplanner.dto.response.ShareLinkResponse;
 import java.util.List;
 
 /**
- * Members and invitations of a trip (design.md 10.2 "Sharing", rules 14.23–14.25). Permission checks are NOT
- * done here: the controller guards every call with {@code @tripPermission} (CLAUDE.md rule 15), so a method
- * taking a tripId only has to answer 404 when the trip does not exist.
+ * Members, invitations and share links of a trip (design.md 10.2 "Sharing", rules 14.23–14.26). Permission
+ * checks are NOT done here: the controller guards every call with {@code @tripPermission} (CLAUDE.md rule 15),
+ * so a method taking a tripId only has to answer 404 when the trip does not exist.
  */
 public interface SharingService {
 
@@ -74,5 +76,43 @@ public interface SharingService {
      *                                                                   already removed (404)
      */
     void remove(Long tripId, Long memberId);
+
+    /**
+     * Creates a link that lets anybody holding it view the trip without an account (design.md rule 14.26): a
+     * VIEW link with a random token of 32 characters [a-z0-9], unique among all links. The trip's visibility
+     * becomes LINK. A trip may have any number of links.
+     * <p>
+     * The link may carry an expiry, which must lie in the future and is fixed for good; it is kept to the
+     * microsecond, the precision of the column, so the answer equals what is read back later.
+     *
+     * @param request may be null (the call had no body): the link then never expires, as with a null expiresAt
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     * @throws com.trieu.tripplanner.exception.BusinessRuleException     the expiry is now or in the past, reported
+     *                                                                   on the {@code expiresAt} field (400)
+     */
+    ShareLinkResponse createLink(Long tripId, CreateShareLinkRequest request);
+
+    /**
+     * The share links of a trip that were not revoked, newest first (design.md 10.2 "Sharing", GET /share-links).
+     * A link past its expiry is still listed, with {@code expired = true}, so the owner sees why it stopped
+     * working and can revoke it. Every link of the answer is judged against one reading of the clock. A trip
+     * without links answers an empty list.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException missing or deleted trip (404)
+     */
+    List<ShareLinkResponse> listLinks(Long tripId);
+
+    /**
+     * Revokes a share link (design.md rule 14.26): the row stays and gets its revoked_at, the link leaves the
+     * list and, from the public page on, opens nothing. There is no way back. When the trip is left without any
+     * link that was not revoked, its visibility goes back to PRIVATE; an expired link that was never revoked
+     * still counts, so the label stays LINK until that one is revoked too. An expired link can be revoked like
+     * any other.
+     *
+     * @throws com.trieu.tripplanner.exception.ResourceNotFoundException the trip does not exist, or linkId is
+     *                                                                   not a link of this trip, or the link was
+     *                                                                   already revoked (404)
+     */
+    void revokeLink(Long tripId, Long linkId);
 
 }

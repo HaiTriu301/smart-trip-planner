@@ -1,6 +1,5 @@
 package com.trieu.tripplanner.dto.request;
 
-import com.trieu.tripplanner.model.enums.TripVisibility;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -16,9 +15,9 @@ import java.time.LocalDate;
  * (end >= start, max 60 days, lat/lng given together) are checked in TripService because PATCH must apply
  * them to the merged state too (design.md 14.1, 10.2 "Quy ước Trip API").
  * The owner is the signed-in user, never a body field (CLAUDE.md rule 16); status always starts as DRAFT.
+ * No {@code visibility}: a trip starts PRIVATE and only its share links change that (design.md rule 14.26).
  *
- * @param currency   ISO 4217 code; null → VND
- * @param visibility null → PRIVATE
+ * @param currency ISO 4217 code; null → VND
  */
 public record CreateTripRequest(
         @NotBlank(message = "{validation.trip.title.required}")
@@ -56,7 +55,5 @@ public record CreateTripRequest(
         BigDecimal budgetAmount,
 
         @Pattern(regexp = "^[A-Z]{3}$", message = "{validation.trip.currency.invalid}")
-        String currency,
-
-        TripVisibility visibility) {
+        String currency) {
 }
