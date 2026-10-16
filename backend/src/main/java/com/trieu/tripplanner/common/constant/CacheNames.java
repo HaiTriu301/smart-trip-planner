@@ -16,6 +16,9 @@ public final class CacheNames {
     /** Answers of the weather source for one point and one range of days. */
     public static final String WEATHER_FORECAST = "weather:forecast";
 
+    /** What one account is to one trip (owner, role of its accepted membership), read by the permission check. */
+    public static final String TRIP_PERMISSION = "trip:permission";
+
     private CacheNames() {
     }
 

@@ -227,13 +227,14 @@ class DayRouteFlowIntegrationTest {
     // ---- no N+1 --------------------------------------------------------------------------------------------------
 
     @Test
-    void routeCostsFourQueriesHoweverManyActivitiesTheDayHas() {
-        // permission + trip exists + day of trip + activities with their places
-        assertThat(statementsFor(routeUrl(0))).isEqualTo(4);
+    void routeCostsThreeQueriesHoweverManyActivitiesTheDayHas() {
+        // trip exists + day of trip + activities with their places. The permission comes from Redis, stored by the
+        // owner's earlier calls on this trip (4 before Task 4.3 put the permission cache in front of the check)
+        assertThat(statementsFor(routeUrl(0))).isEqualTo(3);
 
         addActivity("Chợ Hàn", CHO_HAN);
         addActivity("Chùa Linh Ứng", LINH_UNG);
-        assertThat(statementsFor(routeUrl(0))).isEqualTo(4);
+        assertThat(statementsFor(routeUrl(0))).isEqualTo(3);
 
         for (String externalId : List.of(BUN_CHA_CA, "da-nang-cau-rong", "da-nang-cho-con", "da-nang-ga-da-nang")) {
             addActivity("Ghé " + externalId, externalId);
@@ -241,7 +242,7 @@ class DayRouteFlowIntegrationTest {
         send("POST", activitiesUrl(0), ownerBearer, """
                 { "title": "Nghỉ trưa" }
                 """);
-        assertThat(statementsFor(routeUrl(0))).isEqualTo(4);
+        assertThat(statementsFor(routeUrl(0))).isEqualTo(3);
 
         // and the legs are really there, not left out to save the queries: 6 places, 5 legs
         List<Object> legs = JsonPath.read(body(send("GET", routeUrl(0), ownerBearer, null)), "$.data.legs");

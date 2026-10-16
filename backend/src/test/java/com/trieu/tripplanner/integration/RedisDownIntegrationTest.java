@@ -44,6 +44,9 @@ import org.testcontainers.containers.GenericContainer;
  * Redis is stopped while the application holds a live connection to it, as when Redis goes down in production:
  * the client then knows Redis and tries to get it back. Stopped before any connection, every attempt would be
  * refused at once and the wait of a lost connection would never show (BUG-PLAT-005).
+ * <p>
+ * Since Task 4.3 every request to a trip passes through the permission cache, so this is also the proof that
+ * permissions are still checked, from the database, without Redis.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -121,6 +124,30 @@ class RedisDownIntegrationTest {
         // A read and a write of the cache: a client waiting for Redis would take a timeout for each of them
         assertThat(Duration.between(start, Instant.now())).isLessThan(ONE_REDIS_TIMEOUT);
         assertThat(output.getOut()).contains("Cache 'place:search' failed").doesNotContain("Redis command timed out");
+    }
+
+    @Test
+    void tripPermissionsStillHoldWhileRedisIsOff(CapturedOutput output) {
+        long tripId = idOf(post("/api/v1/trips", """
+                { "title": "Đà Lạt", "startDate": "2026-10-01", "endDate": "2026-10-03" }
+                """));
+        User stranger = userRepository.save(User.builder().email("stranger@example.com")
+                .passwordHash("$2a$12$placeholder-bcrypt-hash-not-real").fullName("Stranger").emailVerified(true).build());
+        String strangerBearer = "Bearer " + jwtTokenProvider.generateAccessToken(stranger).token();
+
+        Instant start = Instant.now();
+        // Twice each: neither the first nor the second check may lean on what Redis would have stored
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            assertThat(mvc.get().uri("/api/v1/trips/" + tripId).header(HttpHeaders.AUTHORIZATION, bearer))
+                    .hasStatusOk();
+            assertThat(mvc.get().uri("/api/v1/trips/" + tripId).header(HttpHeaders.AUTHORIZATION, strangerBearer))
+                    .hasStatus(HttpStatus.FORBIDDEN)
+                    .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        }
+
+        // The database answers every check: right answers, never a 500, and no wait for the lost Redis
+        assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
+        assertThat(output.getOut()).contains("WARN").contains("Cache 'trip:permission' failed to get entry");
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.trieu.tripplanner.security.permission;
 
 import com.trieu.tripplanner.dto.internal.TripAccess;
 import com.trieu.tripplanner.security.CustomUserDetails;
+import java.util.Optional;
 import java.util.function.BiPredicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,11 @@ import org.springframework.stereotype.Component;
  * the caller holds as an ACCEPTED member. PENDING and REMOVED members get no row role and are strangers.
  * Share links never come here: they only open the public endpoint. The row comes through {@link TripAccessCache},
  * so a cache in front of the query changes neither these methods nor the controllers.
+ * <p>
+ * The stored row is trusted when it lets the caller in, never when it refuses: a refusal is read again from the
+ * database before it becomes a 403. A trip deleted since the row was stored must answer 404 to everybody, the
+ * stranger included (CLAUDE.md rule 15, BUG-SHARE-002). A 403 therefore costs one query more; in normal use the
+ * interface never offers what would be refused.
  * <p>
  * A missing or deleted trip answers {@code true} on purpose: the request continues and the service throws
  * ResourceNotFoundException → 404 (design.md 6.2 "Triển khai theo giai đoạn"). An existing trip the caller
@@ -45,8 +51,14 @@ public class TripPermissionEvaluator {
         if (tripId == null || !(principal instanceof CustomUserDetails user)) {
             return false;
         }
-        return tripAccessCache.find(tripId, user.getId())
-                .map(access -> rule.test(access, user.getId()))
+        Long userId = user.getId();
+        Optional<TripAccess> stored = tripAccessCache.find(tripId, userId);
+        if (stored.isEmpty() || rule.test(stored.get(), userId)) {
+            return true;
+        }
+        // A stored refusal may be out of date: never answer 403 on it alone
+        return tripAccessCache.refresh(tripId, userId)
+                .map(access -> rule.test(access, userId))
                 .orElse(true);
     }
 

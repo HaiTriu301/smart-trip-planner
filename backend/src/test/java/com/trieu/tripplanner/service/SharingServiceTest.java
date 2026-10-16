@@ -42,6 +42,7 @@ import com.trieu.tripplanner.repository.ShareLinkRepository;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.security.permission.TripAccessCache;
 import com.trieu.tripplanner.support.TestUsers;
 import java.time.Clock;
 import java.time.Instant;
@@ -64,7 +65,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * Repositories, the mail service and the clock are mocks; the MapStruct mapper is the real generated one.
+ * Repositories, the mail service, the permission cache and the clock are mocks; the MapStruct mapper is the real
+ * generated one.
  * Time stands still at {@link #NOW}, so the 7-day expiry can be asserted exactly.
  */
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +96,9 @@ class SharingServiceTest {
     @Mock
     private MailService mailService;
 
+    @Mock
+    private TripAccessCache tripAccessCache;
+
     private SharingServiceImpl sharingService;
     private User owner;
     private Trip trip;
@@ -111,7 +116,7 @@ class SharingServiceTest {
         ReflectionTestUtils.setField(trip, "id", TRIP_ID);
         sharingService = new SharingServiceImpl(tripRepository, tripMemberRepository, shareLinkRepository,
                 userRepository, Mappers.getMapper(MemberMapper.class), Mappers.getMapper(ShareLinkMapper.class),
-                mailService, Clock.fixed(NOW, ZoneOffset.UTC));
+                mailService, tripAccessCache, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -224,6 +229,8 @@ class SharingServiceTest {
         verify(userRepository, never()).findByEmail(anyString());
         assertThat(response.status()).isEqualTo(MemberStatus.PENDING);
         assertThat(response.acceptedAt()).isNull();
+        // Removed or pending, the account is a stranger either way: no stored answer changes
+        verifyNoInteractions(tripAccessCache);
     }
 
     @Test
@@ -327,6 +334,8 @@ class SharingServiceTest {
         assertThat(response).isEqualTo(new MemberResponse(MEMBER_ID, 9L, friend.getFullName(),
                 "friend@example.com", null, TripRole.VIEWER, MemberStatus.ACCEPTED, pending.getInvitedAt(), NOW));
         verifyNoInteractions(mailService);
+        // The account may have opened the trip before: its stored "stranger" answer must go
+        verify(tripAccessCache).evict(TRIP_ID, 9L);
     }
 
     @Test
@@ -397,6 +406,7 @@ class SharingServiceTest {
         assertThat(pending.getUser()).isNull();
         assertThat(pending.getInviteTokenHash()).isEqualTo(SecureTokens.sha256Hex(RAW_TOKEN));
         verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(tripAccessCache);
     }
 
     @Test
@@ -473,6 +483,8 @@ class SharingServiceTest {
         assertThat(viewer.getRole()).isEqualTo(MemberRole.EDITOR);
         assertThat(viewer.getStatus()).as("status untouched").isEqualTo(MemberStatus.ACCEPTED);
         assertThat(response.role()).isEqualTo(TripRole.EDITOR);
+        // The member's stored "viewer" answer must not outlive the change
+        verify(tripAccessCache).evict(TRIP_ID, 9L);
     }
 
     @Test
@@ -485,6 +497,8 @@ class SharingServiceTest {
 
         assertThat(pending.getRole()).isEqualTo(MemberRole.EDITOR);
         assertThat(pending.getStatus()).isEqualTo(MemberStatus.PENDING);
+        // No account behind the invitation yet: nobody's answer can be stored
+        verifyNoInteractions(tripAccessCache);
     }
 
     @Test
@@ -497,6 +511,7 @@ class SharingServiceTest {
 
         assertThat(response.role()).isEqualTo(TripRole.VIEWER);
         verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(tripAccessCache);
     }
 
     @Test
@@ -552,6 +567,8 @@ class SharingServiceTest {
         assertThat(accepted.getRole()).isEqualTo(MemberRole.VIEWER);
         assertThat(accepted.getAcceptedAt()).isEqualTo(NOW.minus(1, ChronoUnit.DAYS));
         verifyNoInteractions(mailService, userRepository);
+        // Locked out on the next request, not 5 minutes later
+        verify(tripAccessCache).evict(TRIP_ID, 9L);
     }
 
     @Test
@@ -576,6 +593,7 @@ class SharingServiceTest {
         assertThatThrownBy(() -> sharingService.remove(TRIP_ID, MEMBER_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
         verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(tripAccessCache);
     }
 
     @Test

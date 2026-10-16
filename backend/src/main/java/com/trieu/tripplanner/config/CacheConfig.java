@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.config;
 
 import com.trieu.tripplanner.common.constant.CacheNames;
+import com.trieu.tripplanner.dto.internal.TripAccess;
 import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import com.trieu.tripplanner.provider.weather.dto.DailyForecast;
@@ -24,7 +25,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Caches in Redis (design.md 8.1). Redis keeps temporary copies of what outside sources answered, shared by
- * every user; nothing in it is the only copy of anything.
+ * every user, and one exception: what an account is to a trip, for the permission check (design.md 8.1
+ * "Chốt 2026-10-16"). Nothing in it is the only copy of anything.
  * <p>
  * Each cache is declared here with two facts: how long an answer may be reused, and the exact Java type it
  * stores. The type is fixed per cache on purpose. The alternative, a serializer that writes the class name next
@@ -51,6 +53,12 @@ public class CacheConfig implements CachingConfigurer {
     /** Forecasts are revised several times a day. */
     static final Duration WEATHER_FORECAST_TTL = Duration.ofHours(3);
 
+    /**
+     * Permissions change only through the sharing service, which removes the entry it changes; the lifetime is
+     * the bound on how long a change that slipped past that removal can go unseen (design.md 8.1).
+     */
+    static final Duration TRIP_PERMISSION_TTL = Duration.ofMinutes(5);
+
     @Bean
     RedisCacheManagerBuilderCustomizer declaredCaches(ObjectMapper objectMapper, RedisConnectionFactory connectionFactory) {
         return builder -> builder
@@ -61,6 +69,8 @@ public class CacheConfig implements CachingConfigurer {
                         listCache(ROUTE_LEGS_TTL, RouteLeg.class, objectMapper))
                 .withCacheConfiguration(CacheNames.WEATHER_FORECAST,
                         listCache(WEATHER_FORECAST_TTL, DailyForecast.class, objectMapper))
+                .withCacheConfiguration(CacheNames.TRIP_PERMISSION,
+                        valueCache(TRIP_PERMISSION_TTL, TripAccess.class, objectMapper))
                 // A typo in a cache name must fail, not create a cache that never expires
                 .disableCreateOnMissingCache();
     }
@@ -89,6 +99,13 @@ public class CacheConfig implements CachingConfigurer {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(timeToLive)
                 .serializeValuesWith(SerializationPair.fromSerializer(json));
+    }
+
+    /** A cache whose every entry is one {@code type}, stored as JSON for {@code timeToLive}. */
+    private static <T> RedisCacheConfiguration valueCache(Duration timeToLive, Class<T> type, ObjectMapper objectMapper) {
+        return RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(timeToLive)
+                .serializeValuesWith(SerializationPair.fromSerializer(new JacksonJsonRedisSerializer<>(objectMapper, type)));
     }
 
 }

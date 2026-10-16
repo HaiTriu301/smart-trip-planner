@@ -286,15 +286,17 @@ class ActivityPlaceFlowIntegrationTest {
                 """));
 
         // The numbers of the tests written before places existed (ActivityFlow, TripDayFlow, ActivityReorderFlow)
-        // list of a day: permission + trip exists + day of trip + activities
-        assertThat(statementsFor("GET", dayUrl(0), null)).isEqualTo(4);
-        // trip detail: permission + trip with its owner + members with their accounts + days + activities
-        // (4 before Task 4.1: the members and the caller's role came with the detail, design.md 10.2)
-        assertThat(statementsFor("GET", TRIPS_URL + "/" + tripId, null)).isEqualTo(5);
-        // reorder: permission + trip exists + activities of the batch + days + UPDATE + activities of the day
+        // In all three the owner's permission comes from Redis, stored by the calls above: one query less each
+        // since Task 4.3 put the permission cache in front of the check
+        // list of a day: trip exists + day of trip + activities
+        assertThat(statementsFor("GET", dayUrl(0), null)).isEqualTo(3);
+        // trip detail: trip with its owner + members with their accounts + days + activities
+        // (5 before Task 4.3; 4 before Task 4.1, when the members and the caller's role came with the detail)
+        assertThat(statementsFor("GET", TRIPS_URL + "/" + tripId, null)).isEqualTo(4);
+        // reorder: trip exists + activities of the batch + days + UPDATE + activities of the day
         assertThat(statementsFor("PUT", TRIPS_URL + "/" + tripId + "/activities/reorder", """
                 { "items": [ { "activityId": %d, "dayId": %d, "orderIndex": 500 } ] }
-                """.formatted(last, dayIds.get(0)))).isEqualTo(6);
+                """.formatted(last, dayIds.get(0)))).isEqualTo(5);
         // edit: the place comes with the activity, so renaming one with a place costs what renaming one without does
         assertThat(statementsFor("PATCH", activityUrl(last), """
                 { "title": "Tên mới A" }

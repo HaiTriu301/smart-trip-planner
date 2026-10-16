@@ -128,12 +128,16 @@ class TripDayFlowIntegrationTest {
             }
         }
 
+        // The short trip had no request through the permission check yet: one, so both are counted the same way,
+        // as the second load of a page (the first load of a trip costs one query more, TripAccessCacheIntegrationTest)
+        statementsFor(shortTrip);
         long shortQueries = statementsFor(shortTrip);
         long longQueries = statementsFor(longTrip);
 
-        // permission check + trip with its owner + members + days + activities: independent of how many there
-        // are, i.e. no N+1 (4 before Task 4.1, which put the members and the caller's role into the detail)
-        assertThat(shortQueries).isEqualTo(5);
+        // trip with its owner + members + days + activities: independent of how many there are, i.e. no N+1. The
+        // permission comes from Redis, stored by the owner's earlier calls (5 before Task 4.3 put the permission
+        // cache in front of the check; 4 before Task 4.1, which put the members and the caller's role into the detail)
+        assertThat(shortQueries).isEqualTo(4);
         assertThat(longQueries).isEqualTo(shortQueries);
 
         // ...and the activities really are in the answer, under their own day
