@@ -1288,7 +1288,7 @@ Commit 12 — test(place): add place and activity place flow integration test   
 > - `placeId` sai (không tồn tại, hoặc `MANUAL` của người khác) → **400 `VALIDATION_ERROR` ở field `placeId`**, "Địa điểm không tồn tại", không phải 404: đây là lỗi của một ô trong form.
 > - Địa điểm tự thêm **không gộp theo tên**; `category` không bắt buộc, có gửi thì thuộc 6 loại hoạt động.
 > - Địa điểm không còn activity nào dùng **không bị dọn** ở task này.
-> - Người được chia sẻ quyền sửa (Phase 4) **không** gắn được địa điểm `MANUAL` của chủ chuyến đi sang activity khác; họ vẫn thấy nó và sửa được activity. Xét lại ở Task 4.3 Mốc 2 (rà Phase 4 ngày 2026-10-06: trước đó ghi là 4.2).
+> - Người được chia sẻ quyền sửa (Phase 4) **không** gắn được địa điểm `MANUAL` của chủ chuyến đi sang activity khác; họ vẫn thấy nó và sửa được activity. Xét lại ở Task 4.3 Mốc 5 (rà Phase 4 ngày 2026-10-06: trước đó ghi là 4.2).
 > - `POST /places` luôn trả 200 (lưu mới hay đã có đều như nhau với người gọi).
 >
 > **Ý tưởng để sau (chưa gán task):** dọn địa điểm `MANUAL` không còn ai dùng; ô "đã làm" cho từng activity (design rule 14.22); hạn mức gói miễn phí chỉ tính chuyến đi chưa hoàn thành (xét ở Task 6.1 cùng rule 14.9).
@@ -1679,7 +1679,7 @@ Commit 17 — feat(frontend): show and set the trip destination on a small map  
 > - **Gợi ý loại theo địa điểm** chỉ khi người dùng chưa tự chọn loại trong lần mở hộp thoại đó; sửa hoạt động có sẵn thì không tự đổi loại.
 > - **Mockup Stitch:** chủ dự án không dựng trước; code theo mô tả của UI_GUIDE rồi xem trên trình duyệt và chỉnh. Prompt ở UI_GUIDE 15.3 vẫn được giữ đúng với thứ sẽ làm.
 > - Một ô tìm địa điểm (`PlaceSearchField`) dùng hai chỗ, chỉ trả về kết quả được chọn: form hoạt động gọi tiếp `POST /places` để có `placeId`; form chuyến đi chỉ lấy toạ độ, không lưu địa điểm nào.
-> - Chỉ gửi `placeId` khi người dùng **đổi** địa điểm (ghi chú của Task 3.2 cho cộng tác viên, làm ở Task 4.3 Mốc 2).
+> - Chỉ gửi `placeId` khi người dùng **đổi** địa điểm (ghi chú của Task 3.2 cho cộng tác viên, làm ở Task 4.3 Mốc 5).
 >
 > **Giới hạn đã biết:**
 > - Đã đặt vị trí điểm đến thì chỉ đổi được, chưa bỏ được: `PATCH /trips/{id}` chưa hỗ trợ xoá trắng trường tuỳ chọn (design 10.2). Hộp sửa chuyến đi không có nút "bỏ vị trí".
@@ -2273,28 +2273,55 @@ Mốc 9 — test(sharing): add share link flow integration test                 
 
 Nhánh: `feat/T4.3-permission-cache` · Test ghi vào `docs/testing/09-sharing.md` và `01-platform.md` (Redis tắt).
 
+> **Rà lại bảng commit (2026-10-16, chủ dự án duyệt):** 3 mốc của bản rà Phase 4 thành 6 commit theo A.2:
+> - Ma trận quyền lên **đầu** (điểm tách g): nó kiểm hành vi đã có của 4.1 + 4.2, rồi các commit cache phía sau phải giữ xanh cả bảng. Đó là bằng chứng cache không làm sai quyền nào.
+> - Mốc cache cũ gộp ba việc nên tách ba: đổi đường đọc quyền sang bean mới (refactor, không đổi hành vi) / cache + xoá cache / xoá sau commit (quy tắc đồng thời, điểm tách c). Bài "Redis tắt" vào commit cache vì là bằng chứng của nó, không đứng riêng thành commit chỉ có test.
+> - Thêm Mốc 6: nhận lời mời của chuyến đã xoá (nợ ghi ở 4.2).
+>
+> Quyết định cùng ngày: (1) giữ cache, ghi đánh đổi ở design 8.1; (2) không cất "chuyến không tồn tại" (design 6.2); (3) nhận lời mời của chuyến đã xoá → 404; (4) ô "được phép" của ma trận kiểm đúng mã thành công, mỗi ô dựng dữ liệu mới; (5) test đếm câu SQL đếm với cache đã có sẵn.
+
 ```
-Mốc 1 — feat(security): cache trip permissions in redis
-        CacheNames.TRIP_PERMISSION ("trip:permission", 5 phút, kiểu TripAccess cố định bằng JacksonJsonRedisSerializer)
-        trong config/CacheConfig; bean security/permission/TripAccessCache đứng giữa evaluator và TripRepository.findAccess
-        (theo mẫu PlaceSearchCache), khoá {userId}:{tripId}; SharingService evict (userId, tripId) khi nhận lời, đổi vai trò,
-        gỡ; test: lần gọi thứ hai không có SQL; sau đổi vai trò quyền đổi ngay; thêm kịch bản vào RedisDownIntegrationTest
-        (Redis tắt → vẫn 200 / 403 đúng, không 500)
+Mốc 0 — docs (main): design.md 6.2, 8.1, 10.2 (placeId của activity, nhận lời mời), rule 14.19; WORKFLOW.md bảng này
 
-Mốc 2 — feat(place): let an editor keep the manual place already on an activity
-        ActivityService.update: placeId bằng place hiện tại → không gọi PlaceService.findAttachable (quyết định 6, rule 14.19);
-        test: EDITOR PATCH activity có MANUAL place của chủ với cùng placeId → 200; đổi sang MANUAL place khác của chủ → 400
+Mốc 1 — test(security): add the full permission matrix test                                          (1 file)
+        integration/TripPermissionMatrixIntegrationTest (@SpringBootTest + MockMvc, một ngữ cảnh): 20 hành động có
+        @tripPermission, mỗi dòng ghi mức quyền và mã thành công. XEM: chuyến, các ngày, hoạt động của ngày, quãng
+        đường, thời tiết, thành viên. SỬA: chuyến, trạng thái, ngày, thêm / sửa / xoá / reorder activity. CHỦ: xoá
+        chuyến, mời, đổi vai trò, gỡ, tạo / xem / thu hồi liên kết. 7 người gọi (OWNER, EDITOR, VIEWER, PENDING,
+        REMOVED, người lạ đã đăng nhập, khách không token); kỳ vọng suy ra: khách → 401, thuộc mức quyền → mã thành
+        công, còn lại → 403; @ParameterizedTest sinh 140 ô, mỗi ô dựng dữ liệu mới; nhóm "chuyến đã xoá mềm → 404"
+        cho chủ và EDITOR; test quét RequestMappingHandlerMapping: endpoint có {tripId} hoặc /trips/{id} phải mang
+        @tripPermission và có dòng trong bảng (ngoại lệ ghi rõ: POST /members/accept, /public/**)
 
-Mốc 3 — test(security): add the full permission matrix test
-        integration/TripPermissionMatrixIntegrationTest (@SpringBootTest + MockMvc, một ngữ cảnh): 7 người gọi
-        (OWNER, EDITOR, VIEWER, thành viên PENDING, thành viên REMOVED, người lạ đã đăng nhập, khách không token) ×
-        mọi hành động có trong design 6.2 đã làm tới Phase 4 (xem trip, sửa trip, đổi trạng thái, xoá trip, tạo / sửa / xoá /
-        reorder activity, route, weather, xem thành viên, mời, đổi vai trò, gỡ, tạo / xem / thu hồi liên kết);
-        @ParameterizedTest đọc bảng kỳ vọng; thêm test quét bằng reflection: mọi method của controller có {tripId} / {id}
-        của trip đều mang @PreAuthorize (rà "toàn bộ endpoint" của bản cũ bằng máy, không bằng mắt)
+Mốc 2 — refactor(security): read trip access through TripAccessCache                                 (3 file)
+        security/permission/TripAccessCache (chưa cache: gọi thẳng TripRepository.findAccess), TripPermissionEvaluator
+        gọi bean này, TripPermissionEvaluatorTest mock bean này; không đổi hành vi
+
+Mốc 3 — feat(security): cache trip permissions in redis                                              (9 file)
+        CacheNames.TRIP_PERMISSION ("trip:permission", 5 phút, kiểu TripAccess cố định) trong config/CacheConfig;
+        TripAccessCache.find @Cacheable khoá {userId}:{tripId}, không cất kết quả rỗng; TripAccessCache.evict;
+        SharingServiceImpl gọi evict khi nhận lời, đổi vai trò, gỡ; test: SharingServiceImplTest,
+        TripAccessCacheIntegrationTest (lần 2 không có SQL, "không tồn tại" không bị cất, đổi vai trò / gỡ có hiệu lực
+        ngay, đã cache rồi xoá chuyến → 404), ActivityPlaceFlowIntegrationTest + TripDayFlowIntegrationTest đếm với
+        cache có sẵn, RedisDownIntegrationTest (chủ 200, người lạ 403, không 500, log WARN 'trip:permission')
+        9 file vì: tách thêm thì build đỏ (test 4.1 "nâng vai trò rồi sửa được ngay") hoặc commit trung gian mang lỗi
+        quyền cũ còn hiệu lực 5 phút; test đếm SQL và bài Redis tắt là bằng chứng trực tiếp của commit này
+
+Mốc 4 — feat(security): evict trip permissions only after the change is committed                    (2 file)
+        CacheConfig bật transactionAware(); TripAccessCacheIntegrationTest: giữa transaction bản nhớ cũ còn, commit xong
+        mới mất; rollback thì không xoá
+
+Mốc 5 — feat(place): let an editor keep the manual place already on an activity                      (~3 file)
+        ActivityServiceImpl.resolvePlace: placeId bằng place hiện tại → giữ nguyên, không gọi PlaceService.findAttachable
+        (quyết định 6, rule 14.19); test: EDITOR gửi lại cùng placeId MANUAL của chủ → 200; đổi sang MANUAL khác của
+        chủ → 400; cùng placeId kèm clearPlace → vẫn 400
+
+Mốc 6 — fix(sharing): refuse an invitation to a deleted trip                                         (~3 file)
+        SharingServiceImpl.accept: token kiểm trước (400 INVALID_TOKEN), rồi chuyến phải còn sống (404 RESOURCE_NOT_FOUND);
+        test: xoá chuyến rồi nhận lời → 404, dòng thành viên vẫn PENDING
 ```
 
-**Nhớ:** `@Cacheable` phải ở bean riêng, không ở method của evaluator gọi chính nó (CLAUDE.md mục 8). Khoá không cần tên nguồn (không phải provider). Trip bị xoá mềm sau khi cache: entry cũ cho qua evaluator, service vẫn 404 như trước, không cần evict khi xoá trip.
+**Nhớ:** `@Cacheable` phải ở bean riêng, không ở method của evaluator gọi chính nó (CLAUDE.md mục 8). Khoá không cần tên nguồn (không phải provider). Trip bị xoá mềm sau khi cache: entry cũ cho qua evaluator, service vẫn 404 như trước, không cần evict khi xoá trip. Không bao giờ cất kết quả "chuyến không tồn tại" (design 6.2). Mỗi endpoint mới của chuyến đi (Task 4.4 bình luận trở đi) phải thêm một dòng vào ma trận: test quét làm build đỏ nếu quên.
 
 ---
 
@@ -2363,7 +2390,7 @@ Mốc 6 — feat(frontend): create, copy and revoke share links
 
 Mốc 7 — feat(frontend): accept an invitation from the mail link
         route /invite trong ProtectedRoute (GuestRoute / login giữ ?redirect về /invite?...); pages/InvitePage.tsx: gọi
-        accept ngay khi mở, thành công → navigate /trips/{id} + toast; 400 → "Lời mời không còn hiệu lực"; 403 → "Lời mời
+        accept ngay khi mở, thành công → navigate /trips/{id} + toast; 400 / 404 (chuyến đã xoá, Task 4.3) → "Lời mời không còn hiệu lực"; 403 → "Lời mời
         này dành cho email khác" kèm nút đăng xuất; lib/inviteParams.ts + test
 
 Mốc 8 — feat(frontend): public trip page
