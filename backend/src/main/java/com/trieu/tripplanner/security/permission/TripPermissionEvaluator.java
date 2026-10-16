@@ -1,7 +1,6 @@
 package com.trieu.tripplanner.security.permission;
 
 import com.trieu.tripplanner.dto.internal.TripAccess;
-import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.security.CustomUserDetails;
 import java.util.function.BiPredicate;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +12,8 @@ import org.springframework.stereotype.Component;
  * <p>
  * Since Task 4.1 the three checks read one row, {@link TripAccess}: who owns the trip and which role, if any,
  * the caller holds as an ACCEPTED member. PENDING and REMOVED members get no row role and are strangers.
- * Share links never come here: they only open the public endpoint. Task 4.3 puts a Redis cache in front of the
- * query behind the same method names, so controllers do not change.
+ * Share links never come here: they only open the public endpoint. The row comes through {@link TripAccessCache},
+ * so a cache in front of the query changes neither these methods nor the controllers.
  * <p>
  * A missing or deleted trip answers {@code true} on purpose: the request continues and the service throws
  * ResourceNotFoundException → 404 (design.md 6.2 "Triển khai theo giai đoạn"). An existing trip the caller
@@ -24,7 +23,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class TripPermissionEvaluator {
 
-    private final TripRepository tripRepository;
+    private final TripAccessCache tripAccessCache;
 
     /** View the trip and everything inside it: owner or any accepted member. */
     public boolean canView(Long tripId, Object principal) {
@@ -46,7 +45,7 @@ public class TripPermissionEvaluator {
         if (tripId == null || !(principal instanceof CustomUserDetails user)) {
             return false;
         }
-        return tripRepository.findAccess(tripId, user.getId())
+        return tripAccessCache.find(tripId, user.getId())
                 .map(access -> rule.test(access, user.getId()))
                 .orElse(true);
     }
