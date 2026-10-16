@@ -39,6 +39,12 @@ import tools.jackson.databind.ObjectMapper;
  * Entries are written to Redis before the cached method returns. Spring Data Redis would otherwise hand the
  * write to a background task when the driver allows it (Lettuce does): slightly faster, but a read right
  * after the write may not see it, and a failed write never reaches {@link #errorHandler()} (BUG-PLACE-003).
+ * <p>
+ * A put or a removal asked for inside a transaction waits until that transaction commits, and never happens if it
+ * rolls back (design.md 8.1 "Xoá sau commit"). The sharing service removes a permission entry inside the
+ * transaction that changes the permission: done at once, a check running alongside could read the old row, not
+ * committed yet, and store it again for 5 minutes. The other caches are read and written outside any transaction
+ * (no transaction is held open around a call to an outside source), so this changes nothing for them.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableCaching
@@ -63,6 +69,7 @@ public class CacheConfig implements CachingConfigurer {
     RedisCacheManagerBuilderCustomizer declaredCaches(ObjectMapper objectMapper, RedisConnectionFactory connectionFactory) {
         return builder -> builder
                 .cacheWriter(RedisCacheWriter.create(connectionFactory, writer -> writer.immediateWrites()))
+                .transactionAware()
                 .withCacheConfiguration(CacheNames.PLACE_SEARCH,
                         listCache(PLACE_SEARCH_TTL, PlaceResult.class, objectMapper))
                 .withCacheConfiguration(CacheNames.ROUTE_LEGS,

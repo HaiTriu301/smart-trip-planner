@@ -6,6 +6,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.common.constant.CacheNames;
 import com.trieu.tripplanner.dto.internal.TripAccess;
+import com.trieu.tripplanner.dto.request.ChangeMemberRoleRequest;
 import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.MemberRole;
@@ -15,6 +16,7 @@ import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripAccessCache;
+import com.trieu.tripplanner.service.SharingService;
 import jakarta.persistence.EntityManagerFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -38,12 +40,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The permission cache against a real Redis and a real MySQL (design.md 6.2, 8.1 "trip:permission"). What the
  * permission matrix cannot see: where the answer is stored and for how long, that a second check asks the database
- * nothing, that "no such trip" is never stored, that a removal touches one account only, and that a stored refusal
- * is never the last word (BUG-SHARE-002).
+ * nothing, that "no such trip" is never stored, that a removal touches one account only, that a stored refusal
+ * is never the last word (BUG-SHARE-002), and that a removal waits for the change to be committed.
  * <p>
  * That a change of role, a removal or an acceptance takes effect on the very next request is proven over HTTP by
  * SharingFlowIntegrationTest, which now runs with this cache in front of every check.
@@ -86,10 +90,17 @@ class TripAccessCacheIntegrationTest {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
+    @Autowired
+    private SharingService sharingService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     private User owner;
     private User editor;
     private String ownerBearer;
     private long tripId;
+    private long editorMemberId;
 
     /** A trip of the owner with one accepted EDITOR. */
     @BeforeEach
@@ -103,7 +114,7 @@ class TripAccessCacheIntegrationTest {
         assertThat(created).hasStatus(HttpStatus.CREATED);
         tripId = ((Number) JsonPath.read(new String(created.getResponse().getContentAsByteArray(),
                 StandardCharsets.UTF_8), "$.data.id")).longValue();
-        acceptedMember(editor, MemberRole.EDITOR);
+        editorMemberId = acceptedMember(editor, MemberRole.EDITOR);
         // Creating the trip asked no permission; start from an empty cache anyway
         cacheManager.getCache(CacheNames.TRIP_PERMISSION).clear();
     }
@@ -235,14 +246,48 @@ class TripAccessCacheIntegrationTest {
         assertThat(redis.opsForValue().get(redisKey(newcomer.getId(), tripId))).contains("\"memberRole\":\"VIEWER\"");
     }
 
+    // ---- the entry goes once the change is committed (design.md 8.1 "Xoá sau commit") ----------------------------
+
+    @Test
+    void aChangeOfRoleRemovesTheStoredAccessOnlyOnceItIsCommitted() {
+        String key = redisKey(editor.getId(), tripId);
+        tripAccessCache.find(tripId, editor.getId());
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            sharingService.changeRole(tripId, editorMemberId, new ChangeMemberRoleRequest(MemberRole.VIEWER));
+            // Removed now, a check running alongside could read the old role (not committed yet) and store it again
+            // for 5 minutes: the editor would keep editing after the demotion
+            assertThat(redis.hasKey(key)).as("before the commit").isTrue();
+        });
+
+        assertThat(redis.hasKey(key)).as("after the commit").isFalse();
+        assertThat(tripAccessCache.find(tripId, editor.getId())).contains(new TripAccess(owner.getId(), MemberRole.VIEWER));
+    }
+
+    @Test
+    void aChangeThatIsRolledBackKeepsTheStoredAccess() {
+        String key = redisKey(editor.getId(), tripId);
+        tripAccessCache.find(tripId, editor.getId());
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            sharingService.remove(tripId, editorMemberId);
+            status.setRollbackOnly();
+        });
+
+        // Nothing changed in the database, so the stored answer is still the right one
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class,
+                editorMemberId)).isEqualTo("ACCEPTED");
+        assertThat(redis.hasKey(key)).isTrue();
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------------
 
-    private void acceptedMember(User user, MemberRole role) {
-        tripMemberRepository.save(TripMember.builder()
+    private long acceptedMember(User user, MemberRole role) {
+        return tripMemberRepository.save(TripMember.builder()
                 .trip(tripRepository.findById(tripId).orElseThrow()).user(user).invitedEmail(user.getEmail())
                 .role(role).status(MemberStatus.ACCEPTED)
                 .invitedBy(owner).invitedAt(SEPT_1).acceptedAt(SEPT_1.plusSeconds(60))
-                .build());
+                .build()).getId();
     }
 
     private String bearerFor(User user) {
