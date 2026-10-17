@@ -2349,34 +2349,68 @@ Mốc 6 — fix(sharing): refuse an invitation to a deleted trip                
 
 ### Task 4.4 — Bình luận
 
-Nhánh: `feat/T4.4-comments` · Test ghi vào `docs/testing/10-comment.md` (file mới).
+Nhánh: `feat/T4.4-comments` · Test ghi vào `docs/testing/10-comment.md` (file mới). Đọc trước: **design.md 5.2 `comments`, 6.2, 10.2 "Quy ước Comment API", rule 27**.
+
+> **Rà lại bảng commit (2026-10-17, chủ dự án duyệt):** 5 mốc của bản rà Phase 4 thành 8 commit code theo A.2:
+> - Mốc "đăng" cũ gộp ba chức năng nên tách ba (điểm tách c): đăng vào chuyến (dạng đơn giản nhất) / gắn vào hoạt động (quy tắc 404) / trả lời một cấp (quy tắc 400, lấy `activityId` của cha).
+> - Mốc "xem" cũ gộp bộ lọc `?activityId=` kèm luật 404 nên tách hai: xem tất cả / lọc theo hoạt động.
+> - "Xoá" giữ một commit: xoá một bình luận và xoá gốc kéo theo trả lời là **cùng một câu `UPDATE`**. Tách ra thì commit sau viết lại chính câu đó, và khoảng giữa hai commit để lại trả lời mồ côi trong `GET`.
+> - Commit nào có endpoint mới thì thêm luôn dòng của endpoint đó vào `TripPermissionMatrixIntegrationTest` (test quét làm build đỏ nếu thiếu).
+>
+> Quyết định cùng ngày (đã ghi vào design 5.2 và 10.2): (1) số bình luận trên thẻ hoạt động do giao diện đếm từ `GET`, `ActivityResponse` không có `commentCount`; (2) ma trận: mỗi người gọi (kể cả PENDING, REMOVED, người lạ) có sẵn một bình luận của mình, dòng "Xoá bình luận" xoá bình luận của chính người gọi; luật "xoá của người khác → 403" kiểm ở test của service và test toàn luồng; (3) `GET` không phân trang; (4) không có hạn mức riêng cho việc đăng bình luận ở Task 4.7. Đề xuất của Claude được giữ: thêm cột `updated_at`, `parent_id ON DELETE CASCADE`, không `@Version`, `activityId` lạ khi `GET` → 404, xếp theo `created_at, id`.
 
 ```
-Mốc 1 — feat(comment): add comment model
-        V13__create_comments.sql (trip_id FK CASCADE, activity_id FK nullable ON DELETE CASCADE, user_id FK, parent_id FK self
-        nullable, content TEXT, deleted_at; index (trip_id, created_at)), model/Comment (@SQLDelete + @SQLRestriction như
-        các bảng khác), repository/CommentRepository; test mapping
+Mốc 0 — docs (main): design.md 5.2 `comments`, 10.2 "Quy ước Comment API"; WORKFLOW.md bảng này và ghi chú ở 4.6 Mốc 3
 
-Mốc 2 — feat(comment): post a comment on a trip or an activity
-        dto/request/CreateCommentRequest {content 1–2000 ký tự sau trim, activityId?, parentId?}, dto/response/CommentResponse
-        {id, activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}, mapper/CommentMapper,
-        service/CommentService (activity phải thuộc trip → không thì 404; parent phải là bình luận gốc của cùng trip → không
-        thì 400; trả lời lấy activityId của cha, bỏ qua activityId gửi lên), POST /trips/{tripId}/comments (canView) → 201;
-        test: VIEWER đăng được, người lạ 403, trả lời của trả lời → 400, content rỗng / 2001 ký tự → 400
+Mốc 1 — feat(comment): add comment model                                                             (4 file)
+        V13__create_comments.sql (trip_id CASCADE, activity_id nullable CASCADE, user_id không CASCADE, parent_id
+        nullable CASCADE, content TEXT, created_at, updated_at, deleted_at; index (trip_id, created_at)), model/Comment
+        (@SQLDelete + @SQLRestriction, quan hệ LAZY, không setter), repository/CommentRepository; CommentRepositoryTest:
+        lưu rồi đọc lại đủ cột, xoá mềm thì không đọc được, xoá cứng hoạt động kéo bình luận theo, xoá cứng chuyến có gốc
+        + trả lời không lỗi khoá ngoại
 
-Mốc 3 — feat(comment): list the comments of a trip
-        GET /trips/{tripId}/comments?activityId= (canView): danh sách phẳng theo createdAt tăng dần, có parentId để giao diện
-        lồng một cấp; một câu SQL join fetch user; test
+Mốc 2 — feat(comment): post a comment on a trip                                                      (9 file)
+        dto/request/CreateCommentRequest {content: @NotBlank, @Size(max = 2000)}, dto/response/CommentResponse {id,
+        activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}, mapper/CommentMapper,
+        service/CommentService.create (chuyến đã xoá → 404, trim, tác giả từ SecurityContext), controller/CommentController
+        POST /trips/{tripId}/comments (canView) → 201, messages.properties; CommentServiceTest, CommentControllerTest
+        (201, rỗng / 2001 ký tự → 400, khách → 401), ma trận: dòng "Đăng bình luận"
+        9 file vì: dòng ma trận bắt buộc (test quét) và câu báo lỗi của validate. activityId / parentId có trong response
+        từ đầu: là cột có sẵn của entity, thêm sau làm vỡ các chỗ dựng response trong test
 
-Mốc 4 — feat(comment): delete a comment
-        DELETE /trips/{tripId}/comments/{id} (canView; service kiểm tác giả hoặc chủ chuyến, không thì 403 FORBIDDEN):
-        xoá mềm, bình luận gốc kéo theo các trả lời trong cùng transaction; test: VIEWER xoá của người khác 403, chủ xoá
-        của VIEWER 200, xoá rồi GET không còn cả trả lời
+Mốc 3 — feat(comment): comment on an activity                                                        (3 file)
+        CreateCommentRequest thêm activityId?; CommentService: hoạt động phải thuộc chuyến (ActivityRepository
+        .findByIdAndTripId đã có), không thì 404; CommentServiceTest
 
-Mốc 5 — test(comment): add comment flow integration test
+Mốc 4 — feat(comment): reply to a comment                                                            (6 file)
+        CreateCommentRequest thêm parentId?; CommentRepository: tìm bình luận gốc còn sống của chuyến; CommentService:
+        cha không phải bình luận gốc của chuyến (không có, đã xoá, là trả lời, chuyến khác) → 400 ở field parentId; trả lời
+        lấy activityId của cha, bỏ qua activityId gửi lên; messages.properties; CommentServiceTest, CommentRepositoryTest
+
+Mốc 5 — feat(comment): list the comments of a trip                                                   (7 file)
+        CommentRepository: theo chuyến, join fetch tác giả, xếp created_at, id; CommentService.list (chuyến đã xoá → 404);
+        CommentController GET /trips/{tripId}/comments (canView); CommentServiceTest, CommentControllerTest,
+        CommentRepositoryTest (thứ tự, bỏ bình luận đã xoá, tác giả nạp cùng câu), ma trận: dòng "Xem bình luận"
+
+Mốc 6 — feat(comment): filter the comments by activity                                               (6 file)
+        CommentRepository: lọc theo hoạt động (trả lời có mặt vì mang activityId của cha); CommentService: hoạt động không
+        thuộc chuyến → 404; CommentController @RequestParam(required = false) activityId; CommentServiceTest,
+        CommentControllerTest (activityId=abc → 400), CommentRepositoryTest
+
+Mốc 7 — feat(comment): delete a comment                                                              (7 file)
+        CommentRepository: một câu UPDATE deleted_at = :now WHERE (id = :id OR parent_id = :id) AND deleted_at IS NULL;
+        CommentService.delete: chuyến đã xoá → 404, bình luận không thuộc chuyến / đã xoá → 404, không phải tác giả cũng
+        không phải chủ → 403 FORBIDDEN, thời điểm từ Clock; CommentController DELETE /trips/{tripId}/comments/{id}
+        (canView) → 200 data null; CommentServiceTest (tác giả xoá, chủ xoá của VIEWER, VIEWER xoá của người khác → 403,
+        xoá lần hai → 404), CommentControllerTest, CommentRepositoryTest (gốc kéo trả lời, xoá trả lời chỉ mất một dòng),
+        ma trận: mỗi người gọi một bình luận của mình + dòng "Xoá bình luận"
+
+Mốc 8 — test(comment): add comment flow integration test                                             (1 file)
+        integration/CommentFlowIntegrationTest: chủ đăng → VIEWER trả lời → GET đúng thứ tự → xoá gốc thì mất cả trả lời;
+        xoá hoạt động qua API thì bình luận của nó mất; đếm số câu SQL của GET (quyền đã có trong cache)
 ```
 
-**Nhớ:** kiểm "tác giả hoặc chủ" là quy tắc trên một bình luận, không phải quyền trên trip, nên nằm ở service (rule 15 chỉ cấm viết lại kiểm quyền trip). Activity bị xoá cứng kéo bình luận theo FK CASCADE; trip xoá mềm thì bình luận vẫn còn trong DB nhưng không còn đường vào.
+**Nhớ:** kiểm "tác giả hoặc chủ" là quy tắc trên một bình luận, không phải quyền trên trip, nên nằm ở service (rule 15 chỉ cấm viết lại kiểm quyền trip). Activity bị xoá cứng kéo bình luận theo FK CASCADE; trip xoá mềm thì bình luận vẫn còn trong DB nhưng không còn đường vào. `CommentService` là class trực tiếp, không interface + Impl (CLAUDE.md rule 5: business đơn giản).
 
 ---
 
@@ -2443,7 +2477,8 @@ Mốc 2 — feat(frontend): post a comment or a reply
 
 Mốc 3 — feat(frontend): comment on an activity
         mục "Bình luận" trong ActivityMenu mở panel với activityId điền sẵn (chip hiện trên ô nhập, bỏ được); số bình luận
-        nhỏ trên ActivityCard nếu > 0
+        nhỏ trên ActivityCard nếu > 0, đếm từ danh sách GET bình luận đã tải (ActivityResponse không có
+        commentCount, chốt 2026-10-17 ở Task 4.4)
 
 Mốc 4 — feat(frontend): delete a comment
         nút xoá hiện với tác giả và chủ chuyến, ConfirmDialog, 403 hiện qua getErrorMessage

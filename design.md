@@ -468,9 +468,25 @@ UNIQUE `(trip_id, user_id)`, UNIQUE `(trip_id, invited_email)`. Gỡ thành viê
 Chốt 2026-10-06 (rà Phase 4): Phase 4 chỉ có liên kết **xem**; `EDIT` thêm sau bằng ALTER khi làm liên kết sửa (xét ở Phase 5). `token` lưu **thô** (32 ký tự `[a-z0-9]` từ `SecureRandom`), không băm: liên kết sinh ra để đưa cho người khác, chỉ cho xem, và phải liệt kê / sao chép lại được; token mời (`trip_members`) thì băm vì nó cấp quyền trên tài khoản. Thu hồi = `revoked_at`, không có `deleted_at`. `updated_at` có vì mọi entity kế thừa `BaseEntity` (chốt 2026-10-13, bảng commit Task 4.2); lượt xem tăng bằng một câu `UPDATE` trực tiếp nên không làm đổi `updated_at`. Migration `V12` (Task 4.2).
 
 #### `comments`
-`id, trip_id FK (ON DELETE CASCADE), activity_id FK nullable (ON DELETE CASCADE), user_id FK, parent_id FK self nullable, content TEXT (≤ 2000 ký tự, validate ở DTO), created_at, deleted_at`
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| id | BIGINT PK AI | |
+| trip_id | BIGINT FK → trips.id | NOT NULL, `ON DELETE CASCADE`: trip bị xoá cứng (scheduler, rule 14.8) thì bình luận đi theo |
+| activity_id | BIGINT FK → activities.id | nullable (`NULL` = bình luận của cả chuyến), `ON DELETE CASCADE`: hoạt động bị xoá cứng kéo bình luận của nó theo (rule 27) |
+| user_id | BIGINT FK → users.id | NOT NULL, tác giả; **không** `ON DELETE CASCADE` (cùng lý do với `trips.owner_id`) |
+| parent_id | BIGINT FK → comments.id | nullable (`NULL` = bình luận gốc), `ON DELETE CASCADE`: một lần xoá cứng (chuyến, ngày, hoạt động) chạm cả gốc lẫn trả lời; để mặc định `RESTRICT` thì MySQL từ chối xoá gốc khi trả lời còn trỏ vào (chốt 2026-10-17, bảng commit Task 4.4) |
+| content | TEXT | NOT NULL, ≤ 2000 ký tự (validate ở DTO), lưu bản đã trim |
+| created_at / updated_at | DATETIME(6) | từ BaseEntity. `updated_at` có vì mọi entity kế thừa `BaseEntity` (như `share_links`); bình luận không sửa được nên nó luôn bằng `created_at` |
+| deleted_at | DATETIME(6) | nullable, xoá mềm |
 
-Index `(trip_id, created_at)`. Soft delete như các bảng khác; xoá bình luận gốc xoá mềm luôn các trả lời (chốt 2026-10-06). Trả lời chỉ **một cấp**: `parent_id` phải trỏ tới bình luận gốc (`parent_id IS NULL`) của cùng trip. Migration `V13` (Task 4.4).
+Index `idx_comments_trip_created (trip_id, created_at)`; các cột khoá ngoại `activity_id`, `user_id`, `parent_id` có index riêng.
+
+Quy tắc (chốt 2026-10-06, bổ sung 2026-10-17 ở bảng commit Task 4.4):
+- Soft delete như các bảng khác. Xoá bình luận gốc xoá mềm luôn các trả lời, bằng **một câu `UPDATE`** cho cả gốc lẫn trả lời, cùng một mốc thời gian lấy từ bean `Clock`.
+- Trả lời chỉ **một cấp**: `parent_id` phải trỏ tới bình luận gốc (`parent_id IS NULL`) còn sống của cùng trip.
+- **Không `@Version`**: bình luận không sửa được (rule 27), không có cảnh hai người cùng sửa một dòng.
+- Trip xoá mềm thì bình luận còn nguyên trong DB nhưng không còn đường vào (mọi endpoint bình luận trả 404); khôi phục trip thì bình luận còn đủ.
+- Migration `V13` (Task 4.4).
 
 #### `expenses`
 `id, trip_id FK, activity_id FK nullable, paid_by_user_id FK, title, amount DECIMAL(15,2), currency CHAR(3), category ENUM, spent_at DATE, note`
@@ -966,11 +982,18 @@ Public: `GET /api/v1/public/trips/{token}` — không cần auth (`SecurityConfi
 > - **Trang công khai** (`GET /public/trips/{token}`): token không có, đã thu hồi, hết hạn, hoặc chuyến đã xoá mềm → **cùng một** 404 `RESOURCE_NOT_FOUND`. Token không đúng dạng `[a-z0-9]{32}` cũng 404 và không hỏi database (chốt 2026-10-13): collation `_ci` của MySQL coi chữ hoa và chữ thường là một, nên phải so dạng trước. Mỗi lần gọi thành công tăng `view_count` bằng một câu `UPDATE ... SET view_count = view_count + 1`. `PublicTripResponse` gồm: `title`, `description`, `destinationName` / `destinationLat` / `destinationLng`, `startDate`, `endDate`, `days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note, place{name, address, lat, lng}}]}]`; **không** có email, `ownerId`, tên chủ, thành viên, bình luận, id người dùng. Chưa có thời tiết / quãng đường (cần endpoint công khai riêng). Chốt lại 2026-10-13 (bảng commit Task 4.2): ghi chú của **hoạt động** hiện, ghi chú của **ngày** không trả; chi phí và link đặt chỗ không trả. Lượt xem đếm mọi lần gọi thành công, kể cả chủ tự mở và mỗi lần tải lại, nên giao diện (Task 4.5) không tự tải lại trang này. Trang công khai không đọc `trip.visibility`: dòng liên kết là nguồn sự thật. Mỗi lần mở tốn 4 câu SQL (liên kết kèm chuyến đi, các ngày, các hoạt động kèm địa điểm, câu tăng lượt xem), không tăng theo số hoạt động. Rate limit theo IP: Task 8.1; trước đó không bật bản deploy công khai.
 
 **Comment** `/api/v1/trips/{tripId}/comments` (Task 4.4)
-| GET | `?activityId=` | Danh sách phẳng theo `createdAt` tăng dần, có `parentId` để giao diện lồng một cấp; lọc theo activity nếu có | canView |
+| GET | `?activityId=` | Danh sách phẳng theo `createdAt` tăng dần, có `parentId` để giao diện lồng một cấp; lọc theo activity nếu có. Không phân trang | canView |
 | POST | `` | `{content (1–2000 ký tự sau trim), activityId?, parentId?}` → 201 `CommentResponse` | canView |
-| DELETE | `/{id}` | Xoá mềm; bình luận gốc kéo theo các trả lời | canView + (tác giả hoặc chủ chuyến, nếu không 403) |
+| DELETE | `/{id}` | Xoá mềm; bình luận gốc kéo theo các trả lời → 200 `data: null` | canView + (tác giả hoặc chủ chuyến, nếu không 403) |
 
 > **Quy ước Comment API** (chốt 2026-10-06): `activityId` phải thuộc `{tripId}` (không thì 404). `parentId` phải là bình luận gốc của cùng trip (không thì 400 `VALIDATION_ERROR` ở field `parentId`); trả lời lấy `activityId` của bình luận cha, bỏ qua `activityId` gửi lên. `CommentResponse` = `{id, activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}`. Không sửa bình luận. Kiểm "tác giả hoặc chủ" nằm ở `CommentService` (quy tắc trên một bình luận, không phải quyền trên trip). Sự kiện realtime `COMMENT_ADDED` phát ở Phase 5.
+> - Chi tiết chốt khi duyệt bảng commit Task 4.4 (2026-10-17):
+>   - **Đăng**: chuyến đã xoá mềm → 404. Nội dung lưu bản đã trim, giữ nguyên xuống dòng; độ dài đo trước khi trim như `title` của activity (`@NotBlank` + `@Size(max = 2000)`). Nội dung là chữ thuần: không HTML, không markdown; giao diện hiện dạng chữ. Tác giả lấy từ `SecurityContext` (CLAUDE.md rule 16). Trả lời bình luận gốc đã xoá → 400 ở `parentId`, như cha không tồn tại.
+>   - **Xem**: xếp theo `createdAt`, cùng thời điểm thì theo `id`. `activityId` không thuộc `{tripId}` → 404, như khi đăng. Lọc theo hoạt động trả cả các trả lời (chúng mang `activityId` của cha). **Không phân trang**: chuyến đi của một nhóm nhỏ hiếm khi quá vài trăm bình luận; hạn chế đã biết, thêm khi cần. Số câu SQL không tăng theo số bình luận: kiểm chuyến, kiểm hoạt động (chỉ khi lọc), một câu lấy danh sách kèm tác giả (`join fetch`); quyền đọc từ cache `trip:permission`.
+>   - **Xoá**, kiểm theo thứ tự: chuyến đã xoá → 404; bình luận không thuộc `{tripId}` hoặc đã xoá → 404; người gọi không phải tác giả, cũng không phải chủ chuyến → 403 `FORBIDDEN`; thành công 200 `data: null`. Người đã bị gỡ khỏi chuyến không xoá được bình luận cũ của mình (evaluator chặn trước), bình luận đó vẫn hiện và chủ chuyến xoá được.
+>   - **Số bình luận trên thẻ hoạt động** (Task 4.6): giao diện đếm từ danh sách `GET` theo `activityId`. `ActivityResponse` **không** có `commentCount`: thêm thì mọi chỗ trả activity tốn thêm một câu đếm.
+>   - Không có hạn mức riêng cho việc đăng bình luận: chỉ người được mời mới đăng được, và hạn mức toàn cục theo người dùng của Task 4.7 đã đủ.
+>   - Ma trận quyền (`TripPermissionMatrixIntegrationTest`) có 3 dòng bình luận. Mỗi người gọi có sẵn một bình luận của chính mình; dòng "Xoá bình luận" xoá bình luận đó, nên ma trận chỉ kiểm cửa evaluator. Luật "xoá bình luận của người khác → 403" kiểm ở test của `CommentService` và test toàn luồng.
 
 **Expense** `/api/v1/trips/{tripId}/expenses`
 | GET | `` | filter theo ngày/category | canView |
