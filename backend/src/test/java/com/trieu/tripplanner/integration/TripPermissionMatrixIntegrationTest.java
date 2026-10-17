@@ -120,6 +120,8 @@ class TripPermissionMatrixIntegrationTest {
             new Action("Xem thời tiết", HttpMethod.GET, "/api/v1/weather/trips/{tripId}", Level.VIEW,
                     HttpStatus.OK, null),
             new Action("Xem thành viên", HttpMethod.GET, TRIP_OF + "/members", Level.VIEW, HttpStatus.OK, null),
+            new Action("Đăng bình luận", HttpMethod.POST, TRIP_OF + "/comments", Level.VIEW, HttpStatus.CREATED, """
+                    { "content": "Nhớ mang áo ấm" }"""),
             // Edit: owner and accepted editors
             new Action("Sửa chuyến đi", HttpMethod.PATCH, TRIP, Level.EDIT, HttpStatus.OK, """
                     { "title": "Đà Lạt mùa hoa" }"""),
