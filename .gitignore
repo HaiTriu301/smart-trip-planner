@@ -41,3 +41,6 @@ Thumbs.db
 
 # ===== Claude Code local settings =====
 .claude/settings.local.json
+
+# ===== Local-only notes (deploy guide with real domain / IP / accounts) =====
+/docs/deploy/aws.md

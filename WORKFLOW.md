@@ -2451,7 +2451,149 @@ Mốc 4 — feat(frontend): delete a comment
 
 **Nhớ:** panel bình luận và hộp thoại chia sẻ không mở cùng lúc. Trên màn hẹp (< 1024px) panel chiếm toàn màn như tab bản đồ. Cập nhật UI_GUIDE 8.1 và 15.2 trong cùng commit.
 
-> ✅ Hết Phase 4 khi 6 task merge và `CLAUDE.md` mục 7 tick Phase 4. Trước khi sang Phase 5: rà lại Phase 5 theo quy ước A.2.
+---
+
+### Deploy sớm lên AWS (kéo từ Phase 8, chốt 2026-10-17)
+
+> **Chủ dự án duyệt toàn bộ quyết định của Task 4.7 và 4.8 ngày 2026-10-17** (kể cả đổi Lightsail → EC2 cùng ngày). `design.md` chưa sửa: các chỗ cần sửa ghi ở Mốc 0 của từng task, làm trong commit docs đầu task.
+>
+> **Vì sao có hai task này:** chủ dự án muốn có bản chạy thật trên AWS, mở được bằng link trong CV, ngay sau Phase 4 (phương án "B+"), thay vì đợi Task 8.4 / 8.5. `design.md` 8.2 và ghi chú ở Task 3.8, 4.2 cấm mở bản công khai khi chưa có rate limit, nên phần rate limit của các endpoint **đã có** kéo lên trước (4.7), rồi mới deploy (4.8). Phần của tính năng chưa làm (mức PREMIUM, AI, WebSocket, Stripe) ở lại phase của nó và Phase 8.
+>
+> **Thứ tự:** 4.4 → 4.5 → 4.6 → **4.7 → 4.8** → rà Phase 5. Sau 4.8, mỗi lần merge vào `main` tự deploy (xem "Sau task" của 4.8).
+
+### Task 4.7 — Giới hạn tần suất cốt lõi (kéo từ Task 8.1) ⭐
+
+Nhánh: `feat/T4.7-core-rate-limit` · Test ghi vào `docs/testing/12-rate-limit.md` (file mới) và `01-platform.md` (Redis tắt). Đọc trước: **design.md 8.2, 6.3, rule 14.15**.
+
+> **Quyết định (chủ dự án duyệt 2026-10-17):**
+> 1. **Phạm vi và hạn mức** (chỉ endpoint đã có tới hết Phase 4): ✔
+>
+>    | Endpoint | Khoá đếm | Hạn mức | Nguồn |
+>    |---|---|---|---|
+>    | `POST /auth/login` | IP + email (chữ thường) | 5 / 15 phút | design 6.3 (8.2 ghi "Guest/IP": thống nhất theo 6.3, khách đổi email liên tục bị chặn bởi hạn mức toàn cục) |
+>    | `POST /auth/register` | IP | 3 / giờ | design 8.2 |
+>    | `POST /auth/resend-verification`, `POST /auth/forgot-password` | IP | 5 / giờ | **mới**: hai endpoint gửi mail, chống spam mail (Brevo gói miễn phí có hạn mức mỗi ngày) |
+>    | `GET /public/trips/{token}` | IP | 120 / giờ | **mới**: ghi nợ ở Task 4.2 |
+>    | `GET /places/search` | userId | 60 / giờ | design 8.2, mức FREE (chưa có PREMIUM) |
+>    | Toàn cục, đã đăng nhập | userId | 1000 / giờ | design 8.2 |
+>    | Toàn cục, khách | IP | 200 / giờ | design 8.2 |
+>
+>    Thời tiết, quãng đường và mọi endpoint khác: chỉ hạn mức toàn cục. Mức riêng của `/weather/**`, mức PREMIUM, AI: Task 8.1.
+> 2. **Tìm địa điểm đếm trước cache** (trả lời câu hỏi để ngỏ ở Task 3.4): mọi lượt gọi đều tính, kể cả trúng cache. Đơn giản, và chặn cả việc làm quá tải chính máy chủ. Ô tìm kiếm chờ 300ms sau lần gõ cuối nên một lần tìm tốn khoảng 2–4 lượt; nếu bài kiểm tay thấy 60 / giờ chật thì nâng con số, không đổi cách đếm. ✔
+> 3. **Redis lỗi → cho qua** (fail open), ghi log WARN, không 500: giống các cache (design 8.1). Thêm kịch bản vào `RedisDownIntegrationTest`, không tạo class mới. ✔
+> 4. **Địa chỉ IP lấy từ `request.getRemoteAddr()`**, không tự đọc `X-Forwarded-For`. `ClientInfo` hiện tin phần tử **đầu** của header, mà phần tử đầu do người gọi tự điền, nên khoá theo IP sẽ vô dụng (đổi header là có hạn mức mới). Trên bản deploy (Task 4.8): nginx lấy IP thật từ Cloudflare rồi **ghi đè** `X-Forwarded-For` bằng `$remote_addr`, backend đặt `server.forward-headers-strategy: native` để Tomcat tự điền `getRemoteAddr()`. Ghi chú cũ ở Task 8.4 (`$proxy_add_x_forwarded_for` + tin phần tử đầu) sai, đã sửa. ✔
+> 5. **Bật / tắt và con số đọc từ `app.rate-limit.*`.** Profile `test` tắt hẳn (test cũ đăng nhập hàng trăm lần từ cùng `127.0.0.1`); `RateLimitIntegrationTest` bật lại với con số nhỏ, mỗi test dùng IP / email riêng để không phụ thuộc thứ tự. Kịch bản giới hạn sau này thêm vào class đó, không tạo class mới (mỗi class là một lần khởi động ứng dụng). ✔
+> 6. **Vị trí:** một filter trong chuỗi Spring Security, đứng sau `JwtAuthenticationFilter` (cần biết userId). Vượt → 429 `RATE_LIMIT_EXCEEDED` (mã và message đã có) viết qua `SecurityErrorResponses` vì filter không tới được `GlobalExceptionHandler`, kèm header `X-RateLimit-Remaining`, `X-RateLimit-Reset` (design 8.2) và `Retry-After`. 429 trả như nhau dù email có tồn tại hay không (rule 14.15 giữ nguyên). ✔
+> 7. **Thư viện:** Bucket4j trên Redis (design 3.1, 8.2). Mốc 2 kiểm tên artifact và phiên bản hợp với Lettuce của Boot 4 trên tài liệu chính thức trước khi thêm vào `libs.versions.toml`; không hợp thì dừng và báo, không tự đổi sang cách khác. ✔
+> 8. **Không có commit giao diện:** `api/errors.getErrorMessage` đã hiện message của backend và lỗi 4xx không tự gửi lại (`isWorthRetrying`). Chỉ có bài kiểm tay trên form đăng nhập. ✔
+
+```
+Mốc 0 — docs (main): design.md 6.3 (khoá IP + email), 8.2 (bảng trên, đếm trước cache, Redis lỗi cho qua, phần còn lại ở
+        8.1), 18 (lộ trình: rate limit cốt lõi và deploy sau Phase 4); WORKFLOW.md bảng này
+
+Mốc 1 — fix(security): stop trusting a client supplied X-Forwarded-For                              (~2 file)
+        ClientInfo.from dùng request.getRemoteAddr(); AuthControllerTest: gửi X-Forwarded-For giả → IP lưu kèm refresh token
+        vẫn là địa chỉ socket
+
+Mốc 2 — feat(security): limit login attempts per address and email                                 (~10 file)
+        libs.versions.toml + build.gradle (Bucket4j), config/properties/RateLimitProperties (app.rate-limit.enabled + từng
+        luật), config/RateLimitConfig (kho bucket trên Redis), security/ratelimit/RateLimitFilter, SecurityConfig gắn filter,
+        application.yml (luật login) + application-test.yml (enabled: false); test: RateLimitIntegrationTest (5 lần → lần 6
+        là 429 kèm 3 header; email khác cùng IP vẫn qua; IP khác vẫn qua), RedisDownIntegrationTest (Redis tắt → login vẫn
+        200 / 401, không 429, không 500, log WARN)
+        10 file vì: dependency + cấu hình + filter là tối thiểu để một luật chạy; tách ra thì có code chưa ai dùng
+
+Mốc 3 — feat(security): limit registration and the mail sending endpoints                          (~2 file)
+        luật register, resend-verification, forgot-password trong application.yml; test: lần thứ 4 / thứ 6 là 429, mail không
+        được gửi thêm (MockMailProvider)
+
+Mốc 4 — feat(sharing): limit the public trip page per address                                      (~2 file)
+        luật /public/trips/*; test: vượt hạn mức → 429; view_count không tăng ở lượt bị từ chối
+
+Mốc 5 — feat(place): limit place search per user                                                   (~2 file)
+        luật /places/search theo userId; test: hai người dùng cùng IP có hạn mức riêng; lượt trúng cache vẫn tính
+
+Mốc 6 — feat(security): add the global limits for users and guests                                 (~2 file)
+        luật toàn cục; test: người dùng và khách vượt toàn cục → 429; endpoint có luật riêng trừ cả hai (riêng + toàn cục)
+```
+
+**Nghiệm thu:** `./gradlew build` xanh; trên `npm run dev`, đăng nhập sai 6 lần liền → lần 6 form hiện "Bạn gửi quá nhiều yêu cầu, vui lòng thử lại sau"; đăng nhập đúng bằng email khác vẫn được.
+
+**Nhớ:** filter chạy trước controller nên lượt bị từ chối không chạm database. Khoá trong Redis có tiền tố riêng (`rate:`), không trùng tên cache nào trong `CacheNames`. Đừng đếm lượt preflight `OPTIONS` (CORS filter trả lời trước).
+
+---
+
+### Task 4.8 — Deploy thử lên AWS (kéo từ Task 8.4, 8.5)
+
+Nhánh: `chore/T4.8-aws-deploy` (có `application-prod.yml` trong `backend/src` và workflow CI nên cần nhánh + PR) · Test ghi vào `docs/testing/13-deploy.md` (file mới, toàn bài kiểm trên bản thật). Hướng dẫn từng bước: `docs/deploy/aws.md` (**chỉ nằm trên máy chủ dự án, không commit**: `.gitignore` loại nó ra vì sẽ chứa tên miền, IP và tài khoản thật).
+
+**Điều kiện bắt đầu:** Task 4.4–4.7 đã merge. **Chỉ mở tài khoản AWS khi bắt đầu task này**: 6 tháng tín dụng tính từ ngày mở tài khoản.
+
+> **Quyết định (chủ dự án duyệt 2026-10-17):**
+> 1. **Nơi chạy:** AWS **EC2 `t3.small`** (2 vCPU, 2 GB RAM), vùng Singapore `ap-southeast-1` (gần Việt Nam), Ubuntu LTS, ổ EBS gp3 30 GB, một **Elastic IP**, VPC mặc định. Chủ dự án chọn EC2 thay vì Lightsail (2026-10-17) để học các khái niệm AWS cốt lõi (VPC, Security Group, EBS, Elastic IP, IAM) và có tên EC2 trên CV, chấp nhận chi phí khoảng gấp đôi. ✔
+>    - **Chi phí ước tính** (chưa kiểm lại giá lúc làm): máy khoảng 19 USD + ổ đĩa khoảng 3 USD + IPv4 khoảng 3,6 USD ≈ **25–26 USD / tháng** khi chạy 24/7; băng thông nằm trong 100 GB miễn phí mỗi tháng.
+>    - **Free plan:** 100 USD tín dụng khi đăng ký + tối đa 100 USD khi làm các hoạt động AWS gợi ý (trong đó có tạo AWS Budgets), dùng trong 6 tháng, không trừ tiền thẻ. 6 tháng EC2 tốn khoảng 150 USD, nên **phải kiếm đủ phần 100 USD thứ hai** trong tháng đầu; hết tín dụng trước 6 tháng thì Free plan kết thúc sớm và phải nâng lên gói trả phí để máy chạy tiếp. Lúc tạo máy kiểm lại `t3.small` có trong danh sách loại máy của Free plan.
+>    - **Tránh khoản phát sinh:** đổi chế độ CPU của máy `t3` từ **Unlimited** (mặc định, CPU cao kéo dài thì tính thêm tiền) sang **Standard**; bật **AWS Budgets** (báo động ở 5 USD và ở mức dự báo vượt tín dụng) ngay sau khi tạo tài khoản.
+>    - **Tắt máy khi không cần** (chỉ khi link chưa nằm trong CV, vì máy tắt thì người bấm link thấy lỗi 521 của Cloudflare và bước tự deploy đỏ): Stop → còn ổ đĩa và IP, khoảng 6–7 USD / tháng; Stop + nhả Elastic IP → khoảng 3 USD, bật lại thì IP đổi, phải sửa bản ghi DNS trên Cloudflare và secret `DEPLOY_HOST`; snapshot rồi Terminate + nhả IP → khoảng 1–2 USD, dựng lại từ snapshot. Các bước ghi trong `docs/deploy/aws.md`.
+> 2. **Một máy, Docker Compose:** nginx, backend, MySQL, Redis chạy chung (sửa design 17.3: "MySQL managed" → MySQL trong Docker trên cùng máy). Không dùng RDS, ElastiCache, Load Balancer, ECS: mỗi thứ là một khoản tiền riêng, monolith không cần. ✔
+> 3. **Chia 2 GB RAM:** backend giới hạn khoảng 768 MB (`-XX:MaxRAMPercentage=75`), MySQL `innodb_buffer_pool_size=128M` và tắt `performance_schema`, Redis `maxmemory 64mb` + `allkeys-lru` (Redis chỉ chứa bản tạm, design 8.1), thêm 2 GB swap. Đo lại bằng `docker stats` sau khi chạy. ✔
+> 4. **Tự deploy mỗi khi merge vào `main`:** GitHub Actions build image, đẩy lên GHCR, rồi SSH vào máy chạy `deploy/deploy.sh` (sao lưu database → `docker compose pull` → `docker compose up -d` → chờ `/actuator/health` UP; không UP thì workflow đỏ). Không build trên máy 2 GB: Gradle chậm và dễ hết RAM. SSH dùng user riêng `deploy`, khoá riêng lưu trong GitHub Secrets, `authorized_keys` ép chỉ chạy được đúng script đó (`command=`), tắt đăng nhập bằng mật khẩu. Lần deploy đầu làm bằng tay (Mốc 6), tự động bật ở Mốc 7. ✔
+> 5. **CI có từ task này:** mỗi PR chạy `./gradlew build` (có Testcontainers) và `npm run lint` + `npm run build` + `npm run test`. Ngưỡng JaCoCo vẫn ở Task 8.3 / 8.4. ✔
+> 6. **Tên miền và HTTPS:** chủ dự án thuê một tên miền; DNS đặt ở **Cloudflare** (miễn phí), bản ghi `A` trỏ về Elastic IP của máy và bật proxy. SSL chế độ **Full (strict)**, nginx dùng **Cloudflare Origin Certificate** (miễn phí, hạn dài, không phải cài Certbot). **Security Group:** 80 / 443 chỉ mở cho dải IP của Cloudflare (nếu số luật không đủ chứa hết dải IP thì chặn thêm ở nginx: chỉ nhận request từ IP Cloudflare), người ngoài không gọi thẳng IP máy được; cổng 22 phải mở cho mọi nơi vì máy chạy GitHub Actions không có IP cố định, bù lại chỉ đăng nhập được bằng khoá (quyết định 4). nginx lấy IP thật từ header của Cloudflare (`real_ip_header CF-Connecting-IP` + `set_real_ip_from` dải IP Cloudflare) rồi ghi đè `X-Forwarded-For` (quyết định 4 của Task 4.7). ✔
+> 7. **Profile `prod`:** bản đồ và thời tiết dùng **nguồn thật** (`osm`, `open-meteo`, đã có rate limit từ 4.7) để người xem thấy dữ liệu thật; `payment`, `ai` để `mock` (chưa làm); mail `smtp` qua **Brevo** (xác thực tên miền bằng bản ghi SPF / DKIM để mail không vào thư rác; `app.mail-from` là địa chỉ thuộc tên miền); `app.jwt.cookie-secure: true`; `server.forward-headers-strategy: native`. Swagger vẫn mở (README có link Swagger, design 19). Secret chỉ nằm trong file `.env` trên máy chủ, không vào Git. ✔
+> 8. **Dữ liệu:** tài khoản demo tạo bằng cách đăng ký trên bản thật, không viết migration dữ liệu mẫu. Sao lưu: cron `mysqldump` hằng ngày trên máy, giữ 7 bản. Máy hỏng thì mất dữ liệu demo: chấp nhận cho bản thử. ✔
+> 9. **Không làm ở task này:** đường `/ws` trong nginx (Phase 5 thêm khi có WebSocket, không để cấu hình chưa ai dùng); webhook Stripe (Phase 6); ngưỡng coverage, scheduler dọn `refresh_tokens` (Task 8.4); README cuối + GIF + tài khoản demo có chuyến mẫu (Task 8.5). ✔
+
+```
+Mốc 0 — docs (main): design.md 3.3 (CD, TLS), 17.1 (dòng backend / frontend không còn "Phase 8"), 17.3 (prod: MySQL trong
+        Docker, provider thật cho bản đồ / thời tiết, biến môi trường mới), 17.4 mới "Deploy trên AWS" (sơ đồ, 9 quyết
+        định trên); WORKFLOW.md bảng này
+
+Mốc 1 — chore(backend): containerize the backend with a production profile                         (~3 file)
+        backend/Dockerfile (gradle:9-jdk21 build → eclipse-temurin:21-jre-alpine, copy build.gradle + settings + gradle/
+        trước để cache layer, user không phải root, HEALTHCHECK /actuator/health, giới hạn RAM của JVM), backend/.dockerignore,
+        application-prod.yml (datasource, mail Brevo có username / password / STARTTLS, frontend-url, mail-from, cookie-secure,
+        forward-headers-strategy, provider); kiểm: docker build + chạy image với MySQL / Redis của compose local, /actuator/health UP
+
+Mốc 2 — chore(frontend): serve the built frontend with nginx                                       (~3 file)
+        frontend/Dockerfile (node build → nginx:alpine), frontend/.dockerignore, frontend/nginx.conf (SPA: mọi đường dẫn lạ
+        trả index.html; /api → backend; IP thật từ Cloudflare + ghi đè X-Forwarded-For; gzip; cache dài cho /assets, không
+        cache index.html; /swagger-ui.html, /swagger-ui/, /v3/api-docs → backend (README có link Swagger), /actuator không đi
+        qua nginx (deploy.sh kiểm health trong mạng Docker); listen 443 với origin certificate, 80 chuyển sang 443)
+
+Mốc 3 — chore(deploy): add the production compose file                                             (~2 file)
+        docker-compose.prod.yml (nginx, backend, mysql, redis; chỉ nginx mở cổng 80 / 443; giới hạn RAM; healthcheck;
+        restart unless-stopped; image lấy từ ghcr.io, tag đọc từ biến IMAGE_TAG mặc định latest để quay lại bản cũ được),
+        .env.prod.example (tên biến, không có giá trị thật) + .gitignore thêm !.env.prod.example (mẫu .env.* đang bị loại);
+        kiểm: chạy cả hệ thống trên máy mình với chứng chỉ tự ký trước khi lên AWS
+
+Mốc 4 — chore(ci): run the backend and frontend checks on every pull request                       (1 file)
+        .github/workflows/ci.yml (actions/setup-java + gradle/actions/setup-gradle → ./gradlew build; setup-node → npm ci,
+        lint, build, test); nghiệm thu: PR của chính task này có dấu xanh
+
+Mốc 5 — chore(ci): publish docker images to ghcr from main                                         (1 file)
+        .github/workflows/images.yml: push lên main → build 2 image, gắn tag sha + latest, đẩy lên ghcr.io
+
+Mốc 6 — vận hành, không có commit code (theo docs/deploy/aws.md, chủ dự án tự làm, Claude hướng dẫn từng bước):
+        tạo tài khoản Free plan → Budgets → kiếm phần tín dụng thứ hai → máy EC2 (CPU Standard) + Elastic IP + Security
+        Group → swap + Docker → tên miền + Cloudflare +
+        origin certificate → Brevo + SPF / DKIM → file .env trên máy → docker compose pull && up -d (lần đầu, bằng tay)
+        → tạo tài khoản demo → cron sao lưu; ghi kết quả từng bước vào docs/testing/13-deploy.md
+
+Mốc 7 — chore(ci): deploy to the server after the images are published                             (~2 file)
+        deploy/deploy.sh (sao lưu → pull → up -d → chờ health, không UP thì thoát mã lỗi); images.yml thêm job deploy sau
+        job đẩy image (SSH bằng khoá trong GitHub Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS); trên máy: user deploy,
+        authorized_keys với command= trỏ vào script; nghiệm thu: merge một thay đổi nhỏ → vài phút sau bản thật tự cập nhật
+
+Mốc 8 — docs (main): README thêm link bản chạy thật, link Swagger, dòng "Deploy: AWS EC2 ·
+        Docker Compose · Nginx · Cloudflare · GitHub Actions CI/CD"; CLAUDE.md mục 2 (lệnh Docker không còn "CHƯA CÓ") và mục 7
+```
+
+**Nghiệm thu** (trên điện thoại dùng 4G, không qua mạng nhà): mở `https://<tên miền>` → đăng ký → nhận mail thật → xác thực → đăng nhập → tải lại trang vẫn còn đăng nhập (cookie `Secure` qua HTTPS) → tạo chuyến, tìm "Chợ Hàn" ra kết quả thật, thời tiết thật → tạo liên kết chia sẻ, mở bằng trình duyệt ẩn danh được; gọi thẳng `http://<Elastic IP>` không vào được; đăng nhập sai 6 lần → 429; merge một thay đổi nhỏ → bản thật tự cập nhật, tab Actions xanh; trang Billing của AWS cho thấy chi phí dự báo nằm trong tín dụng.
+
+**Sau task (áp dụng cho mọi phase tiếp theo):** không phải làm gì thêm để deploy: merge PR vào `main` → workflow build, đẩy image, chạy `deploy/deploy.sh` trên máy. Workflow đỏ ở bước deploy thì bản cũ vẫn chạy hoặc backend không lên: xem log trong tab Actions, sửa rồi merge lại, hoặc SSH vào máy chạy lại script với tag image cũ. Flyway chạy migration lúc backend khởi động, script đã sao lưu database trước mỗi lần deploy; migration lỗi thì backend không lên. Khi Free plan sắp hết 6 tháng: quyết định nâng lên gói trả phí hay chụp snapshot rồi xoá máy (không nâng trong 90 ngày thì AWS đóng tài khoản và xoá dữ liệu).
+
+> ✅ Hết Phase 4 khi 8 task merge (4.1–4.8), bản deploy chạy được và `CLAUDE.md` mục 7 tick Phase 4. Trước khi sang Phase 5: rà lại Phase 5 theo quy ước A.2; task nào cần đổi cấu hình máy chủ (Phase 5: đường `/ws` trong nginx; Phase 6: webhook Stripe, secret mới trong `.env` trên máy) ghi rõ bước đó trong task.
 
 ---
 
@@ -2654,6 +2796,8 @@ Nhánh: `feat/T7.3-export`
 
 Nhánh: `feat/T8.1-rate-limiting`
 
+> **Phần cốt lõi đã kéo lên Task 4.7 (chốt 2026-10-17):** filter, Bucket4j trên Redis, login / register / gửi mail / trang công khai / tìm địa điểm / hạn mức toàn cục. Task này còn: mức PREMIUM (sau Phase 6), `POST /ai/suggest-itinerary` (sau Phase 7), mức riêng của `/weather/**`, và mục 5 (xoay refresh token nguyên tử). Bước 1–4 bên dưới chỉ để tham khảo.
+
 ```
 1. dependency bucket4j-redis
 2. config/RateLimitConfig + filter/RateLimitFilter
@@ -2731,9 +2875,11 @@ Nhánh: `chore/T8.4-ci-cd`
 6. .github/workflows/cd.yml    build image → push GHCR → ssh deploy
 ```
 
+> **Phần lớn đã kéo lên Task 4.8 (chốt 2026-10-17):** hai Dockerfile, `nginx.conf`, `docker-compose.prod.yml`, `application-prod.yml`, `ci.yml`, đẩy image lên GHCR và tự deploy qua SSH (`images.yml`, `deploy/deploy.sh`). Task này còn: chạy `jacocoTestReport` + ngưỡng coverage trong CI (sau Task 8.3), scheduler dọn `refresh_tokens` (bên dưới). Bảng 1–6 phía trên chỉ để tham khảo.
+>
 > Kế thừa từ 1.3, khi tạo `application-prod.yml` và `nginx.conf`:
-> - `app.jwt.cookie-secure: true` (cookie refresh chỉ đi qua HTTPS); `local` để `false`.
-> - `ClientInfo.from()` tin `X-Forwarded-For` đầu tiên. Nginx phải **ghi đè** header này (`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`) để client không tự điền IP giả; backend đặt `server.forward-headers-strategy: native`.
+> - `app.jwt.cookie-secure: true` (cookie refresh chỉ đi qua HTTPS); `local` để `false`. → làm ở Task 4.8.
+> - ~~`ClientInfo.from()` tin `X-Forwarded-For` đầu tiên; nginx dùng `$proxy_add_x_forwarded_for`~~ — **sai, sửa ở Task 4.7:** `$proxy_add_x_forwarded_for` *nối thêm* vào header người gọi gửi, nên phần tử đầu vẫn do người gọi tự điền. Cách đúng: nginx **ghi đè** bằng `$remote_addr` (sau khi lấy IP thật từ Cloudflare), backend đặt `server.forward-headers-strategy: native` và chỉ đọc `getRemoteAddr()`.
 > - `refresh_tokens` chưa có dọn dẹp: thêm scheduler xoá dòng `revoked_at`/`expires_at` quá 30 ngày (design 5.2).
 
 **Nghiệm thu:** mở PR bất kỳ → thấy CI chạy và tick xanh trên GitHub.
@@ -2745,6 +2891,8 @@ Nhánh: `chore/T8.4-ci-cd`
 ### Task 8.5 — Deploy + README cuối cùng
 
 Nhánh: `docs/T8.5-final-readme`
+
+> **Máy chủ, tên miền, HTTPS đã có từ Task 4.8 (chốt 2026-10-17):** bước 1 bên dưới bỏ, chỉ deploy lại bản cuối. Còn: tài khoản demo có sẵn 2 chuyến mẫu, README cuối (GIF, sơ đồ, bảng tính năng).
 
 ```
 1. Thuê VPS (hoặc Railway/Render), cài docker, trỏ domain, bật HTTPS
@@ -2803,6 +2951,8 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.4 Bình luận | ☐ | |
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☐ | |
 | 4 | 4.6 UI: bình luận | ☐ | |
+| 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
+| 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☐ | |
 | 5 | 5.1 WebSocket setup | ☐ | |
 | 5 | 5.2 Broadcast events | ☐ | |
 | 5 | 5.3 Presence + locking | ☐ | |
