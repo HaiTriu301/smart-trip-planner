@@ -25,6 +25,7 @@ import com.trieu.tripplanner.repository.ShareLinkRepository;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.security.permission.TripAccessCache;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,6 +44,11 @@ import org.springframework.transaction.annotation.Transactional;
  * rule 17).
  * <p>
  * Share links on share_links (rule 14.26): owner-only too. Their token is stored, but never logged either.
+ * <p>
+ * Accepting, changing a role and removing change what an account may do on the trip: each one removes that
+ * account's entry of the permission cache, so the next request reads the new answer (design.md 8.1). Inviting
+ * changes nothing there: a PENDING member is a stranger, before and after. Share links do not go through the
+ * permission check at all.
  */
 @Slf4j
 @Service
@@ -67,6 +73,7 @@ public class SharingServiceImpl implements SharingService {
     private final MemberMapper memberMapper;
     private final ShareLinkMapper shareLinkMapper;
     private final MailService mailService;
+    private final TripAccessCache tripAccessCache;
     private final Clock clock;
 
     @Override
@@ -112,6 +119,9 @@ public class SharingServiceImpl implements SharingService {
             throw new InvalidTokenException("invitation %d expired at %s".formatted(member.getId(),
                     member.getInviteExpiresAt()));
         }
+        // A valid link to a trip deleted since the mail was sent: 404 like every endpoint of a deleted trip
+        // (CLAUDE.md rule 15). Checked after the token, so a made-up token learns nothing about the trip
+        findTrip(tripId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER, userId));
         if (!user.getEmail().equalsIgnoreCase(member.getInvitedEmail())) {
@@ -127,6 +137,8 @@ public class SharingServiceImpl implements SharingService {
         member.setInviteTokenHash(null);
         member.setInviteExpiresAt(null);
         TripMember saved = tripMemberRepository.save(member);
+        // The account may have opened the trip before accepting: its stored answer is still "stranger"
+        tripAccessCache.evict(tripId, userId);
         log.info("Trip {}: invitation {} accepted by user {} as {}", tripId, saved.getId(), userId, saved.getRole());
         return memberMapper.toResponse(saved);
     }
@@ -153,6 +165,7 @@ public class SharingServiceImpl implements SharingService {
         MemberRole previous = member.getRole();
         member.setRole(request.role());
         TripMember saved = tripMemberRepository.save(member);
+        forgetAccess(tripId, member);
         log.info("Trip {}: member {} role {} -> {}", tripId, memberId, previous, request.role());
         return memberMapper.toResponse(saved);
     }
@@ -167,6 +180,7 @@ public class SharingServiceImpl implements SharingService {
         member.setInviteTokenHash(null);
         member.setInviteExpiresAt(null);
         tripMemberRepository.save(member);
+        forgetAccess(tripId, member);
         log.info("Trip {}: member {} removed (was {} {})", tripId, memberId, previous, member.getRole());
     }
 
@@ -232,6 +246,16 @@ public class SharingServiceImpl implements SharingService {
         return tripMemberRepository.findByIdAndTripId(memberId, tripId)
                 .filter(member -> member.getStatus() != MemberStatus.REMOVED)
                 .orElseThrow(() -> new ResourceNotFoundException(TRIP_MEMBER, memberId));
+    }
+
+    /**
+     * Removes what the permission cache holds for the account of the row. An invitation sent to an email without an
+     * account has none: nobody can have asked the cache for it.
+     */
+    private void forgetAccess(Long tripId, TripMember member) {
+        if (member.getUser() != null) {
+            tripAccessCache.evict(tripId, member.getUser().getId());
+        }
     }
 
     private TripMember newInvitation(Trip trip, User owner, String email, MemberRole role) {

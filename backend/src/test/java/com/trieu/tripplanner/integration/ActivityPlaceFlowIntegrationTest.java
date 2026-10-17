@@ -4,11 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.model.enums.MemberRole;
+import com.trieu.tripplanner.model.enums.MemberStatus;
+import com.trieu.tripplanner.repository.TripMemberRepository;
+import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import jakarta.persistence.EntityManagerFactory;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.hibernate.SessionFactory;
@@ -35,6 +41,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  *   <li>the version of the activity goes up when its place changes, and only then (Hibernate, not the service);</li>
  *   <li>a refused place really leaves nothing behind;</li>
  *   <li>a place another user added by hand is refused exactly like a place that does not exist;</li>
+ *   <li>an editor keeps the owner's place added by hand when saving the activity, and attaches no other;</li>
  *   <li>activities with a place cost no more SQL statements than activities without (CLAUDE.md section 8).</li>
  * </ul>
  * Hibernate statistics are switched on for this class only.
@@ -63,6 +70,14 @@ class ActivityPlaceFlowIntegrationTest {
     @Autowired
     private EntityManagerFactory entityManagerFactory;
 
+    @Autowired
+    private TripRepository tripRepository;
+
+    @Autowired
+    private TripMemberRepository tripMemberRepository;
+
+    private User owner;
+    private User other;
     private String ownerBearer;
     private String otherBearer;
 
@@ -72,8 +87,10 @@ class ActivityPlaceFlowIntegrationTest {
 
     @BeforeEach
     void createUsersAndTrip() {
-        ownerBearer = bearerFor(userRepository.save(user("owner@example.com")));
-        otherBearer = bearerFor(userRepository.save(user("other@example.com")));
+        owner = userRepository.save(user("owner@example.com"));
+        other = userRepository.save(user("other@example.com"));
+        ownerBearer = bearerFor(owner);
+        otherBearer = bearerFor(other);
 
         MvcTestResult trip = send("POST", TRIPS_URL, ownerBearer, """
                 { "title": "Đà Lạt", "startDate": "2026-10-01", "endDate": "2026-10-03", "currency": "VND" }
@@ -235,6 +252,41 @@ class ActivityPlaceFlowIntegrationTest {
     }
 
     @Test
+    void anEditorKeepsTheOwnersPlaceAddedByHandButAttachesNoOtherOne() {
+        long grandma = addByHand(ownerBearer, "Nhà bà ngoại");
+        long ownersHotel = addByHand(ownerBearer, "Khách sạn quen");
+        long activity = id(send("POST", dayUrl(0), ownerBearer, """
+                { "title": "Thăm bà", "placeId": %d }
+                """.formatted(grandma)));
+        becomeEditor(other);
+
+        // The whole form sent back with a new title: the place it already has is no change (rule 14.19)
+        assertThat(send("PATCH", activityUrl(activity), otherBearer, """
+                { "title": "Thăm bà ngoại", "placeId": %d }
+                """.formatted(grandma)))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "title": "Thăm bà ngoại", "place": { "provider": "MANUAL", "name": "Nhà bà ngoại" } } }
+                        """);
+        assertThat(row(activity)).containsEntry("title", "Thăm bà ngoại").containsEntry("place_id", grandma);
+
+        // Another place the owner added by hand stays theirs alone, exactly as before
+        assertThat(send("PATCH", activityUrl(activity), otherBearer, """
+                { "title": "Ngủ lại", "placeId": %d }
+                """.formatted(ownersHotel)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("placeId");
+        // and so is the same place on a new activity: nothing is kept there, it would be attached
+        assertThat(send("POST", dayUrl(1), otherBearer, """
+                { "title": "Thăm bà lần nữa", "placeId": %d }
+                """.formatted(grandma)))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.details[0].field").isEqualTo("placeId");
+        assertThat(row(activity)).containsEntry("title", "Thăm bà ngoại").containsEntry("place_id", grandma);
+        assertThat(count("activities")).isEqualTo(1);
+    }
+
+    @Test
     void changingAndRemovingThePlaceInOneRequestIsRefusedAndNothingChanges() {
         long market = pick("da-lat-cho-da-lat");
         long lake = pick("da-lat-ho-xuan-huong");
@@ -286,15 +338,17 @@ class ActivityPlaceFlowIntegrationTest {
                 """));
 
         // The numbers of the tests written before places existed (ActivityFlow, TripDayFlow, ActivityReorderFlow)
-        // list of a day: permission + trip exists + day of trip + activities
-        assertThat(statementsFor("GET", dayUrl(0), null)).isEqualTo(4);
-        // trip detail: permission + trip with its owner + members with their accounts + days + activities
-        // (4 before Task 4.1: the members and the caller's role came with the detail, design.md 10.2)
-        assertThat(statementsFor("GET", TRIPS_URL + "/" + tripId, null)).isEqualTo(5);
-        // reorder: permission + trip exists + activities of the batch + days + UPDATE + activities of the day
+        // In all three the owner's permission comes from Redis, stored by the calls above: one query less each
+        // since Task 4.3 put the permission cache in front of the check
+        // list of a day: trip exists + day of trip + activities
+        assertThat(statementsFor("GET", dayUrl(0), null)).isEqualTo(3);
+        // trip detail: trip with its owner + members with their accounts + days + activities
+        // (5 before Task 4.3; 4 before Task 4.1, when the members and the caller's role came with the detail)
+        assertThat(statementsFor("GET", TRIPS_URL + "/" + tripId, null)).isEqualTo(4);
+        // reorder: trip exists + activities of the batch + days + UPDATE + activities of the day
         assertThat(statementsFor("PUT", TRIPS_URL + "/" + tripId + "/activities/reorder", """
                 { "items": [ { "activityId": %d, "dayId": %d, "orderIndex": 500 } ] }
-                """.formatted(last, dayIds.get(0)))).isEqualTo(6);
+                """.formatted(last, dayIds.get(0)))).isEqualTo(5);
         // edit: the place comes with the activity, so renaming one with a place costs what renaming one without does
         assertThat(statementsFor("PATCH", activityUrl(last), """
                 { "title": "Tên mới A" }
@@ -333,6 +387,16 @@ class ActivityPlaceFlowIntegrationTest {
                 """.formatted(name));
         assertThat(result).hasStatus(HttpStatus.CREATED);
         return id(result);
+    }
+
+    /** The user as an ACCEPTED editor of the trip, written straight to the table (SharingFlowIntegrationTest covers the invitation). */
+    private void becomeEditor(User user) {
+        Instant invited = Instant.parse("2026-09-01T00:00:00Z");
+        tripMemberRepository.save(TripMember.builder()
+                .trip(tripRepository.findById(tripId).orElseThrow()).user(user).invitedEmail(user.getEmail())
+                .role(MemberRole.EDITOR).status(MemberStatus.ACCEPTED)
+                .invitedBy(owner).invitedAt(invited).acceptedAt(invited.plusSeconds(60))
+                .build());
     }
 
     private String dayUrl(int dayPosition) {

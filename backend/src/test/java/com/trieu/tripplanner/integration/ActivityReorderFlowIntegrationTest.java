@@ -263,8 +263,9 @@ class ActivityReorderFlowIntegrationTest {
         }
         long bigDay = statementsFor(item(second, day(0), 30_000));
 
-        // permission + trip exists + activities of the batch + days + UPDATE of the moved row + activities of the day
-        assertThat(smallDay).isEqualTo(6);
+        // trip exists + activities of the batch + days + UPDATE of the moved row + activities of the day. The
+        // permission comes from Redis, stored by the earlier calls (6 before Task 4.3 put the cache in front of it)
+        assertThat(smallDay).isEqualTo(5);
         assertThat(bigDay).isEqualTo(smallDay);
         assertThat(first).isPositive();
     }

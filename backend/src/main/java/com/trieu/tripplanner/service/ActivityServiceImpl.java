@@ -479,6 +479,10 @@ public class ActivityServiceImpl implements ActivityService {
     /**
      * The place the activity has after the update: none (clearPlace), another one (placeId), or the current one.
      * Asking for both is refused before any place is looked up.
+     * <p>
+     * The id of the place the activity already has is no change, so it is not looked up again (design.md rule
+     * 14.19, Task 4.3): an editor saving the whole form of an activity at the owner's MANUAL place would otherwise be
+     * refused that place, which only its creator may attach.
      */
     private Place resolvePlace(Activity activity, UpdateActivityRequest request, Long userId) {
         boolean clear = Boolean.TRUE.equals(request.clearPlace());
@@ -489,9 +493,11 @@ public class ActivityServiceImpl implements ActivityService {
         if (clear) {
             return null;
         }
-        return request.placeId() != null
-                ? placeService.findAttachable(request.placeId(), userId)
-                : activity.getPlace();
+        Place current = activity.getPlace();
+        if (request.placeId() == null || (current != null && request.placeId().equals(current.getId()))) {
+            return current;
+        }
+        return placeService.findAttachable(request.placeId(), userId);
     }
 
     /** A cost without a currency is counted in the currency of the trip; without a cost the value sent is kept. */

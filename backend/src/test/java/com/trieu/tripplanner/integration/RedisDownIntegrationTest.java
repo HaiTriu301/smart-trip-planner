@@ -22,6 +22,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -39,6 +40,13 @@ import org.testcontainers.containers.GenericContainer;
  * <p>
  * The application context is thrown away after this class: its Redis is gone, and the tests that come next must
  * get a working one.
+ * <p>
+ * Redis is stopped while the application holds a live connection to it, as when Redis goes down in production:
+ * the client then knows Redis and tries to get it back. Stopped before any connection, every attempt would be
+ * refused at once and the wait of a lost connection would never show (BUG-PLAT-005).
+ * <p>
+ * Since Task 4.3 every request to a trip passes through the permission cache, so this is also the proof that
+ * permissions are still checked, from the database, without Redis.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -51,11 +59,17 @@ class RedisDownIntegrationTest {
     /** Far below the 60 seconds the Redis client would wait by default, with room for a slow machine. */
     private static final Duration ACCEPTABLE_DELAY = Duration.ofSeconds(10);
 
+    /** spring.data.redis.timeout: what one cache step would cost if the client waited for the lost Redis. */
+    private static final Duration ONE_REDIS_TIMEOUT = Duration.ofSeconds(1);
+
     @Autowired
     private MockMvcTester mvc;
 
     @Autowired
     private GenericContainer<?> redisContainer;
+
+    @Autowired
+    private StringRedisTemplate redis;
 
     @Autowired
     private UserRepository userRepository;
@@ -70,6 +84,10 @@ class RedisDownIntegrationTest {
 
     @BeforeEach
     void switchRedisOffAndSignIn() {
+        if (redisContainer.isRunning()) {
+            // One command first, so the client holds a live connection when Redis goes away
+            redis.hasKey("redis-down-test");
+        }
         // Stopping a stopped container does nothing, so every test starts from "Redis is off"
         redisContainer.stop();
         assertThat(redisContainer.isRunning()).isFalse();
@@ -92,6 +110,44 @@ class RedisDownIntegrationTest {
         assertThat(mvc.get().uri("/actuator/health"))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.status").isEqualTo("UP");
+    }
+
+    @Test
+    void aCachedRequestDoesNotWaitForTheLostRedis(CapturedOutput output) {
+        // A first request, so the client has noticed the lost connection whatever ran before
+        mvc.get().uri("/api/v1/places/search?q={q}", "chợ hàn").header(HttpHeaders.AUTHORIZATION, bearer).exchange();
+
+        Instant start = Instant.now();
+        assertThat(mvc.get().uri("/api/v1/places/search?q={q}", "hội an").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatusOk();
+
+        // A read and a write of the cache: a client waiting for Redis would take a timeout for each of them
+        assertThat(Duration.between(start, Instant.now())).isLessThan(ONE_REDIS_TIMEOUT);
+        assertThat(output.getOut()).contains("Cache 'place:search' failed").doesNotContain("Redis command timed out");
+    }
+
+    @Test
+    void tripPermissionsStillHoldWhileRedisIsOff(CapturedOutput output) {
+        long tripId = idOf(post("/api/v1/trips", """
+                { "title": "Đà Lạt", "startDate": "2026-10-01", "endDate": "2026-10-03" }
+                """));
+        User stranger = userRepository.save(User.builder().email("stranger@example.com")
+                .passwordHash("$2a$12$placeholder-bcrypt-hash-not-real").fullName("Stranger").emailVerified(true).build());
+        String strangerBearer = "Bearer " + jwtTokenProvider.generateAccessToken(stranger).token();
+
+        Instant start = Instant.now();
+        // Twice each: neither the first nor the second check may lean on what Redis would have stored
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            assertThat(mvc.get().uri("/api/v1/trips/" + tripId).header(HttpHeaders.AUTHORIZATION, bearer))
+                    .hasStatusOk();
+            assertThat(mvc.get().uri("/api/v1/trips/" + tripId).header(HttpHeaders.AUTHORIZATION, strangerBearer))
+                    .hasStatus(HttpStatus.FORBIDDEN)
+                    .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        }
+
+        // The database answers every check: right answers, never a 500, and no wait for the lost Redis
+        assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
+        assertThat(output.getOut()).contains("WARN").contains("Cache 'trip:permission' failed to get entry");
     }
 
     @Test

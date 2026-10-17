@@ -429,8 +429,9 @@ class ActivityFlowIntegrationTest {
         }
         long busyDay = statementsForList(dayUrl(0));
 
-        // permission check + trip exists + day of trip + activities
-        assertThat(emptyDay).isEqualTo(4);
+        // trip exists + day of trip + activities. The permission comes from Redis, stored by the owner's earlier
+        // calls on this trip (4 before Task 4.3 put the permission cache in front of the check)
+        assertThat(emptyDay).isEqualTo(3);
         assertThat(busyDay).isEqualTo(emptyDay);
         assertThat(titles(send("GET", dayUrl(0), ownerBearer, null))).hasSize(20).startsWith("Hoạt động 1", "Hoạt động 2");
     }

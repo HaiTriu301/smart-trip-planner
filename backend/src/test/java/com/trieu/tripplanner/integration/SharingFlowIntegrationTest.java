@@ -479,6 +479,25 @@ class SharingFlowIntegrationTest {
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_TOKEN");
     }
 
+    // ---- accepting an invitation of a deleted trip (CLAUDE.md rule 15, Task 4.3) ----------------------------------
+
+    @Test
+    void acceptingAnInvitationOfATripDeletedSinceIs404AndLeavesTheInvitationPending() {
+        assertThat(send("DELETE", TRIPS_URL + "/" + tripId, ownerBearer, null)).hasStatusOk();
+
+        // The link in the mail is still valid; the trip it leads to is gone, as for every other endpoint
+        assertThat(send("POST", TRIPS_URL + "/" + tripId + "/members/accept", pendingBearer,
+                "{ \"token\": \"" + PENDING_RAW_TOKEN + "\" }"))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+
+        // Nothing was written: no member of a trip nobody can open
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class,
+                pendingMemberId)).isEqualTo("PENDING");
+        assertThat(jdbcTemplate.queryForObject("SELECT invite_token_hash FROM trip_members WHERE id = ?",
+                String.class, pendingMemberId)).isNotNull();
+    }
+
     @Test
     void onlyTheOwnerRemovesMembersAndOnlyCurrentMembersOfThisTrip() {
         assertThat(send("DELETE", memberUrl(viewerMemberId), editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
