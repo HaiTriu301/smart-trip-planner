@@ -315,6 +315,7 @@ class SharingServiceTest {
     @Test
     void acceptsAPendingInvitationForTheAccountItWasSentTo() {
         TripMember pending = pendingInvitation("friend@example.com", RAW_TOKEN);
+        tripExists();
         User friend = TestUsers.verified(9L, "friend@example.com");
         when(userRepository.findById(9L)).thenReturn(Optional.of(friend));
         saveReturnsArgument();
@@ -341,6 +342,7 @@ class SharingServiceTest {
     @Test
     void acceptIgnoresTheCaseOfTheAccountEmail() {
         pendingInvitation("friend@example.com", RAW_TOKEN);
+        tripExists();
         when(userRepository.findById(9L)).thenReturn(Optional.of(TestUsers.verified(9L, "Friend@Example.com")));
         saveReturnsArgument();
 
@@ -395,6 +397,7 @@ class SharingServiceTest {
     @Test
     void acceptBySomeoneElseThanTheInvitedEmailIs403AndKeepsTheInvitationPending() {
         TripMember pending = pendingInvitation("friend@example.com", RAW_TOKEN);
+        tripExists();
         when(userRepository.findById(12L)).thenReturn(Optional.of(TestUsers.verified(12L, "stranger@example.com")));
 
         assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 12L, new AcceptInvitationRequest(RAW_TOKEN)))
@@ -412,6 +415,7 @@ class SharingServiceTest {
     @Test
     void theSameLinkCannotBeUsedTwice() {
         pendingInvitation("friend@example.com", RAW_TOKEN);
+        tripExists();
         when(userRepository.findById(9L)).thenReturn(Optional.of(TestUsers.verified(9L, "friend@example.com")));
         saveReturnsArgument();
         sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN));
@@ -422,6 +426,33 @@ class SharingServiceTest {
 
         assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN)))
                 .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void acceptOnADeletedTripIs404AndKeepsTheInvitationPending() {
+        TripMember pending = pendingInvitation("friend@example.com", RAW_TOKEN);
+        // The token is valid; the trip it opens has been deleted since the mail was sent
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest(RAW_TOKEN)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Trip");
+
+        // Like every endpoint of a deleted trip (CLAUDE.md rule 15): not found, and nothing written
+        assertThat(pending.getStatus()).isEqualTo(MemberStatus.PENDING);
+        assertThat(pending.getInviteTokenHash()).isEqualTo(SecureTokens.sha256Hex(RAW_TOKEN));
+        verify(tripMemberRepository, never()).save(any());
+        verifyNoInteractions(userRepository, tripAccessCache);
+    }
+
+    @Test
+    void anUnknownTokenIs400EvenOnADeletedTrip() {
+        when(tripMemberRepository.findByInviteTokenHash(anyString())).thenReturn(Optional.empty());
+
+        // The token is checked first: a made-up token learns nothing about the trip, deleted or not
+        assertThatThrownBy(() -> sharingService.accept(TRIP_ID, 9L, new AcceptInvitationRequest("made-up")))
+                .isInstanceOf(InvalidTokenException.class);
+        verifyNoInteractions(tripRepository);
     }
 
     // ---- listMembers -------------------------------------------------------------------------------------------

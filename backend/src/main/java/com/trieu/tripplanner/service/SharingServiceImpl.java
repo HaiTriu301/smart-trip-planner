@@ -119,6 +119,9 @@ public class SharingServiceImpl implements SharingService {
             throw new InvalidTokenException("invitation %d expired at %s".formatted(member.getId(),
                     member.getInviteExpiresAt()));
         }
+        // A valid link to a trip deleted since the mail was sent: 404 like every endpoint of a deleted trip
+        // (CLAUDE.md rule 15). Checked after the token, so a made-up token learns nothing about the trip
+        findTrip(tripId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER, userId));
         if (!user.getEmail().equalsIgnoreCase(member.getInvitedEmail())) {
