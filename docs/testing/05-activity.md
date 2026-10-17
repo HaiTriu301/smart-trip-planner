@@ -1,6 +1,6 @@
 # 05 · Hoạt động trong ngày
 
-> Cập nhật: 2026-10-02 · build xanh tại commit `532bc80` (Task 3.2, 681 lượt test) · kiểm tra thủ công `MT-ACT-13`, `MT-ACT-14` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-17 · Task 4.3 Mốc 5 (người cùng sửa giữ địa điểm tự thêm của chủ, `TC-ACT-203` đến `TC-ACT-205`) tại `58c4160` (1373 lượt test) · 2026-10-02 · build xanh tại commit `532bc80` (Task 3.2, 681 lượt test) · kiểm tra thủ công `MT-ACT-13`, `MT-ACT-14` chưa chạy · [Về trang chính](README.md)
 
 Hoạt động là một việc cần làm trong một ngày của chuyến đi, ví dụ "Ăn trưa" từ 11:30 đến 13:00. Thêm, xem, sửa, xoá làm ở Task 2.3, hoàn thành ngày 2026-09-29. Sắp xếp lại bằng kéo thả làm ở Task 2.4, hoàn thành ngày 2026-09-30. Tự xếp chỗ theo giờ bắt đầu làm ở Task 2.6 (commit 12).
 
@@ -43,6 +43,12 @@ Task 3.2, gắn địa điểm vào hoạt động (phần của địa điểm 
 | 10 | Đổi địa điểm của hoạt động đã có | R | `6c2140a` |
 | 11 | Bỏ địa điểm của hoạt động | S | `449e4ba` |
 | 12 | Kiểm toàn luồng địa điểm của hoạt động qua mọi tầng | T | `532bc80` |
+
+Task 4.3 Mốc 5, người cùng sửa giữ được địa điểm tự thêm của chủ đang gắn trên hoạt động (bảng ma trận quyền và bộ nhớ tạm của quyền ghi ở [09-sharing.md](09-sharing.md)):
+
+| Mốc | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 5 | Sửa hoạt động mà gửi lại đúng địa điểm đang có thì coi như không đổi địa điểm | R, S, T (`TC-ACT-203` đến `TC-ACT-205`) | `58c4160` |
 
 Vài từ dùng trong file:
 
@@ -281,7 +287,7 @@ Màn hình chính của ứng dụng cần cả chuyến đi, các ngày và cá
 | TC-ACT-095 | Chuyến đi có ngày chưa có hoạt động | Ngày đó vẫn xuất hiện, với danh sách hoạt động rỗng chứ không bị thiếu | Biên | Đạt |
 | TC-ACT-096 | Chuyến đi chưa có hoạt động nào | Mọi ngày đều có danh sách rỗng | Biên | Đạt |
 | TC-ACT-097 | Hệ thống có chuyến đi khác cũng có hoạt động | Chi tiết chỉ chứa hoạt động của đúng chuyến đi được hỏi | Bảo mật | Đạt |
-| TC-ACT-098 | Xem chi tiết chuyến đi 2 ngày không có hoạt động, rồi chuyến đi 60 ngày có 30 hoạt động | Cả hai lần đều tốn đúng **4 câu truy vấn** (từ Task 4.1 là **5**: thêm câu lấy thành viên, xem `TC-SHARE-114` và `BUG-SHARE-001` ở [09-sharing.md](09-sharing.md)). Thêm ngày hay thêm hoạt động không làm tăng số câu truy vấn | Biên | Đạt |
+| TC-ACT-098 | Xem chi tiết chuyến đi 2 ngày không có hoạt động, rồi chuyến đi 60 ngày có 30 hoạt động | Cả hai lần đều tốn đúng **4 câu truy vấn** (từ Task 4.1 là **5**: thêm câu lấy thành viên, xem `TC-SHARE-114` và `BUG-SHARE-001` ở [09-sharing.md](09-sharing.md)). Thêm ngày hay thêm hoạt động không làm tăng số câu truy vấn (từ Task 4.3 bớt một câu khi quyền đã nằm trong bộ nhớ tạm, xem `TC-SHARE-228`) | Biên | Đạt |
 | TC-ACT-099 | Xem chi tiết chuyến đi không tồn tại | 404, hệ thống không tải ngày hay hoạt động | Sai | Đạt |
 | TC-ACT-100 | Xem danh sách ngày, hoặc sửa tiêu đề ngày | Phản hồi vẫn gọn như cũ, **không** kèm hoạt động | Đúng | Đạt |
 
@@ -312,7 +318,7 @@ Các phần B đến H kiểm từng tầng riêng lẻ, phần lớn bằng th�
 | TC-ACT-108 | Xoá mềm chuyến đi rồi thử xem, thêm, sửa, xoá hoạt động của nó | 404 ở cả bốn thao tác. Hoạt động vẫn còn trong database, chờ khi chuyến đi được khôi phục | Sai | Đạt |
 | TC-ACT-109 | Gửi một yêu cầu vừa đổi tên chuyến đi vừa rút ngắn làm mất 2 hoạt động | 409. Tên, ngày và số phiên bản của chuyến đi giữ nguyên. Mọi ngày và hoạt động vẫn còn | Sai | Đạt |
 | TC-ACT-110 | Thêm rồi cắt một ngày trống, dời nguyên khối, rồi rút ngắn kèm `force=true` | Ba bước đầu không bị chặn và hoạt động đi theo ngày. Bước cuối xoá đúng ngày bị cắt và hoạt động của nó | Đúng | Đạt |
-| TC-ACT-111 | Xem danh sách của một ngày trống, rồi của một ngày có 20 hoạt động | Cả hai lần đều tốn đúng 4 câu truy vấn | Biên | Đạt |
+| TC-ACT-111 | Xem danh sách của một ngày trống, rồi của một ngày có 20 hoạt động | Cả hai lần đều tốn đúng 4 câu truy vấn (từ Task 4.3 bớt một câu khi quyền đã nằm trong bộ nhớ tạm, xem `TC-SHARE-228`) | Biên | Đạt |
 
 `TC-ACT-109` là bản kiểm trên database thật của `TC-ACT-084`.
 
@@ -444,7 +450,7 @@ Các phần J, K, L kiểm từng tầng bằng thành phần giả lập. Phầ
 | TC-ACT-152 | Chuyển 03:30 đến 05:00 tới ngày có 03:00 đến 04:00, rồi chuyển 20:00 đến 21:00 tới cùng ngày đó | Lần đầu 409, chi tiết trỏ đúng dòng và nêu tên hai hoạt động. Lần sau 200. Tiếp đó chạm đầu được, có xác nhận được, và đổi chỗ trong ngày không bị kiểm | Biên | Đạt |
 | TC-ACT-153 | Hai hoạt động trùng giờ đổi ngày cho nhau trong một lần gọi | 200, mỗi hoạt động nằm ở ngày mới của nó | Biên | Đạt |
 | TC-ACT-154 | Kéo một hoạt động vào cùng một chỗ bảy lần, khoảng cách co từ 500 xuống 7 | Lần thứ bảy phản hồi ghi 1000, 2000, 3000, và database cũng lưu đúng ba số đó. Số phiên bản vẫn là 0 | Biên | Đạt |
-| TC-ACT-155 | Sắp xếp một hoạt động trong ngày có 2 hoạt động, rồi trong ngày có 22 hoạt động | Cả hai lần đều tốn đúng 6 câu SQL. Ngày đông hoạt động không tốn thêm câu nào | Biên | Đạt |
+| TC-ACT-155 | Sắp xếp một hoạt động trong ngày có 2 hoạt động, rồi trong ngày có 22 hoạt động | Cả hai lần đều tốn đúng 6 câu SQL. Ngày đông hoạt động không tốn thêm câu nào (từ Task 4.3 bớt một câu khi quyền đã nằm trong bộ nhớ tạm, xem `TC-SHARE-228`) | Biên | Đạt |
 
 Sáu câu SQL của `TC-ACT-155`: kiểm quyền, kiểm chuyến đi còn sống, tải hoạt động của lô, tải các ngày liên quan, ghi hoạt động bị di chuyển, tải lại hoạt động của các ngày để trả về.
 
@@ -546,6 +552,7 @@ Toàn luồng trên ứng dụng thật với MySQL được kiểm ở phần T
 | TC-ACT-189 | Hoạt động đang có địa điểm. Chỉ sửa tên, không gửi `placeId` | Địa điểm giữ nguyên; hệ thống không tra địa điểm nào | Đúng | Đạt |
 | TC-ACT-190 | Sửa với một `placeId` không dùng được, kèm tên mới trong cùng lần gọi | 400 ở ô `placeId`: "Địa điểm không tồn tại". Hoạt động giữ **nguyên vẹn**: tên cũ, địa điểm cũ, không gì được lưu | Sai | Đạt |
 | TC-ACT-191 | Người gọi gửi `placeId` kèm `userId` = 99 trong body | `userId` trong body bị bỏ qua. Địa điểm được kiểm với người trong token; phản hồi có địa điểm mới | Bảo mật | Đạt |
+| TC-ACT-203 | (Task 4.3) Hoạt động đang ở "Chợ Đà Lạt". Sửa với tên mới và đúng `placeId` của "Chợ Đà Lạt" (cả form gửi lại) | Tên mới được lưu, địa điểm giữ nguyên; hệ thống **không** kiểm lại người gọi có được gắn địa điểm đó không, vì không có gì được gắn mới (rule 14.19) | Đúng | Đạt |
 
 Số phiên bản của hoạt động tăng khi đổi địa điểm: do database và Hibernate làm nên chỉ kiểm được trên MySQL thật, xem `TC-ACT-197` ở phần T.
 
@@ -562,6 +569,7 @@ Số phiên bản của hoạt động tăng khi đổi địa điểm: do datab
 | TC-ACT-194 | Hoạt động đang có địa điểm. Gửi `clearPlace: false` | Giống như không gửi: địa điểm giữ nguyên | Biên | Đạt |
 | TC-ACT-195 | Gửi **cả** `placeId` lẫn `clearPlace: true`, kèm tên mới | 400 `VALIDATION_ERROR` ở ô `clearPlace`: "Không thể vừa đổi vừa bỏ địa điểm trong cùng một lần sửa". Hoạt động giữ nguyên vẹn; bị chặn trước khi tra địa điểm, không gì được lưu | Sai | Đạt |
 | TC-ACT-196 | Gọi API với body `{"clearPlace": true}` | Yêu cầu tới đúng tầng xử lý với `clearPlace` = có, `placeId` = trống; phản hồi 200 có `"place": null` | Đúng | Đạt |
+| TC-ACT-204 | (Task 4.3) Gửi đúng `placeId` đang có kèm `clearPlace: true` | Vẫn 400 ở ô `clearPlace`: "giữ" và "bỏ" cùng lúc vẫn là hai yêu cầu trái nhau; không gì được lưu | Sai | Đạt |
 
 Cùng commit này, mô tả trên Swagger của hai endpoint thêm và sửa hoạt động được viết lại: thêm phần `placeId` / `clearPlace`, và sửa câu cũ "hoạt động mới nằm cuối ngày" (sai từ Task 2.6, khi hoạt động có giờ được tự xếp theo giờ). Đây là chữ hiển thị, không có kịch bản test.
 
@@ -578,7 +586,8 @@ Chạy cả ứng dụng thật với MySQL, không giả lập tầng nào: đ�
 | TC-ACT-199 | Hai người mỗi người tự thêm một địa điểm. Người thứ nhất gắn địa điểm của mình; rồi thử gắn địa điểm của người kia; rồi thử một mã không tồn tại; rồi thử đổi hoạt động đang có sang địa điểm của người kia kèm tên mới | Địa điểm của mình: gắn được. Hai lần thử sau trả lời **giống nhau từng chữ** (400, ô `placeId`, "Địa điểm không tồn tại"), không hoạt động nào được tạo. Lần sửa cũng bị từ chối: tên, địa điểm và phiên bản của hoạt động không đổi | Bảo mật | Đạt |
 | TC-ACT-200 | Sửa hoạt động, gửi cả `placeId` lẫn `clearPlace: true` | 400 ở ô `clearPlace`. Trong database địa điểm và phiên bản không đổi | Sai | Đạt |
 | TC-ACT-201 | Ngày đã có "Ăn sáng" 08:00–09:00. Thêm hoạt động 08:30–09:30 với `placeId` không tồn tại | 400 ở ô `placeId`, không phải 409 trùng giờ. Không hoạt động nào được tạo | Biên | Đạt |
-| TC-ACT-202 | Một ngày có 5 hoạt động gắn 5 địa điểm khác nhau và 1 hoạt động không địa điểm. Đếm câu SQL của: danh sách ngày, chi tiết chuyến đi, sắp xếp lại, sửa tên | Danh sách ngày 4 câu, chi tiết chuyến đi 4 câu (từ Task 4.1 là 5, xem `TC-SHARE-114`), sắp xếp lại 6 câu: **đúng bằng** các con số trước khi có địa điểm. Sửa tên hoạt động có địa điểm tốn bằng sửa hoạt động không có. Phản hồi vẫn có đủ 5 địa điểm | Biên | Đạt |
+| TC-ACT-202 | Một ngày có 5 hoạt động gắn 5 địa điểm khác nhau và 1 hoạt động không địa điểm. Đếm câu SQL của: danh sách ngày, chi tiết chuyến đi, sắp xếp lại, sửa tên | Danh sách ngày 4 câu, chi tiết chuyến đi 4 câu (từ Task 4.1 là 5, xem `TC-SHARE-114`), sắp xếp lại 6 câu: **đúng bằng** các con số trước khi có địa điểm. Sửa tên hoạt động có địa điểm tốn bằng sửa hoạt động không có. Phản hồi vẫn có đủ 5 địa điểm (từ Task 4.3 bớt một câu khi quyền đã nằm trong bộ nhớ tạm, xem `TC-SHARE-228`) | Biên | Đạt |
+| TC-ACT-205 | (Task 4.3) Chủ tự thêm hai địa điểm "Nhà bà ngoại" và "Khách sạn quen", gắn "Nhà bà ngoại" vào một hoạt động; một người cùng sửa (đã nhận lời) sửa hoạt động đó với tên mới và đúng `placeId` của "Nhà bà ngoại"; rồi đổi sang "Khách sạn quen"; rồi thêm hoạt động mới với "Nhà bà ngoại" | Lần sửa đầu 200: tên mới, vẫn "Nhà bà ngoại". Đổi sang "Khách sạn quen": 400 ở ô `placeId`, hoạt động giữ nguyên. Thêm hoạt động mới với "Nhà bà ngoại": 400 ở ô `placeId`, không hoạt động nào được tạo: địa điểm tự thêm vẫn chỉ người tạo gắn được, chỉ "giữ lại địa điểm đang có" là được phép | Bảo mật | Đạt |
 
 Kiểm chứng ngược (2026-10-02): tạm bỏ phần đọc kèm địa điểm trong các truy vấn thì `TC-ACT-202` đỏ, danh sách ngày tốn 9 câu thay vì 4 (thêm một câu cho mỗi địa điểm). Bật lại thì xanh.
 

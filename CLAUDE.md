@@ -91,7 +91,7 @@ Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:
 
 ### Bảo mật
 15. Mọi endpoint thao tác trên trip phải có `@PreAuthorize` dùng `TripPermissionEvaluator`. Không tự viết lại logic kiểm quyền trong service.
-    - Bean `tripPermission` có từ Task 2.1 (Phase 2 chỉ kiểm owner; Task 4.1 mở rộng cho thành viên `ACCEPTED` theo vai trò, Task 4.3 thêm cache Redis `trip:permission`; liên kết chia sẻ chỉ xem đi qua endpoint công khai `/api/v1/public/**`, không qua evaluator — rà Phase 4, 2026-10-06). Trip không tồn tại hoặc đã xoá → **404** `RESOURCE_NOT_FOUND` (evaluator cho qua, service ném `ResourceNotFoundException`); tồn tại nhưng không có quyền → **403**.
+    - Bean `tripPermission` có từ Task 2.1 (Phase 2 chỉ kiểm owner; Task 4.1 mở rộng cho thành viên `ACCEPTED` theo vai trò, Task 4.3 thêm cache Redis `trip:permission` (bản nhớ từ chối luôn đọc lại DB trước khi trả 403) và ma trận `TripPermissionMatrixIntegrationTest`: endpoint mới của trip phải thêm dòng vào ma trận; liên kết chia sẻ chỉ xem đi qua endpoint công khai `/api/v1/public/**`, không qua evaluator — rà Phase 4, 2026-10-06). Trip không tồn tại hoặc đã xoá → **404** `RESOURCE_NOT_FOUND` (evaluator cho qua, service ném `ResourceNotFoundException`); tồn tại nhưng không có quyền → **403**.
     - Endpoint public phải được thêm vào `SecurityConfig.PUBLIC_PATHS` (mặc định mọi thứ bị khoá). `@WebMvcTest` mới phải `@Import(SecurityConfig.class)`; test URL cần đăng nhập dùng `@WithMockUser`.
     - Mật khẩu chỉ đi qua `PasswordEncoder` bean (BCrypt 12); DTO response không bao giờ có field password/hash.
 16. Không bao giờ tin `userId` từ request body — luôn lấy từ `SecurityContext`.
@@ -238,7 +238,7 @@ Khi review code, kiểm tra lại các điểm này:
 - Trả Entity thay vì DTO ở controller
 - Thiếu `@Transactional` khi ghi nhiều bảng trong một thao tác
 - Query N+1 ở `GET /trips/{id}` (kiểm tra số câu SQL trong log)
-- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 4 / 4 / 6 câu — Task 3.2 (chi tiết chuyến đi là 5 từ Task 4.1: thêm câu lấy thành viên; `TripDayFlowIntegrationTest` đếm cùng con số, sửa cả hai khi đổi); trang công khai 4 câu (`ShareLinkFlowIntegrationTest`, Task 4.2)
+- Truy vấn mới có kết quả thành `ActivityResponse` mà thiếu `left join fetch a.place` (hoặc `@EntityGraph`): mỗi activity có địa điểm tốn thêm một câu SQL. `ActivityPlaceFlowIntegrationTest` đếm 3 / 4 / 5 câu (danh sách ngày / chi tiết chuyến đi / sắp xếp lại) với quyền đã nằm trong cache, lần đầu tốn thêm một câu kiểm quyền — Task 3.2, 4.1, 4.3 (`TripDayFlowIntegrationTest` đếm cùng con số chi tiết, sửa cả hai khi đổi; quãng đường 3 câu ở `DayRouteFlowIntegrationTest`); trang công khai 4 câu (`ShareLinkFlowIntegrationTest`, Task 4.2, không qua cache quyền)
 - Quên `@PreAuthorize` trên endpoint thao tác trip
 - Sửa file migration cũ thay vì tạo file mới (Flyway báo `checksum mismatch`, app không lên)
 - Thêm hằng vào enum Java mà không `ALTER TABLE ... MODIFY col ENUM(...)` → `Data truncated for column` lúc INSERT
@@ -288,6 +288,10 @@ Khi review code, kiểm tra lại các điểm này:
 - Script sửa nhiều file ghi dần từng file: lỗi giữa chừng rồi chạy lại là chèn hai lần. Kiểm mọi chỗ thay thế trước, tất cả khớp mới ghi — Task 3.8
 - Đặt chiều cao vùng bản đồ Leaflet theo phần trăm bên trong một hàng flex: thư viện có thể đo ra khung sai. Ghim vùng bản đồ vào bốn mép khung (`absolute inset-0`), như `MapFrame` — Task 3.9
 - Dựng lại bố cục theo tỉ lệ của một mockup rộng hơn trang thật (mockup 1550px, nội dung của ta tối đa 1280px): cột nội dung chính bị hẹp đi. Tính bề rộng từng cột ở 1024px và 1280px và so với bản đang chạy trước khi code — Task 3.9
+- Cache trả lời "không có quyền" mà tin luôn: một bản nhớ cũ biến 404 thành 403 (chuyến đã xoá sau lúc cất). Bản nhớ quyền chỉ được tin khi nó **cho qua**; bản nhớ từ chối đọc lại DB qua `TripAccessCache.refresh` trước khi trả 403. Và không bao giờ cất "chuyến không tồn tại": cất thì người hỏi được cho qua khi một chuyến mới nhận đúng mã đó — BUG-SHARE-002, Task 4.3
+- Xoá cache bên trong transaction mà không `transactionAware()`: một request song song đọc giá trị chưa commit và cất lại thêm cả TTL. Cache manager đã bật `transactionAware()`; xoá cache trong service chỉ chạy sau commit, rollback thì không xoá — Task 4.3
+- Test "Redis tắt" dừng Redis trước khi ứng dụng kết nối: mọi lệnh bị từ chối ngay, nên không thấy được cảnh Lettuce giữ lệnh trong hàng chờ suốt thời gian chờ khi Redis sập lúc đang chạy. `RedisDownIntegrationTest` gửi một lệnh trước khi dừng; `config/RedisClientConfig` đặt `REJECT_COMMANDS`, đừng gỡ — BUG-PLAT-005, Task 4.3
+- Thêm endpoint có `{tripId}` mà không thêm dòng vào `TripPermissionMatrixIntegrationTest.ACTIONS`: test quét làm build đỏ. Mỗi dòng ghi mức quyền (xem / sửa / chủ), mã thành công và body hợp lệ; ngoại lệ đứng ngoài evaluator phải ghi tên vào `NOT_GUARDED_ON_PURPOSE` kèm lý do — Task 4.3
 
 ---
 

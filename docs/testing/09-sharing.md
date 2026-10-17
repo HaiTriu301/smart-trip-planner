@@ -1,6 +1,6 @@
 # 09 · Chia sẻ chuyến đi
 
-> Cập nhật: 2026-10-15 · **Task 4.2 xong**: 9 commit từ `7068e23` đến `1fdf57d` trên nhánh `feat/T4.2-share-links`, gộp vào `main` qua pull request, build xanh 1155 lượt test · Mốc 9 (test toàn luồng của liên kết chia sẻ) tại `1fdf57d` (1155 lượt test) · Mốc 8 (đếm lượt xem của liên kết) tại `e811cc2` (1151 lượt test) · Mốc 7 (trang công khai của chuyến đi) tại `226742a` (1148 lượt test) · Mốc 6 (thu hồi liên kết chia sẻ) tại `937349b` (1126 lượt test) · Mốc 5 (danh sách liên kết chia sẻ) tại `bac6e6a` (1111 lượt test) · Mốc 4 (liên kết có hạn dùng) tại `2c9397d` (1093 lượt test) · Mốc 3 (tạo liên kết chia sẻ) tại `055cc33` (1081 lượt test) · Mốc 2 (tạo / sửa chuyến đi không còn nhận chế độ hiển thị) tại `2a1faec` (1072 lượt test) · Mốc 1 (bảng lưu liên kết chia sẻ) tại `7068e23` (1069 lượt test) · kiểm tra thủ công `MT-SHARE-10` đến `MT-SHARE-16` chưa chạy · 2026-10-09 · **Task 4.1 xong**: PR #26, merge commit `5004457`, 12 commit từ `3c66957` đến `f7d317f`, build xanh 1059 lượt test · Mốc 10 tại `f7d317f` (1059 lượt test) · Mốc 9 tại `0a41839` (1058 lượt test; `BUG-SHARE-001` đã sửa) · Mốc 8 tại `c0dfcfd` (1054 lượt test) · Mốc 7 tại `a18ce26` (1051 lượt test) · Mốc 6 tại `99d46a7` (1039 lượt test) · Mốc 5 tại `6617fce` (1026 lượt test) · Mốc 4 tại `6a1ec45` (1016 lượt test) · Mốc 3 tại `e2158db` (1007 lượt test) · Mốc 2c tại `5b92632` (994 lượt test) · Mốc 2b tại `ac83f4e` (988 lượt test) · Mốc 2a tại `eb009c8` (974 lượt test) · Mốc 1 tại `3c66957` (971 lượt test) · kiểm tra thủ công `MT-SHARE-01` đến `MT-SHARE-09` chưa chạy · [Về trang chính](README.md)
+> Cập nhật: 2026-10-17 · **Task 4.3 xong**: 7 commit từ `9330e88` đến `744da8d` trên nhánh `feat/T4.3-permission-cache`, gộp vào `main` qua pull request, build xanh 1376 lượt test, `BUG-SHARE-002` đã sửa, kiểm tra thủ công `MT-SHARE-17` chưa chạy · Mốc 6 (nhận lời mời của chuyến đã xoá trả 404) tại `744da8d` (1376 lượt test) · Mốc 5 (người cùng sửa giữ địa điểm tự thêm của chủ) tại `58c4160` (1373 lượt test), kịch bản ở [05-activity.md](05-activity.md) · Mốc 4 (xoá bản nhớ của quyền sau khi lưu xong) tại `e86aa4f` (1370 lượt test) · Mốc 3 (bộ nhớ tạm của quyền; `BUG-SHARE-002` đã sửa) tại `8e5cdb0` (1368 lượt test) · commit sửa `BUG-PLAT-005` tại `1687773` (1357 lượt test) · Mốc 2 (bộ kiểm quyền đọc qua một bean riêng, không đổi hành vi) tại `8737124` (1356 lượt test) · Mốc 1 (ma trận quyền đầy đủ) tại `9330e88` (1356 lượt test) · 2026-10-15 · **Task 4.2 xong**: 9 commit từ `7068e23` đến `1fdf57d` trên nhánh `feat/T4.2-share-links`, gộp vào `main` qua pull request, build xanh 1155 lượt test · Mốc 9 (test toàn luồng của liên kết chia sẻ) tại `1fdf57d` (1155 lượt test) · Mốc 8 (đếm lượt xem của liên kết) tại `e811cc2` (1151 lượt test) · Mốc 7 (trang công khai của chuyến đi) tại `226742a` (1148 lượt test) · Mốc 6 (thu hồi liên kết chia sẻ) tại `937349b` (1126 lượt test) · Mốc 5 (danh sách liên kết chia sẻ) tại `bac6e6a` (1111 lượt test) · Mốc 4 (liên kết có hạn dùng) tại `2c9397d` (1093 lượt test) · Mốc 3 (tạo liên kết chia sẻ) tại `055cc33` (1081 lượt test) · Mốc 2 (tạo / sửa chuyến đi không còn nhận chế độ hiển thị) tại `2a1faec` (1072 lượt test) · Mốc 1 (bảng lưu liên kết chia sẻ) tại `7068e23` (1069 lượt test) · kiểm tra thủ công `MT-SHARE-10` đến `MT-SHARE-16` chưa chạy · 2026-10-09 · **Task 4.1 xong**: PR #26, merge commit `5004457`, 12 commit từ `3c66957` đến `f7d317f`, build xanh 1059 lượt test · Mốc 10 tại `f7d317f` (1059 lượt test) · Mốc 9 tại `0a41839` (1058 lượt test; `BUG-SHARE-001` đã sửa) · Mốc 8 tại `c0dfcfd` (1054 lượt test) · Mốc 7 tại `a18ce26` (1051 lượt test) · Mốc 6 tại `99d46a7` (1039 lượt test) · Mốc 5 tại `6617fce` (1026 lượt test) · Mốc 4 tại `6a1ec45` (1016 lượt test) · Mốc 3 tại `e2158db` (1007 lượt test) · Mốc 2c tại `5b92632` (994 lượt test) · Mốc 2b tại `ac83f4e` (988 lượt test) · Mốc 2a tại `eb009c8` (974 lượt test) · Mốc 1 tại `3c66957` (971 lượt test) · kiểm tra thủ công `MT-SHARE-01` đến `MT-SHARE-09` chưa chạy · [Về trang chính](README.md)
 
 Chủ chuyến đi mời người khác vào chuyến của mình theo email và quyết định họ chỉ được xem hay được cùng sửa. Người được mời bấm link trong mail để nhận lời. Chủ có thể đổi vai trò hoặc gỡ một thành viên bất cứ lúc nào. Phần thành viên làm ở Task 4.1; liên kết chia sẻ cho người không có tài khoản ở Task 4.2; bảng kiểm quyền đầy đủ ở Task 4.3; giao diện ở Task 4.5.
 
@@ -34,6 +34,17 @@ Task 4.2 (liên kết chia sẻ và trang công khai) ghi tiếp vào file này,
 | 7 | Người không có tài khoản mở trang công khai của chuyến đi bằng liên kết (`GET /api/v1/public/trips/{token}`); mọi trường hợp bị từ chối là cùng một 404 | R | `226742a` |
 | 8 | Mỗi lần trang công khai mở thành công, lượt xem của liên kết tăng 1; lần bị từ chối không tính | S | `e811cc2` |
 | 9 | Test toàn luồng trên MySQL thật: chủ tạo liên kết, khách mở, lượt xem tăng, 4 câu SQL, chủ thu hồi, khách nhận 404; chuyến đi đã xoá và liên kết hết hạn cũng 404 | T | `1fdf57d` |
+
+Task 4.3 (cache quyền và ma trận quyền) ghi tiếp vào file này, cũng theo từng mốc:
+
+| Mốc | Nội dung | Phần trong file | Mã commit |
+|---|---|---|---|
+| 1 | Ma trận quyền đầy đủ: 20 hành động trên chuyến đi × 7 kiểu người gọi, chuyến đi đã xoá, và test quét để không đường dẫn nào lọt khỏi bảng | U | `9330e88` |
+| 2 | Bộ kiểm quyền lấy thông tin "người này là gì của chuyến đi" qua một thành phần riêng (chỗ đặt bộ nhớ tạm ở mốc 3). Không đổi hành vi: không có kịch bản mới, cả ma trận phần U và phần F vẫn đạt | U, F (chạy lại) | `8737124` |
+| 3 | Câu trả lời của bộ kiểm quyền được giữ 5 phút trong Redis, xoá khi nhận lời mời, đổi vai trò, gỡ thành viên; câu trả lời từ chối luôn được đọc lại (`BUG-SHARE-002` đã sửa). Trước mốc này có một commit sửa riêng `BUG-PLAT-005` (lệnh Redis không còn chờ khi mất kết nối, [01-platform.md](01-platform.md) phần G) | V | `8e5cdb0` |
+| 4 | Bản nhớ của quyền chỉ bị xoá khi thay đổi đã lưu xong (commit); thay đổi bị huỷ thì bản nhớ giữ nguyên | V (`TC-SHARE-229`, `TC-SHARE-230`) | `e86aa4f` |
+| 5 | Người cùng sửa giữ được địa điểm tự thêm của chủ đang gắn trên hoạt động | [05-activity.md](05-activity.md) R, S, T | `58c4160` |
+| 6 | Nhận lời mời của chuyến đi đã xoá trả 404, lời mời giữ nguyên | E (`TC-SHARE-231` đến `TC-SHARE-233`) | `744da8d` |
 
 Vài từ dùng trong file:
 
@@ -144,6 +155,9 @@ Người được mời đăng nhập (hoặc đăng ký rồi đăng nhập) b�
 | TC-SHARE-046 | Token để trống | 400 ở trường `token`: "Thiếu mã xác thực" | Sai | Đạt |
 | TC-SHARE-047 | Tầng xử lý từ chối token | 400 `INVALID_TOKEN` với câu "Liên kết không hợp lệ hoặc đã hết hạn, vui lòng yêu cầu lại" (một câu chung, không nói rõ vì sao, giống token xác thực email) | Sai | Đạt |
 | TC-SHARE-048 | Tầng xử lý báo sai email | 403 `FORBIDDEN` với câu chung "Bạn không có quyền thực hiện thao tác này" | Bảo mật | Đạt |
+| TC-SHARE-231 | (Task 4.3) Token còn hạn, đúng chuyến đi, nhưng chủ đã xoá chuyến đi sau khi gửi mail | 404 `RESOURCE_NOT_FOUND` như mọi đường dẫn của chuyến đã xoá; dòng vẫn `PENDING`, token vẫn còn, không tra tài khoản, không đụng bộ nhớ tạm của quyền | Sai | Đạt |
+| TC-SHARE-232 | (Task 4.3) Token không tồn tại, gửi tới một chuyến đi bất kỳ | 400 `INVALID_TOKEN` trước mọi thứ khác; hệ thống không hỏi chuyến đi có tồn tại không, nên token bịa ra không dò được chuyến nào | Bảo mật | Đạt |
+| TC-SHARE-233 | (Task 4.3) Toàn luồng trên MySQL thật: chủ xoá chuyến đi, người được mời bấm link trong mail | 404 `RESOURCE_NOT_FOUND`; trong cơ sở dữ liệu lời mời vẫn `PENDING` và token vẫn còn. Trước bản sửa câu trả lời là 200 và người đó thành thành viên của một chuyến không ai mở được nữa | Sai | Đạt |
 
 ## F. Thành viên được vào chuyến đi theo đúng vai trò
 
@@ -263,7 +277,7 @@ Trang chi tiết nhận luôn danh sách thành viên (giống `GET /members`, c
 | TC-SHARE-111 | Tầng xử lý: chuyến đi không tồn tại | 404; không hỏi thành viên, không tải ngày | Sai | Đạt |
 | TC-SHARE-112 | Gọi API chi tiết với quyền xem | 200; JSON có `myRole` = `OWNER` và `members` (chủ `memberId` null, người cùng sửa đủ tên); mã tài khoản lấy từ token; body không chứa chữ "password" | Đúng | Đạt |
 | TC-SHARE-113 | Toàn luồng: chủ, người cùng sửa, người chỉ xem cùng xem chi tiết chuyến "Đà Lạt" | `myRole` lần lượt `OWNER`, `EDITOR`, `VIEWER`; `members` theo thứ tự chủ, hai người đã nhận lời, lời mời đang chờ; người đã gỡ không có; không lộ mật khẩu | Đúng | Đạt |
-| TC-SHARE-114 | Đếm câu SQL của chi tiết chuyến đi (mở rộng `TC-ACT-098` và `TC-ACT-202`) | Đúng **5 câu**: quyền, chuyến đi kèm chủ, thành viên kèm tài khoản, ngày, hoạt động; không tăng theo số ngày, hoạt động hay địa điểm | Biên | Đạt · từng lỗi BUG-SHARE-001 |
+| TC-SHARE-114 | Đếm câu SQL của chi tiết chuyến đi (mở rộng `TC-ACT-098` và `TC-ACT-202`) | Đúng **5 câu**: quyền, chuyến đi kèm chủ, thành viên kèm tài khoản, ngày, hoạt động; không tăng theo số ngày, hoạt động hay địa điểm (từ Task 4.3 bớt một câu khi quyền đã nằm trong bộ nhớ tạm, xem `TC-SHARE-228`) | Biên | Đạt · từng lỗi BUG-SHARE-001 |
 
 ## L. Toàn luồng mời qua HTTP
 
@@ -433,6 +447,65 @@ Mỗi lần ai đó mở được trang công khai, liên kết họ dùng đư�
 | TC-SHARE-200 | Liên kết có hạn, khách mở được, rồi tới lúc hết hạn | Khách nhận 404 giống hệt token chưa từng có; danh sách của chủ vẫn có liên kết, đánh dấu hết hạn, giữ lượt xem; chuyến đi vẫn mang nhãn "chia sẻ qua liên kết" tới khi chủ thu hồi | Biên | Đạt |
 | TC-SHARE-201 | Chuyến đi có hai liên kết, chủ thu hồi một | Liên kết bị thu hồi: 404; liên kết còn lại vẫn mở được; chuyến đi giữ nhãn "chia sẻ qua liên kết"; danh sách chỉ còn liên kết đó | Đúng | Đạt |
 
+## U. Ma trận quyền đầy đủ
+
+> **Yêu cầu:** design.md 6.2 (ma trận quyền trên chuyến đi, "Chốt 2026-10-16"), CLAUDE.md rule 15 · **Kiểm bởi:** `TripPermissionMatrixIntegrationTest`
+
+Bảng quyền ở design.md 6.2 được chạy thành test, ô nào cũng kiểm. Mỗi ô là một **người gọi** làm một **hành động** trên chuyến đi, qua HTTP như người dùng thật, trên MySQL và Redis thật. Trước mỗi ô hệ thống dựng dữ liệu mới: chủ, năm tài khoản khác, một chuyến đi có một hoạt động và một liên kết chia sẻ. Nhờ vậy ô "chủ xoá chuyến đi" không làm hỏng ô chạy sau, và thứ tự chạy không ảnh hưởng tới kết quả.
+
+Có 20 hành động, chia theo ba mức quyền:
+
+| Mức quyền | Ai được làm | Hành động (mã trả về khi thành công) |
+|---|---|---|
+| Xem | Chủ, người cùng sửa, người chỉ xem | Xem chuyến đi, xem các ngày, xem hoạt động của ngày, xem quãng đường của ngày, xem thời tiết, xem thành viên (200) |
+| Sửa | Chủ, người cùng sửa | Sửa chuyến đi, đổi trạng thái, sửa ngày, sửa / xoá / sắp xếp lại hoạt động (200); thêm hoạt động (201) |
+| Chủ | Chỉ chủ | Xoá chuyến đi, đổi vai trò, gỡ thành viên, xem / thu hồi liên kết (200); mời thành viên, tạo liên kết (201) |
+
+Kết quả mong đợi của mỗi ô suy từ một quy tắc: không đăng nhập → 401; người gọi thuộc nhóm "ai được làm" → mã thành công; còn lại → 403. 20 hành động × 7 người gọi = 140 ô, thêm 60 ô cho chuyến đi đã xoá và một test quét.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-202 | Chủ làm từng hành động trong 20 hành động | Hành động nào cũng thành công với đúng mã: 201 cho thêm hoạt động, mời thành viên, tạo liên kết; 200 cho các hành động còn lại | Đúng | Đạt |
+| TC-SHARE-203 | Người cùng sửa (đã nhận lời) làm từng hành động | 13 hành động xem và sửa thành công với đúng mã; 7 hành động chỉ-chủ bị 403 `FORBIDDEN` | Phân quyền | Đạt |
+| TC-SHARE-204 | Người chỉ xem (đã nhận lời) làm từng hành động | 6 hành động xem trả 200; 14 hành động sửa và chỉ-chủ bị 403 `FORBIDDEN` | Phân quyền | Đạt |
+| TC-SHARE-205 | Người được mời nhưng chưa nhận lời làm từng hành động | Cả 20 bị 403 `FORBIDDEN`, như người lạ | Bảo mật | Đạt |
+| TC-SHARE-206 | Người đã bị gỡ khỏi chuyến đi làm từng hành động | Cả 20 bị 403 `FORBIDDEN`, như người lạ | Bảo mật | Đạt |
+| TC-SHARE-207 | Người lạ (có tài khoản, đã đăng nhập, không liên quan tới chuyến đi) làm từng hành động | Cả 20 bị 403 `FORBIDDEN` | Bảo mật | Đạt |
+| TC-SHARE-208 | Khách không đăng nhập làm từng hành động | Cả 20 bị 401 `UNAUTHORIZED` | Bảo mật | Đạt |
+| TC-SHARE-209 | Chủ xoá chuyến đi, rồi chủ, người cùng sửa và người lạ làm từng hành động trên chuyến đó | Cả 60 ô trả 404 `RESOURCE_NOT_FOUND`: chuyến đã xoá là "không tồn tại" với mọi người, không phải "không có quyền" | Đúng | Đạt |
+| TC-SHARE-210 | Quét mọi đường dẫn mà ứng dụng thật đang phục vụ, tìm mọi đường dẫn của một chuyến đi | Mỗi đường dẫn có trong bảng 20 hành động, được bộ kiểm quyền canh đúng mức (xem / sửa / chủ) và đọc đúng mã chuyến đi trên đường dẫn; mỗi dòng của bảng là một đường dẫn có thật. Chỉ hai đường dẫn được đứng ngoài, ghi rõ: nhận lời mời (người nhận chưa có quyền gì) và trang công khai (không cần tài khoản). Đường dẫn mới của chuyến đi thiếu kiểm quyền, hoặc chưa được thêm vào bảng, làm test đỏ | Bảo mật | Đạt |
+
+> Để chắc test không xanh vô điều kiện, lúc viết đã thử cố ý ghi sai một dòng ("Xem thành viên" ghi thành mức Chủ): đúng 3 test đỏ, gồm hai ô người cùng sửa và người chỉ xem (nhận 200 thay vì 403 như bảng ghi) và test quét (bảng ghi Chủ, code canh mức Xem). Trả lại dòng đúng thì cả 201 lượt xanh. Lần thử này không phải lỗi của hệ thống nên không ghi vào "Lỗi đã phát hiện".
+
+## V. Bộ nhớ tạm của quyền
+
+> **Yêu cầu:** design.md 6.2 ("Chốt 2026-10-16"), 8.1 (`trip:permission`, "Chốt 2026-10-16"), CLAUDE.md rule 15 · **Kiểm bởi:** `TripAccessCacheIntegrationTest`, `TripPermissionEvaluatorTest`, `SharingServiceTest`, `SharingFlowIntegrationTest`, `TripPermissionMatrixIntegrationTest`
+
+Mỗi request vào một chuyến đi đều hỏi "người này là gì của chuyến đi này". Từ mốc này câu trả lời được giữ trong Redis 5 phút, nên một trang chuyến đi gửi liền mấy request chỉ hỏi cơ sở dữ liệu một lần. Ba việc làm đổi câu trả lời (nhận lời mời, đổi vai trò, gỡ thành viên) xoá ngay bản nhớ của đúng người đó. Bản nhớ chỉ được tin khi nó **cho qua**; khi nó từ chối, hệ thống đọc lại cơ sở dữ liệu trước khi trả 403 (`BUG-SHARE-002`). Cả 201 ô của ma trận (phần U) chạy lại với bộ nhớ tạm và vẫn đạt.
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHARE-211 | Lần đầu hỏi quyền của một người trên một chuyến đi, trên Redis thật | Đọc cơ sở dữ liệu một câu; câu trả lời nằm trong Redis dưới khoá `trip:permission::{mã người}:{mã chuyến}`, còn hạn khoảng 5 phút; nội dung chỉ có mã chủ chuyến và vai trò, không có tên lớp Java | Đúng | Đạt |
+| TC-SHARE-212 | Hỏi lại cùng câu đó | Không tốn câu SQL nào; kết quả giống hệt lần đầu, kể cả "chủ thì không có vai trò thành viên" | Hiệu năng | Đạt |
+| TC-SHARE-213 | Hỏi quyền trên một mã chuyến đi không tồn tại, rồi hỏi lại | Không có gì được cất; lần hỏi lại vẫn đọc cơ sở dữ liệu. Nếu cất "không tồn tại", người hỏi sẽ được cho qua khi một chuyến mới nhận đúng mã đó (mã tăng dần, đoán được) | Bảo mật | Đạt |
+| TC-SHARE-214 | Xoá bản nhớ của người cùng sửa trên một chuyến đi | Chỉ bản nhớ đó mất; bản nhớ của chủ trên cùng chuyến vẫn còn | Đúng | Đạt |
+| TC-SHARE-215 | Chủ mở chuyến đi (bản nhớ "chủ" được cất), rồi xoá chuyến, rồi mở lại | Bản nhớ vẫn còn nhưng lần mở lại trả 404 `RESOURCE_NOT_FOUND`: bản nhớ chỉ cho request đi qua, phần xử lý biết chuyến đã xoá | Đúng | Đạt |
+| TC-SHARE-216 | Người lạ mở chuyến đi (403, bản nhớ "người lạ" được cất), chủ xoá chuyến, người lạ mở lại | 404 `RESOURCE_NOT_FOUND` như mọi người, không phải 403 | Bảo mật | Đạt · từng lỗi BUG-SHARE-002 |
+| TC-SHARE-217 | Người chỉ xem mở chuyến đi (bản nhớ "chỉ xem"), chủ xoá chuyến, người đó thử sửa chuyến | 404, không phải 403 | Bảo mật | Đạt · từng lỗi BUG-SHARE-002 |
+| TC-SHARE-218 | Một tài khoản mở chuyến đi (403, bản nhớ "người lạ"), rồi trở thành thành viên chỉ xem bằng cách ghi thẳng vào bảng (không đi qua phần chia sẻ nên không ai xoá bản nhớ), rồi mở lại | 200; bản nhớ được thay bằng "chỉ xem": một bản nhớ từ chối không bao giờ là câu trả lời cuối cùng | Đúng | Đạt |
+| TC-SHARE-219 | Bộ kiểm quyền: bản nhớ cho qua (chủ xem, sửa, xoá) | Cho qua, không đọc lại cơ sở dữ liệu | Hiệu năng | Đạt |
+| TC-SHARE-220 | Bộ kiểm quyền: bản nhớ từ chối, cơ sở dữ liệu nói chuyến đi đã xoá | Cho qua để phần xử lý trả 404 | Đúng | Đạt |
+| TC-SHARE-221 | Bộ kiểm quyền: bản nhớ "chỉ xem", cơ sở dữ liệu nói đã được nâng lên "cùng sửa" | Sửa được | Đúng | Đạt |
+| TC-SHARE-222 | Nhận lời mời thành công | Bản nhớ của người nhận lời trên chuyến đó bị xoá (họ có thể đã mở thử chuyến trước khi nhận lời) | Đúng | Đạt |
+| TC-SHARE-223 | Đổi vai trò của thành viên đã nhận lời | Bản nhớ của thành viên đó bị xoá | Đúng | Đạt |
+| TC-SHARE-224 | Gỡ thành viên đã nhận lời | Bản nhớ của thành viên đó bị xoá: mất quyền ngay ở request kế tiếp, không phải 5 phút sau | Bảo mật | Đạt |
+| TC-SHARE-225 | Các trường hợp không đổi quyền: đổi vai trò của lời mời chưa có tài khoản, đổi về đúng vai trò cũ, gỡ người đã bị gỡ, nhận lời bằng email khác, mời lại người đã bị gỡ | Không bản nhớ nào bị đụng tới | Đúng | Đạt |
+| TC-SHARE-226 | Toàn luồng có bộ nhớ tạm: nâng người chỉ xem lên cùng sửa rồi hạ xuống; gỡ người cùng sửa; người được mời mở thử chuyến (403) rồi nhận lời | Mỗi thay đổi có hiệu lực ngay ở request kế tiếp: sửa được ngay, bị chặn ngay, 403 ngay, 200 ngay sau khi nhận lời (các kịch bản `TC-SHARE` phần H, I, L chạy lại) | Bảo mật | Đạt |
+| TC-SHARE-227 | Ma trận quyền (phần U) chạy với bộ nhớ tạm | Cả 201 lượt vẫn đạt | Bảo mật | Đạt |
+| TC-SHARE-228 | Số câu SQL khi quyền đã nằm trong bộ nhớ tạm (lần mở thứ hai của một trang) | Mỗi request của chuyến đi bớt đúng một câu: chi tiết chuyến đi 4, danh sách của ngày 3, sắp xếp lại 5, quãng đường 3. Lần đầu (bộ nhớ chưa có) tốn thêm một câu, như trước | Hiệu năng | Đạt |
+| TC-SHARE-229 | Chủ hạ người cùng sửa xuống chỉ xem, đang ở giữa lúc lưu (chưa ghi hẳn xuống cơ sở dữ liệu) | Bản nhớ "cùng sửa" vẫn còn cho tới khi lưu xong, rồi mới mất; lần hỏi sau đọc ra "chỉ xem". Xoá sớm hơn thì một request chạy song song có thể đọc vai trò cũ (chưa lưu xong) và cất lại thêm 5 phút: người bị hạ vẫn sửa được | Bảo mật | Đạt |
+| TC-SHARE-230 | Chủ gỡ người cùng sửa nhưng lần lưu bị huỷ giữa chừng (rollback) | Cơ sở dữ liệu vẫn ghi thành viên đã nhận lời; bản nhớ của người đó vẫn còn, vì nó vẫn đúng | Đúng | Đạt |
+
 ## Kiểm tra thủ công
 
 | Mã | Các bước | Kết quả mong đợi | Trạng thái |
@@ -453,9 +526,11 @@ Mỗi lần ai đó mở được trang công khai, liên kết họ dùng đư�
 | MT-SHARE-14 | Tiếp `MT-SHARE-13` (chuyến đi của A có bốn liên kết). Bằng tài khoản B (thành viên) gọi `DELETE /api/v1/trips/{id}/share-links/{mã một liên kết}`. Bằng A gọi cùng lệnh đó hai lần liên tiếp, rồi `GET /api/v1/trips/{id}/share-links` và `GET /api/v1/trips/{id}`. Sau đó A thu hồi lần lượt ba liên kết còn lại và gọi lại `GET /api/v1/trips/{id}`. Trong MySQL chạy `SELECT id, revoked_at FROM share_links;` | B: 403. A lần một: 200, `data` = `null`; lần hai: 404 `RESOURCE_NOT_FOUND`. Danh sách còn ba liên kết, không có cái vừa thu hồi; chuyến đi vẫn `visibility` = `LINK`. Sau khi thu hồi hết: danh sách rỗng, `visibility` = `PRIVATE`. Bảng vẫn đủ bốn dòng, cả bốn có `revoked_at` | Chưa chạy |
 | MT-SHARE-15 | Chạy backend profile `local`. Bằng tài khoản A (Swagger): trong một chuyến đi, ghi chú cho ngày 1, thêm một hoạt động có ghi chú, chi phí, link đặt chỗ và địa điểm; tạo một liên kết, chép `token`. Không đăng nhập, chạy `curl.exe -s -i http://localhost:8080/api/v1/public/trips/{token}`. Chạy lại với một chữ của token đổi thành chữ hoa. A thu hồi liên kết rồi chạy lại lệnh đầu. Xem log backend. Mở Swagger, tìm nhóm "Public" | Lần đầu: 200, có lịch trình, giờ dạng `HH:mm`, ghi chú và địa điểm của hoạt động; **không** có chi phí, link đặt chỗ, ghi chú của ngày, email, tên chủ, mã nào. Token chữ hoa: 404. Sau khi thu hồi: 404 với nội dung giống hệt (trừ `timestamp`, `path`). Log có dòng `RESOURCE_NOT_FOUND on /api/v1/public/trips/***`, không in token. Swagger: endpoint không có biểu tượng khoá | Chưa chạy |
 | MT-SHARE-16 | Chạy backend profile `local`. Bằng tài khoản A (Swagger): tạo một liên kết mới, chép `token`, xem danh sách liên kết (`GET /api/v1/trips/{tripId}/share-links`). Không đăng nhập, chạy hai lần `curl.exe -s -o NUL -w "%{http_code}" http://localhost:8080/api/v1/public/trips/{token}`, rồi một lần với token đổi chữ cuối. Xem lại danh sách của A | Lúc tạo: `viewCount` = 0. Hai lần đầu in `200`, lần sau in `404`. Danh sách sau đó: `viewCount` = 2 (lần 404 không tính) | Chưa chạy |
+| MT-SHARE-17 | Chạy `docker compose up -d mysql redis mailhog` và backend profile `local`. Tài khoản A (chủ) mời B làm `VIEWER`, B nhận lời (như `MT-SHARE-01` đến `MT-SHARE-03`). Bằng token của B gọi `GET /api/v1/trips/{id}`. Chạy `docker compose exec redis redis-cli KEYS "trip:permission*"` rồi `docker compose exec redis redis-cli TTL "trip:permission::{mã B}:{id}"`. A gọi `PATCH /api/v1/trips/{id}/members/{memberId của B}` với `{"role": "EDITOR"}`, chạy lại lệnh `KEYS`, rồi B gọi `PATCH /api/v1/trips/{id}` với `{"title": "B sửa"}` | Sau lần xem đầu: có khoá `trip:permission::{mã B}:{id}`, `TTL` khoảng 300 (giây). Sau khi A đổi vai trò: khoá đó không còn. B sửa được ngay (200), không phải chờ 5 phút | Chưa chạy |
 
 ## Lỗi đã phát hiện
 
 | Mã | Phát hiện ở | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|
 | BUG-SHARE-001 | Mốc 9, `./gradlew build` sau khi `GET /trips/{id}` trả thêm thành viên | `TripDayFlowIntegrationTest.tripDetailCostsTheSameNumberOfQueriesWhateverTheNumberOfDaysAndActivities` đỏ: `expected: 4L but was: 5L` | Không phải lỗi của chức năng: câu thứ 5 là câu lấy thành viên đúng như design.md 10.2 chốt (4 → 5). design.md chỉ nhắc cập nhật `ActivityPlaceFlowIntegrationTest`, còn bài đếm câu SQL của Task 2.2 trong `TripDayFlowIntegrationTest` bị bỏ sót khi lên kế hoạch | Sửa con số mong đợi trong bài test cũ thành 5 kèm chú thích; ghi lại `TC-ACT-098` | Đã sửa |
+| BUG-SHARE-002 | Task 4.3 Mốc 3, `./gradlew test` sau khi đặt bộ nhớ tạm (cache Redis) trước bộ kiểm quyền | `TripWeatherFlowIntegrationTest.weatherOfATripIsOnlyForThoseWhoMaySeeTheTrip` đỏ: `[HTTP status code] expected: 404 but was: 403`. Người lạ hỏi thời tiết của một chuyến đi (403, câu trả lời "người lạ" được cất vào bộ nhớ tạm), chủ xoá chuyến đi, người lạ hỏi lại và nhận 403 thay vì 404 (rule 15: chuyến đã xoá trả 404 cho mọi người) | Bộ kiểm quyền trả lời theo bản nhớ, kể cả khi bản nhớ từ chối. Chuyến đi đã xoá được trả 404 nhờ bộ kiểm quyền **cho qua** khi không tìm thấy chuyến; một bản nhớ "người lạ" cất từ trước khi xoá làm bộ kiểm quyền từ chối luôn, request không tới được phần trả 404. Ghi chú ở design.md 6.2 ("bản nhớ cũ cho qua evaluator") chỉ đúng với người được phép. Ma trận không bắt được vì mỗi ô dựng dữ liệu mới, bộ nhớ luôn trống | Chỉ tin bản nhớ khi nó cho qua: bản nhớ từ chối thì đọc lại cơ sở dữ liệu và ghi đè bản nhớ (`TripAccessCache.refresh`), rồi mới quyết định. Một lần bị 403 tốn thêm một câu SQL; giao diện không đưa ra thao tác bị cấm nên chuyện này hiếm. Thêm `TC-SHARE-216` đến `TC-SHARE-218`, `TC-SHARE-220`, `TC-SHARE-221` | Đã sửa |

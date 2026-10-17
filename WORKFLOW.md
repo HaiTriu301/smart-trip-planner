@@ -2321,6 +2321,28 @@ Mốc 6 — fix(sharing): refuse an invitation to a deleted trip                
         test: xoá chuyến rồi nhận lời → 404, dòng thành viên vẫn PENDING
 ```
 
+> **Thực tế khi làm 4.3 (2026-10-16 → 2026-10-17):** 7 commit code trên nhánh: 6 mốc của bảng duyệt và 1 commit sửa lỗi ngoài kế hoạch (`BUG-PLAT-005`), chen trước Mốc 3. Docs Mốc 0 đã commit trước trên `main` (`e157cd3`).
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `9330e88` test(security): add the full permission matrix test | 1 | `TripPermissionMatrixIntegrationTest`: 20 hành động × 7 người gọi (140 ô), 60 ô "chuyến đã xoá → 404", test quét `RequestMappingHandlerMapping`; 201 lượt |
+> | `8737124` refactor(security): read trip access through TripAccessCache | 3 | Bean `TripAccessCache` (chưa cache), evaluator gọi nó; không đổi hành vi |
+> | `1687773` fix(platform): fail at once while redis is disconnected | 2 | `config/RedisClientConfig` (`DisconnectedBehavior.REJECT_COMMANDS`), `RedisDownIntegrationTest` dừng Redis sau khi đã kết nối + `TC-PLAT-054`; sửa `BUG-PLAT-005` |
+> | `8e5cdb0` feat(security): cache trip permissions in redis | 15 (bảng: 9) | Cache `trip:permission` 5 phút, `find` / `refresh` / `evict`, xoá ở accept / changeRole / remove, bản nhớ từ chối luôn đọc lại (sửa `BUG-SHARE-002`); 6 file test chỉ đổi số câu SQL hoặc danh sách cache |
+> | `e86aa4f` feat(security): evict trip permissions only after the change is committed | 2 | `transactionAware()`; test giữa transaction và rollback |
+> | `58c4160` feat(place): let an editor keep the manual place already on an activity | 3 | `resolvePlace`: `placeId` trùng địa điểm hiện tại → giữ nguyên |
+> | `744da8d` fix(sharing): refuse an invitation to a deleted trip | 3 | `accept` kiểm chuyến còn sống sau bước kiểm token → 404 |
+>
+> Không có endpoint mới. 221 lượt test mới, toàn dự án **1376 lượt** (993 method, 83 file test); `09-sharing.md` thêm 32 kịch bản (`TC-SHARE-202` đến `TC-SHARE-233`), `05-activity.md` thêm 3, `01-platform.md` thêm 2; bài thủ công `MT-SHARE-17` **chưa chạy**. Hai lỗi bắt được trong lúc làm, cả hai đã sửa: `BUG-PLAT-005`, `BUG-SHARE-002`.
+>
+> Quyết định khi làm (chưa có trong design.md trước đó, đã ghi vào design 6.2 và 8.1 lúc đóng task):
+> - **Bản nhớ quyền chỉ được tin khi nó cho qua** (`BUG-SHARE-002`): ghi chú ở Mốc 0 "chuyến bị xoá sau khi cache thì bản nhớ cũ cho qua evaluator" chỉ đúng với người được phép. Người lạ có bản nhớ "người lạ" nhận 403 thay vì 404 sau khi chuyến bị xoá. Bản nhớ từ chối giờ được đọc lại từ DB (`TripAccessCache.refresh`, `@CachePut`) trước khi trả 403. Ma trận không bắt được vì mỗi ô dựng dữ liệu mới; `TripWeatherFlowIntegrationTest` bắt được.
+> - **Redis mất kết nối làm mỗi lệnh chờ 1 giây** (`BUG-PLAT-005`, có từ Task 3.4): Lettuce mặc định giữ lệnh của kết nối đã mất trong hàng chờ. Test cũ dừng Redis trước khi ứng dụng kết nối nên mọi lệnh bị từ chối ngay. Bảng chủ dự án duyệt là sửa ở một commit riêng trước Mốc 3: file của Mốc 3 được cất tạm ra ngoài, code trả về đúng HEAD, sửa xong mới đặt lại.
+> - Mốc 3 có 15 file thay vì 9: bảng mốc chỉ tính 2 test đếm câu SQL, thực tế có 5 (`ActivityFlow`, `ActivityPlaceFlow`, `ActivityReorderFlow`, `DayRouteFlow`, `TripDayFlow`), cộng danh sách cache của `ForecastCacheIntegrationTest`. `TripWeatherFlowIntegrationTest` không đổi: nó đếm ở lần xem đầu, lúc bản nhớ chưa có.
+> - Nhóm "chuyến đã xoá → 404" của ma trận chạy cho chủ, EDITOR **và người lạ** (bảng ghi chủ và EDITOR): cần chứng minh người lạ cũng nhận 404 chứ không phải 403.
+> - Để chắc ma trận không xanh vô điều kiện, đã thử cố ý ghi sai một dòng ("Xem thành viên" thành mức Chủ): đúng 3 test đỏ.
+> - Hạn chế đã biết (giữ): khe đua đọc-trước-commit / ghi-sau-xoá của cache quyền, tối đa 5 phút; Redis còn kết nối mà không trả lời vẫn tốn 1 giây mỗi lệnh, chưa có test tự động.
+
 **Nhớ:** `@Cacheable` phải ở bean riêng, không ở method của evaluator gọi chính nó (CLAUDE.md mục 8). Khoá không cần tên nguồn (không phải provider). Trip bị xoá mềm sau khi cache: entry cũ cho qua evaluator, service vẫn 404 như trước, không cần evict khi xoá trip. Không bao giờ cất kết quả "chuyến không tồn tại" (design 6.2). Mỗi endpoint mới của chuyến đi (Task 4.4 bình luận trở đi) phải thêm một dòng vào ma trận: test quét làm build đỏ nếu quên.
 
 ---
@@ -2777,7 +2799,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 3 | 3.8 Provider thật (OSM, Open-Meteo) | ☑ | 2026-10-05 |
 | 4 | 4.1 Trip members | ☑ | 2026-10-09 |
 | 4 | 4.2 Liên kết chia sẻ và trang công khai | ☑ | 2026-10-14 |
-| 4 | 4.3 Cache quyền và ma trận test | ☐ | |
+| 4 | 4.3 Cache quyền và ma trận test | ☑ | 2026-10-17 |
 | 4 | 4.4 Bình luận | ☐ | |
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☐ | |
 | 4 | 4.6 UI: bình luận | ☐ | |

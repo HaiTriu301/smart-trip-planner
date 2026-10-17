@@ -563,7 +563,7 @@ Kết quả quyền của (userId, tripId) được **cache Redis TTL 5 phút**,
 > **Trip không tồn tại hoặc đã soft delete → 404 `RESOURCE_NOT_FOUND`**, không phải 403: evaluator trả `true` khi không tìm thấy trip để request đi tiếp, service ném `ResourceNotFoundException`. Trip tồn tại nhưng không có quyền → 403 `FORBIDDEN`.
 > **Chốt 2026-10-16 (Task 4.3):**
 > - Cache quyền **chỉ cất khi chuyến đi tồn tại**. Kết quả "không tìm thấy" không được cất: nếu cất, một người hỏi id của chuyến chưa có, trong 5 phút sau người khác tạo chuyến mang đúng id đó (id tăng dần, đoán được), evaluator đọc bản nhớ "không tồn tại" và cho qua, mà service thì không kiểm quyền → người lạ sửa được chuyến của người khác.
-> - Chuyến bị xoá mềm sau khi đã cache: bản nhớ cũ cho qua evaluator, service vẫn trả 404. Không cần xoá cache khi xoá chuyến.
+> - Chuyến bị xoá mềm sau khi đã cache: không cần xoá cache khi xoá chuyến. Bản nhớ **cho qua** thì request tới service và service trả 404. Bản nhớ **từ chối** thì không bao giờ được tin một mình: evaluator đọc lại DB (`TripAccessCache.refresh`, ghi đè bản nhớ) trước khi trả 403, nên chuyến đã xoá vẫn là 404 với mọi người (chốt 2026-10-17, `BUG-SHARE-002`: bản nhớ "người lạ" làm người lạ nhận 403 thay vì 404). Một lần 403 vì thế tốn thêm một câu SQL; giao diện không đưa ra thao tác bị cấm nên chuyện này hiếm.
 > - Bảng trên được kiểm tự động bởi `TripPermissionMatrixIntegrationTest`: mỗi hành động đã làm × 7 kiểu người gọi (OWNER, EDITOR, VIEWER, thành viên PENDING, thành viên REMOVED, người lạ đã đăng nhập, khách không token). Kỳ vọng suy từ mức quyền của hành động (xem / sửa / chủ): khách → 401, thuộc mức quyền → mã thành công, còn lại → 403. Endpoint có `{tripId}` mà thiếu `@tripPermission` hoặc chưa có dòng trong bảng kỳ vọng làm test đỏ; ngoại lệ ghi rõ: `POST /members/accept`, `/public/**`.
 
 ### 6.3. Checklist bảo mật
@@ -722,12 +722,13 @@ Chốt khi làm Task 3.8 (2026-10-05):
 
 Chốt 2026-10-16 (Mốc 0 Task 4.3), cache quyền `trip:permission`:
 - **Ngoại lệ của nguyên tắc "chỉ cache câu trả lời của nguồn bên ngoài"** (chốt 2026-10-03): đây là cache duy nhất chứa dữ liệu riêng của người dùng và có mã người dùng trong khoá. Lợi về tốc độ nhỏ (`findAccess` là một câu theo khoá chính); giữ theo quyết định 12 của Phase 4. Cái giá, chấp nhận và ghi rõ:
-  - Redis nằm trên đường đi của **mọi** request vào chuyến đi (trước đó chỉ tìm địa điểm, thời tiết, quãng đường). Redis tắt hẳn → lỗi về nhanh, đọc DB. Redis treo → mỗi request chờ tới 1 giây cho lần đọc và 1 giây cho lần ghi cache rồi mới đọc DB.
+  - Redis nằm trên đường đi của **mọi** request vào chuyến đi (trước đó chỉ tìm địa điểm, thời tiết, quãng đường). Redis tắt hẳn hoặc mất kết nối → lệnh bị từ chối ngay, đọc DB (`config/RedisClientConfig`, `DisconnectedBehavior.REJECT_COMMANDS`; trước bản sửa `BUG-PLAT-005` thư viện giữ lệnh trong hàng chờ, mỗi lệnh chờ đủ 1 giây). Redis còn kết nối mà không trả lời → mỗi request chờ tới 1 giây cho lần đọc và 1 giây cho lần ghi cache rồi mới đọc DB.
   - Khe đua còn lại: một request đọc DB ngay trước lúc thay đổi quyền được commit, rồi ghi vào cache sau lúc cache bị xoá → quyền cũ còn hiệu lực tối đa 5 phút. Hiếm, giới hạn bởi TTL; không xử lý.
 - **Vị trí:** bean `security/permission/TripAccessCache` đứng giữa `TripPermissionEvaluator` và `TripRepository.findAccess`, theo mẫu `PlaceSearchCache`. Lưu `TripAccess` dạng JSON, kiểu cố định. Khoá `{userId}:{tripId}` (trong Redis: `trip:permission::{userId}:{tripId}`), không có tên nguồn vì không phải câu trả lời của provider.
 - **Không cất "chuyến không tồn tại"** (mục 6.2).
 - **Xoá sau commit:** cache manager bật `transactionAware()`, lệnh xoá gọi trong transaction chỉ chạy khi transaction commit; rollback thì không xoá. Xoá trước commit thì một request song song có thể đọc giá trị cũ (chưa commit) và cất nó thêm 5 phút. Ba cache cũ không bị ảnh hưởng: chúng không đọc / ghi bên trong transaction (CLAUDE.md mục 8).
-- **Test đếm câu SQL** đếm với cache đã có sẵn (trường hợp thường gặp): mỗi endpoint của chuyến đi bớt một câu so với trước Task 4.3. Một test riêng chứng minh lần đầu (chưa có trong cache) tốn thêm đúng một câu.
+- **Test đếm câu SQL** đếm với cache đã có sẵn (trường hợp thường gặp): mỗi endpoint của chuyến đi bớt một câu so với trước Task 4.3 (chi tiết chuyến đi 4, danh sách của ngày 3, sắp xếp lại 5, quãng đường 3). Một test riêng chứng minh lần đầu (chưa có trong cache) tốn thêm đúng một câu.
+- **Bản nhớ từ chối được đọc lại** (chốt 2026-10-17, `BUG-SHARE-002`): `TripAccessCache.refresh` (`@CachePut`) đọc DB và ghi đè bản nhớ khi bản nhớ không cho qua, xem mục 6.2.
 
 ### 8.2. Rate limit (Bucket4j + Redis)
 
