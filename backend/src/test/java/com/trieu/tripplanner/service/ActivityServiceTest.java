@@ -723,6 +723,21 @@ class ActivityServiceTest {
         }
 
         @Test
+        void placeIdOfThePlaceTheActivityAlreadyHasKeepsItWithoutLookingItUp() {
+            Place market = market();
+            stored.setPlace(market);
+
+            // The whole form sent back, place included, as an editor saving a new title does (rule 14.19)
+            ActivityResponse response = update(TestActivities.withPlace(titled("Ăn sáng ở chợ"), 71L));
+
+            assertThat(stored.getPlace()).isSameAs(market);
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng ở chợ");
+            assertThat(response.place().id()).isEqualTo(71L);
+            // Nothing is being attached, so nobody is asked whether the caller may attach it
+            verifyNoInteractions(placeService);
+        }
+
+        @Test
         void withoutPlaceIdThePlaceStaysAndNoPlaceIsLookedUp() {
             Place market = market();
             stored.setPlace(market);
@@ -793,6 +808,17 @@ class ActivityServiceTest {
             assertThat(stored.getPlace()).isSameAs(market);
             assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
             verifyNoInteractions(placeService);
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void clearingThePlaceWhileSendingBackTheCurrentOneIsStillRefused() {
+            stored.setPlace(market());
+
+            // "Keep it" and "remove it" at once: the current id does not make the request any less contradictory
+            assertThatThrownBy(() -> update(TestActivities.withClearPlace(
+                    TestActivities.withPlace(titled(null), 71L), true)))
+                    .satisfies(ex -> assertSingleViolation(ex, "clearPlace", "error.activity.place-change-and-clear"));
             verify(activityRepository, never()).saveAndFlush(any());
         }
 
