@@ -1,5 +1,6 @@
 package com.trieu.tripplanner.service;
 
+import static com.trieu.tripplanner.support.TestComments.createRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,7 +8,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.trieu.tripplanner.dto.request.CreateCommentRequest;
 import com.trieu.tripplanner.dto.response.CommentResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.CommentMapper;
@@ -81,7 +81,7 @@ class CommentServiceTest {
             saveAssignsId();
 
             CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
-                    new CreateCommentRequest("  Nhớ mang áo ấm  "));
+                    createRequest("  Nhớ mang áo ấm  "));
 
             Comment saved = savedComment();
             assertThat(saved.getTrip()).isSameAs(trip);
@@ -103,7 +103,7 @@ class CommentServiceTest {
             when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
             saveAssignsId();
 
-            commentService.create(TRIP_ID, VIEWER_ID, new CreateCommentRequest("\n  Sáng: chợ\nChiều: hồ  \n"));
+            commentService.create(TRIP_ID, VIEWER_ID, createRequest("\n  Sáng: chợ\nChiều: hồ  \n"));
 
             // Only the two ends are trimmed: the text is shown as written
             assertThat(savedComment().getContent()).isEqualTo("Sáng: chợ\nChiều: hồ");
@@ -114,7 +114,7 @@ class CommentServiceTest {
             // A soft-deleted trip is invisible to findById (@SQLRestriction), so both cases look the same here
             when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID, new CreateCommentRequest("Xin chào")))
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID, createRequest("Xin chào")))
                     .isInstanceOf(ResourceNotFoundException.class);
             verify(commentRepository, never()).save(any());
         }

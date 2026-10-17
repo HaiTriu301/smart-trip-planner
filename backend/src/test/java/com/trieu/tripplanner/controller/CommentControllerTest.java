@@ -1,5 +1,6 @@
 package com.trieu.tripplanner.controller;
 
+import static com.trieu.tripplanner.support.TestComments.createRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -10,7 +11,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
-import com.trieu.tripplanner.dto.request.CreateCommentRequest;
 import com.trieu.tripplanner.dto.response.CommentResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -70,7 +70,7 @@ class CommentControllerTest {
     @Test
     void createReturns201WithTheComment() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(commentService.create(TRIP_ID, USER_ID, new CreateCommentRequest("Nhớ mang áo ấm")))
+        when(commentService.create(TRIP_ID, USER_ID, createRequest("Nhớ mang áo ấm")))
                 .thenReturn(comment("Nhớ mang áo ấm"));
 
         assertThat(create("""
@@ -94,7 +94,7 @@ class CommentControllerTest {
         assertThat(create("""
                 { "content": "Xin chào", "userId": 99, "authorId": 99 }
                 """)).hasStatus(HttpStatus.CREATED);
-        verify(commentService).create(TRIP_ID, USER_ID, new CreateCommentRequest("Xin chào"));
+        verify(commentService).create(TRIP_ID, USER_ID, createRequest("Xin chào"));
     }
 
     @Test
