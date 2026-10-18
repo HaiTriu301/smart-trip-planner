@@ -6,6 +6,7 @@ import { Avatar } from '../../components/Avatar'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { Select } from '../../components/Select'
 import { formatDayMonthIn } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
@@ -169,22 +170,18 @@ function RoleSelect({ tripId, memberId, member }: RoleSelectProps) {
     },
   })
   const shown = mutation.isPending && mutation.variables ? mutation.variables : member.role
+  // The compact select of UI_GUIDE 7.2: the row has no room for the segmented control of the invite form
   return (
-    <select
+    <Select
+      size="sm"
       aria-label={`Vai trò của ${member.fullName ?? member.email}`}
+      options={MEMBER_ROLE_OPTIONS}
       value={shown}
       disabled={mutation.isPending}
-      onChange={(event) => {
-        if (isMemberRole(event.target.value)) mutation.mutate(event.target.value)
+      onValueChange={(value) => {
+        if (isMemberRole(value) && value !== shown) mutation.mutate(value)
       }}
-      className="h-8 cursor-pointer rounded-control border border-tide bg-white pr-7 pl-2.5 text-[13px] text-ink outline-none transition-colors hover:border-gray-300 focus-visible:border-jade focus-visible:ring-[3px] focus-visible:ring-jade/15 disabled:cursor-wait disabled:bg-gray-50 pointer-coarse:h-11"
-    >
-      {MEMBER_ROLE_OPTIONS.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    />
   )
 }
 

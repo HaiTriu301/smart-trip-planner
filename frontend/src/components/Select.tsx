@@ -26,9 +26,19 @@ interface SelectProps {
   disabled?: boolean
   required?: boolean
   invalid?: boolean
+  /** md: 40px, as wide as its box (form fields) · sm: 32px, 13px text, as wide as its text (a row of a list) */
+  size?: 'md' | 'sm'
   /** Needed when no visible label points at the field */
   'aria-label'?: string
   'aria-describedby'?: string
+}
+
+// Height, width and padding of the closed field per size; one set only, so no class overrides another (BUG-UI-001).
+// Both grow to 44px for a finger (UI_GUIDE 12). The compact one keeps the width of its longest label, so it does
+// not jump between "Chỉ xem" and "Chỉnh sửa"
+const TRIGGER_SIZES = {
+  md: 'h-10 w-full px-3',
+  sm: 'h-8 min-w-30 pr-2 pl-2.5',
 }
 
 // Esc closes the list (Radix listens on the document first); stopping the key here keeps the browser from also
@@ -58,6 +68,7 @@ export function Select({
   disabled,
   required,
   invalid = false,
+  size = 'md',
   'aria-label': ariaLabel,
   'aria-describedby': ariaDescribedBy,
 }: SelectProps) {
@@ -78,7 +89,7 @@ export function Select({
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
         aria-describedby={ariaDescribedBy}
-        className={`group flex h-10 w-full cursor-pointer items-center justify-between gap-2 px-3 text-left data-[placeholder]:text-gray-400 pointer-coarse:h-11 ${controlLookClass(invalid)}`}
+        className={`group flex cursor-pointer items-center justify-between gap-2 text-left disabled:cursor-wait data-[placeholder]:text-gray-400 pointer-coarse:h-11 ${TRIGGER_SIZES[size]} ${controlLookClass(invalid, size)}`}
       >
         <span className="min-w-0 truncate">
           <SelectPrimitive.Value placeholder={placeholder} />

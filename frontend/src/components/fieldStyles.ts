@@ -8,13 +8,15 @@ export function controlClass(invalid: boolean): string {
 
 /**
  * controlClass without the display: for a field drawn as a flex row (the button of Select), which would otherwise
- * carry both "block" and "flex" (BUG-UI-001).
+ * carry both "block" and "flex" (BUG-UI-001). "sm" is the 13px text of the compact select in a member row, given
+ * here rather than added over the 15px one.
  */
-export function controlLookClass(invalid: boolean): string {
+export function controlLookClass(invalid: boolean, textSize: 'md' | 'sm' = 'md'): string {
   const state = invalid
     ? 'border-danger focus:ring-danger/15'
     : 'border-tide hover:border-gray-300 focus:border-jade focus:ring-jade/15'
-  return `rounded-control border bg-white text-[15px] text-ink outline-none transition-colors placeholder:text-gray-400 focus:ring-[3px] disabled:bg-gray-50 disabled:text-gray-500 ${state}`
+  const text = textSize === 'sm' ? 'text-[13px]' : 'text-[15px]'
+  return `rounded-control border bg-white ${text} text-ink outline-none transition-colors placeholder:text-gray-400 focus:ring-[3px] disabled:bg-gray-50 disabled:text-gray-500 ${state}`
 }
 
 /** ids for aria-describedby: the error replaces the hint while the field is invalid. */
