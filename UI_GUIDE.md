@@ -272,7 +272,7 @@ Tất cả nằm trong `frontend/src/components/`. **Không cài shadcn/ui** (ch
 - Vòng focus: `3px jade/25`, chỉ hiện khi dùng bàn phím (`focus-visible`).
 - `LinkButton`: link của React Router trông như nút (ví dụ "Tạo chuyến đi"), để mở được trong tab mới.
 
-### 7.2. Ô nhập — `FormField`, `SelectField`, `TextAreaField`, `PasswordField`
+### 7.2. Ô nhập — `FormField`, `Select` / `SelectField`, `TextAreaField`, `PasswordField`
 
 ```
 Nhãn * (13px, 500, gray-700)                 [hành động bên phải, vd "Quên mật khẩu?"]
@@ -289,6 +289,24 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Lỗi hiện khi rời ô** (`useForm({ mode: 'onTouched' })`), sau đó cập nhật theo từng phím gõ. Bấm nút gửi thì kiểm tra tất cả.
 - Mọi `<form>` có `noValidate` để trình duyệt không hiện bong bóng lỗi riêng.
 - `PasswordField`: nút con mắt ở cuối ô để hiện/ẩn mật khẩu (`aria-pressed`, nhãn "Hiện mật khẩu" / "Ẩn mật khẩu").
+- **Ô chọn `Select` / `SelectField`** (`components/Select.tsx`, Task 4.9; mẫu là Select của shadcn/ui, viết lại bằng token):
+  ```
+  Tiền tệ
+  ┌──────────────────┐            ô đóng: như ô chữ 40px (cảm ứng 44px), mũi tên ChevronDown xoay khi mở
+  │ VND            ⌄ │
+  └──────────────────┘
+  ┌────────────────────────┐      danh sách nổi cách ô 4px, rộng ít nhất bằng ô và 11rem
+  │ VND                  ✓ │      dòng: nhãn 15px, dòng phụ 13px gray-600 (tuỳ chọn)
+  │ Đồng Việt Nam          │      ✓ jade ở dòng đang chọn
+  │▒USD▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│      dòng đang trỏ (chuột / phím mũi tên): nền jade-light
+  │▒Đô la Mỹ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+  └────────────────────────┘      cao tối đa 288px rồi cuộn, không cao quá phần màn hình còn lại
+  ```
+  - Ô đóng chỉ hiện nhãn của lựa chọn, không hiện dòng phụ. Danh sách mở / đóng cùng hiệu ứng với menu (mục 7.16). Dòng 36px, **44px trên màn cảm ứng**.
+  - Bàn phím (Radix): Enter / Space / ↓ mở, ↑ / ↓ di chuyển, Enter chọn, gõ một chữ thì nhảy tới dòng bắt đầu bằng chữ đó, **Esc chỉ đóng danh sách** (không đóng hộp thoại chứa nó).
+  - `SelectField` = `Select` + `FieldShell` (nhãn, `*`, gợi ý, lỗi). Không dùng với `register()`: bọc trong `Controller` của react-hook-form và truyền `value` / `onValueChange` / `onBlur` / `ref`.
+  - Đang dùng: "Tiền tệ" ở form chuyến đi (bước 2 của wizard, "Sửa chuyến đi") và form hoạt động, mỗi loại tiền một dòng phụ ("VND" / "Đồng Việt Nam"). Thay ô `<select>` của trình duyệt.
+  - Nút của ô là một hàng flex nên dùng `controlLookClass()` (kiểu của `controlClass()` không kèm `block`).
 - **`TextAreaField` tự giãn** (Task 4.9): cao 3 dòng lúc trống (90px), cao dần theo nội dung tới **8 dòng** (210px) rồi mới có thanh cuộn; không có góc kéo đổi cỡ. Trình duyệt có `field-sizing: content` thì tự lo, trình duyệt khác thì ô đặt lại chiều cao mỗi lần gõ. Dùng cho mô tả chuyến đi, ghi chú hoạt động, ghi chú ngày.
 - **Bộ đếm ký tự** (Task 4.9): ô có giới hạn độ dài hiện "230 / 255" (12px, `gray-500`, số đều nhau) ở **bên phải** hàng gợi ý / lỗi, chỉ khi đã dùng **từ 80%** giới hạn (`lib/charCounter.ts`); chạm giới hạn thì số đậm `gray-800`. Dòng gợi ý "Tối đa 255 ký tự" vẫn ở bên trái. `FieldShell` nhận chữ bên phải đó qua `aside`.
 
@@ -352,6 +370,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
 - Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×", và bỏ qua mọi nút mang `data-no-initial-focus` (nút bỏ một thứ gì đó, Task 3.6). `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - **Nội dung dài** (Task 4.5): hộp cao tối đa 90% màn hình; khi nội dung dài hơn, **chỉ phần nội dung cuộn**, hàng tiêu đề và nút "×" đứng yên ở trên (hộp là một cột: tiêu đề cố định, thân cuộn). Trước Task 4.5 cả hộp cuộn, tiêu đề trôi mất.
+- **Danh sách và lịch bật ra bên trong hộp** (Task 4.9): `<dialog>` mở bằng `showModal()` nằm trên mọi thứ khác của trang, nên thứ bật ra từ một ô trong hộp phải vẽ **vào chính hộp đó**, không vẽ ở cuối `<body>` (sẽ nằm dưới hộp, không bấm được). `Modal` đưa thẻ `<dialog>` của nó xuống qua `OverlayContainerContext` (`components/overlayContainer.ts`); `Select` đọc nó qua `useOverlayContainer()`. Thành phần bật ra mới phải làm giống vậy.
 - **Hộp lồng nhau** (hộp hỏi lại mở bên trong một hộp khác): phím Esc chỉ đóng hộp trên cùng, hộp bên dưới giữ nguyên nội dung. `Modal` chặn React chuyển sự kiện Esc lên hộp cha (`BUG-UI-011`, Task 4.5).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).

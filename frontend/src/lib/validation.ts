@@ -44,8 +44,19 @@ export const currencyCode = z
   .string()
   .regex(CURRENCY_PATTERN, 'Mã tiền tệ phải gồm 3 chữ cái in hoa, ví dụ VND hoặc USD')
 
+/** Second line of each currency in the select list; a code saved from elsewhere has none. */
+const CURRENCY_NAMES: Record<string, string> = {
+  VND: 'Đồng Việt Nam',
+  USD: 'Đô la Mỹ',
+  EUR: 'Euro',
+  JPY: 'Yên Nhật',
+  KRW: 'Won Hàn Quốc',
+  THB: 'Baht Thái',
+  SGD: 'Đô la Singapore',
+}
+
 /** Currency select options that always include the current value, even when it is not in CURRENCIES. */
 export function currencyOptions(current: string) {
   const codes = CURRENCIES.includes(current) || current === '' ? CURRENCIES : [...CURRENCIES, current]
-  return codes.map((code) => ({ value: code, label: code }))
+  return codes.map((code) => ({ value: code, label: code, description: CURRENCY_NAMES[code] }))
 }

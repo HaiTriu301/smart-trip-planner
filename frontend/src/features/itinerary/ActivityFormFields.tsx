@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useWatch, type UseFormReturn } from 'react-hook-form'
+import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 import { FormField } from '../../components/FormField'
-import { SelectField } from '../../components/SelectField'
+import { SelectField } from '../../components/Select'
 import { TextAreaField } from '../../components/TextAreaField'
 import { currencyOptions } from '../../lib/validation'
 import type { Coordinates, Place } from '../../types/place'
@@ -65,11 +65,21 @@ export function ActivityFormFields({ form, initialPlace, suggestType, near }: Ac
           error={errors.costAmount?.message}
           {...register('costAmount')}
         />
-        <SelectField
-          label="Tiền tệ"
-          options={currencyOptions(currency)}
-          error={errors.currency?.message}
-          {...register('currency')}
+        <Controller
+          name="currency"
+          control={control}
+          render={({ field }) => (
+            <SelectField
+              label="Tiền tệ"
+              options={currencyOptions(currency)}
+              error={errors.currency?.message}
+              name={field.name}
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+            />
+          )}
         />
       </div>
       <FormField

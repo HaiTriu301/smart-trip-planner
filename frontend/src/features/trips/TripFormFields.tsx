@@ -1,11 +1,11 @@
 import { useId, useState, type ReactNode } from 'react'
 import { MapPin } from 'lucide-react'
-import { useWatch, type UseFormReturn } from 'react-hook-form'
+import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 import { FieldShell } from '../../components/FieldShell'
 import { describedBy } from '../../components/fieldStyles'
 import { FormField } from '../../components/FormField'
 import { PointPicker } from '../../components/map/PointPicker'
-import { SelectField } from '../../components/SelectField'
+import { SelectField } from '../../components/Select'
 import { TextAreaField } from '../../components/TextAreaField'
 import { countDays } from '../../lib/format'
 import { currencyOptions } from '../../lib/validation'
@@ -177,11 +177,21 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
           error={errors.budgetAmount?.message}
           {...register('budgetAmount')}
         />
-        <SelectField
-          label="Tiền tệ"
-          options={currencyOptions(currency)}
-          error={errors.currency?.message}
-          {...register('currency')}
+        <Controller
+          name="currency"
+          control={control}
+          render={({ field }) => (
+            <SelectField
+              label="Tiền tệ"
+              options={currencyOptions(currency)}
+              error={errors.currency?.message}
+              name={field.name}
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+            />
+          )}
         />
       </div>
     </div>
