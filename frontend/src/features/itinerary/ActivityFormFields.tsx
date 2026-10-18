@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useWatch, type UseFormReturn } from 'react-hook-form'
+import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 import { FormField } from '../../components/FormField'
-import { SelectField } from '../../components/SelectField'
+import { SelectField } from '../../components/Select'
 import { TextAreaField } from '../../components/TextAreaField'
+import { TimeField } from '../../components/TimeField'
 import { currencyOptions } from '../../lib/validation'
 import type { Coordinates, Place } from '../../types/place'
 import { ActivityPlaceField } from './ActivityPlaceField'
@@ -28,7 +29,7 @@ interface ActivityFormFieldsProps {
 export function ActivityFormFields({ form, initialPlace, suggestType, near }: ActivityFormFieldsProps) {
   const { register, control, setValue, getValues, setFocus, clearErrors, formState } = form
   const { errors, touchedFields } = formState
-  const currency = useWatch({ control, name: 'currency' })
+  const [currency, startTime] = useWatch({ control, name: ['currency', 'startTime'] })
   // The form holds the id it will send; the name and address to show stay here
   const [place, setPlace] = useState<Place | null>(initialPlace)
 
@@ -54,8 +55,38 @@ export function ActivityFormFields({ form, initialPlace, suggestType, near }: Ac
       <FormField label="Tên hoạt động" required error={errors.title?.message} {...register('title')} />
       <ActivityTypeField registration={register('type')} error={errors.type?.message} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Giờ bắt đầu" type="time" error={errors.startTime?.message} {...register('startTime')} />
-        <FormField label="Giờ kết thúc" type="time" error={errors.endTime?.message} {...register('endTime')} />
+        <Controller
+          name="startTime"
+          control={control}
+          render={({ field }) => (
+            <TimeField
+              label="Giờ bắt đầu"
+              error={errors.startTime?.message}
+              name={field.name}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+            />
+          )}
+        />
+        {/* The end field lists the times after the start and says how long the activity lasts */}
+        <Controller
+          name="endTime"
+          control={control}
+          render={({ field }) => (
+            <TimeField
+              label="Giờ kết thúc"
+              error={errors.endTime?.message}
+              durationFrom={startTime}
+              name={field.name}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+            />
+          )}
+        />
       </div>
       <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
         <FormField
@@ -65,11 +96,21 @@ export function ActivityFormFields({ form, initialPlace, suggestType, near }: Ac
           error={errors.costAmount?.message}
           {...register('costAmount')}
         />
-        <SelectField
-          label="Tiền tệ"
-          options={currencyOptions(currency)}
-          error={errors.currency?.message}
-          {...register('currency')}
+        <Controller
+          name="currency"
+          control={control}
+          render={({ field }) => (
+            <SelectField
+              label="Tiền tệ"
+              options={currencyOptions(currency)}
+              error={errors.currency?.message}
+              name={field.name}
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+            />
+          )}
         />
       </div>
       <FormField

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { emailSchema } from '../auth/schemas'
+import { EXPIRY_CHOICES } from '../../lib/linkExpiry'
 
 // Mirrors backend dto/request/InviteMemberRequest; the backend stays authoritative (owner's own email,
 // already a member) and its messages reach the same fields.
@@ -19,15 +20,27 @@ export type InviteValues = z.infer<typeof inviteSchema>
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * "Hết hạn sau ngày": empty (never expires) or a calendar day from today on, today being the account's
- * (useToday). The server checks again against its own clock.
+ * "Hết hạn" (Task 4.9): a quick pick, or "Chọn ngày…" with a calendar day from today on, today being the
+ * account's (useToday). The picked day is only checked, and only needed, while "Chọn ngày…" is chosen. The server
+ * checks again against its own clock; its refusal comes back on expiresAt.
  */
 export function shareLinkSchema(today: string) {
-  return z.object({
-    expiresAt: z
-      .string()
-      .refine((value) => value === '' || ISO_DATE.test(value), 'Ngày không hợp lệ')
-      .refine((value) => value === '' || value >= today, 'Ngày hết hạn phải từ hôm nay trở đi'),
-  })
+  return z
+    .object({
+      expiry: z.enum(EXPIRY_CHOICES),
+      expiresAt: z.string(),
+    })
+    .superRefine(({ expiry, expiresAt }, ctx) => {
+      if (expiry !== 'custom') return
+      const message =
+        expiresAt === ''
+          ? 'Chọn ngày hết hạn trên lịch'
+          : !ISO_DATE.test(expiresAt)
+            ? 'Ngày không hợp lệ'
+            : expiresAt < today
+              ? 'Ngày hết hạn phải từ hôm nay trở đi'
+              : null
+      if (message) ctx.addIssue({ code: 'custom', path: ['expiresAt'], message })
+    })
 }
 export type ShareLinkValues = z.infer<ReturnType<typeof shareLinkSchema>>

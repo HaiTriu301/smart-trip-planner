@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expiryInstant } from './linkExpiry'
+import { expiryDateFor, expiryInstant } from './linkExpiry'
 
 describe('expiryInstant', () => {
   it.each([
@@ -33,5 +33,26 @@ describe('expiryInstant', () => {
 
   it('falls back to Vietnam time for a zone the browser does not know', () => {
     expect(expiryInstant('2026-10-20', 'Not/AZone')).toBe('2026-10-20T16:59:59.999Z')
+  })
+})
+
+describe('expiryDateFor', () => {
+  it('gives no date for a link that never expires', () => {
+    expect(expiryDateFor('never', '2026-10-18', '')).toBe('')
+  })
+
+  it('counts the quick picks from today, across the end of a month', () => {
+    expect(expiryDateFor('7', '2026-10-18', '')).toBe('2026-10-25')
+    expect(expiryDateFor('30', '2026-10-18', '')).toBe('2026-11-17')
+    expect(expiryDateFor('7', '2026-12-28', '')).toBe('2027-01-04')
+  })
+
+  it('takes the day picked on the calendar, or none yet', () => {
+    expect(expiryDateFor('custom', '2026-10-18', '2026-12-24')).toBe('2026-12-24')
+    expect(expiryDateFor('custom', '2026-10-18', '')).toBe('')
+  })
+
+  it('ignores a picked day once a quick pick is chosen again', () => {
+    expect(expiryDateFor('7', '2026-10-18', '2026-12-24')).toBe('2026-10-25')
   })
 })

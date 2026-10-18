@@ -1,13 +1,15 @@
 import { useId, useState, type ReactNode } from 'react'
 import { MapPin } from 'lucide-react'
-import { useWatch, type UseFormReturn } from 'react-hook-form'
+import { Controller, useController, useWatch, type UseFormReturn } from 'react-hook-form'
+import { DateRangeField } from '../../components/DateRangeField'
 import { FieldShell } from '../../components/FieldShell'
 import { describedBy } from '../../components/fieldStyles'
 import { FormField } from '../../components/FormField'
 import { PointPicker } from '../../components/map/PointPicker'
-import { SelectField } from '../../components/SelectField'
+import { SelectField } from '../../components/Select'
 import { TextAreaField } from '../../components/TextAreaField'
-import { countDays } from '../../lib/format'
+import { useToday } from '../../hooks/useToday'
+import { stayLength } from '../../lib/calendarDate'
 import { currencyOptions } from '../../lib/validation'
 import type { Coordinates, PlaceResult } from '../../types/place'
 import { PlaceSearchField } from '../places/PlaceSearchField'
@@ -156,18 +158,40 @@ interface DateSectionProps extends SectionProps {
 
 export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
   const { register, control, formState: { errors } } = form
-  const [startDate, endDate, currency] = useWatch({ control, name: ['startDate', 'endDate', 'currency'] })
-  const dayCount = startDate && endDate && endDate >= startDate ? countDays(startDate, endDate) : null
+  const currency = useWatch({ control, name: 'currency' })
+  const today = useToday()
+  // One field for both days (Task 4.9 decision 3): the form still holds startDate and endDate, each with its own
+  // rules and server errors
+  const { field: start } = useController({ control, name: 'startDate' })
+  const { field: end } = useController({ control, name: 'endDate' })
+  const length = stayLength(start.value, end.value)
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Ngày bắt đầu" required type="date" autoFocus={autoFocus} error={errors.startDate?.message} {...register('startDate')} />
-        <FormField label="Ngày kết thúc" required type="date" min={startDate || undefined} error={errors.endDate?.message} {...register('endDate')} />
-      </div>
-      <p className="text-sm text-gray-500">
-        {dayCount ? `Chuyến đi dài ${dayCount} ngày. ` : ''}Tối đa {MAX_TRIP_DAYS} ngày.
-      </p>
+      <DateRangeField
+        label="Ngày đi – ngày về"
+        required
+        autoFocus={autoFocus}
+        today={today}
+        maxDays={MAX_TRIP_DAYS}
+        startDate={start.value}
+        endDate={end.value}
+        onChange={({ startDate, endDate }) => {
+          start.onChange(startDate)
+          end.onChange(endDate)
+        }}
+        onBlur={() => {
+          start.onBlur()
+          end.onBlur()
+        }}
+        // An error on either day puts the focus back on the one field
+        ref={(button) => {
+          start.ref(button)
+          end.ref(button)
+        }}
+        error={errors.startDate?.message ?? errors.endDate?.message}
+        hint={`${length ? `${length}. ` : ''}Tối đa ${MAX_TRIP_DAYS} ngày.`}
+      />
       {hint}
       <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
         <FormField
@@ -177,11 +201,21 @@ export function TripDateFields({ form, autoFocus, hint }: DateSectionProps) {
           error={errors.budgetAmount?.message}
           {...register('budgetAmount')}
         />
-        <SelectField
-          label="Tiền tệ"
-          options={currencyOptions(currency)}
-          error={errors.currency?.message}
-          {...register('currency')}
+        <Controller
+          name="currency"
+          control={control}
+          render={({ field }) => (
+            <SelectField
+              label="Tiền tệ"
+              options={currencyOptions(currency)}
+              error={errors.currency?.message}
+              name={field.name}
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+            />
+          )}
         />
       </div>
     </div>

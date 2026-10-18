@@ -272,7 +272,7 @@ Tất cả nằm trong `frontend/src/components/`. **Không cài shadcn/ui** (ch
 - Vòng focus: `3px jade/25`, chỉ hiện khi dùng bàn phím (`focus-visible`).
 - `LinkButton`: link của React Router trông như nút (ví dụ "Tạo chuyến đi"), để mở được trong tab mới.
 
-### 7.2. Ô nhập — `FormField`, `SelectField`, `TextAreaField`, `PasswordField`
+### 7.2. Ô nhập — `FormField`, `Select` / `SelectField`, `TextAreaField`, `PasswordField`
 
 ```
 Nhãn * (13px, 500, gray-700)                 [hành động bên phải, vd "Quên mật khẩu?"]
@@ -287,8 +287,31 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Ô bắt buộc** có dấu `*` màu `danger` sau nhãn và thuộc tính `required`. Ô tuỳ chọn không đánh dấu; không dùng chữ "(bắt buộc)" hay "(không bắt buộc)".
 - Giới hạn độ dài và hướng dẫn nằm ở dòng **gợi ý dưới ô** ("Tối đa 255 ký tự"). Khi có lỗi, dòng lỗi thay chỗ dòng gợi ý; `aria-describedby` trỏ tới dòng đang hiện.
 - **Lỗi hiện khi rời ô** (`useForm({ mode: 'onTouched' })`), sau đó cập nhật theo từng phím gõ. Bấm nút gửi thì kiểm tra tất cả.
+  - **Ngoại lệ:** form chỉ là một phần **không bắt buộc** của một màn có việc khác, mà con trỏ được đặt sẵn vào đó, chỉ kiểm khi bấm nút của chính form (`mode: 'onSubmit'`, `reValidateMode: 'onChange'`). Đang dùng: "Mời thành viên" trong hộp chia sẻ (BUG-UI-012, Task 4.9): người mở hộp để đổi vai trò hay tạo liên kết không bị báo "Email không được để trống".
 - Mọi `<form>` có `noValidate` để trình duyệt không hiện bong bóng lỗi riêng.
 - `PasswordField`: nút con mắt ở cuối ô để hiện/ẩn mật khẩu (`aria-pressed`, nhãn "Hiện mật khẩu" / "Ẩn mật khẩu").
+- **Ô chọn `Select` / `SelectField`** (`components/Select.tsx`, Task 4.9; mẫu là Select của shadcn/ui, viết lại bằng token):
+  ```
+  Tiền tệ
+  ┌──────────────────┐            ô đóng: như ô chữ 40px (cảm ứng 44px), mũi tên ChevronDown xoay khi mở
+  │ VND            ⌄ │
+  └──────────────────┘
+  ┌────────────────────────┐      danh sách nổi cách ô 4px, rộng ít nhất bằng ô và 11rem
+  │ VND                  ✓ │      dòng: nhãn 15px, dòng phụ 13px gray-600 (tuỳ chọn)
+  │ Đồng Việt Nam          │      ✓ jade ở dòng đang chọn
+  │▒USD▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│      dòng đang trỏ (chuột / phím mũi tên): nền jade-light
+  │▒Đô la Mỹ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+  └────────────────────────┘      cao tối đa 288px rồi cuộn, không cao quá phần màn hình còn lại
+  ```
+  - Ô đóng chỉ hiện nhãn của lựa chọn, không hiện dòng phụ. Danh sách mở / đóng cùng hiệu ứng với menu (mục 7.16). Dòng 36px, **44px trên màn cảm ứng**.
+  - Bàn phím (Radix): Enter / Space / ↓ mở, ↑ / ↓ di chuyển, Enter chọn, gõ một chữ thì nhảy tới dòng bắt đầu bằng chữ đó, **Esc chỉ đóng danh sách** (không đóng hộp thoại chứa nó).
+  - `SelectField` = `Select` + `FieldShell` (nhãn, `*`, gợi ý, lỗi). Không dùng với `register()`: bọc trong `Controller` của react-hook-form và truyền `value` / `onValueChange` / `onBlur` / `ref`.
+  - Đang dùng: "Tiền tệ" ở form chuyến đi (bước 2 của wizard, "Sửa chuyến đi") và form hoạt động, mỗi loại tiền một dòng phụ ("VND" / "Đồng Việt Nam"); "Ngày" trong hộp "Chuyển sang ngày khác" (ô ghi "Ngày 3", dòng phụ "Thứ hai, 20/10 · tiêu đề của ngày"). Thay ô `<select>` của trình duyệt.
+  - Danh sách rộng tối đa bằng ô (ô hẹp: 20rem): dòng phụ dài xuống dòng, không kéo danh sách rộng quá hộp thoại.
+  - **Cỡ** (`size`): `md` (mặc định) cao 40px, rộng hết khung, cho ô của form; `sm` cao 32px, chữ 13px, rộng vừa chữ (tối thiểu 120px), cho một dòng của danh sách: vai trò trong hộp chia sẻ (không có nhãn hiện ra, có `aria-label`). Cả hai cao 44px trên màn cảm ứng. Danh sách của hai cỡ giống nhau. Đang lưu (`disabled`): nền `gray-50`, con trỏ chờ.
+  - Nút của ô là một hàng flex nên dùng `controlLookClass()` (kiểu của `controlClass()` không kèm `block`).
+- **`TextAreaField` tự giãn** (Task 4.9): cao 3 dòng lúc trống (90px), cao dần theo nội dung tới **8 dòng** (210px) rồi mới có thanh cuộn; không có góc kéo đổi cỡ. Trình duyệt có `field-sizing: content` thì tự lo, trình duyệt khác thì ô đặt lại chiều cao mỗi lần gõ. Dùng cho mô tả chuyến đi, ghi chú hoạt động, ghi chú ngày.
+- **Bộ đếm ký tự** (Task 4.9): ô có giới hạn độ dài hiện "230 / 255" (12px, `gray-500`, số đều nhau) ở **bên phải** hàng gợi ý / lỗi, chỉ khi đã dùng **từ 80%** giới hạn (`lib/charCounter.ts`); chạm giới hạn thì số đậm `gray-800`. Dòng gợi ý "Tối đa 255 ký tự" vẫn ở bên trái. `FieldShell` nhận chữ bên phải đó qua `aside`.
 
 ### 7.3. Thẻ hoạt động — thành phần quan trọng nhất ⭐ `ActivityCard`
 
@@ -339,7 +362,7 @@ Cao 20px, bo 6px, chữ 12px / 500, lề ngang 8px.
 - `surface="tint"` (mặc định): nền là màu gốc pha 12%, chữ màu gốc đậm.
 - `surface="solid"`: nền trắng + viền mảnh; dùng khi huy hiệu nằm đè lên ảnh (trạng thái trên ảnh bìa thẻ chuyến đi).
 
-Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). Dùng cho trạng thái chuyến đi, vai trò thành viên (**Phase 4**), gói Premium (**Phase 6**). Ô chọn trạng thái trên trang chi tiết (`TripStatusSelect`) dùng cùng màu với huy hiệu.
+Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). Dùng cho trạng thái chuyến đi, vai trò thành viên (**Phase 4**), gói Premium (**Phase 6**). Trạng thái trên trang chi tiết (`TripStatusSelect`) là một huy hiệu cùng màu có mũi tên, bấm thì mở menu (mục 7.16, từ Task 4.9; trước đó là ô `<select>` tô màu huy hiệu).
 
 ### 7.6. Hộp thoại — `Modal`, `ConfirmDialog`
 
@@ -350,6 +373,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
 - Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×", và bỏ qua mọi nút mang `data-no-initial-focus` (nút bỏ một thứ gì đó, Task 3.6). `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - **Nội dung dài** (Task 4.5): hộp cao tối đa 90% màn hình; khi nội dung dài hơn, **chỉ phần nội dung cuộn**, hàng tiêu đề và nút "×" đứng yên ở trên (hộp là một cột: tiêu đề cố định, thân cuộn). Trước Task 4.5 cả hộp cuộn, tiêu đề trôi mất.
+- **Danh sách và lịch bật ra bên trong hộp** (Task 4.9): `<dialog>` mở bằng `showModal()` nằm trên mọi thứ khác của trang, nên thứ bật ra từ một ô trong hộp phải vẽ **vào chính hộp đó**, không vẽ ở cuối `<body>` (sẽ nằm dưới hộp, không bấm được). `Modal` đưa thẻ `<dialog>` của nó xuống qua `OverlayContainerContext` (`components/overlayContainer.ts`); `Select` đọc nó qua `useOverlayContainer()`. Thành phần bật ra mới phải làm giống vậy.
 - **Hộp lồng nhau** (hộp hỏi lại mở bên trong một hộp khác): phím Esc chỉ đóng hộp trên cùng, hộp bên dưới giữ nguyên nội dung. `Modal` chặn React chuyển sự kiện Esc lên hộp cha (`BUG-UI-011`, Task 4.5).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
@@ -440,6 +464,98 @@ Loại
 
 Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi tài khoản đều chưa có) thì hiện chữ cái đầu 12px/600 trên nền `jade-light` chữ `jade-dark`; lời mời đang chờ dùng nền `warning` 15% chữ `gray-800` như mockup. Chữ cái đầu (`lib/initials.ts`): chữ đầu của từ đầu và từ cuối trong tên ("Trần Nhật Triều" → "TT", "Mai Anh" → "MA"; mockup ghi "TN", không theo), tên một từ thì một chữ, người được mời chưa có tài khoản (chưa có tên) thì chữ đầu của email. Chỉ để trang trí (`aria-hidden`): tên hoặc email luôn nằm cạnh. Chỉ dùng trong hộp chia sẻ; ảnh người đang xem là Phase 5.
 
+### 7.15. Nút gạt — `SegmentedControl` (Task 4.9)
+
+```
+Vai trò
+┌─────────────────────────────┐   rãnh gray-200, bo 6px, cao 40px (cảm ứng 44px), đệm 4px
+│┌─────────────┐              │
+││ ✎ Chỉnh sửa │  👁 Chỉ xem   │   phần đang chọn: nền trắng, shadow-sm, chữ ink 500
+│└─────────────┘              │   phần còn lại: chữ gray-600, rê chuột thành ink
+└─────────────────────────────┘
+```
+
+- Thay ô chọn thả xuống khi chỉ có **2–4 lựa chọn** và đủ chỗ cho tất cả trên một hàng: một lần bấm là chọn, không có gì mở ra. Đang dùng: "Vai trò" ở form mời (icon `Pencil` / `Eye`). Dòng thành viên trong hộp chia sẻ quá chật nên giữ ô chọn cỡ nhỏ.
+- Chữ 14px, có thể kèm icon 16px. Các phần rộng bằng nhau và lấp đầy khung chứa; đặt trong một cột lưới `auto` thì rộng vừa chữ.
+- Đổi màu khi chọn mờ dần 150ms; tắt khi hệ điều hành bật giảm chuyển động.
+- Như `ActivityTypeField` (mục 7.13): các phần là **ô radio thật** ẩn sau nhãn, nằm trong `fieldset` có `legend`. Tab vào nhóm một lần, phím mũi tên đổi lựa chọn, vòng focus `jade` quanh phần có con trỏ; dùng thẳng `register()` của react-hook-form. Lỗi hiện dưới rãnh như ô thường.
+
+### 7.16. Menu thả xuống — `menuStyles` (Task 4.9)
+
+```
+[ Đã lên kế hoạch ⌄ ]          huy hiệu 28px có mũi tên (xoay 180° khi mở)
+┌──────────────────────────┐   khung trắng, viền tide, bo 6px, shadow-md, cách nút 4px
+│ ● Nháp                   │   chấm 8px màu đậm của tông huy hiệu
+│ ● Đã lên kế hoạch      ✓ │   ✓ jade ở dòng hiện tại
+│ ● Đang diễn ra           │   dòng đang trỏ: nền gray-100
+│ ● Đã hoàn thành          │
+│ ● Đã lưu trữ             │
+└──────────────────────────┘
+```
+
+- Mọi menu bật ra từ một nút (Radix `DropdownMenu`) dùng chung `components/menuStyles.ts`: `MENU_CONTENT` (khung) và `MENU_ITEM` (dòng 36px, **44px trên màn cảm ứng**, chữ 14px, icon 16px `gray-500`). Đang dùng: menu "⋮" của thẻ hoạt động (mục 7.3), trạng thái chuyến đi, sắp xếp danh sách chuyến đi (mục 8.2).
+- **Mở / đóng:** khung mờ dần và lớn lên từ phía nút (gốc biến đổi do Radix tính, nên menu mở lên trên hay xuống dưới đều hợp) trong 140ms, đóng 100ms (`animate-pop-in` / `animate-pop-out` trong `tokens.css`); tắt khi hệ điều hành bật giảm chuyển động.
+- Dòng đang trỏ (chuột hoặc phím mũi tên) nền `gray-100`: màu trung tính hợp cả dòng "Xoá" chữ `danger`. Danh sách của ô chọn (mục 7.2) dùng `jade-light`.
+- **Trạng thái chuyến đi** (`TripStatusSelect`, trang chi tiết, chỉ người sửa được): nút là huy hiệu cùng tông với trạng thái (mục 3.5), chữ 12px/500, mũi tên `ChevronDown` 14px; menu liệt kê 5 trạng thái theo thứ tự, mỗi dòng chấm màu (`badgeDotClass`) + tên + ✓ ở trạng thái hiện tại. Chọn là **lưu ngay** (toast "Đã đổi trạng thái"); chọn lại trạng thái hiện tại không gửi gì. Đang lưu: huy hiệu hiện trạng thái vừa chọn, mũi tên thành vòng quay, nút bị khoá; lỗi: toast đỏ, huy hiệu về trạng thái cũ. Nhãn đọc "Trạng thái chuyến đi: {trạng thái}".
+- Bàn phím (Radix): Enter / Space / ↓ mở menu, ↑ / ↓ di chuyển, Enter chọn, Esc đóng và trả focus về nút.
+
+### 7.17. Ô giờ — `TimeField` (Task 4.9)
+
+```
+Giờ bắt đầu                     Giờ kết thúc
+┌──────────────────┐            ┌──────────────────────────────┐
+│ 🕘 09:30          │            │ 🕘 11:00     (1 giờ 30 phút)  │   thời lượng 13px gray-500 trong ô
+└──────────────────┘            └──────────────────────────────┘
+┌──────────────────┐            danh sách nổi dưới ô (như ô tìm địa điểm, mục 7.12),
+│ 09:00            │            cao tối đa 240px rồi cuộn, mỗi 15 phút một dòng;
+│▒09:30▒▒▒▒▒▒▒▒▒▒▒▒│            dòng khớp với chữ đang gõ / giá trị: nền jade-light
+│ 09:45            │            ô giờ kết thúc: chỉ các giờ sau giờ bắt đầu, mỗi dòng
+└──────────────────┘            kèm thời lượng ("10:30   1 giờ 30 phút")
+```
+
+- Thay `<input type="time">` của trình duyệt (cách hiện 24h hay SA / CH tuỳ máy). **Luôn 24h**, chữ số đều nhau, icon `Clock` bên trái, gợi ý trống "--:--". Bàn phím số trên điện thoại (`inputMode="numeric"`).
+- **Gõ tay:** "9" → 09:00, "930" / "0930" → 09:30, "9:30", "9.30", "9h30" → 09:30, "21h" → 21:00 (`lib/timeInput.parseTimeInput`), đổi khi rời ô hoặc nhấn Enter. Phút sau dấu phân cách phải đủ 2 chữ số ("9:5" không rõ là 09:05 hay 09:50). Gõ thứ không phải giờ ("25", "abc"): ô giữ chữ đã gõ, dưới ô báo "Giờ không hợp lệ, hãy nhập dạng 09:30 (hoặc gõ 930)".
+- **Danh sách:** bấm vào ô hoặc ↓ thì mở, mỗi 15 phút một dòng, danh sách tự cuộn tới dòng khớp với chữ đang gõ (hoặc giá trị đang có; ô trống: 08:00). ↑ / ↓ di chuyển, Enter chọn dòng đang sáng (không gửi form), Esc **chỉ đóng danh sách**, rời ô thì đóng. Bấm một dòng thì con trỏ vẫn ở trong ô. Danh sách hiện ra mờ dần như menu (mục 7.16).
+- **Ô giờ kết thúc** (`durationFrom` = giờ bắt đầu): danh sách chỉ gồm các giờ sau giờ bắt đầu, mỗi dòng ghi thời lượng; khi ô có giờ hợp lệ sau giờ bắt đầu, thời lượng "(1 giờ 30 phút)" hiện ở mép phải trong ô (`lib/duration`). Giờ bắt đầu trống: danh sách đủ 24 giờ, không có thời lượng.
+- Giá trị gửi lên máy chủ vẫn là "HH:mm" (hoặc bỏ trống) như trước; quy tắc "giờ kết thúc phải sau giờ bắt đầu" và "không xoá được giờ đã lưu" không đổi. Vai trò ARIA: `combobox` + `listbox`, như ô tìm địa điểm.
+
+### 7.18. Lịch và ô khoảng ngày — `Calendar`, `DateRangeField` (Task 4.9)
+
+```
+Ngày đi – ngày về *
+┌──────────────────────────────────────┐
+│ 📅 12/03/2026 – 16/03/2026          ⌄ │   một ô cho cả hai ngày
+└──────────────────────────────────────┘
+5 ngày 4 đêm. Tối đa 60 ngày.               dòng gợi ý (lib/calendarDate.stayLength)
+┌─────────────────────────────────────────────────────────┐
+│ Từ 12/03/2026: chọn ngày về                              │   thẻ trắng bo 12px, viền tide,
+│ ‹        Tháng 3 2026             Tháng 4 2026         › │   shadow-lg, cách ô 4px
+│ T2 T3 T4 T5 T6 T7 CN         T2 T3 T4 T5 T6 T7 CN        │
+│          (12)▒13▒▒14▒▒15▒(16)                            │   đầu / cuối: tròn jade chữ trắng
+│                                                          │   giữa: dải jade-light
+└─────────────────────────────────────────────────────────┘   hôm nay: viền tròn jade
+```
+
+- **`Calendar`** (`components/Calendar.tsx`; mẫu là Calendar của shadcn/ui trên `react-day-picker` 9, viết lại bằng token, không nạp CSS của thư viện): tiếng Việt, tuần bắt đầu thứ Hai, tiêu đề "Tháng 3 2026", tên thứ "T2 … CN". Ô ngày tròn 40px (44px trên cảm ứng); rê chuột nền `gray-100`. Không hiện ngày của tháng bên cạnh. Hai nút ‹ › 32px ở hai góc trên. Mỗi ngày chỉ một bộ lớp theo trạng thái (đã chọn / trong khoảng / hôm nay / không chọn được / thường), không lớp nào đè lớp nào. Thư viện lịch được **tải lười** lần đầu mở ô ngày (khung xương trong lúc chờ), không nằm trong gói chính.
+- **`DateRangeField`**: ô trông như ô chọn (mục 7.2) với icon `CalendarDays`, ghi "12/03/2026 – 16/03/2026" (chuyến 1 ngày: một ngày), trống thì chữ mờ "Chọn ngày đi và ngày về". Bấm mở lịch nổi dưới ô (Radix Popover; trong hộp thoại thì vẽ vào hộp, mục 7.6): **2 tháng từ 640px, 1 tháng dưới đó**; tháng mở ra là tháng của ngày đi (chưa có: tháng hiện tại), con trỏ đặt sẵn ở ngày đã chọn hoặc hôm nay.
+  - **Chọn:** lần bấm đầu là ngày đi, lần bấm thứ hai là ngày về, rồi lịch đóng và form nhận cả hai. Bấm một ngày trước ngày đi thì bắt đầu lại từ ngày đó; bấm cùng một ngày hai lần là chuyến 1 ngày. Dòng trên lịch nhắc "Chọn ngày đi" / "Từ 12/03/2026: chọn ngày về". Trong lúc chọn ngày về, các ngày quá giới hạn độ dài (60 ngày) bị mờ, không bấm được.
+  - **Ngày đã qua vẫn chọn được** (chuyến đi có thể ghi lại sau khi đi), chỉ hôm nay có viền.
+  - Esc hoặc bấm ra ngoài: lịch đóng, ngày **giữ như cũ** (chưa chọn đủ hai ngày thì không có gì thay đổi); Esc không đóng hộp thoại chứa ô.
+  - Form vẫn giữ `startDate` và `endDate` riêng (`useController` cho từng ngày): lỗi của ngày nào cũng hiện dưới ô chung, và đưa con trỏ về ô đó. Lỗi chỉ được kiểm khi lịch đóng hoặc rời ô mà không mở lịch, không kiểm lúc con trỏ đi vào lịch.
+  - Bàn phím (react-day-picker): ← → ↑ ↓ đi giữa các ngày, PageUp / PageDown đổi tháng, Enter / Space chọn.
+- **`DatePickerField`**: cùng ô và cùng lịch nổi cho **một** ngày (1 tháng): ô ghi "25/10/2026", trống thì chữ mờ "Chọn ngày"; bấm một ngày là chọn và lịch đóng; `minDate` làm mờ các ngày trước nó; `defaultOpen` mở lịch ngay khi ô hiện ra. Đang dùng: hạn của liên kết chia sẻ ("Chọn ngày…", mục 8.1).
+
+### 7.19. Chip lựa chọn — `ChoiceChips` (Task 4.9)
+
+```
+Hết hạn
+(Không hết hạn) ( 7 ngày ) ( 30 ngày ) ( Chọn ngày… )     viên bo tròn cao 32px (cảm ứng 44px), chữ 14px
+Ai có liên kết đều xem được cho tới khi bạn thu hồi        chip đang chọn: viền jade, nền jade-light, chữ jade-dark 500
+```
+
+- Một lựa chọn trong vài lựa chọn ngắn, **xuống dòng** được trên màn hẹp (khác nút gạt 7.15 phải nằm trên một hàng). Chip chưa chọn: viền `tide`, nền trắng, chữ `gray-700`, rê chuột viền `gray-300`. Đang dùng: hạn của liên kết chia sẻ.
+- Như nút gạt: **ô radio thật** ẩn sau nhãn trong `fieldset` có `legend`; Tab vào nhóm một lần, phím mũi tên đổi lựa chọn, dùng thẳng `register()`. `onChipClick` chỉ chạy khi bấm / chạm vào chip (không chạy khi đổi bằng phím mũi tên): "Chọn ngày…" dùng nó để mở lịch. Dòng gợi ý hoặc lỗi dưới nhóm như ô thường.
+
 ---
 
 ## 8. Bố cục từng màn hình
@@ -487,12 +603,12 @@ Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi t
 - **Huy hiệu vai trò** (Task 4.5, **Đã làm**): `Badge` tông nhạt ngay sau tên chuyến, ngang dòng đầu của tên (tên dài thì huy hiệu nằm cuối dòng đầu, tên vẫn tối đa 2 dòng): "Chủ sở hữu" `brand`, "Chỉnh sửa" `info`, "Chỉ xem" `neutral`, theo `myRole` của `GET /trips/{id}`. Thành viên luôn thấy; chủ chỉ thấy khi chuyến có người khác trong danh sách thành viên (lời mời đang chờ cũng tính), nên chuyến riêng không có huy hiệu "Chủ sở hữu".
 - **Người chỉ xem** (`myRole = VIEWER`, Task 4.5, **Đã làm**): ô đổi trạng thái thay bằng `Badge` trạng thái cùng màu (không bấm được), không có nút "Sửa" / "Xoá", không bị hỏi "Hoàn thành chuyến đi?" (họ không đổi được trạng thái). Trong lịch trình: không có "Sửa" ngày và "+ Thêm hoạt động" ở khối tiêu đề ngày, không có tay kéo / nút ↑ ↓ / menu "⋮" trên thẻ (thẻ vẫn là đích khi bấm marker trên bản đồ), ngày trống là khung nét đứt chỉ ghi "Ngày này chưa có hoạt động." không có nút. Thẻ bản đồ của ngày chưa có địa điểm chỉ ghi "Ngày này chưa có địa điểm nào."; thẻ thời tiết của chuyến chưa đặt vị trí ghi "Chuyến đi chưa đặt vị trí điểm đến nên chưa có dự báo thời tiết." (không bảo họ vào "Sửa"). Cột ngày, chip ngày, nút ngày trước / sau, bản đồ, thời tiết, quãng đường giữ nguyên. Người chỉnh sửa thấy "Sửa" và ô trạng thái, không thấy "Xoá" (chỉ chủ). Quyết định dựa vào `myRole` máy chủ trả, không so `ownerId` ở giao diện.
 - **Nút "Chia sẻ" / "Thành viên"** (Task 4.5, **Đã làm**): nút phụ ở cụm góc phải đầu trang, sau ô trạng thái và trước "Sửa" (người chỉ xem: sau huy hiệu trạng thái). Chủ chuyến thấy "Chia sẻ" (icon `Share2`), mọi người khác thấy "Thành viên" (icon `Users`). Mở hộp thoại 640px "Chia sẻ chuyến đi" / "Thành viên chuyến đi" (mục 15.3) với danh sách "Thành viên (N)" lấy từ `members` của `GET /trips/{id}` (không gọi API riêng): mỗi dòng ảnh hoặc chữ cái đầu (mục 7.14), tên đậm và email xám bên dưới (chưa có tài khoản: chỉ email), bên phải huy hiệu "Đang chờ" (`warning`, khi lời mời chưa được nhận) và huy hiệu vai trò. Cụm nút xuống dòng trên điện thoại rất hẹp thay vì tràn mép.
-  - **Mời thành viên** (chỉ chủ chuyến, **Đã làm**): trên danh sách, mục "Mời thành viên" gồm ô "Email" (bắt buộc, gợi ý "ten@vidu.com"), ô chọn "Vai trò" rộng 150px ("Chỉnh sửa" mặc định / "Chỉ xem") và nút chính "Mời", một hàng từ 640px (nút canh ngang với ô, dưới nhãn), xếp dọc trên điện thoại. Mở hộp thì con trỏ nằm ở ô email. Gửi xong: toast "Đã gửi lời mời tới {email}", ô email được làm trống (vai trò giữ nguyên), người mới hiện trong danh sách với "Đang chờ". Email của chính chủ chuyến (400) và người đã là thành viên (409 `MEMBER_ALREADY_EXISTS`) báo lỗi ngay dưới ô email bằng câu của máy chủ; lỗi khác (mất mạng, chuyến vừa bị xoá) là khung đỏ trên các ô. Trong lúc đang gửi, Esc và "×" không đóng hộp. Chuyến chỉ có mình chủ: dưới form có câu "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa.", không có nút (mục 7.9).
+  - **Mời thành viên** (chỉ chủ chuyến, **Đã làm**): trên danh sách, mục "Mời thành viên" gồm ô "Email" (bắt buộc, gợi ý "ten@vidu.com"), nút gạt "Vai trò" ("Chỉnh sửa" mặc định / "Chỉ xem", mục 7.15, từ Task 4.9) và nút chính "Mời", một hàng từ 640px (nút canh ngang với ô, dưới nhãn), xếp dọc trên điện thoại. Mở hộp thì con trỏ nằm ở ô email. Lỗi của ô email chỉ hiện khi bấm "Mời" (không hiện khi rời ô: chủ chuyến có thể mở hộp để làm việc khác; BUG-UI-012, Task 4.9), sau đó cập nhật theo từng phím gõ. Gửi xong: toast "Đã gửi lời mời tới {email}", ô email được làm trống (vai trò giữ nguyên), người mới hiện trong danh sách với "Đang chờ". Email của chính chủ chuyến (400) và người đã là thành viên (409 `MEMBER_ALREADY_EXISTS`) báo lỗi ngay dưới ô email bằng câu của máy chủ; lỗi khác (mất mạng, chuyến vừa bị xoá) là khung đỏ trên các ô. Trong lúc đang gửi, Esc và "×" không đóng hộp. Chuyến chỉ có mình chủ: dưới form có câu "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa.", không có nút (mục 7.9).
   - **Lời mời đang chờ** (**Đã làm**): dưới email có dòng 13px `gray-500` "Đã mời 12/10" (ngày gửi mail gần nhất, theo múi giờ tài khoản; mail có hạn 7 ngày mà máy chủ không trả ngày hết hạn, nên chủ chuyến nhìn ngày này để biết khi nào gửi lại). Ai cũng thấy dòng này. Chủ chuyến có thêm nút `ghost` cỡ `sm` "Gửi lại" sau các huy hiệu: gửi lại đúng `POST /members` với cùng email và vai trò (máy chủ phát token mới, link trong mail cũ hết dùng được), toast "Đã gửi lại lời mời tới {email}", ngày mời cập nhật. Lỗi (ví dụ người đó vừa nhận lời: 409) báo bằng toast đỏ và danh sách được tải lại. Trong lúc đang gửi, hộp không đóng bằng Esc / "×".
-  - **Đổi vai trò** (chỉ chủ chuyến, **Đã làm**): trên mọi dòng trừ dòng của chủ, huy hiệu vai trò được thay bằng ô chọn nhỏ cao 32px (44px trên màn cảm ứng), viền `tide`, chữ 13px: "Chỉnh sửa" / "Chỉ xem"; nhãn đọc "Vai trò của {tên hoặc email}". Chọn là lưu ngay, không có nút Lưu; trong lúc lưu ô bị khoá và giữ giá trị vừa chọn; xong: toast "Đã đổi vai trò". Lời mời đang chờ cũng đổi được (người đó nhận lời với vai trò mới). Lỗi (người đó vừa bị gỡ…): toast đỏ "Không đổi được vai trò: …", danh sách tải lại, ô về giá trị đang lưu. Dòng của chủ luôn là huy hiệu "Chủ sở hữu" (không hạ được vai trò của chủ, design rule 14.7). Người được đổi vai trò thấy thay đổi khi tải lại trang (chưa có cập nhật tức thời: Phase 5).
+  - **Đổi vai trò** (chỉ chủ chuyến, **Đã làm**): trên mọi dòng trừ dòng của chủ, huy hiệu vai trò được thay bằng ô chọn nhỏ (`Select size="sm"`, mục 7.2, từ Task 4.9) cao 32px (44px trên màn cảm ứng), viền `tide`, chữ 13px, rộng tối thiểu 120px để không nhảy khi đổi giữa "Chỉnh sửa" / "Chỉ xem"; nhãn đọc "Vai trò của {tên hoặc email}". Chọn là lưu ngay, không có nút Lưu; trong lúc lưu ô bị khoá và giữ giá trị vừa chọn; xong: toast "Đã đổi vai trò". Lời mời đang chờ cũng đổi được (người đó nhận lời với vai trò mới). Lỗi (người đó vừa bị gỡ…): toast đỏ "Không đổi được vai trò: …", danh sách tải lại, ô về giá trị đang lưu. Dòng của chủ luôn là huy hiệu "Chủ sở hữu" (không hạ được vai trò của chủ, design rule 14.7). Người được đổi vai trò thấy thay đổi khi tải lại trang (chưa có cập nhật tức thời: Phase 5).
   - **Gỡ thành viên / huỷ lời mời** (chỉ chủ chuyến, **Đã làm**): nút phụ cỡ `sm` cuối mỗi dòng trừ dòng của chủ: "Gỡ" với người đã nhận lời, "Huỷ lời mời" với lời mời đang chờ (nhãn đọc kèm tên / email). Bấm thì mở `ConfirmDialog` kiểu `danger` chồng lên hộp chia sẻ: "Gỡ thành viên?" — "{tên} sẽ không còn xem được chuyến đi này. Bạn có thể mời lại sau." (nút "Huỷ" / "Gỡ thành viên"); hoặc "Huỷ lời mời?" — "Link trong mail mời gửi tới {email} sẽ không dùng được nữa. Bạn có thể mời lại sau." (nút "Giữ lời mời" / "Huỷ lời mời"). Xong: toast "Đã gỡ {tên}" / "Đã huỷ lời mời gửi tới {email}", dòng biến mất. Lỗi hiện trong hộp xác nhận. Esc chỉ đóng hộp xác nhận, hộp chia sẻ vẫn mở (`BUG-UI-011`).
   - **Liên kết chia sẻ** (chỉ chủ chuyến, **Đã làm**): dưới danh sách thành viên, sau một vạch `tide`. Tiêu đề "Liên kết chia sẻ" và dòng "Ai có liên kết đều xem được chuyến đi, không cần tài khoản.". Mỗi liên kết chưa thu hồi là một khung viền `tide` (mới nhất trước): ô địa chỉ chỉ đọc `{origin}/share/{token}` (chữ đơn cách 13px, nền `gray-50`, bấm vào là chọn hết) và nút phụ cỡ `sm` "Sao chép" (icon `Copy`) → toast "Đã sao chép liên kết"; trình duyệt không cho chép (không phải HTTPS / localhost) → toast đỏ "Không sao chép được. Hãy chọn liên kết và sao chép thủ công.". Dòng dưới 13px: "12 lượt xem · Không hết hạn" / "· Dùng được đến hết ngày 20/10/2026"; liên kết đã hết hạn có huy hiệu `muted` "Hết hạn", "· Hết hạn ngày 10/10/2026", chữ địa chỉ nhạt và nút "Sao chép" bị khoá. Ngày tính theo múi giờ tài khoản. Danh sách chỉ tải khi chủ mở hộp; đang tải là khung xương, lỗi là khung đỏ kèm "Thử lại", chưa có liên kết nào thì ghi "Chưa có liên kết nào.". Thành viên khác không thấy mục này.
-  - **Tạo liên kết** (**Đã làm**): ngay dưới dòng giải thích, trên danh sách: ô ngày "Hết hạn sau ngày" rộng 220px (không bắt buộc, gợi ý "Bỏ trống: liên kết không hết hạn", không chọn được ngày trước hôm nay) và nút **phụ** "Tạo liên kết" (icon `Link2`; nút chính của hộp vẫn là "Mời"), một hàng từ 640px. Ngày được chọn nghĩa là liên kết dùng được **hết ngày đó** theo múi giờ tài khoản (`lib/linkExpiry.expiryInstant`: mili giây cuối của ngày, tính cả ngày đổi giờ mùa hè); bỏ trống thì không hết hạn. Xong: toast "Đã tạo liên kết", ô ngày trống lại, liên kết mới ở đầu danh sách. Ngày trước hôm nay: lỗi "Ngày hết hạn phải từ hôm nay trở đi" dưới ô; máy chủ từ chối (400 ở `expiresAt`) cũng hiện dưới ô; lỗi khác là khung đỏ trên form. Đang tạo thì Esc / "×" không đóng hộp.
+  - **Tạo liên kết** (**Đã làm**; chọn nhanh từ Task 4.9): ngay dưới dòng giải thích, trên danh sách: nhóm chip "Hết hạn" (`ChoiceChips`, mục 7.19) **"Không hết hạn"** (mặc định) / **"7 ngày"** / **"30 ngày"** / **"Chọn ngày…"**; dưới chip một dòng 12px `gray-500` nói liên kết dùng được tới khi nào: "Ai có liên kết đều xem được cho tới khi bạn thu hồi", hoặc "Dùng được đến hết ngày 25/10/2026" (7 / 30 ngày tính từ hôm nay: tạo thứ Hai thì "7 ngày" dùng được hết thứ Hai tuần sau; `lib/linkExpiry.expiryDateFor`). "Chọn ngày…" hiện ô "Dùng được đến hết ngày *" rộng 220px (`DatePickerField`, mục 7.18; ngày trước hôm nay bị mờ); bấm chip bằng chuột / ngón tay thì lịch mở luôn, đi bằng phím mũi tên qua chip thì không. Rồi nút **phụ** "Tạo liên kết" (icon `Link2`; nút chính của hộp vẫn là "Mời") ở hàng riêng. Ngày cuối nghĩa là liên kết dùng được **hết ngày đó** theo múi giờ tài khoản (`lib/linkExpiry.expiryInstant`: mili giây cuối của ngày, tính cả ngày đổi giờ mùa hè). Xong: toast "Đã tạo liên kết", về lại "Không hết hạn", liên kết mới ở đầu danh sách. "Chọn ngày…" mà chưa chọn ngày: "Chọn ngày hết hạn trên lịch" dưới ô; ngày trước hôm nay: "Ngày hết hạn phải từ hôm nay trở đi"; máy chủ từ chối (400 ở `expiresAt`) hiện dưới ô ngày, hoặc dưới nhóm chip khi đang chọn nhanh; lỗi khác là khung đỏ trên form. Đang tạo thì Esc / "×" không đóng hộp.
   - **Thu hồi liên kết** (**Đã làm**): cuối dòng lượt xem của mỗi liên kết, căn phải, nút `danger` cỡ `sm` "Thu hồi" (không thêm kiểu nút "ghost-danger" của mockup), có cả trên liên kết đã hết hạn (liên kết hết hạn vẫn giữ nhãn "chia sẻ bằng liên kết" của chuyến cho tới khi thu hồi). Bấm thì mở `ConfirmDialog` kiểu `danger` chồng lên hộp chia sẻ: "Thu hồi liên kết?" — "Ai đang có liên kết này sẽ không mở được chuyến đi nữa. Thao tác này không hoàn tác được; bạn có thể tạo liên kết mới sau." (nút "Huỷ" / "Thu hồi liên kết"). Xong: toast "Đã thu hồi liên kết", liên kết biến khỏi danh sách. Lỗi (đã thu hồi ở tab khác: 404) hiện trong hộp hỏi.
 - **Máy chủ không trả lời:** nếu chuyến đi đã tải được, trang **giữ nguyên** (kể cả hộp thoại đang mở) và hiện khung lỗi "… Đang hiển thị dữ liệu đã tải trước đó." kèm nút phụ "Thử lại" ngay trên tên chuyến đi, cùng cách trang danh sách đang làm. Chưa tải được gì thì chỉ có khung lỗi, "Thử lại" và link về danh sách. Chuyến đi không còn (404) hoặc không có quyền (403): chỉ thông báo, không có "Thử lại" (Task 2.7, BUG-UI-005).
 - **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` tự chuyển về ngày 1, hoặc về ngày hôm nay khi chuyến đi đang diễn ra (Task 3.7); số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
@@ -529,7 +645,7 @@ Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi t
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
 - **Màn hình cảm ứng:** không kéo thả (xung đột với cuộn trang); mỗi thẻ có **nút ↑ / ↓** 44px, chỉ đổi thứ tự **trong** ngày (hoạt động đầu ngày không lên được, cuối ngày không xuống được). Việc chọn tay nắm hay mũi tên dựa vào **loại con trỏ** (`pointer-coarse`), không dựa vào độ rộng màn hình.
-- **Chuyển sang ngày khác:** trên máy tính, kéo thẻ **thả lên tên ngày ở cột trái** (mục đó có viền `jade` khi rê qua; chỉ tính khi con trỏ nằm đúng trên mục, nên kéo trong ngày không bị hút sang). Mọi thiết bị: menu "⋮" → **"Chuyển sang ngày…"** (hộp chọn ngày). Hoạt động xuống **cuối** ngày đích và biến khỏi ngày đang xem, nên thông báo có link "Mở Ngày N". Vẫn hỏi lại khi trùng giờ ở ngày mới.
+- **Chuyển sang ngày khác:** trên máy tính, kéo thẻ **thả lên tên ngày ở cột trái** (mục đó có viền `jade` khi rê qua; chỉ tính khi con trỏ nằm đúng trên mục, nên kéo trong ngày không bị hút sang). Mọi thiết bị: menu "⋮" → **"Chuyển sang ngày…"** (hộp chọn ngày; ô "Ngày" là `SelectField`, mục 7.2, từ Task 4.9). Hoạt động xuống **cuối** ngày đích và biến khỏi ngày đang xem, nên thông báo có link "Mở Ngày N". Vẫn hỏi lại khi trùng giờ ở ngày mới.
 - **Tự xếp theo giờ** (Task 2.6 commit 12, backend làm): thêm hoạt động có giờ bắt đầu, hoặc đổi giờ bắt đầu, thì hoạt động vào ngay trước hoạt động đầu tiên bắt đầu muộn hơn; không có thì xuống cuối ngày. Hoạt động không giờ và thứ tự đã kéo giữ nguyên; sửa tên, ghi chú, chi phí, giờ kết thúc không làm di chuyển.
 - Kéo thả và nút mũi tên dùng chung một đường lưu: cập nhật giao diện ngay, hỏi lại khi trùng giờ ở ngày mới, trả về chỗ cũ khi lỗi.
 
@@ -538,7 +654,7 @@ Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi t
 - Tiêu đề "Chuyến đi của bạn" + dòng phụ; nút "+ Tạo chuyến đi" bên phải.
 - **Hàng lọc** giữa hai đường kẻ mảnh:
   - Chip trạng thái "Tất cả" + 5 trạng thái, mỗi chip có **số chuyến đi** (từ `GET /trips/status-counts`, tính theo từ khoá đang tìm). Chip đang chọn nền `ink` chữ trắng; "Đang diễn ra" có chấm `jade` đứng yên.
-  - Ô "Sắp xếp": Tạo gần đây nhất / Ngày đi sớm nhất / Ngày đi muộn nhất / Tên A → Z.
+  - Nút "Sắp xếp" (từ Task 4.9): cao 40px (cảm ứng 44px), nền trắng, viền `tide` (rê chuột `gray-300`, menu đang mở `jade`), icon `ArrowUpDown`, chữ "Sắp xếp: " `gray-600` rồi thứ tự hiện tại đậm 500, mũi tên `ChevronDown`. Bấm mở menu (mục 7.16, canh phải với nút): Tạo gần đây nhất / Ngày đi sớm nhất / Ngày đi muộn nhất / Tên A → Z, ✓ ở thứ tự hiện tại; chọn là sắp xếp lại và về trang 1 (thứ tự lưu trên URL như trước).
   - Mọi bộ lọc lưu trên URL (`?q=&status=&sort=&page=`).
 - **Lưới** 3 cột (≥ 1024px) / 2 cột (≥ 640px) / 1 cột.
 - **Thẻ:** ảnh bìa 16:9 (chưa có ảnh thì là khối `gray-100` có icon ghim, không gradient), huy hiệu trạng thái `solid` ở góc trên phải ảnh, tên điểm đến ở góc dưới trái ảnh (nền `ink` 85%), tên chuyến 1 dòng, ngày đi có icon lịch, chân thẻ "5 ngày · 12 hoạt động". Rê chuột: viền và tên chuyển `jade`.
@@ -559,6 +675,7 @@ Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi t
 
 - Tiêu đề 32px + dòng phụ "Ba bước: thông tin chung, điểm đến và ngày đi."
 - Thanh bước là một tuyến ngắn: 3 "ga" đánh số nối bằng ray. Ga đã qua: nền `jade` có dấu ✓; ga hiện tại: viền `jade`, chữ đậm; ray đã đi qua chuyển `jade`.
+- Bước "Ngày đi" (từ Task 4.9), dùng chung với hộp "Sửa chuyến đi": **một** ô "Ngày đi – ngày về *" có lịch (`DateRangeField`, mục 7.18) thay cho hai ô ngày của trình duyệt; dòng gợi ý dưới ô "5 ngày 4 đêm. Tối đa 60 ngày."; rồi "Ngân sách" và "Tiền tệ" (mục 7.2) trên một hàng. Trong hộp "Sửa chuyến đi", đổi ngày vẫn hiện khung giải thích dời / rút ngắn và hộp hỏi lại như trước.
 - Bước "Điểm đến" (Task 3.6, **Đã làm**), dùng chung với hộp "Sửa chuyến đi":
   - **"Tên điểm đến":** ô chữ tự gõ như trước ("Ví dụ: Đà Lạt").
   - **"Vị trí trên bản đồ":** ô tìm địa điểm (mục 7.12) với gợi ý "Tìm theo tên hoặc bấm lên bản đồ để chọn vị trí. Vị trí này dùng cho bản đồ và dự báo thời tiết." Chọn một gợi ý chỉ lấy **toạ độ** của nó; không địa điểm nào được lưu. Ô tìm luôn còn đó để đổi vị trí.

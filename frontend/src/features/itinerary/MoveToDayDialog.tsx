@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
-import { SelectField } from '../../components/SelectField'
+import { SelectField } from '../../components/Select'
 import { formatDate, formatWeekday } from '../../lib/format'
 import type { Activity } from '../../types/activity'
 import type { TripDayDetail } from '../../types/trip'
@@ -44,13 +44,15 @@ function MoveToDayForm({ activity, days, onMove, onClose }: MoveToDayDialogProps
       <p className="text-gray-600">
         Chuyển <strong className="text-ink">{activity.title}</strong> xuống cuối ngày được chọn.
       </p>
+      {/* "Ngày 3" in the field; the date and the day's title as the second line of each row (UI_GUIDE 7.2) */}
       <SelectField
         label="Ngày"
         value={dayId}
-        onChange={(e) => setDayId(e.target.value)}
+        onValueChange={setDayId}
         options={choices.map((d) => ({
           value: String(d.id),
-          label: `Ngày ${d.dayIndex} · ${formatWeekday(d.date)}, ${formatDate(d.date)}${d.title ? ` · ${d.title}` : ''}`,
+          label: `Ngày ${d.dayIndex}`,
+          description: `${formatWeekday(d.date)}, ${formatDate(d.date)}${d.title ? ` · ${d.title}` : ''}`,
         }))}
       />
       <div className="flex justify-end gap-2">

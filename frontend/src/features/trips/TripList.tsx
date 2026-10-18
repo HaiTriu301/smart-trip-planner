@@ -1,13 +1,14 @@
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { getTripStatusCounts, listTrips } from '../../api/trips'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { EmptyState } from '../../components/EmptyState'
-import { controlClass } from '../../components/fieldStyles'
 import { LinkButton } from '../../components/LinkButton'
+import { MENU_CONTENT, MENU_ITEM } from '../../components/menuStyles'
 import type { TripListParams, TripStatus, TripStatusCounts } from '../../types/trip'
 import { TripCard, TripCardSkeleton } from './TripCard'
 import { isTripStatus, TRIP_STATUSES, TRIP_STATUS_LABELS } from './tripStatus'
@@ -22,6 +23,60 @@ const SORTS = [
   { key: 'start-desc', label: 'Ngày đi muộn nhất', api: 'startDate,desc' },
   { key: 'title', label: 'Tên A → Z', api: 'title,asc' },
 ] as const
+
+type SortKey = (typeof SORTS)[number]['key']
+
+const isSortKey = (value: string): value is SortKey => SORTS.some((s) => s.key === value)
+
+/**
+ * "Sắp xếp: Tạo gần đây nhất" as a button that opens a menu of the four orders, a check on the current one
+ * (UI_GUIDE 7.16, 8.2; Task 4.9 decision 2). Picking the current order changes nothing.
+ */
+function SortMenu({ value, onChange }: { value: SortKey; onChange: (key: SortKey) => void }) {
+  const current = SORTS.find((s) => s.key === value) ?? SORTS[0]
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          aria-label={`Sắp xếp: ${current.label}`}
+          className="group inline-flex h-10 cursor-pointer items-center gap-2 rounded-control border border-tide bg-white px-3 text-sm text-ink outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-jade/25 data-[state=closed]:hover:border-gray-300 data-[state=open]:border-jade pointer-coarse:h-11"
+        >
+          <ArrowUpDown aria-hidden className="size-4 shrink-0 text-gray-500" />
+          <span>
+            <span className="text-gray-600">Sắp xếp: </span>
+            <span className="font-medium">{current.label}</span>
+          </span>
+          <ChevronDown
+            aria-hidden
+            className="size-4 shrink-0 text-gray-500 transition-transform duration-150 group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+          />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={4} className={MENU_CONTENT}>
+          <DropdownMenu.RadioGroup
+            value={current.key}
+            onValueChange={(key) => {
+              if (isSortKey(key) && key !== current.key) onChange(key)
+            }}
+          >
+            {SORTS.map((s) => (
+              <DropdownMenu.RadioItem key={s.key} value={s.key} className={MENU_ITEM}>
+                <span className="flex-1">{s.label}</span>
+                <span className="flex size-4 shrink-0 items-center justify-center">
+                  <DropdownMenu.ItemIndicator>
+                    <Check aria-hidden className="size-4 text-jade" />
+                  </DropdownMenu.ItemIndicator>
+                </span>
+              </DropdownMenu.RadioItem>
+            ))}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
 
 /**
  * Filters live in the URL (?q=&status=&sort=&page=, page is 1-based there) so F5 and the Back button keep them.
@@ -80,20 +135,9 @@ export function TripList() {
           counts={statusCounts}
           onChange={(value) => updateParams({ status: value ?? '' })}
         />
-        <label className="flex shrink-0 items-center gap-2 text-[13px] text-gray-600 lg:ml-auto">
-          Sắp xếp
-          <select
-            value={sort.key}
-            onChange={(e) => updateParams({ sort: e.target.value })}
-            className={`h-10 px-3 ${controlClass(false)}`}
-          >
-            {SORTS.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="shrink-0 lg:ml-auto">
+          <SortMenu value={sort.key} onChange={(key) => updateParams({ sort: key })} />
+        </div>
       </div>
 
       {isPending && (

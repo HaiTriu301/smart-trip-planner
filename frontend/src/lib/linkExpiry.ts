@@ -1,4 +1,20 @@
+import { addDays } from './calendarDate'
 import { DEFAULT_TIME_ZONE } from './today'
+
+/** The quick picks for when a share link stops working (Task 4.9 decision 3), "custom" opening a calendar. */
+export const EXPIRY_CHOICES = ['never', '7', '30', 'custom'] as const
+export type ExpiryChoice = (typeof EXPIRY_CHOICES)[number]
+
+/**
+ * The last day a new link works, "YYYY-MM-DD", or "" for a link that never expires. "7 ngày" is today plus 7:
+ * a link made on Monday works until the end of next Monday. "custom" is the day picked on the calendar ("" while
+ * none is). The day then becomes an instant with expiryInstant.
+ */
+export function expiryDateFor(choice: ExpiryChoice, today: string, customDate: string): string {
+  if (choice === 'never') return ''
+  if (choice === 'custom') return customDate
+  return addDays(today, Number(choice))
+}
 
 /** Milliseconds the zone is ahead of UTC at the instant `utcMs` (negative west of Greenwich). */
 function offsetAt(utcMs: number, timeZone: string): number {
