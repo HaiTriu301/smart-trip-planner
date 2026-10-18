@@ -1,10 +1,21 @@
 // Backend LocalDate values arrive as "YYYY-MM-DD". They are handled as plain strings on purpose:
 // new Date("2026-10-01") parses as UTC midnight and can show the previous day in negative-offset timezones.
 
+import { todayIn } from './today'
+
 /** "2026-10-01" → "01/10/2026" */
 export function formatDate(isoDate: string): string {
   const [year, month, day] = isoDate.split('-')
   return `${day}/${month}/${year}`
+}
+
+/**
+ * "12/10": the day and month of a moment sent by the server (an ISO Instant such as "2026-10-12T17:30:00Z"), on
+ * the calendar of the account's time zone, not the browser's. Used where the year is plain from the context
+ * ("Đã mời 12/10").
+ */
+export function formatDayMonthIn(instant: string, timeZone: string): string {
+  return formatDate(todayIn(timeZone, new Date(instant))).slice(0, 5)
 }
 
 /** "01/10/2026 – 05/10/2026", or a single date for a one-day trip. */

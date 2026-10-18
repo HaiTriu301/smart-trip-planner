@@ -60,7 +60,7 @@ function ShareDialog({ trip, open, onClose }: ShareDialogProps) {
             )}
           </div>
         )}
-        <MemberList members={trip.members} />
+        <MemberList tripId={trip.id} members={trip.members} canManage={isOwner} />
       </div>
     </Modal>
   )
