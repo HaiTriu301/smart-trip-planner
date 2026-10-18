@@ -648,26 +648,30 @@ Mockup đã có nằm trong thư mục `trip-planner-screenshots/stitch_smart_tr
 Design a web app screen for "Smart Trip Planner", a travel itinerary planner for
 Vietnamese users. Desktop 1440px wide.
 
-Visual direction: transit timetable. Time is the structural spine of the layout.
-Clean, flat, functional. No gradients, no decorative shadows, no glassmorphism,
-no pulsing or looping animation.
+Visual direction: "Teal Voyage", clean and calm. Time is the structural spine of the
+itinerary. Flat colors, no gradients, no glassmorphism, no pulsing or looping animation.
 
 Typography: Inter only. Sentence case, never all caps labels.
 H1 32px/700, block title 18px/600, body 15px/400, caption 12px/400.
 
 Colors:
-- page background #F4F6F5, card surface #FFFFFF
-- text #10242B, muted text #52666B, border #D7E4E1 (1px)
-- brand green #0B7A6B for primary buttons, links and focus
-- amber #E0A33C for weather and warnings, red #C2453B for errors
+- page background #F8F9FF, card and dialog surface #FFFFFF
+- text #0B1C30, muted text #475569, border #D5DEEE (1px)
+- brand teal #0F766E for primary buttons, links and focus; hover #005C55;
+  light teal #E3F5F2 for selected items
+- amber #E0A33C for weather and warnings, red #C2453B for errors, blue #2D6FA8 for info
 Activity type colors: sightseeing #2D7DD2, food #E0662F, transport #64797F,
 accommodation #7A5BA6, shopping #BE3C79, other #4F8A62.
 
-Corner radius by hierarchy: inputs, buttons and chips 6px, cards 10px, dialogs 14px.
-Cards use a 1px border, not a drop shadow. Buttons never contain arrows.
+Corner radius: inputs, buttons and badges 6px, cards 12px, dialogs 14px.
+White cards on the page background have no border and a very soft shadow
+(0 1px 8px rgba(11,28,48,.06)); cards inside a dialog use a 1px border.
+Buttons never contain arrows.
 All interface text in Vietnamese with full diacritics.
 Only show features listed in the prompt; do not invent menus, stats or badges.
 ```
+
+Cập nhật 2026-10-18 (Task 4.5) theo bảng màu "Teal Voyage" của Task 3.9 (mục 3, `tokens.css`). Bản trước dùng nền `#F4F6F5`, xanh `#0B7A6B`, thẻ có viền thay vì bóng.
 
 ### 13.2. Prompt cho từng màn hình
 
