@@ -9,6 +9,7 @@ import { Button } from '../components/Button'
 import { ExpandableText } from '../components/ExpandableText'
 import { Skeleton } from '../components/Skeleton'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
+import { ShareButton } from '../features/sharing/ShareDialog'
 import { canEditTrip, showsRoleBadge, TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from '../features/sharing/tripRole'
 import { useToday } from '../hooks/useToday'
 import { CompleteTripPrompt } from '../features/trips/CompleteTripPrompt'
@@ -92,17 +93,22 @@ export function TripDetailPage() {
               </span>
             )}
           </div>
-          <div className="flex shrink-0 items-center justify-end gap-2 sm:pt-1">
+          {/* Wraps on the narrowest phones rather than pushing past the edge */}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-1">
             {canEdit ? (
               <>
                 <TripStatusSelect trip={trip} />
+                <ShareButton trip={trip} />
                 <TripActions trip={trip} />
               </>
             ) : (
-              // Read-only status: centred on the first line of the title like the select it replaces
-              <span className="sm:pt-1.5">
-                <Badge tone={TRIP_STATUS_TONES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
-              </span>
+              <>
+                {/* Read-only status: centred on the first line of the title like the select it replaces */}
+                <span className="sm:pt-1.5">
+                  <Badge tone={TRIP_STATUS_TONES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
+                </span>
+                <ShareButton trip={trip} />
+              </>
             )}
           </div>
         </div>
