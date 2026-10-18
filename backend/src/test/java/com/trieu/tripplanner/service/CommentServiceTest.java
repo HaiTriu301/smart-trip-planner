@@ -16,6 +16,7 @@ import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.response.CommentResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
+import com.trieu.tripplanner.exception.ForbiddenException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.CommentMapper;
 import com.trieu.tripplanner.model.Activity;
@@ -28,7 +29,10 @@ import com.trieu.tripplanner.repository.CommentRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.support.TestUsers;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +58,8 @@ class CommentServiceTest {
     private static final long COMMENT_ID = 51L;
     private static final long ACTIVITY_ID = 31L;
     private static final long PARENT_ID = 50L;
+    private static final long EDITOR_ID = 9L;
+    private static final Instant NOW = Instant.parse("2026-10-18T03:00:00Z");
 
     @Mock
     private CommentRepository commentRepository;
@@ -85,7 +91,7 @@ class CommentServiceTest {
                 .build();
         ReflectionTestUtils.setField(trip, "id", TRIP_ID);
         commentService = new CommentService(commentRepository, tripRepository, activityRepository, userRepository,
-                Mappers.getMapper(CommentMapper.class));
+                Mappers.getMapper(CommentMapper.class), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Nested
@@ -324,6 +330,83 @@ class CommentServiceTest {
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Trip");
             verifyNoInteractions(activityRepository);
+        }
+
+    }
+
+    @Nested
+    class Delete {
+
+        @Test
+        void theAuthorDeletesTheirCommentWithItsRepliesAtTheInstantOfTheClock() {
+            tripExists();
+            commentOfTheTripWrittenBy(viewer);
+
+            commentService.delete(TRIP_ID, COMMENT_ID, VIEWER_ID);
+
+            // One statement for the comment and its replies (CommentRepositoryTest shows what it touches)
+            verify(commentRepository).softDeleteWithReplies(COMMENT_ID, NOW);
+        }
+
+        @Test
+        void theOwnerOfTheTripDeletesTheCommentOfAViewer() {
+            tripExists();
+            commentOfTheTripWrittenBy(viewer);
+
+            commentService.delete(TRIP_ID, COMMENT_ID, OWNER_ID);
+
+            verify(commentRepository).softDeleteWithReplies(COMMENT_ID, NOW);
+        }
+
+        @Test
+        void aViewerDeletingTheCommentOfSomeoneElseIs403AndNothingIsDeleted() {
+            tripExists();
+            commentOfTheTripWrittenBy(owner);
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, VIEWER_ID))
+                    .isInstanceOf(ForbiddenException.class);
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        @Test
+        void anEditorIsNoModeratorEither() {
+            // Editing the trip is not owning it: only the author or the owner removes a comment
+            tripExists();
+            commentOfTheTripWrittenBy(viewer);
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, EDITOR_ID))
+                    .isInstanceOf(ForbiddenException.class);
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        @Test
+        void aCommentOfAnotherTripOrAlreadyDeletedIs404BeforeTheAuthorIsChecked() {
+            // findByIdAndTripId is empty for both (CommentRepositoryTest): a second delete is a 404, and nothing
+            // tells whether the comment of another trip exists
+            tripExists();
+            when(commentRepository.findByIdAndTripId(COMMENT_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, OWNER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Comment");
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        @Test
+        void aTripThatDoesNotExistOrWasDeletedIs404BeforeTheCommentIsLookedUp() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, OWNER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verify(commentRepository, never()).findByIdAndTripId(any(), any());
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        private void commentOfTheTripWrittenBy(User author) {
+            Comment comment = Comment.builder().trip(trip).author(author).content("Nhớ mang áo ấm").build();
+            ReflectionTestUtils.setField(comment, "id", COMMENT_ID);
+            when(commentRepository.findByIdAndTripId(COMMENT_ID, TRIP_ID)).thenReturn(Optional.of(comment));
         }
 
     }

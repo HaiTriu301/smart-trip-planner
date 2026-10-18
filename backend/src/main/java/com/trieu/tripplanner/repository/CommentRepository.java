@@ -1,9 +1,11 @@
 package com.trieu.tripplanner.repository;
 
 import com.trieu.tripplanner.model.Comment;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,6 +14,19 @@ import org.springframework.data.repository.query.Param;
  * every query here sees live comments only.
  */
 public interface CommentRepository extends JpaRepository<Comment, Long> {
+
+    /** A live comment of the trip; empty when it was deleted or belongs to another trip. */
+    Optional<Comment> findByIdAndTripId(Long id, Long tripId);
+
+    /**
+     * Soft-deletes the comment and, for a root, its replies: one statement, one instant (design.md 5.2). Rows
+     * deleted before keep their own instant. Native SQL because every column of Comment is not updatable
+     * through the entity (rule 27). Returns the number of rows stamped.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE comments SET deleted_at = :now WHERE (id = :id OR parent_id = :id) AND deleted_at IS NULL",
+           nativeQuery = true)
+    int softDeleteWithReplies(@Param("id") Long id, @Param("now") Instant now);
 
     /**
      * A live root comment of the trip: the only thing a reply may point to (one level, design.md 5.2). Empty when

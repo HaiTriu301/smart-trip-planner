@@ -3,6 +3,7 @@ package com.trieu.tripplanner.service;
 import com.trieu.tripplanner.dto.request.CreateCommentRequest;
 import com.trieu.tripplanner.dto.response.CommentResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ForbiddenException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.CommentMapper;
 import com.trieu.tripplanner.model.Activity;
@@ -12,6 +13,8 @@ import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.CommentRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,12 +36,14 @@ public class CommentService {
 
     private static final String TRIP = "Trip";
     private static final String ACTIVITY = "Activity";
+    private static final String COMMENT = "Comment";
 
     private final CommentRepository commentRepository;
     private final TripRepository tripRepository;
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
     private final CommentMapper commentMapper;
+    private final Clock clock;
 
     /**
      * Posts a comment written by the signed-in user: on the whole trip, on one of its activities when the request
@@ -84,6 +89,31 @@ public class CommentService {
         return comments.stream()
                 .map(commentMapper::toResponse)
                 .toList();
+    }
+
+    /**
+     * Soft-deletes a comment; a root takes its replies with it. Only its author or the owner of the trip may
+     * (design.md 10.2). That is a rule on one comment, not a permission on the trip, so it lives here; who may
+     * reach the trip at all stays the controller guard's job (CLAUDE.md rule 15). Checked in the order of the
+     * design: trip 404, comment 404, then 403.
+     */
+    @Transactional
+    public void delete(Long tripId, Long commentId, Long userId) {
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException(TRIP, tripId));
+        Comment comment = commentRepository.findByIdAndTripId(commentId, tripId)
+                .orElseThrow(() -> new ResourceNotFoundException(COMMENT, commentId));
+
+        // getId() of a lazy reference reads the foreign key: neither account is loaded
+        boolean isAuthor = comment.getAuthor().getId().equals(userId);
+        boolean isOwner = trip.getOwner().getId().equals(userId);
+        if (!isAuthor && !isOwner) {
+            throw new ForbiddenException("User %d is neither the author of comment %d nor the owner of trip %d"
+                    .formatted(userId, commentId, tripId));
+        }
+
+        int rows = commentRepository.softDeleteWithReplies(commentId, Instant.now(clock));
+        log.info("Trip {}: comment {} deleted by user {} ({} rows with its replies)", tripId, commentId, userId, rows);
     }
 
     // One level of replies (design.md 5.2): the parent must be a live root comment of this trip. Missing, deleted,

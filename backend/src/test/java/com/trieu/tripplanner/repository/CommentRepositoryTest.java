@@ -8,6 +8,7 @@ import com.trieu.tripplanner.model.Comment;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.hibernate.Hibernate;
@@ -30,6 +31,8 @@ import org.springframework.test.context.ActiveProfiles;
 class CommentRepositoryTest {
 
     private static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
+    // Whole microseconds: DATETIME(6) would round anything finer (CLAUDE.md section 8)
+    private static final Instant DELETED_AT = Instant.parse("2026-10-18T03:00:00.123456Z");
 
     @Autowired
     private CommentRepository repository;
@@ -175,6 +178,71 @@ class CommentRepositoryTest {
         assertThat(comments).extracting(Comment::getId)
                 .containsExactly(earlier.getId(), later.getId(), reply.getId());
         assertThat(comments).allSatisfy(comment -> assertThat(Hibernate.isInitialized(comment.getAuthor())).isTrue());
+    }
+
+    // ---- findByIdAndTripId and softDeleteWithReplies: deleting ------------------------------------------------------
+
+    @Test
+    void aCommentIsFoundThroughItsOwnTripOnlyAndNotOnceDeleted() {
+        Trip otherTrip = entityManager.persist(trip("hue-2-ngay-q1w2e3"));
+        Comment comment = repository.saveAndFlush(comment(trip, owner, "Nhớ mang áo ấm").build());
+        entityManager.clear();
+
+        assertThat(repository.findByIdAndTripId(comment.getId(), trip.getId())).isPresent();
+        assertThat(repository.findByIdAndTripId(comment.getId(), otherTrip.getId())).isEmpty();
+
+        repository.softDeleteWithReplies(comment.getId(), DELETED_AT);
+        assertThat(repository.findByIdAndTripId(comment.getId(), trip.getId())).isEmpty();
+    }
+
+    @Test
+    void deletingARootStampsItAndItsRepliesWithOneInstantAndLeavesTheRestAlone() {
+        Comment root = repository.saveAndFlush(comment(trip, owner, "Mấy giờ đi chợ?").build());
+        Comment reply = repository.saveAndFlush(comment(trip, viewer, "7 giờ nhé").parent(root).build());
+        Comment otherRoot = repository.saveAndFlush(comment(trip, viewer, "Cả nhà nhớ áo ấm").build());
+        Comment otherReply = repository.saveAndFlush(comment(trip, owner, "Ừ").parent(otherRoot).build());
+
+        int rows = repository.softDeleteWithReplies(root.getId(), DELETED_AT);
+
+        assertThat(rows).isEqualTo(2);
+        assertThat(deletedAt(root)).isEqualTo("2026-10-18 03:00:00.123456");
+        assertThat(deletedAt(reply)).isEqualTo("2026-10-18 03:00:00.123456");
+        assertThat(deletedAt(otherRoot)).isNull();
+        assertThat(deletedAt(otherReply)).isNull();
+        assertThat(repository.findAllByTripIdWithAuthor(trip.getId())).extracting(Comment::getId)
+                .containsExactly(otherRoot.getId(), otherReply.getId());
+    }
+
+    @Test
+    void deletingAReplyStampsThatReplyOnly() {
+        Comment root = repository.saveAndFlush(comment(trip, owner, "Mấy giờ đi chợ?").build());
+        Comment reply = repository.saveAndFlush(comment(trip, viewer, "7 giờ nhé").parent(root).build());
+        Comment secondReply = repository.saveAndFlush(comment(trip, owner, "8 giờ").parent(root).build());
+
+        assertThat(repository.softDeleteWithReplies(reply.getId(), DELETED_AT)).isEqualTo(1);
+
+        assertThat(deletedAt(reply)).isNotNull();
+        assertThat(deletedAt(root)).isNull();
+        assertThat(deletedAt(secondReply)).isNull();
+    }
+
+    @Test
+    void aReplyDeletedEarlierKeepsItsOwnInstantWhenTheRootGoes() {
+        Comment root = repository.saveAndFlush(comment(trip, owner, "Mấy giờ đi chợ?").build());
+        Comment reply = repository.saveAndFlush(comment(trip, viewer, "7 giờ nhé").parent(root).build());
+        repository.softDeleteWithReplies(reply.getId(), DELETED_AT.minusSeconds(3600));
+
+        assertThat(repository.softDeleteWithReplies(root.getId(), DELETED_AT)).isEqualTo(1);
+
+        assertThat(deletedAt(reply)).isEqualTo("2026-10-18 02:00:00.123456");
+        assertThat(deletedAt(root)).isEqualTo("2026-10-18 03:00:00.123456");
+    }
+
+    /** deleted_at as MySQL holds it (UTC), read past @SQLRestriction; null while the comment is live. */
+    private String deletedAt(Comment comment) {
+        return jdbcTemplate.queryForObject(
+                "SELECT DATE_FORMAT(deleted_at, '%Y-%m-%d %H:%i:%s.%f') FROM comments WHERE id = ?", String.class,
+                comment.getId());
     }
 
     private void createdAt(Comment comment, String utc) {

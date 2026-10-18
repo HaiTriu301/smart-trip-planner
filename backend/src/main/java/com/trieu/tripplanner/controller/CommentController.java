@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,6 +66,19 @@ public class CommentController {
                                                @AuthenticationPrincipal CustomUserDetails principal,
                                                @Valid @RequestBody CreateCommentRequest request) {
         return ApiResponse.ok(commentService.create(tripId, principal.getId(), request));
+    }
+
+    @Operation(summary = "Xoá bình luận",
+               description = "Xoá mềm. Xoá một bình luận gốc thì các câu trả lời của nó mất theo. Chỉ tác giả hoặc "
+                       + "chủ chuyến đi được xoá; người khác (kể cả người cùng sửa): 403. 404 nếu chuyến đi không "
+                       + "tồn tại, hoặc bình luận không thuộc chuyến đi hay đã bị xoá. Thành công: 200, data null.")
+    @DeleteMapping("/{commentId}")
+    @PreAuthorize("@tripPermission.canView(#tripId, principal)")
+    public ApiResponse<Void> delete(@PathVariable Long tripId,
+                                    @PathVariable Long commentId,
+                                    @AuthenticationPrincipal CustomUserDetails principal) {
+        commentService.delete(tripId, commentId, principal.getId());
+        return ApiResponse.ok(null);
     }
 
 }

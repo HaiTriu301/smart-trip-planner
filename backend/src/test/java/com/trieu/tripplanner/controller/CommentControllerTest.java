@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.response.CommentResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.ForbiddenException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
@@ -344,6 +346,68 @@ class CommentControllerTest {
                 .contentType(MediaType.APPLICATION_JSON).content("""
                         { "content": "Xin chào" }
                         """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(commentService);
+    }
+
+    // ---- DELETE /trips/{tripId}/comments/{commentId} --------------------------------------------------------------
+
+    @Test
+    void deleteReturns200WithNoDataAndPassesTheSignedInUser() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.delete().uri(COMMENTS_URL + "/51").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true, "data": null }
+                        """);
+        verify(commentService).delete(TRIP_ID, 51L, USER_ID);
+    }
+
+    @Test
+    void deleteReturns403WhenTheCallerMayNotViewTheTripAndNeverReachesService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.delete().uri(COMMENTS_URL + "/51").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verify(commentService, never()).delete(any(), any(), any());
+    }
+
+    @Test
+    void deleteOfTheCommentOfSomeoneElseReturns403() {
+        // The caller may view the trip; the service refuses because they are neither author nor owner
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        doThrow(new ForbiddenException("User 8 is neither the author of comment 51 nor the owner of trip 5"))
+                .when(commentService).delete(TRIP_ID, 51L, USER_ID);
+
+        assertThat(mvc.delete().uri(COMMENTS_URL + "/51").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+    }
+
+    @Test
+    void deleteOfAMissingOrAlreadyDeletedCommentReturns404() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        doThrow(new ResourceNotFoundException("Comment", 51L)).when(commentService).delete(TRIP_ID, 51L, USER_ID);
+
+        assertThat(mvc.delete().uri(COMMENTS_URL + "/51").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void deleteWithoutTokenReturns401() {
+        assertThat(mvc.delete().uri(COMMENTS_URL + "/51")).hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(commentService, tripPermission);
+    }
+
+    @Test
+    void deleteWithNonNumericCommentIdReturns400() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.delete().uri(COMMENTS_URL + "/abc").header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(commentService);
