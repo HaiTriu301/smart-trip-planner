@@ -42,7 +42,11 @@ export function InviteMemberForm({ tripId }: { tripId: number }) {
     resetField,
     formState: { errors },
   } = useForm<InviteValues>({
-    mode: 'onTouched',
+    // Checked on "Mời" only, not when the field is left (an exception to UI_GUIDE 7.2): the dialog puts the cursor
+    // in the email field on opening, and an owner who came to change a role or make a link must not be told
+    // "Email không được để trống" (BUG-UI-012). After a first "Mời", the message follows each keystroke
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
     resolver: zodResolver(inviteSchema),
     defaultValues: { email: '', role: 'EDITOR' },
   })
