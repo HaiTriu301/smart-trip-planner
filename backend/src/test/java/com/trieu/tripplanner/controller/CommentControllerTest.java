@@ -2,6 +2,7 @@ package com.trieu.tripplanner.controller;
 
 import static com.trieu.tripplanner.support.TestComments.createRequest;
 import static com.trieu.tripplanner.support.TestComments.onActivity;
+import static com.trieu.tripplanner.support.TestComments.replyTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.config.SecurityConfig;
 import com.trieu.tripplanner.dto.response.CommentResponse;
+import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
@@ -119,6 +121,35 @@ class CommentControllerTest {
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
         verifyNoInteractions(commentService);
+    }
+
+    @Test
+    void createPassesTheParentIdOfTheBodyToTheService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.create(eq(TRIP_ID), eq(USER_ID), any())).thenReturn(comment("7 giờ nhé"));
+
+        assertThat(create("""
+                { "content": "7 giờ nhé", "parentId": 50 }
+                """)).hasStatus(HttpStatus.CREATED);
+        verify(commentService).create(TRIP_ID, USER_ID, replyTo(createRequest("7 giờ nhé"), 50L));
+    }
+
+    @Test
+    void createReplyingToACommentThatCannotBeAnsweredReturns400OnTheParentIdField() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.create(eq(TRIP_ID), eq(USER_ID), any()))
+                .thenThrow(BusinessRuleException.invalidField("parentId", "error.comment.parent-not-root",
+                        "Comment 50 is not a live root comment of trip 5"));
+
+        assertThat(create("""
+                { "content": "7 giờ nhé", "parentId": 50 }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "parentId",
+                                         "message": "Chỉ trả lời được một bình luận gốc còn tồn tại của chuyến đi này" } ] }
+                        """);
     }
 
     @Test

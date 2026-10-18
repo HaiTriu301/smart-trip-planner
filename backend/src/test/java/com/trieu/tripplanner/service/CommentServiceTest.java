@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import static com.trieu.tripplanner.support.TestComments.createRequest;
 import static com.trieu.tripplanner.support.TestComments.onActivity;
+import static com.trieu.tripplanner.support.TestComments.replyTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,7 +11,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.dto.response.CommentResponse;
+import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.CommentMapper;
 import com.trieu.tripplanner.model.Activity;
@@ -47,6 +51,7 @@ class CommentServiceTest {
     private static final long VIEWER_ID = 8L;
     private static final long COMMENT_ID = 51L;
     private static final long ACTIVITY_ID = 31L;
+    private static final long PARENT_ID = 50L;
 
     @Mock
     private CommentRepository commentRepository;
@@ -61,12 +66,13 @@ class CommentServiceTest {
     private UserRepository userRepository;
 
     private CommentService commentService;
+    private User owner;
     private Trip trip;
     private User viewer;
 
     @BeforeEach
     void setUp() {
-        User owner = TestUsers.verified(OWNER_ID, "owner@example.com");
+        owner = TestUsers.verified(OWNER_ID, "owner@example.com");
         viewer = TestUsers.verified(VIEWER_ID, "viewer@example.com");
         trip = Trip.builder()
                 .owner(owner)
@@ -173,10 +179,85 @@ class CommentServiceTest {
             verify(commentRepository, never()).save(any());
         }
 
+        @Test
+        void repliesToARootCommentOfTheTrip() {
+            tripExists();
+            Comment root = rootComment(null);
+            when(commentRepository.findRootByIdAndTripId(PARENT_ID, TRIP_ID)).thenReturn(Optional.of(root));
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(createRequest("7 giờ nhé"), PARENT_ID));
+
+            Comment saved = savedComment();
+            assertThat(saved.getParent()).isSameAs(root);
+            assertThat(saved.getTrip()).isSameAs(trip);
+            assertThat(saved.getAuthor()).isSameAs(viewer);
+            assertThat(saved.getActivity()).isNull();
+            assertThat(response.parentId()).isEqualTo(PARENT_ID);
+            assertThat(response.activityId()).isNull();
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void aReplyTakesTheActivityOfItsParentAndIgnoresTheActivitySent() {
+            tripExists();
+            Activity market = activityOfTheTrip();
+            when(commentRepository.findRootByIdAndTripId(PARENT_ID, TRIP_ID))
+                    .thenReturn(Optional.of(rootComment(market)));
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            // 32 is not even looked up: a reply sits where its parent sits
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(onActivity(createRequest("7 giờ nhé"), 32L), PARENT_ID));
+
+            assertThat(savedComment().getActivity()).isSameAs(market);
+            assertThat(response.activityId()).isEqualTo(ACTIVITY_ID);
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void aParentThatIsNotALiveRootCommentOfTheTripIs400OnParentIdAndNothingIsSaved() {
+            // Missing, deleted, a reply, of another trip: the query answers empty for all four
+            // (CommentRepositoryTest)
+            tripExists();
+            when(commentRepository.findRootByIdAndTripId(PARENT_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(createRequest("7 giờ nhé"), PARENT_ID)))
+                    .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                        assertThat(ex.getDetails()).containsExactly(
+                                FieldViolation.of("parentId", "error.comment.parent-not-root"));
+                    });
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        void aMissingTripIs404BeforeTheParentIsLookedUp() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(createRequest("7 giờ nhé"), PARENT_ID)))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(commentRepository, never()).findRootByIdAndTripId(any(), any());
+            verify(commentRepository, never()).save(any());
+        }
+
     }
 
     private void tripExists() {
         when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+    }
+
+    /** A root comment of the trip written by the owner, on the given activity (null: on the whole trip). */
+    private Comment rootComment(Activity onActivity) {
+        Comment root = Comment.builder().trip(trip).activity(onActivity).author(owner).content("Mấy giờ đi chợ?")
+                .build();
+        ReflectionTestUtils.setField(root, "id", PARENT_ID);
+        return root;
     }
 
     private Activity activityOfTheTrip() {

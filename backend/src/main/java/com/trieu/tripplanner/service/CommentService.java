@@ -2,6 +2,7 @@ package com.trieu.tripplanner.service;
 
 import com.trieu.tripplanner.dto.request.CreateCommentRequest;
 import com.trieu.tripplanner.dto.response.CommentResponse;
+import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.CommentMapper;
 import com.trieu.tripplanner.model.Activity;
@@ -39,24 +40,41 @@ public class CommentService {
     private final CommentMapper commentMapper;
 
     /**
-     * Posts a root comment written by the signed-in user: on the whole trip, or on one of its activities when the
-     * request names one.
+     * Posts a comment written by the signed-in user: on the whole trip, on one of its activities when the request
+     * names one, or as a reply to a root comment of the trip.
      */
     @Transactional
     public CommentResponse create(Long tripId, Long userId, CreateCommentRequest request) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException(TRIP, tripId));
-        Activity activity = request.activityId() == null ? null : findActivityOfTrip(request.activityId(), tripId);
+        Comment parent = request.parentId() == null ? null : findRootOfTrip(request.parentId(), tripId);
 
         Comment saved = commentRepository.save(Comment.builder()
                 .trip(trip)
-                .activity(activity)
+                .activity(activityOf(request, parent, tripId))
+                .parent(parent)
                 .author(userRepository.getReferenceById(userId))
                 .content(request.content().trim())
                 .build());
 
         log.info("Trip {}: comment {} posted by user {}", tripId, saved.getId(), userId);
         return commentMapper.toResponse(saved);
+    }
+
+    // One level of replies (design.md 5.2): the parent must be a live root comment of this trip. Missing, deleted,
+    // a reply, or of another trip all get the same answer, so nothing is learnt about the comments of other trips
+    private Comment findRootOfTrip(Long parentId, Long tripId) {
+        return commentRepository.findRootByIdAndTripId(parentId, tripId)
+                .orElseThrow(() -> BusinessRuleException.invalidField("parentId", "error.comment.parent-not-root",
+                        "Comment %d is not a live root comment of trip %d".formatted(parentId, tripId)));
+    }
+
+    // A reply sits where its parent sits, so the activityId sent with a reply is ignored (design.md 10.2)
+    private Activity activityOf(CreateCommentRequest request, Comment parent, Long tripId) {
+        if (parent != null) {
+            return parent.getActivity();
+        }
+        return request.activityId() == null ? null : findActivityOfTrip(request.activityId(), tripId);
     }
 
     // Empty when the activity belongs to another trip: permission was checked on the trip of the URL only, so

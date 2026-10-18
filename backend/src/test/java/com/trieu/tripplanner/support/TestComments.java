@@ -14,12 +14,17 @@ public final class TestComments {
 
     /** Body of POST .../comments: a root comment on the whole trip. */
     public static CreateCommentRequest createRequest(String content) {
-        return new CreateCommentRequest(content, null);
+        return new CreateCommentRequest(content, null, null);
     }
 
     /** The same request, about one activity of the trip. */
     public static CreateCommentRequest onActivity(CreateCommentRequest request, Long activityId) {
-        return new CreateCommentRequest(request.content(), activityId);
+        return new CreateCommentRequest(request.content(), activityId, request.parentId());
+    }
+
+    /** The same request, as a reply to a comment. */
+    public static CreateCommentRequest replyTo(CreateCommentRequest request, Long parentId) {
+        return new CreateCommentRequest(request.content(), request.activityId(), parentId);
     }
 
 }
