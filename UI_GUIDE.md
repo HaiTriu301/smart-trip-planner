@@ -289,6 +289,8 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Lỗi hiện khi rời ô** (`useForm({ mode: 'onTouched' })`), sau đó cập nhật theo từng phím gõ. Bấm nút gửi thì kiểm tra tất cả.
 - Mọi `<form>` có `noValidate` để trình duyệt không hiện bong bóng lỗi riêng.
 - `PasswordField`: nút con mắt ở cuối ô để hiện/ẩn mật khẩu (`aria-pressed`, nhãn "Hiện mật khẩu" / "Ẩn mật khẩu").
+- **`TextAreaField` tự giãn** (Task 4.9): cao 3 dòng lúc trống (90px), cao dần theo nội dung tới **8 dòng** (210px) rồi mới có thanh cuộn; không có góc kéo đổi cỡ. Trình duyệt có `field-sizing: content` thì tự lo, trình duyệt khác thì ô đặt lại chiều cao mỗi lần gõ. Dùng cho mô tả chuyến đi, ghi chú hoạt động, ghi chú ngày.
+- **Bộ đếm ký tự** (Task 4.9): ô có giới hạn độ dài hiện "230 / 255" (12px, `gray-500`, số đều nhau) ở **bên phải** hàng gợi ý / lỗi, chỉ khi đã dùng **từ 80%** giới hạn (`lib/charCounter.ts`); chạm giới hạn thì số đậm `gray-800`. Dòng gợi ý "Tối đa 255 ký tự" vẫn ở bên trái. `FieldShell` nhận chữ bên phải đó qua `aside`.
 
 ### 7.3. Thẻ hoạt động — thành phần quan trọng nhất ⭐ `ActivityCard`
 
