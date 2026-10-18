@@ -22,3 +22,11 @@ export async function createShareLink(tripId: number, expiresAt: string | undefi
   const { data } = await apiClient.post<ApiResponse<ShareLink>>(`/trips/${tripId}/share-links`, { expiresAt })
   return data.data
 }
+
+/**
+ * Revokes a link (owner only): the public page answers 404 from now on, and revoking cannot be undone. The last
+ * link revoked turns the trip back to PRIVATE. 404 when the link is not on this trip or already revoked.
+ */
+export async function revokeShareLink(tripId: number, linkId: number): Promise<void> {
+  await apiClient.delete(`/trips/${tripId}/share-links/${linkId}`)
+}
