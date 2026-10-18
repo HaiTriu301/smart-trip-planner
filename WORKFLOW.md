@@ -2539,6 +2539,36 @@ Mốc 17 — feat(frontend): map on the public trip page                        
         quyết định 2), đặt sau phần tóm tắt, không dính; UI_GUIDE 8.5, 9
 ```
 
+> **Thực tế khi làm 4.5 (2026-10-18):** 19 commit code trên nhánh: 17 mốc của bảng duyệt, 1 commit sửa lỗi ngoài kế hoạch (`BUG-UI-011`, chen sau Mốc 11) và 1 commit bố cục hộp thoại (góp ý 1 khi duyệt mockup hộp chia sẻ, chen sau Mốc 12). Docs Mốc 0 đã commit trước trên `main` (`07aaa4a`, `f92ff48`). Cột "File" đếm cả `UI_GUIDE.md`.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `6760a26` feat(frontend): mark the trips shared with me | 3 | Huy hiệu "Được chia sẻ" nằm góc trên trái ảnh bìa; tên chủ thành dòng riêng "Của {tên}" dưới ngày đi (bảng: chung một huy hiệu, chữ dài vỡ dòng) |
+> | `91053c4` feat(frontend): show my role on the trip page | 6 | `tripRole.ts` (nhãn, tông, `showsRoleBadge`) + test |
+> | `401e1c8` feat(frontend): hide the trip header controls from viewers | 5 (bảng: 6) | `canEditTrip`; `TripActions` đọc `myRole` thay cho so `ownerId`; người chỉ xem thấy huy hiệu trạng thái, không bị hỏi "Hoàn thành chuyến đi?" (sửa ngay trong `TripDetailPage`, không đụng `CompleteTripPrompt`) |
+> | `b7aef61` feat(frontend): show the itinerary read-only to viewers | 8 (bảng: 6) | `canEdit` đi qua `DayTimeline` → `DaySection` → `DragDropContainer` → `ActivityCard` (thẻ không tay kéo vẫn thụt lề như cũ), `DayMap`, `WeatherStrip` |
+> | `7575498` feat(frontend): open the sharing dialog with the member list | 7 | `Avatar`, `lib/initials.ts` (chữ đầu của từ đầu và từ cuối, mockup ghi "TN" không theo) + test |
+> | `1f537f5` feat(frontend): invite a member | 6 (bảng: 5) | `inviteMemberKey` nằm ở `api/members.ts` (ESLint `react-refresh/only-export-components` không cho xuất từ file component); hộp không đóng khi đang gửi (`useIsMutating`) |
+> | `0ef4c10` feat(frontend): accept an invitation from the mail link | 6 (bảng: 5) | `useQuery` thay cho mutation trong effect: StrictMode không gửi hai lần (như `VerifyEmailPage`) |
+> | `4d805f9` feat(frontend): bring the invited user back after login or register | 5 (bảng: 4) | `features/auth/returnTo.ts` + test (hàm thuần mới, rule 35) |
+> | `47e4b19` feat(frontend): resend a pending invitation | 5 (bảng: 2) | `lib/format.formatDayMonthIn` ("Đã mời dd/mm" theo múi giờ tài khoản) + test; `ShareDialog` khoá đóng khi đang gửi lại |
+> | `0f9775b` feat(frontend): change a member's role | 4 (bảng: 3) | Dòng đang chờ cũng đổi được vai trò |
+> | `80cd003` feat(frontend): remove a member | 3 | `ConfirmDialog` "Gỡ thành viên?" / "Huỷ lời mời?" |
+> | `540c624` fix(frontend): close only the top dialog on Esc | 2 | `BUG-UI-011`: React chuyển sự kiện `cancel` của `<dialog>` lên hộp cha; `Modal` gọi `stopPropagation`. Có từ Task 2.5; tìm ra khi đọc code, chủ dự án xác nhận trên trình duyệt trước khi sửa |
+> | `9271a54` feat(frontend): list and copy the share links | 7 | `lib/shareUrl.ts` + test |
+> | `da20805` feat(frontend): keep the dialog title in view while its content scrolls | 2 | `Modal` thành một cột: tiêu đề cố định, thân cuộn; dùng `open:flex` (lớp `flex` trên `<dialog>` đang đóng đè quy tắc ẩn của trình duyệt) |
+> | `f2ced15` feat(frontend): create a share link | 8 (bảng: 5) | `lib/linkExpiry.ts` (cuối ngày đã chọn theo múi giờ tài khoản, kể cả ngày đổi giờ mùa hè) + 10 test; `shareLinkSchema(today)` |
+> | `154cd99` feat(frontend): revoke a share link | 3 | Nút `danger` cỡ `sm` + `ConfirmDialog` |
+> | `154ba33` refactor(frontend): let the activity card show an activity without an id | 1 (bảng: ~3) | Tách `ActivityCardContent` trong chính `ActivityCard.tsx`; không đổi hành vi |
+> | `d3374d0` feat(frontend): public trip page | 8 (bảng: 6) | `isShareToken` (token sai dạng không gọi máy chủ) + test; query không tự tải lại để không đếm thừa lượt xem |
+> | `3ff64fd` feat(frontend): map on the public trip page | 6 (bảng: 3) | `features/public/publicStops.ts` + test; `DayMapCanvas overview`: không số, không đường nối, con lăn chuột không phóng |
+>
+> Không có thay đổi backend. Giao diện **176 test** tự động trong 16 file (thêm 61 so với 115 của Task 3.8); `11-sharing-ui.md` (file mới) có 29 kịch bản tự động (`TC-SHAREUI-001` đến `029`) và 18 bài thủ công `MT-SHAREUI-01` đến `18`, **chủ dự án chạy cả 18 ngày 2026-10-18, đều đạt**, kèm kiểm lại `BUG-UI-011`.
+>
+> Ghi chú khi làm:
+> - Mời qua mail là đường duy nhất: người được mời chưa nhận lời không thấy gì trong ứng dụng. Chủ dự án không cần danh sách "Lời mời của tôi" (2026-10-18).
+> - Máy local: dịch vụ Windows `MySQL80` chiếm cổng 3306 nên container MySQL không nhận cổng, backend không lên. Cách sửa: `Stop-Service MySQL80`, `Set-Service MySQL80 -StartupType Manual`, rồi `docker compose up -d --force-recreate mysql`.
+
 **Nhớ:** mỗi màn một nút chính (UI_GUIDE 7.0): trong ShareDialog là "Mời"; trang công khai không có nút chính. Không vẽ ảnh thành viên ở nơi khác ngoài hộp thoại (ảnh người đang xem là Phase 5). Cập nhật UI_GUIDE 8.1 (nút Chia sẻ, huy hiệu vai trò), 8.2 (huy hiệu "Được chia sẻ") và mục 15.2 trong cùng commit.
 
 ---
@@ -3067,7 +3097,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.2 Liên kết chia sẻ và trang công khai | ☑ | 2026-10-14 |
 | 4 | 4.3 Cache quyền và ma trận test | ☑ | 2026-10-17 |
 | 4 | 4.4 Bình luận | ☑ | 2026-10-18 |
-| 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☐ | |
+| 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☑ | 2026-10-18 |
 | 4 | 4.6 UI: bình luận | ☐ | |
 | 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
 | 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☐ | |
