@@ -305,7 +305,8 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
   - Ô đóng chỉ hiện nhãn của lựa chọn, không hiện dòng phụ. Danh sách mở / đóng cùng hiệu ứng với menu (mục 7.16). Dòng 36px, **44px trên màn cảm ứng**.
   - Bàn phím (Radix): Enter / Space / ↓ mở, ↑ / ↓ di chuyển, Enter chọn, gõ một chữ thì nhảy tới dòng bắt đầu bằng chữ đó, **Esc chỉ đóng danh sách** (không đóng hộp thoại chứa nó).
   - `SelectField` = `Select` + `FieldShell` (nhãn, `*`, gợi ý, lỗi). Không dùng với `register()`: bọc trong `Controller` của react-hook-form và truyền `value` / `onValueChange` / `onBlur` / `ref`.
-  - Đang dùng: "Tiền tệ" ở form chuyến đi (bước 2 của wizard, "Sửa chuyến đi") và form hoạt động, mỗi loại tiền một dòng phụ ("VND" / "Đồng Việt Nam"). Thay ô `<select>` của trình duyệt.
+  - Đang dùng: "Tiền tệ" ở form chuyến đi (bước 2 của wizard, "Sửa chuyến đi") và form hoạt động, mỗi loại tiền một dòng phụ ("VND" / "Đồng Việt Nam"); "Ngày" trong hộp "Chuyển sang ngày khác" (ô ghi "Ngày 3", dòng phụ "Thứ hai, 20/10 · tiêu đề của ngày"). Thay ô `<select>` của trình duyệt.
+  - Danh sách rộng tối đa bằng ô (ô hẹp: 20rem): dòng phụ dài xuống dòng, không kéo danh sách rộng quá hộp thoại.
   - Nút của ô là một hàng flex nên dùng `controlLookClass()` (kiểu của `controlClass()` không kèm `block`).
 - **`TextAreaField` tự giãn** (Task 4.9): cao 3 dòng lúc trống (90px), cao dần theo nội dung tới **8 dòng** (210px) rồi mới có thanh cuộn; không có góc kéo đổi cỡ. Trình duyệt có `field-sizing: content` thì tự lo, trình duyệt khác thì ô đặt lại chiều cao mỗi lần gõ. Dùng cho mô tả chuyến đi, ghi chú hoạt động, ghi chú ngày.
 - **Bộ đếm ký tự** (Task 4.9): ô có giới hạn độ dài hiện "230 / 255" (12px, `gray-500`, số đều nhau) ở **bên phải** hàng gợi ý / lỗi, chỉ khi đã dùng **từ 80%** giới hạn (`lib/charCounter.ts`); chạm giới hạn thì số đậm `gray-800`. Dòng gợi ý "Tối đa 255 ký tự" vẫn ở bên trái. `FieldShell` nhận chữ bên phải đó qua `aside`.
@@ -585,7 +586,7 @@ Vai trò
 **Sắp xếp hoạt động:**
 - Chuột / bút: kéo thả bằng tay nắm; bàn phím: Tab tới tay nắm, Space nhấc, mũi tên di chuyển, Space thả.
 - **Màn hình cảm ứng:** không kéo thả (xung đột với cuộn trang); mỗi thẻ có **nút ↑ / ↓** 44px, chỉ đổi thứ tự **trong** ngày (hoạt động đầu ngày không lên được, cuối ngày không xuống được). Việc chọn tay nắm hay mũi tên dựa vào **loại con trỏ** (`pointer-coarse`), không dựa vào độ rộng màn hình.
-- **Chuyển sang ngày khác:** trên máy tính, kéo thẻ **thả lên tên ngày ở cột trái** (mục đó có viền `jade` khi rê qua; chỉ tính khi con trỏ nằm đúng trên mục, nên kéo trong ngày không bị hút sang). Mọi thiết bị: menu "⋮" → **"Chuyển sang ngày…"** (hộp chọn ngày). Hoạt động xuống **cuối** ngày đích và biến khỏi ngày đang xem, nên thông báo có link "Mở Ngày N". Vẫn hỏi lại khi trùng giờ ở ngày mới.
+- **Chuyển sang ngày khác:** trên máy tính, kéo thẻ **thả lên tên ngày ở cột trái** (mục đó có viền `jade` khi rê qua; chỉ tính khi con trỏ nằm đúng trên mục, nên kéo trong ngày không bị hút sang). Mọi thiết bị: menu "⋮" → **"Chuyển sang ngày…"** (hộp chọn ngày; ô "Ngày" là `SelectField`, mục 7.2, từ Task 4.9). Hoạt động xuống **cuối** ngày đích và biến khỏi ngày đang xem, nên thông báo có link "Mở Ngày N". Vẫn hỏi lại khi trùng giờ ở ngày mới.
 - **Tự xếp theo giờ** (Task 2.6 commit 12, backend làm): thêm hoạt động có giờ bắt đầu, hoặc đổi giờ bắt đầu, thì hoạt động vào ngay trước hoạt động đầu tiên bắt đầu muộn hơn; không có thì xuống cuối ngày. Hoạt động không giờ và thứ tự đã kéo giữ nguyên; sửa tên, ghi chú, chi phí, giờ kết thúc không làm di chuyển.
 - Kéo thả và nút mũi tên dùng chung một đường lưu: cập nhật giao diện ngay, hỏi lại khi trùng giờ ở ngày mới, trả về chỗ cũ khi lỗi.
 

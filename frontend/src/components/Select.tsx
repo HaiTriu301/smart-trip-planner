@@ -95,9 +95,10 @@ export function Select({
           position="popper"
           sideOffset={4}
           onKeyDown={keepEscapeInList}
-          // At least as wide as the field and 11rem, so "Đồng Việt Nam" fits under a narrow currency field;
-          // never taller than the room left on screen
-          className="z-50 max-h-(--radix-select-content-available-height) min-w-[max(var(--radix-select-trigger-width),11rem)] origin-(--radix-select-content-transform-origin) overflow-hidden rounded-control border border-tide bg-white text-ink shadow-md data-[state=closed]:animate-pop-out data-[state=open]:animate-pop-in motion-reduce:animate-none"
+          // At least as wide as the field and 11rem, so "Đồng Việt Nam" fits under a narrow currency field; at most
+          // as wide as the field (20rem for a narrow one), so a long second line wraps instead of widening the
+          // list past the dialog; never taller than the room left on screen
+          className="z-50 max-h-(--radix-select-content-available-height) max-w-[max(var(--radix-select-trigger-width),20rem)] min-w-[max(var(--radix-select-trigger-width),11rem)] origin-(--radix-select-content-transform-origin) overflow-hidden rounded-control border border-tide bg-white text-ink shadow-md data-[state=closed]:animate-pop-out data-[state=open]:animate-pop-in motion-reduce:animate-none"
         >
           <SelectPrimitive.Viewport className="max-h-72 p-1">
             {options.map((option) => (
