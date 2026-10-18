@@ -2,6 +2,7 @@
 // Temporary hand-written types; replaced by generated types from OpenAPI in a later task.
 
 import type { Activity } from './activity'
+import type { Member, TripRole } from './member'
 
 export type TripStatus = 'DRAFT' | 'PLANNED' | 'ONGOING' | 'COMPLETED' | 'ARCHIVED'
 export type TripVisibility = 'PRIVATE' | 'LINK' | 'PUBLIC'
@@ -62,9 +63,14 @@ export interface TripDayDetail extends TripDay {
   activities: Activity[]
 }
 
-/** GET /trips/{id}: the trip, its days and their activities in one response. */
+/**
+ * GET /trips/{id}: the trip, its days and their activities in one response. Since Task 4.1 also everyone on the
+ * trip (owner first, as GET /members) and what the caller is to it, so the page needs no second request.
+ */
 export interface TripDetail extends TripResponse {
   days: TripDayDetail[]
+  members: Member[]
+  myRole: TripRole
 }
 
 /** Body of PATCH /trips/{id}/days/{dayId}: undefined keeps the value, "" clears it. */
