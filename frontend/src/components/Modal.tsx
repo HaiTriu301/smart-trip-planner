@@ -48,9 +48,13 @@ export function Modal({ open, title, onClose, size = 'md', children }: ModalProp
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      // Esc: let the parent decide (it may be busy saving) instead of the browser closing on its own
+      // Esc: let the parent decide (it may be busy saving) instead of the browser closing on its own. The browser
+      // sends Esc to the top dialog only, but React passes the event on to every component above, so a dialog
+      // opened inside another one (a confirmation over a form) would also close the one below; it stops here
+      // (BUG-UI-011)
       onCancel={(event) => {
         event.preventDefault()
+        event.stopPropagation()
         onClose()
       }}
       className={`mx-auto mb-0 mt-auto max-h-[90vh] w-full max-w-none overflow-y-auto rounded-t-panel border border-tide bg-white p-6 text-ink shadow-lg backdrop:bg-ink/45 sm:m-auto sm:w-[calc(100%-2rem)] sm:rounded-panel ${WIDTHS[size]}`}
