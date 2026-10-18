@@ -6,15 +6,17 @@ import { deleteTrip } from '../../api/trips'
 import { getErrorMessage } from '../../api/errors'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { useAuthStore } from '../../stores/authStore'
 import { toast } from '../../stores/toastStore'
-import type { TripResponse } from '../../types/trip'
+import type { TripDetail } from '../../types/trip'
 import { EditTripDialog } from './EditTripDialog'
 
-/** "Sửa" / "Xoá" buttons of the trip detail header. Delete is owner-only (design.md 6.2). */
-export function TripActions({ trip }: { trip: TripResponse }) {
+/**
+ * "Sửa" / "Xoá" buttons of the trip detail header, for those who may change the trip (the page leaves them out
+ * for a viewer). Delete is owner-only (design.md 6.2), read from the role the server gave the caller.
+ */
+export function TripActions({ trip }: { trip: TripDetail }) {
   const [dialog, setDialog] = useState<'edit' | 'delete' | null>(null)
-  const isOwner = useAuthStore((s) => s.user?.id === trip.ownerId)
+  const isOwner = trip.myRole === 'OWNER'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 

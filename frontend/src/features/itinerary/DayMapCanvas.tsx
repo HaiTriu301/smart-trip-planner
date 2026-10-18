@@ -77,23 +77,42 @@ const ROUTE_LINE: L.PolylineOptions = {
  */
 export type RevealMode = 'direct' | 'popup'
 
-interface DayMapCanvasProps {
+/** What a click on a marker does, plus "name" for the overview map: a box with the name only, no card to go to. */
+type MarkerMode = RevealMode | 'name'
+
+type DayMapCanvasProps = {
   stops: DayStop[]
   /** Where to look when the day has no place; null when the trip has no position */
   destination: Coordinates | null
-  revealMode: RevealMode
-  /** The user asked to see the card of that activity */
-  onReveal: (activityId: number) => void
-}
+} & (
+  | {
+      overview?: false
+      revealMode: RevealMode
+      /** The user asked to see the card of that activity */
+      onReveal: (activityId: number) => void
+    }
+  | {
+      /**
+       * Every place of a whole trip on one map (the public trip page, Task 4.5 decision 2): no line and no
+       * numbers, since places of different days must not be joined or numbered as one day; a click opens the
+       * name; the mouse wheel scrolls the page instead of zooming, because the map sits inside a long page
+       */
+      overview: true
+    }
+)
 
 /** The Leaflet part of DayMap, in its own file so it can be loaded on demand (default export for lazy()). */
-export default function DayMapCanvas({ stops, destination, revealMode, onReveal }: DayMapCanvasProps) {
+export default function DayMapCanvas(props: DayMapCanvasProps) {
+  const { stops, destination } = props
+  const markerMode: MarkerMode = props.overview ? 'name' : props.revealMode
+  const onReveal = props.overview ? undefined : props.onReveal
   return (
     <MapContainer
       center={VIETNAM_VIEW.center}
       zoom={VIETNAM_VIEW.zoom}
       zoomControl={false}
       attributionControl={false}
+      scrollWheelZoom={!props.overview}
       className="h-full w-full font-sans!"
     >
       <TileLayer
@@ -105,11 +124,17 @@ export default function DayMapCanvas({ stops, destination, revealMode, onReveal 
       <AttributionControl position="bottomright" prefix={LEAFLET_CREDIT} />
       <ZoomControl position="bottomright" zoomInTitle="Phóng to" zoomOutTitle="Thu nhỏ" />
       <FitToStops stops={stops} destination={destination} />
-      {stops.length > 1 && (
+      {!props.overview && stops.length > 1 && (
         <Polyline positions={stops.map((stop) => [stop.lat, stop.lng])} pathOptions={ROUTE_LINE} />
       )}
       {stops.map((stop) => (
-        <StopMarker key={stop.activityId} stop={stop} revealMode={revealMode} onReveal={onReveal} />
+        <StopMarker
+          key={stop.activityId}
+          stop={stop}
+          mode={markerMode}
+          numbered={!props.overview}
+          onReveal={onReveal}
+        />
       ))}
     </MapContainer>
   )
@@ -119,7 +144,7 @@ export default function DayMapCanvas({ stops, destination, revealMode, onReveal 
  * Frames all the places of the day; a day without places shows the destination of the trip. The view is
  * recomputed when the set of places (or the destination) changes, not when the order of the places does: dragging a card must not make the map jump, and the user's own zoom and pan survive a reorder.
  */
-function FitToStops({ stops, destination }: Pick<DayMapCanvasProps, 'stops' | 'destination'>) {
+function FitToStops({ stops, destination }: { stops: DayStop[]; destination: Coordinates | null }) {
   const map = useMap()
   const destinationLat = destination?.lat
   const destinationLng = destination?.lng
@@ -154,11 +179,14 @@ function FitToStops({ stops, destination }: Pick<DayMapCanvasProps, 'stops' | 'd
  */
 interface StopMarkerProps {
   stop: DayStop
-  revealMode: RevealMode
-  onReveal: (activityId: number) => void
+  mode: MarkerMode
+  /** The order badge, and the number in front of the name; off on the overview map */
+  numbered: boolean
+  /** Absent on the overview map: there is no card to go to */
+  onReveal?: (activityId: number) => void
 }
 
-function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
+function StopMarker({ stop, mode, numbered, onReveal }: StopMarkerProps) {
   const [element] = useState(() => document.createElement('div'))
   const [shape] = useState(() =>
     window.matchMedia('(pointer: coarse)').matches ? MARKER_SHAPES.touch : MARKER_SHAPES.mouse,
@@ -175,7 +203,7 @@ function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
     [element, shape],
   )
   const route = ACTIVITY_ROUTE[stop.type]
-  const label = `${stop.number}. ${stop.title}`
+  const label = numbered ? `${stop.number}. ${stop.title}` : stop.title
   // A boolean, so a marker redraws only when it gains or loses the highlight, not on every card the pointer crosses
   const highlighted = useMapLinkStore((state) => state.highlightedActivityId === stop.activityId)
 
@@ -187,7 +215,7 @@ function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
       alt={label}
       zIndexOffset={highlighted ? HIGHLIGHT_Z_OFFSET : 0}
       // Enter on a focused marker counts as a click (Leaflet), so the keyboard gets the same behaviour
-      eventHandlers={revealMode === 'direct' ? { click: () => onReveal(stop.activityId) } : undefined}
+      eventHandlers={mode === 'direct' && onReveal ? { click: () => onReveal(stop.activityId) } : undefined}
     >
       {createPortal(
         // Grows from its tip, so the point of the teardrop stays on the place
@@ -202,25 +230,29 @@ function StopMarker({ stop, revealMode, onReveal }: StopMarkerProps) {
           >
             <route.Icon aria-hidden className={`rotate-45 text-white ${shape.icon}`} strokeWidth={2.25} />
           </div>
-          <span
-            className={`tabular absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border bg-white leading-none font-bold ${shape.badge} ${route.dot} ${route.text}`}
-          >
-            {stop.number}
-          </span>
+          {numbered && (
+            <span
+              className={`tabular absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border bg-white leading-none font-bold ${shape.badge} ${route.dot} ${route.text}`}
+            >
+              {stop.number}
+            </span>
+          )}
         </div>,
         element,
       )}
-      {revealMode === 'popup' && (
+      {mode !== 'direct' && (
         <Popup>
           {/* Leaflet gives paragraphs of a popup a large margin: m-0! takes it back */}
           <p className="m-0! text-sm leading-5 font-semibold text-ink">{label}</p>
-          <button
-            type="button"
-            onClick={() => onReveal(stop.activityId)}
-            className="mt-1 inline-flex items-center rounded-control text-[13px] leading-5 font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
-          >
-            Xem trong lịch trình
-          </button>
+          {mode === 'popup' && onReveal && (
+            <button
+              type="button"
+              onClick={() => onReveal(stop.activityId)}
+              className="mt-1 inline-flex items-center rounded-control text-[13px] leading-5 font-medium text-jade hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
+            >
+              Xem trong lịch trình
+            </button>
+          )}
         </Popup>
       )}
     </Marker>

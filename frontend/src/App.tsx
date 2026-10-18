@@ -4,7 +4,9 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 import { CreateTripPage } from './pages/CreateTripPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { InvitePage } from './pages/InvitePage'
 import { LoginPage } from './pages/LoginPage'
+import { PublicTripPage } from './pages/PublicTripPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { TripDetailPage } from './pages/TripDetailPage'
@@ -25,9 +27,14 @@ const router = createBrowserRouter([
   // Opened from mail links: must work whether or not the browser already has a session
   { path: '/verify-email', element: <VerifyEmailPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
+  // A share link: for anybody, signed in or not, without the app bar (design.md 15, UI_GUIDE 8.5)
+  { path: '/share/:token', element: <PublicTripPage /> },
   {
     element: <ProtectedRoute />,
     children: [
+      // Opened from the invitation mail: needs an account (accepting binds the invitation to it, design.md 15),
+      // but stands alone like the sign-in pages, without the app bar
+      { path: '/invite', element: <InvitePage /> },
       {
         element: <AppLayout />,
         children: [

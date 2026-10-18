@@ -26,6 +26,8 @@ interface DayTimelineProps {
   destination: Coordinates | null
   /** Its name, shown on the weather card; null when the trip has none */
   destinationName: string | null
+  /** False for a viewer: the day is read, nothing is moved, added or edited (design.md 6.2) */
+  canEdit: boolean
 }
 
 const dayPath = (tripId: number, dayIndex: number) => `/trips/${tripId}/days/${dayIndex}`
@@ -60,6 +62,7 @@ export function DayTimeline({
   tripCurrency,
   destination,
   destinationName,
+  canEdit,
 }: DayTimelineProps) {
   const current = days.find((d) => d.dayIndex === currentDayIndex)
   const previous = days.find((d) => d.dayIndex === currentDayIndex - 1)
@@ -93,7 +96,7 @@ export function DayTimeline({
   if (!current) return null
 
   return (
-    <DragDropContainer tripId={tripId} days={days}>
+    <DragDropContainer tripId={tripId} days={days} canEdit={canEdit}>
       {(shownDays, { moveToOtherDay }) => {
         // While dragging inside the day, the working copy is shown; pick the current day from it
         const shown = shownDays.find((d) => d.id === current.id) ?? current
@@ -173,6 +176,7 @@ export function DayTimeline({
                 day={shown}
                 days={days}
                 tripCurrency={tripCurrency}
+                canEdit={canEdit}
                 onMoveToDay={moveToOtherDay}
               />
 
@@ -208,6 +212,7 @@ export function DayTimeline({
                       activities={shown.activities}
                       destination={destination}
                       listHidden={!listShown}
+                      canEdit={canEdit}
                       onShowInList={(activityId) => {
                         revealWhenListShown.current = activityId
                         setNarrowView('list')
@@ -219,6 +224,7 @@ export function DayTimeline({
                     days={days}
                     currentDayIndex={currentDayIndex}
                     destinationName={destinationName}
+                    canEdit={canEdit}
                   />
                 </div>
               </aside>

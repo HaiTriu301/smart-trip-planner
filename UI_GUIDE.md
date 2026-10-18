@@ -346,6 +346,8 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Trên điện thoại: nằm sát mép dưới, rộng hết màn hình, cao tối đa 90%, chỉ bo hai góc trên.
 - Nút xếp ở góc phải dưới: hành động phụ bên trái, hành động chính bên phải.
 - Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×", và bỏ qua mọi nút mang `data-no-initial-focus` (nút bỏ một thứ gì đó, Task 3.6). `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
+- **Nội dung dài** (Task 4.5): hộp cao tối đa 90% màn hình; khi nội dung dài hơn, **chỉ phần nội dung cuộn**, hàng tiêu đề và nút "×" đứng yên ở trên (hộp là một cột: tiêu đề cố định, thân cuộn). Trước Task 4.5 cả hộp cuộn, tiêu đề trôi mất.
+- **Hộp lồng nhau** (hộp hỏi lại mở bên trong một hộp khác): phím Esc chỉ đóng hộp trên cùng, hộp bên dưới giữ nguyên nội dung. `Modal` chặn React chuyển sự kiện Esc lên hộp cha (`BUG-UI-011`, Task 4.5).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
 
@@ -373,7 +375,7 @@ Ba phần: hình minh hoạ nét đơn hai màu (bản đồ gấp có tuyến �
 | Chưa có chuyến đi | "Chưa có chuyến đi nào. Tạo chuyến đầu tiên để bắt đầu lên lịch trình." | Tạo chuyến đi | **Đã làm** |
 | Lọc không ra kết quả | "Không tìm thấy chuyến đi nào phù hợp. Thử từ khoá khác hoặc bỏ bớt bộ lọc." | Xoá bộ lọc | **Đã làm** |
 | Ngày chưa có hoạt động | "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." (khung nét đứt trên ray) | Thêm hoạt động | **Đã làm** |
-| Chưa mời ai (hộp chia sẻ, chỉ có dòng của chủ) | "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." | — không có nút: form "Mời" nằm ngay trên, mỗi màn một nút chính (chốt 2026-10-18, Task 4.5) | **Phase 4** |
+| Chưa mời ai (hộp chia sẻ, chỉ có dòng của chủ) | "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." | — không có nút: form "Mời" nằm ngay trên, mỗi màn một nút chính (chốt 2026-10-18, Task 4.5) | **Đã làm** |
 | Chưa có chi phí | "Chưa ghi khoản nào. Thêm chi phí để theo dõi ngân sách." | Thêm chi phí | **Phase 7** |
 
 ### 7.10. Ghi chú dài — `ExpandableText`
@@ -431,6 +433,10 @@ Loại
 - Rê chuột lên nút chưa chọn: viền `gray-300`. Tab tới nhóm: viền ngoài `jade` 2px quanh nút đang có con trỏ.
 - Bên dưới là các ô radio thật (ẩn sau nhãn): Tab vào nhóm một lần, **phím mũi tên** đổi loại, trình đọc màn hình đọc là nhóm "Loại" gồm 6 lựa chọn.
 
+### 7.14. Ảnh đại diện — `Avatar` (Task 4.5)
+
+Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi tài khoản đều chưa có) thì hiện chữ cái đầu 12px/600 trên nền `jade-light` chữ `jade-dark`; lời mời đang chờ dùng nền `warning` 15% chữ `gray-800` như mockup. Chữ cái đầu (`lib/initials.ts`): chữ đầu của từ đầu và từ cuối trong tên ("Trần Nhật Triều" → "TT", "Mai Anh" → "MA"; mockup ghi "TN", không theo), tên một từ thì một chữ, người được mời chưa có tài khoản (chưa có tên) thì chữ đầu của email. Chỉ để trang trí (`aria-hidden`): tên hoặc email luôn nằm cạnh. Chỉ dùng trong hộp chia sẻ; ảnh người đang xem là Phase 5.
+
 ---
 
 ## 8. Bố cục từng màn hình
@@ -475,6 +481,16 @@ Loại
 
 **Đã làm:**
 - **Đầu trang:** link quay lại, tên 32px (tối đa 2 dòng, rê chuột xem đủ), cụm ô trạng thái + "Sửa" + "Xoá" **cố định ở góc phải** (không bị tên dài đẩy xuống; trên điện thoại nằm hàng riêng dưới tên), hàng thông tin có icon, mô tả thu gọn.
+- **Huy hiệu vai trò** (Task 4.5, **Đã làm**): `Badge` tông nhạt ngay sau tên chuyến, ngang dòng đầu của tên (tên dài thì huy hiệu nằm cuối dòng đầu, tên vẫn tối đa 2 dòng): "Chủ sở hữu" `brand`, "Chỉnh sửa" `info`, "Chỉ xem" `neutral`, theo `myRole` của `GET /trips/{id}`. Thành viên luôn thấy; chủ chỉ thấy khi chuyến có người khác trong danh sách thành viên (lời mời đang chờ cũng tính), nên chuyến riêng không có huy hiệu "Chủ sở hữu".
+- **Người chỉ xem** (`myRole = VIEWER`, Task 4.5, **Đã làm**): ô đổi trạng thái thay bằng `Badge` trạng thái cùng màu (không bấm được), không có nút "Sửa" / "Xoá", không bị hỏi "Hoàn thành chuyến đi?" (họ không đổi được trạng thái). Trong lịch trình: không có "Sửa" ngày và "+ Thêm hoạt động" ở khối tiêu đề ngày, không có tay kéo / nút ↑ ↓ / menu "⋮" trên thẻ (thẻ vẫn là đích khi bấm marker trên bản đồ), ngày trống là khung nét đứt chỉ ghi "Ngày này chưa có hoạt động." không có nút. Thẻ bản đồ của ngày chưa có địa điểm chỉ ghi "Ngày này chưa có địa điểm nào."; thẻ thời tiết của chuyến chưa đặt vị trí ghi "Chuyến đi chưa đặt vị trí điểm đến nên chưa có dự báo thời tiết." (không bảo họ vào "Sửa"). Cột ngày, chip ngày, nút ngày trước / sau, bản đồ, thời tiết, quãng đường giữ nguyên. Người chỉnh sửa thấy "Sửa" và ô trạng thái, không thấy "Xoá" (chỉ chủ). Quyết định dựa vào `myRole` máy chủ trả, không so `ownerId` ở giao diện.
+- **Nút "Chia sẻ" / "Thành viên"** (Task 4.5, **Đã làm**): nút phụ ở cụm góc phải đầu trang, sau ô trạng thái và trước "Sửa" (người chỉ xem: sau huy hiệu trạng thái). Chủ chuyến thấy "Chia sẻ" (icon `Share2`), mọi người khác thấy "Thành viên" (icon `Users`). Mở hộp thoại 640px "Chia sẻ chuyến đi" / "Thành viên chuyến đi" (mục 15.3) với danh sách "Thành viên (N)" lấy từ `members` của `GET /trips/{id}` (không gọi API riêng): mỗi dòng ảnh hoặc chữ cái đầu (mục 7.14), tên đậm và email xám bên dưới (chưa có tài khoản: chỉ email), bên phải huy hiệu "Đang chờ" (`warning`, khi lời mời chưa được nhận) và huy hiệu vai trò. Cụm nút xuống dòng trên điện thoại rất hẹp thay vì tràn mép.
+  - **Mời thành viên** (chỉ chủ chuyến, **Đã làm**): trên danh sách, mục "Mời thành viên" gồm ô "Email" (bắt buộc, gợi ý "ten@vidu.com"), ô chọn "Vai trò" rộng 150px ("Chỉnh sửa" mặc định / "Chỉ xem") và nút chính "Mời", một hàng từ 640px (nút canh ngang với ô, dưới nhãn), xếp dọc trên điện thoại. Mở hộp thì con trỏ nằm ở ô email. Gửi xong: toast "Đã gửi lời mời tới {email}", ô email được làm trống (vai trò giữ nguyên), người mới hiện trong danh sách với "Đang chờ". Email của chính chủ chuyến (400) và người đã là thành viên (409 `MEMBER_ALREADY_EXISTS`) báo lỗi ngay dưới ô email bằng câu của máy chủ; lỗi khác (mất mạng, chuyến vừa bị xoá) là khung đỏ trên các ô. Trong lúc đang gửi, Esc và "×" không đóng hộp. Chuyến chỉ có mình chủ: dưới form có câu "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa.", không có nút (mục 7.9).
+  - **Lời mời đang chờ** (**Đã làm**): dưới email có dòng 13px `gray-500` "Đã mời 12/10" (ngày gửi mail gần nhất, theo múi giờ tài khoản; mail có hạn 7 ngày mà máy chủ không trả ngày hết hạn, nên chủ chuyến nhìn ngày này để biết khi nào gửi lại). Ai cũng thấy dòng này. Chủ chuyến có thêm nút `ghost` cỡ `sm` "Gửi lại" sau các huy hiệu: gửi lại đúng `POST /members` với cùng email và vai trò (máy chủ phát token mới, link trong mail cũ hết dùng được), toast "Đã gửi lại lời mời tới {email}", ngày mời cập nhật. Lỗi (ví dụ người đó vừa nhận lời: 409) báo bằng toast đỏ và danh sách được tải lại. Trong lúc đang gửi, hộp không đóng bằng Esc / "×".
+  - **Đổi vai trò** (chỉ chủ chuyến, **Đã làm**): trên mọi dòng trừ dòng của chủ, huy hiệu vai trò được thay bằng ô chọn nhỏ cao 32px (44px trên màn cảm ứng), viền `tide`, chữ 13px: "Chỉnh sửa" / "Chỉ xem"; nhãn đọc "Vai trò của {tên hoặc email}". Chọn là lưu ngay, không có nút Lưu; trong lúc lưu ô bị khoá và giữ giá trị vừa chọn; xong: toast "Đã đổi vai trò". Lời mời đang chờ cũng đổi được (người đó nhận lời với vai trò mới). Lỗi (người đó vừa bị gỡ…): toast đỏ "Không đổi được vai trò: …", danh sách tải lại, ô về giá trị đang lưu. Dòng của chủ luôn là huy hiệu "Chủ sở hữu" (không hạ được vai trò của chủ, design rule 14.7). Người được đổi vai trò thấy thay đổi khi tải lại trang (chưa có cập nhật tức thời: Phase 5).
+  - **Gỡ thành viên / huỷ lời mời** (chỉ chủ chuyến, **Đã làm**): nút phụ cỡ `sm` cuối mỗi dòng trừ dòng của chủ: "Gỡ" với người đã nhận lời, "Huỷ lời mời" với lời mời đang chờ (nhãn đọc kèm tên / email). Bấm thì mở `ConfirmDialog` kiểu `danger` chồng lên hộp chia sẻ: "Gỡ thành viên?" — "{tên} sẽ không còn xem được chuyến đi này. Bạn có thể mời lại sau." (nút "Huỷ" / "Gỡ thành viên"); hoặc "Huỷ lời mời?" — "Link trong mail mời gửi tới {email} sẽ không dùng được nữa. Bạn có thể mời lại sau." (nút "Giữ lời mời" / "Huỷ lời mời"). Xong: toast "Đã gỡ {tên}" / "Đã huỷ lời mời gửi tới {email}", dòng biến mất. Lỗi hiện trong hộp xác nhận. Esc chỉ đóng hộp xác nhận, hộp chia sẻ vẫn mở (`BUG-UI-011`).
+  - **Liên kết chia sẻ** (chỉ chủ chuyến, **Đã làm**): dưới danh sách thành viên, sau một vạch `tide`. Tiêu đề "Liên kết chia sẻ" và dòng "Ai có liên kết đều xem được chuyến đi, không cần tài khoản.". Mỗi liên kết chưa thu hồi là một khung viền `tide` (mới nhất trước): ô địa chỉ chỉ đọc `{origin}/share/{token}` (chữ đơn cách 13px, nền `gray-50`, bấm vào là chọn hết) và nút phụ cỡ `sm` "Sao chép" (icon `Copy`) → toast "Đã sao chép liên kết"; trình duyệt không cho chép (không phải HTTPS / localhost) → toast đỏ "Không sao chép được. Hãy chọn liên kết và sao chép thủ công.". Dòng dưới 13px: "12 lượt xem · Không hết hạn" / "· Dùng được đến hết ngày 20/10/2026"; liên kết đã hết hạn có huy hiệu `muted` "Hết hạn", "· Hết hạn ngày 10/10/2026", chữ địa chỉ nhạt và nút "Sao chép" bị khoá. Ngày tính theo múi giờ tài khoản. Danh sách chỉ tải khi chủ mở hộp; đang tải là khung xương, lỗi là khung đỏ kèm "Thử lại", chưa có liên kết nào thì ghi "Chưa có liên kết nào.". Thành viên khác không thấy mục này.
+  - **Tạo liên kết** (**Đã làm**): ngay dưới dòng giải thích, trên danh sách: ô ngày "Hết hạn sau ngày" rộng 220px (không bắt buộc, gợi ý "Bỏ trống: liên kết không hết hạn", không chọn được ngày trước hôm nay) và nút **phụ** "Tạo liên kết" (icon `Link2`; nút chính của hộp vẫn là "Mời"), một hàng từ 640px. Ngày được chọn nghĩa là liên kết dùng được **hết ngày đó** theo múi giờ tài khoản (`lib/linkExpiry.expiryInstant`: mili giây cuối của ngày, tính cả ngày đổi giờ mùa hè); bỏ trống thì không hết hạn. Xong: toast "Đã tạo liên kết", ô ngày trống lại, liên kết mới ở đầu danh sách. Ngày trước hôm nay: lỗi "Ngày hết hạn phải từ hôm nay trở đi" dưới ô; máy chủ từ chối (400 ở `expiresAt`) cũng hiện dưới ô; lỗi khác là khung đỏ trên form. Đang tạo thì Esc / "×" không đóng hộp.
+  - **Thu hồi liên kết** (**Đã làm**): cuối dòng lượt xem của mỗi liên kết, căn phải, nút `danger` cỡ `sm` "Thu hồi" (không thêm kiểu nút "ghost-danger" của mockup), có cả trên liên kết đã hết hạn (liên kết hết hạn vẫn giữ nhãn "chia sẻ bằng liên kết" của chuyến cho tới khi thu hồi). Bấm thì mở `ConfirmDialog` kiểu `danger` chồng lên hộp chia sẻ: "Thu hồi liên kết?" — "Ai đang có liên kết này sẽ không mở được chuyến đi nữa. Thao tác này không hoàn tác được; bạn có thể tạo liên kết mới sau." (nút "Huỷ" / "Thu hồi liên kết"). Xong: toast "Đã thu hồi liên kết", liên kết biến khỏi danh sách. Lỗi (đã thu hồi ở tab khác: 404) hiện trong hộp hỏi.
 - **Máy chủ không trả lời:** nếu chuyến đi đã tải được, trang **giữ nguyên** (kể cả hộp thoại đang mở) và hiện khung lỗi "… Đang hiển thị dữ liệu đã tải trước đó." kèm nút phụ "Thử lại" ngay trên tên chuyến đi, cùng cách trang danh sách đang làm. Chưa tải được gì thì chỉ có khung lỗi, "Thử lại" và link về danh sách. Chuyến đi không còn (404) hoặc không có quyền (403): chỉ thông báo, không có "Thử lại" (Task 2.7, BUG-UI-005).
 - **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` tự chuyển về ngày 1, hoặc về ngày hôm nay khi chuyến đi đang diễn ra (Task 3.7); số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
 - **Cột trái** (Task 3.9, theo mockup "Teal Voyage"; rộng 200px, từ 1280px: 240px. Bản đầu của Task 3.9 rộng 220 / 280px với chữ lớn hơn; chủ dự án thấy to và thô nên thu gọn ở Commit 11): một **thẻ trắng không viền, `shadow-md`**, dính khi cuộn, cao tối đa bằng màn hình trừ 48px (danh sách ngày cuộn bên trong thẻ, phần đầu thẻ đứng yên). Đầu thẻ: "Kế hoạch các ngày" (16px/600) và dòng phụ in hoa 11px `gray-500` "13 ngày · 02/10 – 14/10". Mỗi ngày là một link cao khoảng 48px: "Ngày N" (14px/600), bên dưới "Thứ sáu, 02/10" (12px `gray-500`), bên phải là số hoạt động trong vòng tròn 24px. Ngày đang xem (`aria-current="page"`): nền `jade-light`, vạch `jade` 3px ở mép trái, tên `jade-dark`, vòng tròn nền `jade-dark` chữ trắng. Hôm nay: `Badge` "Hôm nay" cạnh tên, vòng tròn nền `jade-light`. Ngày đã qua **không** có nhãn và không nhạt đi ở cột này; tiêu đề của ngày cũng không còn ở đây (cả hai còn ở khối tiêu đề ngày). Trước Task 3.9: danh sách phẳng rộng 200px, có tiêu đề của ngày và nhãn "Đã qua".
@@ -523,6 +539,7 @@ Loại
   - Mọi bộ lọc lưu trên URL (`?q=&status=&sort=&page=`).
 - **Lưới** 3 cột (≥ 1024px) / 2 cột (≥ 640px) / 1 cột.
 - **Thẻ:** ảnh bìa 16:9 (chưa có ảnh thì là khối `gray-100` có icon ghim, không gradient), huy hiệu trạng thái `solid` ở góc trên phải ảnh, tên điểm đến ở góc dưới trái ảnh (nền `ink` 85%), tên chuyến 1 dòng, ngày đi có icon lịch, chân thẻ "5 ngày · 12 hoạt động". Rê chuột: viền và tên chuyển `jade`.
+- **Chuyến được chia sẻ** (Task 4.5, **Đã làm**): chuyến mà người xem là thành viên, không phải chủ (`ownerId` khác người đang đăng nhập), có huy hiệu `solid` tông `info` "Được chia sẻ" ở góc trên **trái** ảnh (góc phải là trạng thái), và dưới dòng ngày đi một dòng 14px `gray-600` có icon `UserRound`: "Của {tên chủ}" (tên dài cắt bằng "…", rê chuột xem đủ). Bản kế hoạch ghi một huy hiệu "Được chia sẻ · của {tên chủ}"; tách hai vì tên chủ dài không vừa một huy hiệu cạnh huy hiệu trạng thái trên thẻ hẹp. Chuyến của chính mình không có gì thêm. Không có ảnh thành viên trên thẻ.
 - **Thời tiết trên thẻ** (Task 3.7, **Đã làm**; `features/weather/TripCardWeather`; design rule 14.20): ở **hàng chân thẻ, căn phải**, 13px `gray-600`; thiếu chỗ thì xuống dòng thứ hai của chân thẻ, vẫn căn phải: chữ "Hôm nay" (chuyến đang đi) hoặc "Ngày đi" (chuyến sắp đi, ngày đầu trong 16 ngày tới), icon thời tiết, "32° / 25°". Không có xác suất mưa. Chuyến đi đã qua, còn xa hơn, chưa đặt vị trí điểm đến, hoặc dự báo không tải được: không hiện gì (không có chỗ trống, không có chữ báo lỗi). Thẻ hiện ngay, thời tiết hiện sau khi tải xong. Không đặt ở hàng ngày đi: không đủ chỗ khi thẻ hẹp (mockup Task 3.7).
 - **Không làm** (có trong mockup nhưng không có dữ liệu thật): ảnh thành viên (**Phase 4**), thanh "Phân bổ lịch trình" nhiều màu và chú thích màu (cần số hoạt động theo từng loại cho mỗi chuyến, có thể thêm sau), khối "Thống kê hành trình tổng quan".
 
@@ -533,6 +550,7 @@ Loại
 - Nút gửi chính cao 44px, rộng hết khung.
 - Dòng chuyển trang ("Chưa có tài khoản? Đăng ký") nằm **dưới** khung.
 - Không có: dải trạng thái hệ thống, mã phiên bản, bảng chú thích màu (chỉ có trong mockup).
+- **Đến từ link mời** (Task 4.5, **Đã làm**; chưa đăng nhập mà mở `/invite`): đường quay lại `/invite` đi theo cả khi bấm qua lại "Đăng ký" ↔ "Đăng nhập". Trên form có khung `info`: trang đăng nhập "Đăng nhập bằng đúng email đã nhận lời mời để tham gia chuyến đi. Chưa có tài khoản thì đăng ký bằng email đó."; trang đăng ký "Đăng ký bằng đúng email đã nhận lời mời. Xác thực email xong, mở lại link trong mail mời để tham gia chuyến đi."; trang "Kiểm tra hộp thư" sau khi đăng ký thêm khung "Xác thực xong, mở lại link trong mail mời để tham gia chuyến đi." (link xác thực mở ở tab khác nên không tự quay lại được; quyết định 1 của Task 4.5). Nếu người dùng quay lại đúng tab đó và bấm "Đăng nhập" ở dưới khung thì đăng nhập xong vẫn về `/invite`.
 
 ### 8.4. Tạo chuyến đi (`/trips/new`) — **Đã làm**
 
@@ -546,9 +564,17 @@ Loại
   - Chọn vị trí khi ô tên **còn trống** thì tên địa điểm được điền vào, vẫn sửa được.
   - Nút chữ "Bỏ vị trí" chỉ có khi vị trí **chưa được lưu** (wizard, hoặc chuyến đi chưa có vị trí). Vị trí đã lưu chỉ đổi được, chưa bỏ được (máy chủ chưa hỗ trợ xoá trắng).
 
-### 8.5. Trang chuyến đi công khai (share link) — **Phase 4**
+### 8.5. Trang chuyến đi công khai (`/share/:token`) — **Đã làm** (Task 4.5)
 
-Một cột, rộng tối đa 760px, canh giữa. Không có thanh điều hướng của ứng dụng, chỉ có logo nhỏ và nút "Tạo chuyến đi của bạn" ở cuối. Bản đồ đặt dưới phần tóm tắt, không dính.
+Một cột, rộng tối đa 760px, canh giữa, trên nền `paper`. Không có thanh điều hướng của ứng dụng, chỉ có logo nhỏ ở góc trên trái (không phải link). Ai cũng mở được, đã đăng nhập hay chưa, và trang giống nhau với mọi người. Bản đồ đặt dưới phần tóm tắt, không dính.
+
+- **Tóm tắt:** tên chuyến 32px/700 (không cắt, xuống dòng), dòng thông tin có icon (điểm đến, ngày đi, số ngày), mô tả thu gọn có "Đọc thêm". Không có ngân sách, trạng thái, tên chủ, thành viên.
+- **Bản đồ chuyến đi** (Task 4.5 quyết định 2): một thẻ trắng `shadow-md` như thẻ bản đồ của ngày (mục 9): đầu thẻ icon `Map` và "Bản đồ chuyến đi", bên phải chip `jade-light` "N địa điểm"; bản đồ cao 320px đóng khung vừa **mọi địa điểm của cả chuyến**. Marker giọt nước màu loại hoạt động như mục 9 nhưng **không có số** và **không có đường nối** (các địa điểm thuộc nhiều ngày khác nhau). Rê chuột lên marker hiện "Ngày 2 · tên hoạt động"; bấm (hoặc chạm) mở ô tên cùng chữ đó, không có nút "Xem trong lịch trình". Con lăn chuột cuộn trang, không phóng bản đồ (trang dài); phóng bằng nút + / −. Không có nút "Mở rộng". Chuyến không có hoạt động nào gắn địa điểm: không có thẻ bản đồ. Dùng lại `DayMapCanvas` với `overview`.
+- **Các ngày:** **mọi ngày trên một trang**, theo thứ tự (không có cột ngày, chip ngày, hay chuyển trang). Mỗi ngày: "Ngày 1 · Thứ năm, 12/03" (18px/600), dưới là tiêu đề của ngày với icon `Flag` màu `jade-dark` (theo trang trong ứng dụng; mockup đặt bên phải, không theo vì tên dài bị chen trên điện thoại). Rồi ray thời gian như mục 7.4 với thẻ chỉ đọc: cùng phần thân thẻ của lịch trình (`ActivityCardContent`), chip loại cạnh giờ (mockup đặt ở góc phải, không theo), không có tay kéo, menu "⋮", nút thêm, chi phí, link đặt chỗ. Không có ghi chú của ngày (máy chủ không gửi). Ngày trống: khung nét đứt "Ngày này chưa có hoạt động.".
+- **Cuối trang**, sau một vạch `tide`, canh giữa: nút **phụ** "Tạo chuyến đi của bạn" (tới `/trips/new`: chưa đăng nhập thì qua trang đăng nhập), dòng 13px "Được chia sẻ qua Smart Trip Planner", dòng 12px "Bản đồ và địa điểm © OpenStreetMap" (link tới trang bản quyền, mở tab mới; điều khoản OSM yêu cầu ghi nguồn). Trang không có nút chính. Không có biểu tượng tài khoản và chân trang "Public Itinerary" của mockup.
+- **Không tự tải lại:** mỗi lần tải thành công là một lượt xem của liên kết (design.md 10.2), nên trang hỏi máy chủ một lần, không tải lại khi quay lại tab hay khi có mạng lại.
+- **Liên kết không còn hiệu lực** (sai, đã thu hồi, hết hạn, chuyến đã xoá: máy chủ trả cùng một 404; địa chỉ không đúng dạng 32 ký tự `[a-z0-9]` thì báo ngay, không hỏi máy chủ): thẻ trắng 420px `shadow-md` canh giữa, icon `Link2Off`, "Liên kết không còn hiệu lực", "Liên kết đã bị thu hồi, đã hết hạn, hoặc chuyến đi không còn.", nút phụ rộng hết thẻ "Tạo chuyến đi của bạn" (theo mockup "public-trip-error").
+- Đang tải: khung xương (tên, dòng thông tin, ba khối). Không gọi được máy chủ: thẻ "Chưa tải được chuyến đi" với câu lỗi và nút "Thử lại".
 
 ### 8.6. Landing — **Phase 8**
 
@@ -557,6 +583,20 @@ Hero **không** dùng khối chữ lớn với gradient. Hiển thị một lị
 ### 8.7. Trang nâng cấp — **Phase 6**
 
 Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phóng to. Dòng giới hạn mà người dùng đang chạm tới được tô nền `warning` 8% (ví dụ đã có 3 chuyến đi thì dòng "Số chuyến đi" được tô).
+
+### 8.8. Trang nhận lời mời (`/invite?trip=&token=`) — **Đã làm** (Task 4.5)
+
+Mở từ link trong mail mời. Nằm sau đăng nhập (chưa đăng nhập thì sang trang đăng nhập rồi quay lại), nhưng **không** có thanh điều hướng: logo nhỏ phía trên một thẻ trắng 420px, `shadow-md`, không viền, canh giữa trên nền `paper`, nội dung canh giữa. Không có form: mở ra là nhận lời ngay.
+
+| Trạng thái | Nội dung thẻ |
+|---|---|
+| Đang nhận | Vòng quay 32px `jade` và "Đang nhận lời mời…" (`role="status"`), thường chỉ thoáng qua |
+| Thành công | Không có thẻ: chuyển thẳng vào `/trips/{id}` kèm toast "Đã nhận lời mời tham gia chuyến đi". Đã là thành viên mà mở lại mail (máy chủ trả 400 vì token đã dùng, nhưng chuyến đi mở được): cũng vào thẳng, toast "Bạn đã là thành viên của chuyến đi này" |
+| Không còn hiệu lực | Icon `Link2Off`, "Lời mời không còn hiệu lực", "Lời mời đã được dùng, đã hết hạn hoặc đã bị huỷ. Nhờ chủ chuyến đi gửi lại.", nút phụ rộng hết thẻ "Về danh sách chuyến đi". Dùng cho 400, 404 (chuyến đã xoá) và link thiếu / hỏng (kiểm ở trình duyệt, không hỏi máy chủ) |
+| Sai tài khoản (403) | Icon `UserX`, "Lời mời này dành cho email khác", "Bạn đang đăng nhập bằng {email}.", nút phụ "Đăng xuất để đổi tài khoản": đăng xuất xong là trang đăng nhập, đăng nhập đúng tài khoản thì quay lại đây và nhận lời |
+| Không gọi được máy chủ | Icon `CloudOff`, "Chưa nhận được lời mời", câu lỗi, nút phụ "Thử lại" (token chưa bị dùng nên gửi lại an toàn) |
+
+Thanh chọn "Trạng thái 1 / 2 / 3" trong mockup Stitch là công cụ xem trước, không làm.
 
 ---
 
@@ -574,6 +614,7 @@ Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phó
   - *Đi thẳng tới thẻ*: bản đồ nhỏ cạnh danh sách, khi dùng chuột. Trang cuộn mượt đưa thẻ của hoạt động vào **giữa màn hình** (không nhắm mép trên, vì ở đó có khối tiêu đề ngày đang dính), thẻ có viền sáng `jade` mờ 40% trong 2 giây và nhận con trỏ; marker của nó vì thế vẫn nổi bật. Người tắt hiệu ứng chuyển động trong hệ điều hành thì trang nhảy thẳng tới thẻ.
   - *Qua ô tên*: trên **màn cảm ứng** (ngón tay không rê được để đọc chú thích) và trên **bản đồ đang phóng to** (thẻ bị che). Bấm marker mở một ô nhỏ phía trên marker: "số. tên hoạt động" (14px/600) và nút chữ `jade` **"Xem trong lịch trình"**. Bấm nút thì bản đồ phóng to tự thu lại (nếu đang mở) rồi làm như kiểu đi thẳng. Ô đóng bằng "×" của nó hoặc bấm ra ngoài.
   - Bàn phím: Tab tới marker, Enter có tác dụng như bấm chuột.
+- **Bản đồ toàn chuyến** (Task 4.5, trang công khai, mục 8.5): cùng nền, marker và ghi nguồn, nhưng không số, không đường nối, bấm marker chỉ mở ô tên, con lăn chuột không phóng bản đồ (`DayMapCanvas overview`).
 - **Đường nối** (Task 3.6, **Đã làm**): đường **nét đứt** 2px `jade` mờ 70% (đoạn 6px, hở 6px), nối các marker theo đúng thứ tự trong ngày, nằm dưới marker. Nét đứt vì đây là đường thẳng từ điểm này tới điểm kế tiếp, không phải đường đi thật; nét liền dễ bị đọc nhầm thành một con phố của nền bản đồ (chốt 2026-10-03 khi duyệt mockup, bản đầu ghi nét liền mờ 60%). Ngày có dưới 2 địa điểm thì không có đường. Hai hoạt động cùng một địa điểm: marker chồng lên nhau, đường không đổi. Không vẽ đường giữa các ngày khác nhau. Kéo thả đổi thứ tự thì đường vẽ lại ngay.
 - **Thẻ thời tiết** (`features/weather/WeatherStrip`; Task 3.7, làm lại ở Task 3.9 theo mockup "Teal Voyage"): một thẻ trắng không viền, `shadow-md`, dưới thẻ bản đồ 16px, **cao cố định 212px ở mọi trạng thái** (thẻ bản đồ phía trên nhận phần còn lại của màn hình, và bản đồ chỉ đo khung của nó một lần). **Đầu thẻ** (cao 52px): icon `CloudSun` màu `sun`, "Thời tiết dự báo" (18px/600); bên phải là tên điểm đến của chuyến đi (12px `gray-500`, cắt bằng "…") và, khi phải chia trang, hai nút vuông 28px viền `tide` (`ChevronLeft` / `ChevronRight`, nhãn đọc "Các ngày trước" / "Các ngày sau"; 44px trên màn cảm ứng). **Thân thẻ**: mỗi ngày có dự báo một **ô rời**, bo 6px, nền `gray-100`, cách nhau 8px; ô là **link tới ngày đó**: "N4 · 05/10" (12px), icon 24px có màu, nhiệt độ cao (18px/700 `ink`), nhiệt độ thấp ngay bên dưới (12px `gray-500`), giọt nước `info` và phần trăm mưa (12px). Ô của ngày đang xem: nền `jade-light`, dòng đầu `jade-dark` đậm; rê chuột ô khác: `gray-200`. Ngày đã qua và ngày xa hơn 16 ngày **không có ô**. Ô rộng tối thiểu 82px: cột 380px có 4 ô một trang, cột 340px có 3; đủ chỗ cho mọi ô thì không có nút và các ô chia đều; trang cuối thiếu ô thì các ô giữ nguyên bề rộng. Mỗi lần bấm nút lật **cả một trang**, không đổi ngày đang xem; mỗi khi đổi ngày, thẻ tự lật tới trang có ô đó; đang xem một ngày không có ô thì không ô nào được tô. Không cuộn ngang. Khi không có ô nào, thân thẻ là một dòng có icon `gray-400` trên nền `gray-50`: chưa đặt vị trí điểm đến → `MapPinOff`, 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.'; chuyến đi đã hết → `CalendarCheck`, "Chuyến đi đã qua, không còn dự báo thời tiết."; chuyến đi còn xa → `CalendarClock`, "Chưa có dự báo. Dự báo chỉ có cho 16 ngày tới, chuyến đi này bắt đầu sau đó."; không tải được, hoặc máy chủ trả `status = UNAVAILABLE` vì nguồn dự báo không trả lời (Task 3.8) → `CloudAlert`, "Tạm thời không có dự báo." kèm nút chữ `jade` "Thử lại" (tải lỗi mà đã có dữ liệu cũ thì giữ dữ liệu cũ; câu trả lời `UNAVAILABLE` thì thay dữ liệu cũ). Đang tải: khung xương lấp thân thẻ. Không có hộp "Khuyến nghị" của mockup (thuộc gợi ý AI, Phase 7). Viền `warning` cho ngày có cảnh báo: hoãn (design rule 14.21). Bản Task 3.7: một dải cao 112px có viền, các ô liền nhau ngăn bằng vạch, nhiệt độ dạng "32° / 25°", hai nút chuyển trang ở hai đầu dải.
 - **Icon thời tiết** (**Đã làm**; lucide, nét đơn, **có màu**, chốt 2026-10-05 theo mockup): `CLEAR` → `Sun` (`sun`), `PARTLY_CLOUDY` → `CloudSun` (`sun`), `CLOUDY` → `Cloud` (`gray-500`), `FOG` → `CloudFog` (`gray-500`), `RAIN` → `CloudRain` (`info`), `THUNDERSTORM` → `CloudLightning` (`info`), `SNOW` → `CloudSnow` (`info`). Tên tiếng Việt (dùng cho nhãn đọc và dòng thời tiết trên màn hẹp): Trời nắng, Nắng nhẹ, Có mây, Sương mù, Có mưa, Mưa dông, Có tuyết. Bảng này nằm ở `features/weather/weatherCondition.ts`, dùng chung cho dải, dòng trên màn hẹp và thẻ ở danh sách.
@@ -648,26 +689,30 @@ Mockup đã có nằm trong thư mục `trip-planner-screenshots/stitch_smart_tr
 Design a web app screen for "Smart Trip Planner", a travel itinerary planner for
 Vietnamese users. Desktop 1440px wide.
 
-Visual direction: transit timetable. Time is the structural spine of the layout.
-Clean, flat, functional. No gradients, no decorative shadows, no glassmorphism,
-no pulsing or looping animation.
+Visual direction: "Teal Voyage", clean and calm. Time is the structural spine of the
+itinerary. Flat colors, no gradients, no glassmorphism, no pulsing or looping animation.
 
 Typography: Inter only. Sentence case, never all caps labels.
 H1 32px/700, block title 18px/600, body 15px/400, caption 12px/400.
 
 Colors:
-- page background #F4F6F5, card surface #FFFFFF
-- text #10242B, muted text #52666B, border #D7E4E1 (1px)
-- brand green #0B7A6B for primary buttons, links and focus
-- amber #E0A33C for weather and warnings, red #C2453B for errors
+- page background #F8F9FF, card and dialog surface #FFFFFF
+- text #0B1C30, muted text #475569, border #D5DEEE (1px)
+- brand teal #0F766E for primary buttons, links and focus; hover #005C55;
+  light teal #E3F5F2 for selected items
+- amber #E0A33C for weather and warnings, red #C2453B for errors, blue #2D6FA8 for info
 Activity type colors: sightseeing #2D7DD2, food #E0662F, transport #64797F,
 accommodation #7A5BA6, shopping #BE3C79, other #4F8A62.
 
-Corner radius by hierarchy: inputs, buttons and chips 6px, cards 10px, dialogs 14px.
-Cards use a 1px border, not a drop shadow. Buttons never contain arrows.
+Corner radius: inputs, buttons and badges 6px, cards 12px, dialogs 14px.
+White cards on the page background have no border and a very soft shadow
+(0 1px 8px rgba(11,28,48,.06)); cards inside a dialog use a 1px border.
+Buttons never contain arrows.
 All interface text in Vietnamese with full diacritics.
 Only show features listed in the prompt; do not invent menus, stats or badges.
 ```
+
+Cập nhật 2026-10-18 (Task 4.5) theo bảng màu "Teal Voyage" của Task 3.9 (mục 3, `tokens.css`). Bản trước dùng nền `#F4F6F5`, xanh `#0B7A6B`, thẻ có viền thay vì bóng.
 
 ### 13.2. Prompt cho từng màn hình
 

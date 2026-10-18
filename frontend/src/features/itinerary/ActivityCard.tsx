@@ -3,12 +3,28 @@ import { ExternalLink, MapPin, TriangleAlert } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
 import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
-import type { Activity } from '../../types/activity'
+import type { Activity, ActivityType } from '../../types/activity'
 import { ActivityMenu } from './ActivityMenu'
 import { ACTIVITY_ROUTE, ACTIVITY_TYPE_LABELS } from './activityType'
 
+/**
+ * What the body of a card shows. An activity of the itinerary has it all; the public trip page (Task 4.5) has no id,
+ * no cost and no booking link, and its place only a name and an address, so it passes just these.
+ */
+export interface ActivityCardFields {
+  title: string
+  type: ActivityType
+  startTime: string | null
+  endTime: string | null
+  note: string | null
+  place: { name: string; address: string | null } | null
+  costAmount?: number | null
+  currency?: string | null
+  bookingUrl?: string | null
+}
+
 /** "09:00 – 10:30", "09:00" when only the start is set, or null for an untimed activity. */
-function formatTimeRange(activity: Activity): string | null {
+function formatTimeRange(activity: ActivityCardFields): string | null {
   if (!activity.startTime) return null
   return activity.endTime ? `${activity.startTime} – ${activity.endTime}` : activity.startTime
 }
@@ -17,7 +33,7 @@ function formatTimeRange(activity: Activity): string | null {
  * The place row: "Chợ Hàn · Phường Hải Châu, Đà Nẵng". The name is left out when the title already says it
  * (an activity is often named after its place) and an address follows; null when no place is attached.
  */
-function formatPlace(activity: Activity): string | null {
+function formatPlace(activity: ActivityCardFields): string | null {
   const place = activity.place
   if (!place) return null
   const sameAsTitle = place.name.trim().toLowerCase() === activity.title.trim().toLowerCase()
@@ -34,7 +50,12 @@ interface ActivityCardProps {
   dragHandle?: ReactNode
   /** Its time range overlaps another activity of the day (saved with allowOverlap) */
   overlapping?: boolean
-  /** Without handlers the card is read-only (the preview that follows the pointer while dragging) */
+  /**
+   * The copy that follows the pointer while dragging: it must not take the id a map marker scrolls to, which
+   * belongs to the card in the list
+   */
+  dragPreview?: boolean
+  /** Without handlers the card has no "⋮" menu: the drag preview, and every card for a viewer of the trip */
   onEdit?: () => void
   onDelete?: () => void
   onMoveToDay?: () => void
@@ -50,20 +71,18 @@ export function ActivityCard({
   activity,
   dragHandle,
   overlapping = false,
+  dragPreview = false,
   onEdit,
   onDelete,
   onMoveToDay,
 }: ActivityCardProps) {
-  const time = formatTimeRange(activity)
-  const route = ACTIVITY_ROUTE[activity.type]
-  const place = formatPlace(activity)
   // Only the two actions are read: the card itself does not redraw when the highlight moves
   const highlight = useMapLinkStore((state) => state.highlight)
   const clearHighlight = useMapLinkStore((state) => state.clearHighlight)
   const revealed = useMapLinkStore((state) => state.revealedActivityId === activity.id)
-  // The card that follows the pointer during a drag is a second copy of the same activity: only the real one
-  // (it has actions) carries the id a marker scrolls to
-  const isRealCard = Boolean(onEdit)
+  // The card that follows the pointer during a drag is a second copy of the same activity: only the one in the
+  // list carries the id a marker scrolls to, with or without actions (a viewer's cards have none)
+  const isRealCard = !dragPreview
 
   return (
     // An overlapping card is tinted with the warning colour mixed into white, not laid over the page: a card
@@ -83,59 +102,8 @@ export function ActivityCard({
     >
       {dragHandle && <div className={`shrink-0 self-start ${REVEAL}`}>{dragHandle}</div>}
 
-      <div className={`min-w-0 flex-1 space-y-1.5 ${dragHandle ? '' : 'pl-2.5'}`}>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="tabular inline-flex items-center gap-1 text-[15px] leading-6 font-semibold text-ink">
-            {overlapping && (
-              <>
-                <TriangleAlert aria-hidden className="size-3.5 text-warning" />
-                <span className="sr-only">Trùng giờ với hoạt động khác, </span>
-              </>
-            )}
-            {time ?? <span className="text-sm font-normal text-gray-400">Chưa đặt giờ</span>}
-          </span>
-          <span
-            className={`inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs leading-none font-medium ${route.chip}`}
-          >
-            <route.Icon aria-hidden className="size-3" />
-            {ACTIVITY_TYPE_LABELS[activity.type]}
-          </span>
-        </div>
-        <h4 className="text-lg leading-6 font-semibold wrap-anywhere text-ink">{activity.title}</h4>
-        {place && (
-          <p className="flex items-start gap-1 text-[13px] leading-5 text-gray-600">
-            <MapPin aria-hidden className="mt-[3px] size-3.5 shrink-0 text-gray-400" />
-            <span className="sr-only">Địa điểm: </span>
-            <span className="wrap-anywhere">{place}</span>
-          </p>
-        )}
-        {activity.note && <ExpandableText text={activity.note} className="max-w-[68ch] text-[13px] leading-5 text-gray-600" />}
-        {(activity.costAmount !== null || activity.bookingUrl) && (
-          // Footer under a rule: what it costs on the left, where to book on the right
-          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-tide pt-2.5 text-[13px] leading-5">
-            {activity.costAmount !== null && activity.currency ? (
-              <span className="text-gray-500">
-                Chi phí dự kiến:{' '}
-                <span className="tabular font-semibold text-jade-dark">
-                  {formatMoney(activity.costAmount, activity.currency)}
-                </span>
-              </span>
-            ) : (
-              <span />
-            )}
-            {activity.bookingUrl && (
-              <a
-                href={activity.bookingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-control font-medium text-jade-dark hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
-              >
-                Link đặt chỗ
-                <ExternalLink aria-hidden className="size-3.5" />
-              </a>
-            )}
-          </div>
-        )}
+      <div className={`min-w-0 flex-1 ${dragHandle ? '' : 'pl-2.5'}`}>
+        <ActivityCardContent activity={activity} overlapping={overlapping} />
       </div>
 
       {onEdit && onDelete && (
@@ -148,5 +116,77 @@ export function ActivityCard({
         />
       )}
     </article>
+  )
+}
+
+interface ActivityCardContentProps {
+  activity: ActivityCardFields
+  overlapping?: boolean
+}
+
+/**
+ * The body of a card without its frame, grip or menu: time and type, title, place, note, and the footer with cost
+ * and booking link when there is one. Shared by the itinerary card and the read-only card of the public trip page.
+ */
+export function ActivityCardContent({ activity, overlapping = false }: ActivityCardContentProps) {
+  const time = formatTimeRange(activity)
+  const route = ACTIVITY_ROUTE[activity.type]
+  const place = formatPlace(activity)
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="tabular inline-flex items-center gap-1 text-[15px] leading-6 font-semibold text-ink">
+          {overlapping && (
+            <>
+              <TriangleAlert aria-hidden className="size-3.5 text-warning" />
+              <span className="sr-only">Trùng giờ với hoạt động khác, </span>
+            </>
+          )}
+          {time ?? <span className="text-sm font-normal text-gray-400">Chưa đặt giờ</span>}
+        </span>
+        <span
+          className={`inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs leading-none font-medium ${route.chip}`}
+        >
+          <route.Icon aria-hidden className="size-3" />
+          {ACTIVITY_TYPE_LABELS[activity.type]}
+        </span>
+      </div>
+      <h4 className="text-lg leading-6 font-semibold wrap-anywhere text-ink">{activity.title}</h4>
+      {place && (
+        <p className="flex items-start gap-1 text-[13px] leading-5 text-gray-600">
+          <MapPin aria-hidden className="mt-[3px] size-3.5 shrink-0 text-gray-400" />
+          <span className="sr-only">Địa điểm: </span>
+          <span className="wrap-anywhere">{place}</span>
+        </p>
+      )}
+      {activity.note && <ExpandableText text={activity.note} className="max-w-[68ch] text-[13px] leading-5 text-gray-600" />}
+      {/* != null: a public activity leaves cost and link out entirely (undefined), an itinerary one sends null */}
+      {(activity.costAmount != null || activity.bookingUrl) && (
+        // Footer under a rule: what it costs on the left, where to book on the right
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-tide pt-2.5 text-[13px] leading-5">
+          {activity.costAmount != null && activity.currency ? (
+            <span className="text-gray-500">
+              Chi phí dự kiến:{' '}
+              <span className="tabular font-semibold text-jade-dark">
+                {formatMoney(activity.costAmount, activity.currency)}
+              </span>
+            </span>
+          ) : (
+            <span />
+          )}
+          {activity.bookingUrl && (
+            <a
+              href={activity.bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-control font-medium text-jade-dark hover:underline focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+            >
+              Link đặt chỗ
+              <ExternalLink aria-hidden className="size-3.5" />
+            </a>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

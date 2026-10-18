@@ -20,6 +20,8 @@ const FOCUSABLE =
  * The focus starts on the first control of the content, not on the "×" button (UI_GUIDE 7.6).
  * Children mount only while open, so a form inside starts fresh every time.
  * On phones the dialog sits at the bottom edge like a sheet, at most 90% of the screen height.
+ * Content taller than that scrolls on its own under the title and "×", which stay in place (Task 4.5): the way out
+ * never scrolls away.
  */
 export function Modal({ open, title, onClose, size = 'md', children }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -48,16 +50,22 @@ export function Modal({ open, title, onClose, size = 'md', children }: ModalProp
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      // Esc: let the parent decide (it may be busy saving) instead of the browser closing on its own
+      // Esc: let the parent decide (it may be busy saving) instead of the browser closing on its own. The browser
+      // sends Esc to the top dialog only, but React passes the event on to every component above, so a dialog
+      // opened inside another one (a confirmation over a form) would also close the one below; it stops here
+      // (BUG-UI-011)
       onCancel={(event) => {
         event.preventDefault()
+        event.stopPropagation()
         onClose()
       }}
-      className={`mx-auto mb-0 mt-auto max-h-[90vh] w-full max-w-none overflow-y-auto rounded-t-panel border border-tide bg-white p-6 text-ink shadow-lg backdrop:bg-ink/45 sm:m-auto sm:w-[calc(100%-2rem)] sm:rounded-panel ${WIDTHS[size]}`}
+      // A column only while open ("open:"): a display set on the closed dialog would override the browser rule
+      // that hides it
+      className={`mx-auto mb-0 mt-auto max-h-[90vh] w-full max-w-none overflow-hidden rounded-t-panel border border-tide bg-white p-0 text-ink shadow-lg backdrop:bg-ink/45 open:flex open:flex-col sm:m-auto sm:w-[calc(100%-2rem)] sm:rounded-panel ${WIDTHS[size]}`}
     >
       {open && (
-        <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
+        <>
+          <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-6 pb-4">
             <h2 id={titleId} className="text-lg leading-[26px] font-semibold text-ink">
               {title}
             </h2>
@@ -71,8 +79,9 @@ export function Modal({ open, title, onClose, size = 'md', children }: ModalProp
               <X aria-hidden className="size-4" />
             </button>
           </div>
-          {children}
-        </div>
+          {/* The only part that scrolls. min-h-0 lets it shrink below its content inside the column */}
+          <div className="min-h-0 space-y-4 overflow-y-auto px-6 pb-6">{children}</div>
+        </>
       )}
     </dialog>
   )

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, Clock, MapPin } from 'lucide-react'
+import { CalendarDays, Clock, MapPin, UserRound } from 'lucide-react'
 import { Badge } from '../../components/Badge'
 import { Skeleton } from '../../components/Skeleton'
 import { useToday } from '../../hooks/useToday'
 import { countDays, formatDateRange } from '../../lib/format'
+import { useAuthStore } from '../../stores/authStore'
 import type { TripSummary } from '../../types/trip'
 import { cardForecastTarget } from '../weather/cardForecast'
 import { TripCardWeather } from '../weather/TripCardWeather'
@@ -14,9 +15,13 @@ import { TRIP_STATUS_LABELS, TRIP_STATUS_TONES } from './tripStatus'
  * destination bottom-left, then title, dates and length. No gradient over the photo: the labels have
  * their own solid backgrounds. The footer also carries the weather of a trip in progress or about to start;
  * only those cards ask the server for a forecast.
+ * A trip somebody else owns (the caller is a member) has a "Được chia sẻ" badge top-left and the owner's name
+ * under the dates.
  */
 export function TripCard({ trip }: { trip: TripSummary }) {
   const forecastTarget = cardForecastTarget(trip, useToday())
+  const myId = useAuthStore((s) => s.user?.id)
+  const isShared = myId !== undefined && trip.ownerId !== myId
   return (
     <Link
       to={`/trips/${trip.id}`}
@@ -28,6 +33,13 @@ export function TripCard({ trip }: { trip: TripSummary }) {
         ) : (
           <div className="flex size-full items-center justify-center text-gray-300" aria-hidden>
             <MapPin className="size-10" strokeWidth={1.5} />
+          </div>
+        )}
+        {isShared && (
+          <div className="absolute top-3 left-3">
+            <Badge tone="info" surface="solid">
+              Được chia sẻ
+            </Badge>
           </div>
         )}
         <div className="absolute top-3 right-3">
@@ -54,6 +66,12 @@ export function TripCard({ trip }: { trip: TripSummary }) {
           <CalendarDays aria-hidden className="size-4 shrink-0" />
           {formatDateRange(trip.startDate, trip.endDate)}
         </p>
+        {isShared && (
+          <p title={trip.ownerName} className="flex min-w-0 items-center gap-1.5 text-sm text-gray-600">
+            <UserRound aria-hidden className="size-4 shrink-0" />
+            <span className="truncate">Của {trip.ownerName}</span>
+          </p>
+        )}
         {/* Short of room (three narrow columns), the weather goes to a second line, still on the right */}
         <p className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-tide pt-3 text-[13px] text-gray-600">
           <span className="inline-flex items-center gap-1.5">

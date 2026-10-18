@@ -4,14 +4,18 @@ import { CalendarDays, ChevronLeft, Clock, MapPin, Wallet } from 'lucide-react'
 import { getTrip } from '../api/trips'
 import { getApiError, getErrorMessage } from '../api/errors'
 import { Alert } from '../components/Alert'
+import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ExpandableText } from '../components/ExpandableText'
 import { Skeleton } from '../components/Skeleton'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
+import { ShareButton } from '../features/sharing/ShareDialog'
+import { canEditTrip, showsRoleBadge, TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from '../features/sharing/tripRole'
 import { useToday } from '../hooks/useToday'
 import { CompleteTripPrompt } from '../features/trips/CompleteTripPrompt'
 import { TripActions } from '../features/trips/TripActions'
 import { TripStatusSelect } from '../features/trips/TripStatusSelect'
+import { TRIP_STATUS_LABELS, TRIP_STATUS_TONES } from '../features/trips/tripStatus'
 import { countDays, formatDateRange, formatMoney } from '../lib/format'
 import { openingDayIndex } from '../lib/tripDates'
 
@@ -54,6 +58,9 @@ export function TripDetailPage() {
     return <Navigate to={`/trips/${trip.id}/days/${opening}`} replace />
   }
 
+  // A viewer reads the trip: no control that would only end in a 403 (design.md 6.2)
+  const canEdit = canEditTrip(trip.myRole)
+
   return (
     <div className="space-y-6">
       <BackLink />
@@ -68,18 +75,41 @@ export function TripDetailPage() {
         {/* Title takes the free width and stops at two lines; status and actions keep one fixed spot on the
             right (on their own row under the title on narrow screens), whatever the title length */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          {/* data-page-top: "Lên đầu trang" puts the focus back here */}
-          <h1
-            title={trip.title}
-            data-page-top
-            tabIndex={-1}
-            className="line-clamp-2 min-w-0 flex-1 text-[32px] leading-10 font-bold tracking-[-0.02em] wrap-anywhere text-ink focus:outline-none"
-          >
-            {trip.title}
-          </h1>
-          <div className="flex shrink-0 items-center justify-end gap-2 sm:pt-1">
-            <TripStatusSelect trip={trip} />
-            <TripActions trip={trip} />
+          {/* The role badge follows a short title and stays on the first line of a long one */}
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            {/* data-page-top: "Lên đầu trang" puts the focus back here */}
+            <h1
+              title={trip.title}
+              data-page-top
+              tabIndex={-1}
+              className="line-clamp-2 min-w-0 text-[32px] leading-10 font-bold tracking-[-0.02em] wrap-anywhere text-ink focus:outline-none"
+            >
+              {trip.title}
+            </h1>
+            {showsRoleBadge(trip.myRole, trip.members.length) && (
+              // 10px down: centred on the 40px first line of the title
+              <span className="pt-2.5">
+                <Badge tone={TRIP_ROLE_TONES[trip.myRole]}>{TRIP_ROLE_LABELS[trip.myRole]}</Badge>
+              </span>
+            )}
+          </div>
+          {/* Wraps on the narrowest phones rather than pushing past the edge */}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-1">
+            {canEdit ? (
+              <>
+                <TripStatusSelect trip={trip} />
+                <ShareButton trip={trip} />
+                <TripActions trip={trip} />
+              </>
+            ) : (
+              <>
+                {/* Read-only status: centred on the first line of the title like the select it replaces */}
+                <span className="sm:pt-1.5">
+                  <Badge tone={TRIP_STATUS_TONES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
+                </span>
+                <ShareButton trip={trip} />
+              </>
+            )}
           </div>
         </div>
         <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
@@ -107,8 +137,9 @@ export function TripDetailPage() {
         {trip.description && <ExpandableText text={trip.description} className="max-w-[68ch] text-gray-600" />}
       </header>
 
-      {/* key: "Để sau" is remembered per trip, a different trip asks its own question */}
-      <CompleteTripPrompt key={trip.id} trip={trip} />
+      {/* key: "Để sau" is remembered per trip, a different trip asks its own question. A viewer is never asked:
+          they cannot change the status */}
+      {canEdit && <CompleteTripPrompt key={trip.id} trip={trip} />}
 
       <DayTimeline
         tripId={trip.id}
@@ -116,6 +147,7 @@ export function TripDetailPage() {
         currentDayIndex={currentDayIndex}
         tripCurrency={trip.currency}
         destinationName={trip.destinationName}
+        canEdit={canEdit}
         destination={
           trip.destinationLat !== null && trip.destinationLng !== null
             ? { lat: trip.destinationLat, lng: trip.destinationLng }
