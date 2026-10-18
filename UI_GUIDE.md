@@ -373,7 +373,7 @@ Ba phần: hình minh hoạ nét đơn hai màu (bản đồ gấp có tuyến �
 | Chưa có chuyến đi | "Chưa có chuyến đi nào. Tạo chuyến đầu tiên để bắt đầu lên lịch trình." | Tạo chuyến đi | **Đã làm** |
 | Lọc không ra kết quả | "Không tìm thấy chuyến đi nào phù hợp. Thử từ khoá khác hoặc bỏ bớt bộ lọc." | Xoá bộ lọc | **Đã làm** |
 | Ngày chưa có hoạt động | "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." (khung nét đứt trên ray) | Thêm hoạt động | **Đã làm** |
-| Chưa mời ai | "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." | Mời thành viên | **Phase 4** |
+| Chưa mời ai (hộp chia sẻ, chỉ có dòng của chủ) | "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." | — không có nút: form "Mời" nằm ngay trên, mỗi màn một nút chính (chốt 2026-10-18, Task 4.5) | **Phase 4** |
 | Chưa có chi phí | "Chưa ghi khoản nào. Thêm chi phí để theo dõi ngân sách." | Thêm chi phí | **Phase 7** |
 
 ### 7.10. Ghi chú dài — `ExpandableText`
@@ -1058,49 +1058,81 @@ one jade teardrop marker; a helper line "Tìm theo tên hoặc bấm lên bản 
 and, after a choice, the coordinates in small tabular text "16.0544, 108.2022".
 ```
 
-#### Phase 4 — Task 4.5: chia sẻ và thành viên (rà 2026-10-06)
+#### Phase 4 — Task 4.5: chia sẻ và thành viên (rà 2026-10-06, sửa 2026-10-18)
 
-**Dữ liệu có thật:** thành viên: tên, email, ảnh đại diện, vai trò (Chủ sở hữu / Chỉnh sửa / Chỉ xem), trạng thái lời mời (đang chờ); liên kết chia sẻ: chỉ quyền xem, ngày hết hạn (tuỳ chọn), số lượt xem, thu hồi. **Không có hạn mức** số thành viên hay số liên kết (design 9, chốt 2026-10-06). Thành viên không phải chủ chỉ thấy danh sách thành viên.
-**Không được thêm:** nhóm thành viên, phân quyền theo từng ngày, trò chuyện trực tiếp, ô chọn quyền của liên kết (chỉ có xem), công tắc bật / tắt liên kết (tạo và thu hồi là hai nút), ảnh thành viên ở ngoài hộp thoại.
+**Dữ liệu có thật:** thành viên: tên (lời mời gửi tới email chưa có tài khoản thì chưa có tên), email, ảnh đại diện (thường chưa có: hiện chữ cái đầu), vai trò (Chủ sở hữu / Chỉnh sửa / Chỉ xem), trạng thái lời mời (đang chờ) và ngày mời; liên kết chia sẻ: chỉ quyền xem, ngày hết hạn (tuỳ chọn), đã hết hạn hay chưa, số lượt xem, thu hồi. **Không có hạn mức** số thành viên hay số liên kết (design 9, chốt 2026-10-06). Thành viên không phải chủ chỉ thấy danh sách thành viên.
+**Không được thêm:** nhóm thành viên, phân quyền theo từng ngày, trò chuyện trực tiếp, ô chọn quyền của liên kết (chỉ có xem), công tắc bật / tắt liên kết (tạo và thu hồi là hai nút), ảnh thành viên ở ngoài hộp thoại, ngày hết hạn của lời mời (API không trả), nút "Mời thành viên" ở trạng thái rỗng (form "Mời" đã ở ngay trên).
+
+Hộp thoại của chủ chuyến:
 
 ```
-A panel titled "Chia sẻ chuyến đi" opened from the trip detail header (dialog 640px).
-Section "Mời thành viên": an email input, a role select "Chỉnh sửa" / "Chỉ xem" and a jade
-button "Mời".
-A list of 3 members: 32px avatar, name, email in muted text, a role select and a remove
-icon button. The owner row shows a "Chủ sở hữu" badge and no select. One pending invite
-shows an amber badge "Đang chờ" and a ghost button "Gửi lại".
-A 1px divider, then section "Liên kết chia sẻ" with a secondary button "Tạo liên kết" and an
-optional expiry date field. Below it one link row: a read-only URL field with a "Sao chép"
-button, a muted line "Ai có liên kết đều xem được chuyến đi này." and "12 lượt xem", and a
-ghost-danger button "Thu hồi".
+A dialog 640px titled "Chia sẻ chuyến đi" over the trip detail page.
+Section "Mời thành viên": one row with an email input, a role select "Chỉnh sửa" / "Chỉ xem"
+and a jade primary button "Mời".
+Section "Thành viên (4)": rows with a 32px round avatar (initials on a light jade circle when
+there is no photo), name, email in muted 13px text, and on the right a small role select and a
+gray icon button "Gỡ". The owner row has a "Chủ sở hữu" badge instead of the select and no
+remove button. One pending invite with no account: initials from the email, only the email as
+text, an amber badge "Đang chờ", a muted line "Đã mời 12/10" and a ghost button "Gửi lại".
+A 1px divider, then section "Liên kết chia sẻ" with the muted line "Ai có liên kết đều xem được
+chuyến đi, không cần tài khoản.", an optional date field "Hết hạn sau ngày" and a secondary
+button "Tạo liên kết". Two link rows: a read-only URL field with a "Sao chép" button, under it
+"12 lượt xem · Không hết hạn" and a small red outline button "Thu hồi". The second row has a
+gray badge "Hết hạn" and "3 lượt xem · Hết hạn ngày 10/10".
 ```
 
-Trạng thái rỗng: "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." + nút "Mời thành viên".
+Hộp thoại của thành viên không phải chủ (dựng như biến thể của hộp trên):
 
-Ngoài hộp thoại, cùng task: huy hiệu vai trò cạnh tên chuyến (`Badge`: Chủ sở hữu `brand`, Chỉnh sửa `info`, Chỉ xem `neutral`); người chỉ xem không thấy nút Sửa / Xoá / Thêm hoạt động / tay kéo / menu "⋮" / ô đổi trạng thái; thẻ ở danh sách có huy hiệu "Được chia sẻ · của {tên chủ}" (`info`).
+```
+The same dialog seen by a member who is not the owner, titled "Thành viên chuyến đi": only the
+member list, each row with a role badge instead of a select, no remove buttons, no invite form,
+no share link section.
+```
+
+Trạng thái rỗng (danh sách chỉ có dòng của chủ): câu "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." dưới form mời, không có nút (mục 7.9).
+
+Ngoài hộp thoại, cùng task (không cần mockup): nút phụ "Chia sẻ" (icon `Share2`, chủ chuyến) hoặc "Thành viên" (icon `Users`, thành viên khác) ở đầu trang chi tiết; huy hiệu vai trò cạnh tên chuyến (`Badge`: Chủ sở hữu `brand`, Chỉnh sửa `info`, Chỉ xem `neutral`), chỉ khi chuyến có thành viên khác hoặc người xem không phải chủ; người chỉ xem không thấy nút Sửa / Xoá / Thêm hoạt động / tay kéo / menu "⋮" / ô đổi trạng thái và không được hỏi "Hoàn thành chuyến đi?"; thẻ ở danh sách có huy hiệu "Được chia sẻ · của {tên chủ}" (`info`).
 
 #### Phase 4 — Task 4.5: trang nhận lời mời (`/invite?trip=&token=`)
 
-**Dữ liệu có thật:** kết quả của `POST /members/accept`. Trang không có form: mở ra là gọi ngay.
+**Dữ liệu có thật:** kết quả của `POST /members/accept` và email của tài khoản đang đăng nhập. Trang không có form: mở ra là gọi ngay. Máy chủ không trả email được mời khi từ chối, nên trang không ghi được email đó.
 
 ```
 A small centered card 420px on the paper background, app logo above it. While accepting: a
 spinner and "Đang nhận lời mời…". On success the page navigates to the trip. Two error
-states, each with an icon and a secondary button: "Lời mời không còn hiệu lực" with "Về
-danh sách chuyến đi", and "Lời mời này dành cho email khác" with "Đăng xuất để đổi tài khoản".
+states, each with an icon, a short explanation and a secondary button:
+"Lời mời không còn hiệu lực" with the line "Lời mời đã được dùng, đã hết hạn hoặc đã bị huỷ.
+Nhờ chủ chuyến đi gửi lại." and the button "Về danh sách chuyến đi";
+"Lời mời này dành cho email khác" with the line "Bạn đang đăng nhập bằng an@example.com." and
+the button "Đăng xuất để đổi tài khoản".
 ```
+
+Cùng task (không cần mockup): trang đăng nhập / đăng ký mở từ link mời có thêm một dòng hướng dẫn "Đăng nhập (hoặc đăng ký) bằng đúng email được mời. Tài khoản mới: xác thực email xong thì mở lại link trong mail mời."
 
 #### Phase 4 — Task 4.5: trang chuyến đi công khai (`/share/:token`)
 
-**Dữ liệu có thật:** như màn F nhưng chỉ đọc; không có thông tin tài khoản của người xem, không có tên chủ chuyến, không có thời tiết và quãng đường (chưa có endpoint công khai).
+**Dữ liệu có thật:** như màn F nhưng chỉ đọc: tên, mô tả, điểm đến, ngày đi, các ngày (tiêu đề của ngày, không có ghi chú của ngày) và hoạt động (giờ, loại, tên, ghi chú, địa điểm). Không có thông tin tài khoản của người xem, tên chủ chuyến, thành viên, bình luận, chi phí, link đặt chỗ, thời tiết và quãng đường (chưa có endpoint công khai).
+**Không được thêm:** thanh điều hướng của ứng dụng, chuyển ngày bằng cột trái hay chip (mọi ngày nằm trên một trang), số thứ tự và đường nối trên bản đồ (chốt 2026-10-18), nút thích / chia sẻ mạng xã hội, số lượt xem.
 
 ```
-Public read-only trip page, one column 760px centered, no app navigation. At the top a
-small logo. Trip title 32px/700, the facts line with icons, the description.
-The day-by-day rail as in the app, without drag handles, "⋮" menus or add buttons.
-A static map (not sticky) after the summary. At the very end a centered secondary button
-"Tạo chuyến đi của bạn" and a small line "Được chia sẻ qua Smart Trip Planner".
+Public read-only trip page, no app navigation, paper background, a small logo at the top left.
+One column 760px centered: trip title 32px/700, the facts line with icons (destination, dates,
+number of days), the description with "Đọc thêm".
+A map card 320px high with every place of the trip: teardrop markers in the colour of the
+activity type, no numbers, no connecting line.
+Then every day in order: "Ngày 1 · Thứ năm, 12/03" and the day title in jade, then the timeline
+rail with activity cards (time, type chip, title, place row, note), without drag handles, "⋮"
+menus, add buttons, costs or booking links. An empty day shows a muted line "Chưa có hoạt động".
+At the end a centered secondary button "Tạo chuyến đi của bạn", a small line "Được chia sẻ qua
+Smart Trip Planner" and "Bản đồ và địa điểm © OpenStreetMap".
+```
+
+Trạng thái lỗi (liên kết sai, đã thu hồi, hết hạn, chuyến đã xoá: cùng một trang):
+
+```
+The same public page frame with only a small centered card 420px: a link-off icon, the title
+"Liên kết không còn hiệu lực", the line "Liên kết đã bị thu hồi, đã hết hạn, hoặc chuyến đi
+không còn." and a secondary button "Tạo chuyến đi của bạn".
 ```
 
 #### Phase 4 — Task 4.6: bình luận

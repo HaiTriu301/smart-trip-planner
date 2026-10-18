@@ -2438,42 +2438,105 @@ Mốc 8 — test(comment): add comment flow integration test                    
 
 Nhánh: `feat/T4.5-sharing-ui` · Test ghi vào `docs/testing/11-sharing-ui.md` (file mới, gồm cả 4.6). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh. Dựng mockup Stitch trước theo prompt ở UI_GUIDE 15.3 (như 3.6, 3.7), chủ dự án duyệt rồi mới code; dừng xem trên trình duyệt sau mỗi màn.
 
+> **Rà lại bảng commit (2026-10-18, chủ dự án duyệt):** 8 mốc của bản rà Phase 4 thành 17 commit code theo A.2:
+> - Mốc 1 cũ tạo `api/members.ts` mà chưa ai dùng (A.2 điểm 3): file này vào mốc "Mời".
+> - "Chỉ xem" (Mốc 2 cũ, khoảng 10 file) tách ba: huy hiệu vai trò / các nút ở đầu trang / lịch trình.
+> - Đổi vai trò và gỡ là hai commit (điểm tách e); "Gửi lại" lời mời là commit riêng.
+> - Liên kết (Mốc 6 cũ) tách ba: xem + sao chép / tạo / thu hồi. Trang công khai tách hai: trang / bản đồ, có một commit refactor `ActivityCard` đứng trước.
+> - "Nhận lời mời" lên ngay sau "Mời": từ đó chủ dự án tự tạo VIEWER / EDITOR thật qua giao diện để thử các mốc sau.
+>
+> Quyết định cùng ngày (UI_GUIDE 7.9, 15.3 và design.md 15 sửa trong commit docs này):
+> 1. **Người được mời chưa có tài khoản:** đường quay lại `/invite` được giữ khi chuyển qua lại Đăng nhập ↔ Đăng ký, kèm dòng hướng dẫn "đăng ký bằng đúng email được mời, xác thực xong thì mở lại link trong mail mời". **Không** lưu token mời trong trình duyệt (`localStorage`): mail xác thực mở ở tab khác nên không tự quay lại được; chấp nhận người dùng bấm lại link mời một lần.
+> 2. **Bản đồ trang công khai:** một bản đồ cho cả chuyến, marker theo màu loại hoạt động, **không số, không đường nối** (mọi ngày nằm trên một trang; UI_GUIDE 9 không nối giữa các ngày). Bản đồ trong ứng dụng (chủ, EDITOR, VIEWER) không đổi.
+> 3. **Thành viên không phải chủ** thấy nút "Thành viên" (icon `Users`) mở cùng hộp thoại, tiêu đề "Thành viên chuyến đi", chỉ có danh sách; chủ thấy "Chia sẻ" (icon `Share2`). Cả hai là nút phụ: nút chính của trang vẫn là "Thêm hoạt động".
+> 4. **Huy hiệu vai trò cạnh tên chuyến** chỉ hiện khi chuyến có thành viên khác hoặc người xem không phải chủ; chuyến chỉ có mình chủ không có huy hiệu "Chủ sở hữu".
+> 5. Đổi vai trò lưu ngay khi chọn (không có nút Lưu). Gỡ thành viên và thu hồi liên kết đi qua `ConfirmDialog`; trên dòng đang chờ, nút gỡ đọc là "Huỷ lời mời". Dòng đang chờ ghi "Đã mời dd/mm" (API không trả ngày hết hạn của lời mời; không sửa backend). Ngày hết hạn của liên kết chỉ chọn ngày: liên kết dùng được hết ngày đó theo múi giờ tài khoản. Mở lại link mời khi đã là thành viên (400): thử tải chuyến đi, được thì vào thẳng kèm toast. Trang công khai có dòng ghi nguồn OpenStreetMap ở chân trang. Trạng thái rỗng "Chưa mời ai" trong hộp thoại không có nút (form "Mời" nằm ngay trên; mỗi màn một nút chính). Nút "Thu hồi" dùng `danger` cỡ `sm`, không thêm kiểu nút mới.
+>
+> Bẫy biết trước: (1) `/invite` gọi `accept` ngay khi mở, StrictMode chạy effect hai lần mà token chỉ dùng được một lần: phải gọi đúng một lần, lần thứ hai không được hiện lỗi giả "Lời mời không còn hiệu lực". (2) Trang công khai không tự tải lại (khi quay lại tab, khi lỗi): mỗi lần gọi là một lượt xem (design 10.2). (3) Người chỉ xem không được hỏi "Hoàn thành chuyến đi?" (`PATCH /status` → 403); câu 'Đặt vị trí điểm đến trong "Sửa" chuyến đi…' ở bản đồ và thẻ thời tiết ẩn với họ. (4) `navigator.clipboard` chỉ chạy trên HTTPS hoặc localhost: ô URL vẫn chọn được để chép tay. (5) `ConfirmDialog` mở chồng trên hộp chia sẻ: thử Esc và focus trên trình duyệt.
+> Không có thay đổi backend. Test tự động chỉ cho hàm thuần (`tripRole`, `initials`, `inviteParams`, `shareUrl`, `linkExpiry`); phần còn lại là bài thủ công trong `11-sharing-ui.md`.
+
 ```
-Mốc 1 — feat(frontend): mark the trips shared with me
-        api/members.ts, types/member.ts (TripRole, MemberResponse), TripSummary thêm ownerId / ownerName; TripCard: huy hiệu
-        "Được chia sẻ" + "của {ownerName}" khi ownerId ≠ tôi (Badge tông info)
+Mốc 0 — docs (main): WORKFLOW.md bảng này; UI_GUIDE 7.9, 15.3 (prompt Stitch theo các quyết định); design.md 15
 
-Mốc 2 — feat(frontend): show the trip read-only to viewers
-        TripDetailPage đọc myRole: VIEWER → ẩn Sửa / Xoá / Thêm hoạt động / kéo thả / menu "⋮" / ô đổi trạng thái; huy hiệu
-        vai trò cạnh tên chuyến (OWNER brand, EDITOR info, VIEWER neutral); EDITOR ẩn Xoá (đã có isOwner)
+Mốc 1 — feat(frontend): mark the trips shared with me                                               (3 file)
+        types/trip.ts TripSummary thêm ownerId / ownerName; TripCard: huy hiệu "Được chia sẻ" (Badge info) và
+        "của {ownerName}" khi ownerId ≠ tôi; UI_GUIDE 8.2
 
-Mốc 3 — feat(frontend): open the sharing dialog with the member list
-        nút "Chia sẻ" (icon Share2) ở đầu trang chi tiết; features/sharing/ShareDialog.tsx (Modal 640px) với danh sách thành
-        viên: ảnh 32px, tên, email, huy hiệu vai trò; chủ có "Chủ sở hữu"; PENDING có huy hiệu "Đang chờ"; thành viên chỉ
-        thấy danh sách; trạng thái rỗng theo UI_GUIDE 7.9
+Mốc 2 — feat(frontend): show my role on the trip page                                               (6 file)
+        types/member.ts (TripRole, MemberStatus, Member), types/trip.ts TripDetail thêm members / myRole;
+        features/sharing/tripRole.ts (nhãn, tông: OWNER brand, EDITOR info, VIEWER neutral; luật hiện huy hiệu của
+        quyết định 4) + test; TripDetailPage: huy hiệu cạnh tên chuyến; UI_GUIDE 8.1
 
-Mốc 4 — feat(frontend): invite a member
-        features/sharing/InviteMemberForm.tsx (email + vai trò, zod, nút chính "Mời"), 409 → lỗi ở ô email, nút "Gửi lại"
-        cho dòng PENDING gọi lại POST
+Mốc 3 — feat(frontend): hide the trip header controls from viewers                                  (6 file)
+        tripRole.canEdit + test; TripActions: "Sửa" chỉ khi canEdit, "Xoá" theo myRole = OWNER (thay cho so ownerId);
+        TripStatusSelect: VIEWER thấy huy hiệu trạng thái thay cho ô chọn; CompleteTripPrompt không hỏi VIEWER;
+        UI_GUIDE 8.1
 
-Mốc 5 — feat(frontend): change a role or remove a member
-        ô chọn vai trò trên từng dòng (chủ mới thấy), nút gỡ + ConfirmDialog; sau gỡ invalidate ['trip', id] và danh sách
+Mốc 4 — feat(frontend): show the itinerary read-only to viewers                                     (6 file)
+        DayTimeline, DaySection, DragDropContainer: VIEWER không có tay kéo / nút ↑↓ / thả lên tên ngày / menu "⋮" /
+        "Sửa" ngày / "Thêm hoạt động"; ngày trống chỉ ghi "Chưa có hoạt động"; DayMap, WeatherStrip ẩn câu chỉ tới
+        "Sửa" chuyến đi; UI_GUIDE 8.1
 
-Mốc 6 — feat(frontend): create, copy and revoke share links
-        api/shareLinks.ts; mục "Liên kết chia sẻ" trong ShareDialog: nút "Tạo liên kết" (ngày hết hạn tuỳ chọn), danh sách
-        liên kết: URL chỉ đọc {origin}/share/{token} + "Sao chép" (navigator.clipboard, toast), "12 lượt xem", nhãn "Hết hạn",
-        nút ghost-danger "Thu hồi"; lib/shareUrl.ts + test
+Mốc 5 — feat(frontend): open the sharing dialog with the member list                                (7 file)
+        components/Avatar.tsx (ảnh, hoặc chữ cái đầu), lib/initials.ts + test; features/sharing/ShareDialog.tsx
+        (Modal lg), MemberList.tsx: ảnh 32px, tên (chưa có tài khoản: chỉ email), email, huy hiệu vai trò, "Đang chờ";
+        danh sách lấy từ trip.members đã tải, không gọi GET /members; nút "Chia sẻ" / "Thành viên" ở đầu trang
+        (quyết định 3) trong TripDetailPage; UI_GUIDE 8.1, 15.2
 
-Mốc 7 — feat(frontend): accept an invitation from the mail link
-        route /invite trong ProtectedRoute (GuestRoute / login giữ ?redirect về /invite?...); pages/InvitePage.tsx: gọi
-        accept ngay khi mở, thành công → navigate /trips/{id} + toast; 400 / 404 (chuyến đã xoá, Task 4.3) → "Lời mời không còn hiệu lực"; 403 → "Lời mời
-        này dành cho email khác" kèm nút đăng xuất; lib/inviteParams.ts + test
+Mốc 6 — feat(frontend): invite a member                                                             (5 file)
+        api/members.ts invite, types/member.ts InviteMemberRequest, features/sharing/schemas.ts (zod),
+        InviteMemberForm.tsx (email + vai trò, nút chính "Mời"); ShareDialog: form chỉ cho chủ, trạng thái rỗng không
+        nút; 409 và email của chủ → lỗi ở ô email; invalidate ['trip', id]; toast "Đã gửi lời mời"
 
-Mốc 8 — feat(frontend): public trip page
-        route /share/:token ngoài AppLayout và ngoài guard; api/public.ts, types/publicTrip.ts; pages/PublicTripPage.tsx theo
-        UI_GUIDE 8.5: một cột 760px, logo nhỏ, tiêu đề, dòng thông tin, mô tả, ray thời gian từng ngày không có tay kéo / menu /
-        nút thêm, bản đồ tĩnh (MapFrame, mọi địa điểm của chuyến) sau phần tóm tắt, cuối trang nút phụ "Tạo chuyến đi của bạn"
-        + "Được chia sẻ qua Smart Trip Planner"; 404 → trang "Liên kết không còn hiệu lực"
+Mốc 7 — feat(frontend): accept an invitation from the mail link                                     (5 file)
+        App.tsx: route /invite trong ProtectedRoute, ngoài AppLayout; pages/InvitePage.tsx: gọi accept đúng một lần;
+        thành công → /trips/{id} + toast, invalidate ['trips']; 400 → thử tải chuyến đi (đã là thành viên → vào thẳng),
+        không được → "Lời mời không còn hiệu lực"; 404 → cùng câu; 403 → "Lời mời này dành cho email khác" + nút
+        đăng xuất (ProtectedRoute tự đưa về /login rồi quay lại /invite); api/members.ts accept; lib/inviteParams.ts
+        + test
+
+Mốc 8 — feat(frontend): bring the invited user back after login or register                         (4 file)
+        LoginPage / RegisterPage giữ state.from khi chuyển qua lại; đến từ /invite → dòng hướng dẫn (quyết định 1);
+        trang "Kiểm tra hộp thư" nhắc mở lại link trong mail mời; UI_GUIDE 8.3
+
+Mốc 9 — feat(frontend): resend a pending invitation                                                 (2 file)
+        MemberList: dòng PENDING ghi "Đã mời dd/mm" + nút ghost "Gửi lại" (gọi lại POST /members cùng email và vai
+        trò); toast "Đã gửi lại lời mời"; UI_GUIDE 15.2
+
+Mốc 10 — feat(frontend): change a member's role                                                     (3 file)
+        api/members.ts changeRole, types/member.ts; MemberList: ô chọn vai trò (chỉ chủ thấy), lưu ngay khi chọn;
+        toast "Đã đổi vai trò"
+
+Mốc 11 — feat(frontend): remove a member                                                            (3 file)
+        api/members.ts remove; MemberList: nút gỡ + ConfirmDialog ("Gỡ thành viên?" / "Huỷ lời mời?"); invalidate
+        ['trip', id]; UI_GUIDE 15.2
+
+Mốc 12 — feat(frontend): list and copy the share links                                              (7 file)
+        api/shareLinks.ts list, types/shareLink.ts, lib/shareUrl.ts ({origin}/share/{token}) + test,
+        features/sharing/ShareLinkList.tsx: URL chỉ đọc + "Sao chép" (navigator.clipboard, toast), "12 lượt xem",
+        hạn dùng, huy hiệu "Hết hạn"; ShareDialog: mục "Liên kết chia sẻ" chỉ cho chủ, query chỉ chạy khi hộp mở;
+        UI_GUIDE 15.2
+
+Mốc 13 — feat(frontend): create a share link                                                        (5 file)
+        api/shareLinks.ts create, lib/linkExpiry.ts (ngày đã chọn → cuối ngày đó theo múi giờ tài khoản) + test,
+        CreateShareLinkForm.tsx (ngày hết hạn tuỳ chọn, nút phụ "Tạo liên kết"), ShareDialog; 400 expiresAt → lỗi ở ô
+
+Mốc 14 — feat(frontend): revoke a share link                                                        (3 file)
+        api/shareLinks.ts revoke; ShareLinkList: nút danger sm "Thu hồi" + ConfirmDialog; toast "Đã thu hồi liên kết"
+
+Mốc 15 — refactor(frontend): let the activity card show an activity without an id                   (~3 file)
+        ActivityCard nhận dữ liệu tối thiểu (không id, không chi phí / link đặt chỗ) để trang công khai dùng lại;
+        không đổi hành vi
+
+Mốc 16 — feat(frontend): public trip page                                                           (6 file)
+        App.tsx: route /share/:token ngoài mọi guard và ngoài AppLayout; api/public.ts, types/publicTrip.ts;
+        pages/PublicTripPage.tsx theo UI_GUIDE 8.5 (một cột 760px, logo nhỏ, mọi ngày trên một trang, thẻ chỉ đọc, nút
+        phụ "Tạo chuyến đi của bạn", dòng nguồn OpenStreetMap), features/public/PublicDay.tsx; query không tự tải lại;
+        404 → "Liên kết không còn hiệu lực"; UI_GUIDE 8.5
+
+Mốc 17 — feat(frontend): map on the public trip page                                                (3 file)
+        DayMapCanvas: tuỳ chọn tắt đường nối và số; features/public/PublicTripMap.tsx (mọi địa điểm của chuyến,
+        quyết định 2), đặt sau phần tóm tắt, không dính; UI_GUIDE 8.5, 9
 ```
 
 **Nhớ:** mỗi màn một nút chính (UI_GUIDE 7.0): trong ShareDialog là "Mời"; trang công khai không có nút chính. Không vẽ ảnh thành viên ở nơi khác ngoài hộp thoại (ảnh người đang xem là Phase 5). Cập nhật UI_GUIDE 8.1 (nút Chia sẻ, huy hiệu vai trò), 8.2 (huy hiệu "Được chia sẻ") và mục 15.2 trong cùng commit.
