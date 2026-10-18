@@ -232,12 +232,15 @@ File thật là nguồn chính xác; khối trên chỉ tóm tắt.
 
 ## 7. Thành phần
 
-Tất cả **tự viết** trong `frontend/src/components/`, không dùng shadcn/ui (chốt ở Task 2.5). Thư viện được phép:
+Tất cả nằm trong `frontend/src/components/`. **Không cài shadcn/ui** (chốt ở Task 2.5): không có CLI, `components/ui/`, `cn()` / `tailwind-merge` / `cva`. Từ Task 4.9 (2026-10-18) được **chép code của shadcn làm mẫu** cho ô chọn, khung bật ra và lịch, rồi viết lại bằng token và prop của dự án; quy tắc 7.0 giữ nguyên. Thư viện được phép:
 
 | Thư viện | Dùng cho |
 |---|---|
 | `lucide-react` | Mọi icon. Icon trang trí luôn có `aria-hidden` |
 | `@radix-ui/react-dropdown-menu` | Menu "⋮" (bàn phím, focus, trình đọc màn hình); giao diện dùng token của dự án |
+| `@radix-ui/react-select` | Ô chọn kiểu mới (Task 4.9 Mốc 5) |
+| `@radix-ui/react-popover` | Khung bật ra của ô ngày (Task 4.9 Mốc 9) |
+| `react-day-picker` | Lịch, tiếng Việt (Task 4.9 Mốc 9); không nạp CSS của thư viện |
 | `@dnd-kit/core`, `@dnd-kit/sortable` | Kéo thả hoạt động |
 
 ### 7.0. Quy tắc bắt buộc khi viết giao diện
@@ -733,6 +736,7 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 3.7 | Dải thời tiết, thời tiết trên thẻ danh sách, đoạn di chuyển giữa hai ga, ngày đã qua, hỏi hoàn thành chuyến đi (cảnh báo ngoài trời: hoãn) | Phase 3 |
 | 3.9 | Bảng màu mới cho toàn web và trang chuyến đi dạng thẻ theo mockup "Teal Voyage" (`trip-planner-screenshots/stitch_action_button_ui_redesign/`); kế hoạch và các quyết định ở `WORKFLOW.md` Task 3.9. Các mục 3, 5, 6, 8.1, 9 của file này được sửa dần theo từng commit của task | Phase 3 |
 | 4.5 | Hộp thoại chia sẻ (mời, vai trò, gỡ, liên kết), huy hiệu vai trò, chế độ chỉ xem, thẻ "Được chia sẻ", trang nhận lời mời, trang công khai | Phase 4 (rà 2026-10-06) |
+| 4.9 | Ô chọn kiểu mới (tiền tệ, ngày đích, vai trò), menu trạng thái và sắp xếp, nút gạt vai trò, ô giờ gõ nhanh, lịch chọn ngày đi – về, chip hạn liên kết, ô ghi chú tự giãn | Phase 4 (làm trước 4.6, 2026-10-18) |
 | 4.6 | Panel bình luận, bình luận trên hoạt động | Phase 4 |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
@@ -1178,6 +1182,46 @@ Trạng thái lỗi (liên kết sai, đã thu hồi, hết hạn, chuyến đã
 The same public page frame with only a small centered card 420px: a link-off icon, the title
 "Liên kết không còn hiệu lực", the line "Liên kết đã bị thu hồi, đã hết hạn, hoặc chuyến đi
 không còn." and a secondary button "Tạo chuyến đi của bạn".
+```
+
+#### Phase 4 — Task 4.9: ô chọn, ngày, giờ, ghi chú kiểu mới
+
+**Dữ liệu có thật:** 7 loại tiền (VND, USD, EUR, JPY, KRW, THB, SGD), 5 trạng thái chuyến đi (mục 3.5), 2 vai trò mời được (Chỉnh sửa, Chỉ xem), giờ dạng HH:mm, ngày đi – ngày về (chuyến tối đa theo design 9), hạn liên kết chỉ chọn ngày; ghi chú hoạt động tối đa 255 ký tự, mô tả chuyến đi tối đa 1000.
+**Không được thêm:** ô tìm trong danh sách tiền tệ, chọn giây, AM/PM, khung giờ gợi ý theo AI, chọn nhiều giá trị cùng lúc, nút "Hôm nay" trong lịch, khoá ngày đã qua ở lịch chọn ngày đi (chỉ hạn liên kết mới khoá), tấm trượt từ đáy trên điện thoại.
+
+Bảng thành phần (dựng trước, để chốt kiểu chung):
+
+```
+A component sheet on the paper background showing form controls of the app, each with a small
+caption above it. Row 1: a 40px select "Tiền tệ" closed, and the same select open as a floating
+list (white, 1px border #D5DEEE, 6px radius, soft shadow) with rows "VND · Đồng Việt Nam",
+"USD · Đô la Mỹ", "EUR · Euro"; the chosen row has a teal check on the right, the hovered row a
+light teal background. Row 2: a segmented control "Chỉnh sửa | Chỉ xem" (36px, the chosen half
+white with a soft shadow on a gray #EEF2F8 track). Row 3: a trip status badge "Đang lên kế hoạch"
+with a small chevron, and its open menu: five rows with a colored dot and label, a check on the
+current one. Row 4: a time input "09:30" focused with a floating list of times every 15 minutes,
+"09:30" highlighted; a second time input "11:00" with a muted suffix "(1 giờ 30 phút)". Row 5: a
+textarea "Ghi chú" with three lines of text and a muted counter "230 / 255" at the bottom right.
+```
+
+Lịch chọn ngày đi – ngày về (bước 2 của wizard tạo chuyến):
+
+```
+Step 2 "Ngày đi" of the create trip wizard. One field "Ngày đi – ngày về *" showing
+"12/03/2026 – 16/03/2026" with a calendar icon, under it a muted line "5 ngày 4 đêm". The field is
+open: a floating card with two months side by side in Vietnamese ("Tháng 3 2026", weekdays
+"T2 T3 T4 T5 T6 T7 CN"), the range 12–16 March filled light teal with teal solid circles on the
+start and end days, today outlined. Previous / next month arrows at the top corners.
+```
+
+Hộp chia sẻ với ô kiểu mới (biến thể của prompt Task 4.5 ở trên):
+
+```
+The "Chia sẻ chuyến đi" dialog. Invite row: email input, then the segmented control
+"Chỉnh sửa | Chỉ xem", then the jade primary button "Mời". Member rows use a small 32px select
+for the role. Section "Liên kết chia sẻ": label "Hết hạn", a row of chips "Không hết hạn"
+(selected, light teal with teal border), "7 ngày", "30 ngày", "Chọn ngày…", and a secondary button
+"Tạo liên kết".
 ```
 
 #### Phase 4 — Task 4.6: bình luận

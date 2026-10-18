@@ -954,7 +954,7 @@ Mốc 6 — feat(frontend): add drag and drop activity reorder
 > | `35b95a1` fix(frontend): collapse long notes and keep trip header in place | `ExpandableText` ("Đọc thêm" khi quá 2 dòng), cụm trạng thái + nút cố định |
 >
 > Quyết định khi làm (chi tiết ở design.md 3.2, 5.2, 10.2, 15):
-> - **Không dùng shadcn/ui** tới cuối dự án: component dùng chung tự viết trong `src/components/`.
+> - **Không dùng shadcn/ui** tới cuối dự án: component dùng chung tự viết trong `src/components/`. **Đổi ở Task 4.9 (2026-10-18):** vẫn không cài shadcn, nhưng được dùng code của nó làm mẫu cho ô chọn, khung bật ra và lịch, viết lại bằng token.
 > - Trang chi tiết **2 cột** (mục lục ngày + mọi ngày xếp dọc); cột bản đồ để Phase 3.
 > - Rule 14.3 "vừa dời vừa đổi độ dài": giao diện **hỏi lại, không chặn** — chặn thì không bỏ được ngày đầu của chuyến đi (dời rồi rút ngắn sẽ xoá ngày cuối).
 > - PATCH chưa xoá trắng được field tuỳ chọn → form **báo lỗi ngay ở ô** ("Chưa hỗ trợ xoá thông tin này…") thay vì âm thầm giữ giá trị cũ.
@@ -2573,6 +2573,83 @@ Mốc 17 — feat(frontend): map on the public trip page                        
 
 ---
 
+### Task 4.9 — Giao diện: ô chọn, ngày, giờ, ghi chú kiểu mới (làm trước 4.6)
+
+Nhánh: `feat/T4.9-form-controls` · Test ghi vào `docs/testing/12-form-controls.md` (file mới). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh. Dựng mockup Stitch trước theo prompt ở UI_GUIDE 15.3 (ảnh bỏ vào `trip-planner-screenshots/stitch_smart_trip_planner_4.9/`), chủ dự án duyệt rồi mới code; dừng xem trên trình duyệt sau mỗi mốc.
+
+> **Vì sao có task này (2026-10-18):** sau khi đóng Task 4.5, chủ dự án muốn các ô chọn (vai trò, trạng thái chuyến đi, tiền tệ, sắp xếp...), ô ghi chú và ô ngày giờ "mượt hơn thay vì chỉ sổ xuống". Claude đưa 4 phương án nền tảng (Radix tự vẽ, shadcn/ui, Headless UI, bộ giao diện đầy đủ như Mantine) và cách chọn cho từng ô; chủ dự án chọn **shadcn/ui làm mẫu**. Làm ngay, trước 4.6, để giao diện bình luận dùng luôn các ô mới (như Task 3.9 làm trước 3.8). Không có thay đổi backend: giá trị gửi lên máy chủ giữ nguyên dạng (`HH:mm`, `YYYY-MM-DD`, mã tiền tệ, tên vai trò).
+>
+> **Hiện trạng trước task:** 7 chỗ dùng `<select>` của trình duyệt (tiền tệ ở form chuyến đi và form hoạt động, chuyển sang ngày khác, vai trò ở form mời và ở dòng thành viên, trạng thái chuyến đi, sắp xếp danh sách chuyến đi); 3 ô ghi chú cao cố định (mô tả chuyến đi, ghi chú hoạt động, ghi chú ngày); ô ngày và ô giờ của trình duyệt (cách hiện giờ 24h hay AM/PM tuỳ máy). "Loại hoạt động" đã là lưới chip từ Task 3.6 (UI_GUIDE 7.13), không làm lại.
+>
+> **Quyết định (chủ dự án duyệt 2026-10-18):**
+> 1. **shadcn/ui làm mẫu, không cài:** chép code mẫu của shadcn (Select, Popover, Calendar) vào `src/components/` rồi viết lại bằng token và prop của dự án. Không chạy `npx shadcn`, không có `components/ui/`, `components.json`, `cn()` / `tailwind-merge` / `cva`; quy tắc UI_GUIDE 7.0 (không ghi đè lớp qua `className`, BUG-UI-001) giữ nguyên. Sửa câu "không dùng shadcn/ui" ở `design.md` 3.2, UI_GUIDE 7 và ghi chú ở Task 2.5.
+> 2. **Cách chọn theo số lựa chọn:** vai trò ở form mời → **nút gạt** "Chỉnh sửa | Chỉ xem"; vai trò ở dòng thành viên (hàng chật) → ô chọn kiểu mới cỡ nhỏ 32px, vẫn lưu ngay khi chọn; trạng thái chuyến đi → huy hiệu có mũi tên mở menu chấm màu, chọn là lưu ngay; sắp xếp → nút "Sắp xếp: Mới nhất" mở menu; tiền tệ ("VND · Đồng Việt Nam") và chuyển sang ngày ("Ngày 3" + dòng phụ "Thứ hai, 20/10") → ô chọn kiểu mới có dấu ✓ và dòng phụ.
+> 3. **Ngày đi – ngày về gộp thành một ô khoảng ngày:** bấm mở lịch 2 tháng (1 tháng trên màn hẹp), chọn ngày đầu rồi ngày cuối, dưới ô ghi "5 ngày 4 đêm". **Không khoá ngày đã qua** (hệ thống cho tạo chuyến trong quá khứ), chỉ đánh dấu hôm nay. Hạn liên kết: chip chọn nhanh "Không hết hạn" (mặc định) / "7 ngày" / "30 ngày" / "Chọn ngày…", chip cuối mở lịch; ngày trước hôm nay vẫn bị khoá như Task 4.5.
+> 4. **Ô giờ gõ được và có danh sách gợi ý** (kiểu Google Calendar): gõ "9" / "930" / "21h" thành 09:00 / 09:30 / 21:00, bấm vào thì sổ danh sách mỗi 15 phút, ô giờ kết thúc ghi kèm thời lượng "(1 giờ 30 phút)", luôn 24h.
+> 5. **Ô ghi chú tự giãn** từ 3 tới 8 dòng rồi mới cuộn; bộ đếm "230 / 255" chỉ hiện khi đã dùng từ 80% giới hạn.
+> 6. **Trên điện thoại** không làm tấm trượt từ đáy (cần thêm thư viện `vaul`): danh sách nổi ngay dưới ô, mỗi dòng cao 44px trên màn cảm ứng; lịch 1 tháng.
+> 7. **Hiệu ứng** mở / đóng 120–150ms (mờ dần + trượt nhẹ), vài keyframe tự viết trong `tokens.css` (không thêm `tw-animate-css`), tắt khi hệ điều hành bật giảm chuyển động.
+> 8. **Ô bật ra bên trong hộp thoại:** `Modal` đưa chính thẻ `<dialog>` của nó xuống qua một context (`components/overlayContainer.ts`); mọi danh sách và lịch bật ra vẽ vào đó thay vì cuối trang. Ghi vào CLAUDE.md §8 lúc đóng task.
+> 9. **Tài liệu test:** file mới `12-form-controls.md`; file rate limit của Task 4.7 đổi thành `13-rate-limit.md`. Test tự động chỉ cho hàm thuần (`charCounter`, `timeInput`, `duration`, `tripLength`, ngày chọn nhanh của `linkExpiry`); phần còn lại là bài thủ công (test component: Task 8.3).
+>
+> **Thư viện thêm** (`design.md` 3.2): `@radix-ui/react-select` 2.3.7 (Mốc 5), `@radix-ui/react-popover` 1.1.23 và `react-day-picker` 9.14.0 (Mốc 9, kéo theo `date-fns` 4). Hai gói Radix cùng đợt phát hành (2026-07-24) với `@radix-ui/react-dropdown-menu` 2.1.24 đang dùng, nên dùng chung một bản `@radix-ui/react-popper` 1.3.7; bản mới nhất (2.4.1 / 1.3.1) mới ra 6 ngày lúc lập kế hoạch. `react-day-picker` giữ bản 9: bản 10 ra tháng 5/2026, mẫu Calendar của shadcn viết cho bản 9.
+>
+> Bẫy biết trước: (1) **Ô bật ra nằm dưới hộp thoại:** `<dialog>` mở bằng `showModal()` nằm ở lớp trên cùng của trình duyệt; Radix mặc định vẽ khung bật ra ở cuối `<body>` nên khung hiện **dưới** hộp thoại và không bấm được (quyết định 8). (2) **Esc trong danh sách đóng luôn hộp thoại:** trình duyệt gửi `cancel` cho `<dialog>` khi nhấn Esc ở bất cứ đâu bên trong; danh sách đang mở phải chặn phím Esc (`preventDefault` + `stopPropagation` như `PlaceSearchField`) để chỉ danh sách đóng; thử trên trình duyệt ở mọi ô nằm trong hộp thoại. (3) **Ô tự vẽ không nhận `register()`** của react-hook-form (không có `ref` tới một `<input>` thật): dùng `Controller`, giữ `onTouched` (lỗi hiện khi rời ô) và đưa con trỏ tới ô khi lỗi (`setFocus`). (4) **Ngày lệch một ngày:** `new Date('2026-03-12')` đọc theo UTC; ở múi giờ âm thành ngày 11. Đổi `YYYY-MM-DD` ↔ `Date` bằng năm / tháng / ngày theo giờ máy, và "hôm nay" vẫn lấy từ `useToday` (múi giờ tài khoản). (5) `field-sizing: content` chưa có trên mọi trình duyệt: cần vài dòng JS dự phòng, không để ô ghi chú cao 1 dòng. (6) `react-day-picker` có sẵn file CSS: không nạp nó, đặt lớp token qua prop `classNames` để không có hai bộ kiểu đè nhau.
+
+```
+Mốc 0 — docs (main): WORKFLOW.md Task 4.9 + dòng bảng tiến độ, ghi chú ở Task 2.5, thứ tự ở mục "Deploy sớm",
+        tên file test của Task 4.7; design.md 3.2; UI_GUIDE 7 (bảng thư viện), 14, 15.3 (prompt Stitch)
+
+Mốc 1 — feat(frontend): grow note fields with their content                                     (4 file)
+        TextAreaField tự giãn 3 → 8 dòng rồi cuộn (field-sizing: content + JS dự phòng), bộ đếm "230 / 255" khi đã
+        dùng ≥ 80%; lib/charCounter.ts + test; UI_GUIDE 7.2. Áp cho mô tả chuyến đi, ghi chú hoạt động, ghi chú ngày
+
+Mốc 2 — feat(frontend): pick the invite role with a segmented control                           (3 file)
+        components/SegmentedControl.tsx (radio thật ẩn sau nhãn như ActivityTypeField, dùng được với register);
+        InviteMemberForm; UI_GUIDE 7.x
+
+Mốc 3 — feat(frontend): pick the trip status from a menu                                         (4 file)
+        TripStatusSelect: huy hiệu + mũi tên mở menu (react-dropdown-menu đã có), mỗi dòng chấm màu + ✓, chọn là
+        lưu; kiểu menu dùng chung với menu "⋮" (components/menuStyles.ts, ActivityMenu); UI_GUIDE 7.5, 8.1
+
+Mốc 4 — feat(frontend): sort the trip list from a menu                                           (2 file)
+        TripList: nút "Sắp xếp: Mới nhất" mở menu; UI_GUIDE 8.2
+
+Mốc 5 — feat(frontend): pick the currency from a styled list                                     (9 file)
+        package.json + package-lock.json (@radix-ui/react-select); components/Select.tsx (mẫu shadcn viết lại bằng
+        token: ô 40px, danh sách có ✓ và dòng phụ, gõ chữ để nhảy); components/overlayContainer.ts + Modal
+        (quyết định 8); styles/tokens.css (keyframe); TripFormFields, ActivityFormFields: ô Tiền tệ
+        ("VND · Đồng Việt Nam"); UI_GUIDE 7.2. Quá 8 file vì hai file gói và cặp context / Modal không tách được
+        khỏi chỗ dùng đầu tiên; hai form dùng chung currencyOptions nên đổi cùng lúc
+
+Mốc 6 — feat(frontend): pick the target day from a list with dates                              (2 file)
+        MoveToDayDialog: mỗi dòng "Ngày 3" + dòng phụ "Thứ hai, 20/10 · tiêu đề ngày"; UI_GUIDE 7.2
+
+Mốc 7 — feat(frontend): change a member's role from a compact list                              (3 file)
+        MemberList RoleSelect → Select cỡ sm; xoá components/SelectField.tsx (hết chỗ dùng); UI_GUIDE 7.2
+
+Mốc 8 — feat(frontend): type a time or pick it from a list                                      (7 file)
+        components/TimeField.tsx (gõ tự chuẩn hoá, danh sách mỗi 15 phút nổi dưới ô, bàn phím như ô tìm địa điểm,
+        thời lượng sau giờ kết thúc, luôn 24h); lib/timeInput.ts + test, lib/duration.ts + test; ActivityFormFields;
+        UI_GUIDE 7.x
+
+Mốc 9 — feat(frontend): pick the trip dates on a calendar                                       (9 file)
+        package.json + package-lock.json (react-day-picker, @radix-ui/react-popover); components/Calendar.tsx (mẫu
+        shadcn, tiếng Việt, token), components/DateRangeField.tsx (một ô "12/03 – 16/03/2026", dòng phụ "5 ngày 4
+        đêm"); lib/tripLength.ts + test; TripFormFields.TripDateFields (wizard + "Sửa chuyến đi", giữ các hộp hỏi lại
+        khi rút ngắn); UI_GUIDE 7.x, 8.4. Quá 8 file vì hai file gói
+
+Mốc 10 — feat(frontend): choose when a share link expires with quick picks                      (6 file)
+        CreateShareLinkForm: chip [Không hết hạn] [7 ngày] [30 ngày] [Chọn ngày…]; components/DatePickerField.tsx
+        (dùng lại Calendar); lib/linkExpiry thêm ngày chọn nhanh + test; features/sharing/schemas.ts; UI_GUIDE 15.2
+```
+
+Mỗi mốc thay một kiểu ô ở mọi chỗ dùng nó; phần còn lại của ứng dụng vẫn chạy với ô cũ tới mốc của nó. Số file là ước lượng (cột "File" của "Thực tế khi làm" ghi số thật).
+
+**Nhớ:** mỗi màn vẫn chỉ một nút chính (UI_GUIDE 7.0); nút gạt, chip, menu không phải nút chính. Mọi ô mới vẫn đi qua `FieldShell` (nhãn, `*`, gợi ý, lỗi, `aria-describedby`) và giữ vòng focus `jade`. Cập nhật mục UI_GUIDE của từng ô trong cùng commit.
+
+---
+
 ### Task 4.6 — Giao diện: bình luận
 
 Nhánh: `feat/T4.6-comments-ui` · Test ghi vào `docs/testing/11-sharing-ui.md`.
@@ -2607,11 +2684,11 @@ Mốc 4 — feat(frontend): delete a comment
 >
 > **Vì sao có hai task này:** chủ dự án muốn có bản chạy thật trên AWS, mở được bằng link trong CV, ngay sau Phase 4 (phương án "B+"), thay vì đợi Task 8.4 / 8.5. `design.md` 8.2 và ghi chú ở Task 3.8, 4.2 cấm mở bản công khai khi chưa có rate limit, nên phần rate limit của các endpoint **đã có** kéo lên trước (4.7), rồi mới deploy (4.8). Phần của tính năng chưa làm (mức PREMIUM, AI, WebSocket, Stripe) ở lại phase của nó và Phase 8.
 >
-> **Thứ tự:** 4.4 → 4.5 → 4.6 → **4.7 → 4.8** → rà Phase 5. Sau 4.8, mỗi lần merge vào `main` tự deploy (xem "Sau task" của 4.8).
+> **Thứ tự:** 4.4 → 4.5 → 4.9 (chen trước 4.6, 2026-10-18) → 4.6 → **4.7 → 4.8** → rà Phase 5. Sau 4.8, mỗi lần merge vào `main` tự deploy (xem "Sau task" của 4.8).
 
 ### Task 4.7 — Giới hạn tần suất cốt lõi (kéo từ Task 8.1) ⭐
 
-Nhánh: `feat/T4.7-core-rate-limit` · Test ghi vào `docs/testing/12-rate-limit.md` (file mới) và `01-platform.md` (Redis tắt). Đọc trước: **design.md 8.2, 6.3, rule 14.15**.
+Nhánh: `feat/T4.7-core-rate-limit` · Test ghi vào `docs/testing/13-rate-limit.md` (file mới; số 12 đã dùng cho Task 4.9) và `01-platform.md` (Redis tắt). Đọc trước: **design.md 8.2, 6.3, rule 14.15**.
 
 > **Quyết định (chủ dự án duyệt 2026-10-17):**
 > 1. **Phạm vi và hạn mức** (chỉ endpoint đã có tới hết Phase 4): ✔
@@ -3098,6 +3175,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.3 Cache quyền và ma trận test | ☑ | 2026-10-17 |
 | 4 | 4.4 Bình luận | ☑ | 2026-10-18 |
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☑ | 2026-10-18 |
+| 4 | 4.9 UI: ô chọn, ngày, giờ, ghi chú kiểu mới (làm trước 4.6) | ☐ | |
 | 4 | 4.6 UI: bình luận | ☐ | |
 | 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
 | 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☐ | |
