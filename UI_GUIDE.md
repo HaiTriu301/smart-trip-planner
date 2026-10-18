@@ -518,6 +518,31 @@ Giờ bắt đầu                     Giờ kết thúc
 - **Ô giờ kết thúc** (`durationFrom` = giờ bắt đầu): danh sách chỉ gồm các giờ sau giờ bắt đầu, mỗi dòng ghi thời lượng; khi ô có giờ hợp lệ sau giờ bắt đầu, thời lượng "(1 giờ 30 phút)" hiện ở mép phải trong ô (`lib/duration`). Giờ bắt đầu trống: danh sách đủ 24 giờ, không có thời lượng.
 - Giá trị gửi lên máy chủ vẫn là "HH:mm" (hoặc bỏ trống) như trước; quy tắc "giờ kết thúc phải sau giờ bắt đầu" và "không xoá được giờ đã lưu" không đổi. Vai trò ARIA: `combobox` + `listbox`, như ô tìm địa điểm.
 
+### 7.18. Lịch và ô khoảng ngày — `Calendar`, `DateRangeField` (Task 4.9)
+
+```
+Ngày đi – ngày về *
+┌──────────────────────────────────────┐
+│ 📅 12/03/2026 – 16/03/2026          ⌄ │   một ô cho cả hai ngày
+└──────────────────────────────────────┘
+5 ngày 4 đêm. Tối đa 60 ngày.               dòng gợi ý (lib/calendarDate.stayLength)
+┌─────────────────────────────────────────────────────────┐
+│ Từ 12/03/2026: chọn ngày về                              │   thẻ trắng bo 12px, viền tide,
+│ ‹        Tháng 3 2026             Tháng 4 2026         › │   shadow-lg, cách ô 4px
+│ T2 T3 T4 T5 T6 T7 CN         T2 T3 T4 T5 T6 T7 CN        │
+│          (12)▒13▒▒14▒▒15▒(16)                            │   đầu / cuối: tròn jade chữ trắng
+│                                                          │   giữa: dải jade-light
+└─────────────────────────────────────────────────────────┘   hôm nay: viền tròn jade
+```
+
+- **`Calendar`** (`components/Calendar.tsx`; mẫu là Calendar của shadcn/ui trên `react-day-picker` 9, viết lại bằng token, không nạp CSS của thư viện): tiếng Việt, tuần bắt đầu thứ Hai, tiêu đề "Tháng 3 2026", tên thứ "T2 … CN". Ô ngày tròn 40px (44px trên cảm ứng); rê chuột nền `gray-100`. Không hiện ngày của tháng bên cạnh. Hai nút ‹ › 32px ở hai góc trên. Mỗi ngày chỉ một bộ lớp theo trạng thái (đã chọn / trong khoảng / hôm nay / không chọn được / thường), không lớp nào đè lớp nào. Thư viện lịch được **tải lười** lần đầu mở ô ngày (khung xương trong lúc chờ), không nằm trong gói chính.
+- **`DateRangeField`**: ô trông như ô chọn (mục 7.2) với icon `CalendarDays`, ghi "12/03/2026 – 16/03/2026" (chuyến 1 ngày: một ngày), trống thì chữ mờ "Chọn ngày đi và ngày về". Bấm mở lịch nổi dưới ô (Radix Popover; trong hộp thoại thì vẽ vào hộp, mục 7.6): **2 tháng từ 640px, 1 tháng dưới đó**; tháng mở ra là tháng của ngày đi (chưa có: tháng hiện tại), con trỏ đặt sẵn ở ngày đã chọn hoặc hôm nay.
+  - **Chọn:** lần bấm đầu là ngày đi, lần bấm thứ hai là ngày về, rồi lịch đóng và form nhận cả hai. Bấm một ngày trước ngày đi thì bắt đầu lại từ ngày đó; bấm cùng một ngày hai lần là chuyến 1 ngày. Dòng trên lịch nhắc "Chọn ngày đi" / "Từ 12/03/2026: chọn ngày về". Trong lúc chọn ngày về, các ngày quá giới hạn độ dài (60 ngày) bị mờ, không bấm được.
+  - **Ngày đã qua vẫn chọn được** (chuyến đi có thể ghi lại sau khi đi), chỉ hôm nay có viền.
+  - Esc hoặc bấm ra ngoài: lịch đóng, ngày **giữ như cũ** (chưa chọn đủ hai ngày thì không có gì thay đổi); Esc không đóng hộp thoại chứa ô.
+  - Form vẫn giữ `startDate` và `endDate` riêng (`useController` cho từng ngày): lỗi của ngày nào cũng hiện dưới ô chung, và đưa con trỏ về ô đó. Lỗi chỉ được kiểm khi lịch đóng hoặc rời ô mà không mở lịch, không kiểm lúc con trỏ đi vào lịch.
+  - Bàn phím (react-day-picker): ← → ↑ ↓ đi giữa các ngày, PageUp / PageDown đổi tháng, Enter / Space chọn.
+
 ---
 
 ## 8. Bố cục từng màn hình
@@ -637,6 +662,7 @@ Giờ bắt đầu                     Giờ kết thúc
 
 - Tiêu đề 32px + dòng phụ "Ba bước: thông tin chung, điểm đến và ngày đi."
 - Thanh bước là một tuyến ngắn: 3 "ga" đánh số nối bằng ray. Ga đã qua: nền `jade` có dấu ✓; ga hiện tại: viền `jade`, chữ đậm; ray đã đi qua chuyển `jade`.
+- Bước "Ngày đi" (từ Task 4.9), dùng chung với hộp "Sửa chuyến đi": **một** ô "Ngày đi – ngày về *" có lịch (`DateRangeField`, mục 7.18) thay cho hai ô ngày của trình duyệt; dòng gợi ý dưới ô "5 ngày 4 đêm. Tối đa 60 ngày."; rồi "Ngân sách" và "Tiền tệ" (mục 7.2) trên một hàng. Trong hộp "Sửa chuyến đi", đổi ngày vẫn hiện khung giải thích dời / rút ngắn và hộp hỏi lại như trước.
 - Bước "Điểm đến" (Task 3.6, **Đã làm**), dùng chung với hộp "Sửa chuyến đi":
   - **"Tên điểm đến":** ô chữ tự gõ như trước ("Ví dụ: Đà Lạt").
   - **"Vị trí trên bản đồ":** ô tìm địa điểm (mục 7.12) với gợi ý "Tìm theo tên hoặc bấm lên bản đồ để chọn vị trí. Vị trí này dùng cho bản đồ và dự báo thời tiết." Chọn một gợi ý chỉ lấy **toạ độ** của nó; không địa điểm nào được lưu. Ô tìm luôn còn đó để đổi vị trí.
