@@ -2410,6 +2410,26 @@ Mốc 8 — test(comment): add comment flow integration test                    
         xoá hoạt động qua API thì bình luận của nó mất; đếm số câu SQL của GET (quyền đã có trong cache)
 ```
 
+> **Thực tế khi làm 4.4 (2026-10-17 → 2026-10-18):** 9 commit code trên nhánh: 8 mốc của bảng duyệt và 1 commit refactor test ngoài kế hoạch (3a), chen trước Mốc 3. Docs Mốc 0 đã commit trước trên `main` (`421070c`).
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `4297fde` feat(comment): add comment model | 4 | `V13__create_comments.sql`, `Comment`, `CommentRepository`; test ánh xạ tên `CommentMappingTest` (bảng ghi `CommentRepositoryTest`, class này có từ Mốc 4 khi có câu truy vấn tự viết) |
+> | `c961d35` feat(comment): post a comment on a trip | 9 | `POST` → 201, `CreateCommentRequest`, `CommentResponse`, `CommentMapper`, `CommentService.create`, dòng ma trận "Đăng bình luận" |
+> | `c553200` refactor(test): build comment requests through TestComments | 3 | `support/TestComments.createRequest`: test không tự gọi constructor của record (CLAUDE.md mục 8), để Mốc 3, 4 thêm trường không làm vỡ test cũ; không đổi hành vi |
+> | `f76e6bd` feat(comment): comment on an activity | 6 (bảng: 3) | `activityId`: hoạt động phải thuộc chuyến, không thì 404; thêm mô tả Swagger của controller và test controller |
+> | `c1f5e3a` feat(comment): reply to a comment | 9 (bảng: 6) | `parentId`: cha phải là bình luận gốc còn sống của chuyến, không thì 400 ở `parentId`; trả lời lấy hoạt động của cha; thêm `TestComments.onActivity` / `replyTo`, mô tả Swagger và test controller |
+> | `e9b1f1b` feat(comment): list the comments of a trip | 7 | `GET`, `join fetch` tác giả, xếp `created_at, id`, dòng ma trận "Xem bình luận" |
+> | `a333a36` feat(comment): filter the comments by activity | 6 | `?activityId=`, hoạt động không thuộc chuyến → 404 |
+> | `a52585e` feat(comment): delete a comment | 7 | `DELETE /{commentId}`: một câu `UPDATE` native cho gốc và trả lời (mọi cột của `Comment` là `updatable = false`), thời điểm từ `Clock`; tác giả hoặc chủ, không thì 403; ma trận: mỗi người gọi có một bình luận của mình + dòng "Xoá bình luận" |
+> | `2b35eb5` test(comment): add comment flow integration test | 1 | 4 kịch bản toàn luồng; danh sách 2 / 3 câu SQL (cả chuyến / lọc theo hoạt động), không đổi khi số bình luận tăng |
+>
+> 3 endpoint mới (`POST`, `GET`, `DELETE` dưới `/api/v1/trips/{tripId}/comments`). 109 lượt test mới, toàn dự án **1485 lượt** (1072 method, 88 file test); `10-comment.md` (file mới) có 62 kịch bản tự động (`TC-COMMENT-001` đến `TC-COMMENT-062`), 7 bài thủ công `MT-COMMENT-01` đến `MT-COMMENT-07` **chưa chạy**. Không có test đỏ ngoài dự kiến, không có lỗi mới.
+>
+> Ghi chú khi làm:
+> - Để chắc test không xanh vô điều kiện, đã thử bỏ `join fetch c.author` (test "tác giả nạp cùng câu" đỏ) và bỏ `OR parent_id = :id` khỏi câu xoá (test "xoá gốc kéo trả lời" đỏ), rồi trả lại.
+> - Hạn chế đã biết (giữ): `GET` không phân trang (design 10.2). Danh sách nối tác giả bằng `join fetch` thường, mà `User` có `@SQLRestriction`: khi có chức năng xoá mềm tài khoản (Phase 8, admin), bình luận của tài khoản đã xoá sẽ biến khỏi danh sách. Xét lại ở task đó.
+
 **Nhớ:** kiểm "tác giả hoặc chủ" là quy tắc trên một bình luận, không phải quyền trên trip, nên nằm ở service (rule 15 chỉ cấm viết lại kiểm quyền trip). Activity bị xoá cứng kéo bình luận theo FK CASCADE; trip xoá mềm thì bình luận vẫn còn trong DB nhưng không còn đường vào. `CommentService` là class trực tiếp, không interface + Impl (CLAUDE.md rule 5: business đơn giản).
 
 ---
@@ -2983,7 +3003,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.1 Trip members | ☑ | 2026-10-09 |
 | 4 | 4.2 Liên kết chia sẻ và trang công khai | ☑ | 2026-10-14 |
 | 4 | 4.3 Cache quyền và ma trận test | ☑ | 2026-10-17 |
-| 4 | 4.4 Bình luận | ☐ | |
+| 4 | 4.4 Bình luận | ☑ | 2026-10-18 |
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☐ | |
 | 4 | 4.6 UI: bình luận | ☐ | |
 | 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
