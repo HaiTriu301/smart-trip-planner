@@ -498,6 +498,26 @@ Vai trò
 - **Trạng thái chuyến đi** (`TripStatusSelect`, trang chi tiết, chỉ người sửa được): nút là huy hiệu cùng tông với trạng thái (mục 3.5), chữ 12px/500, mũi tên `ChevronDown` 14px; menu liệt kê 5 trạng thái theo thứ tự, mỗi dòng chấm màu (`badgeDotClass`) + tên + ✓ ở trạng thái hiện tại. Chọn là **lưu ngay** (toast "Đã đổi trạng thái"); chọn lại trạng thái hiện tại không gửi gì. Đang lưu: huy hiệu hiện trạng thái vừa chọn, mũi tên thành vòng quay, nút bị khoá; lỗi: toast đỏ, huy hiệu về trạng thái cũ. Nhãn đọc "Trạng thái chuyến đi: {trạng thái}".
 - Bàn phím (Radix): Enter / Space / ↓ mở menu, ↑ / ↓ di chuyển, Enter chọn, Esc đóng và trả focus về nút.
 
+### 7.17. Ô giờ — `TimeField` (Task 4.9)
+
+```
+Giờ bắt đầu                     Giờ kết thúc
+┌──────────────────┐            ┌──────────────────────────────┐
+│ 🕘 09:30          │            │ 🕘 11:00     (1 giờ 30 phút)  │   thời lượng 13px gray-500 trong ô
+└──────────────────┘            └──────────────────────────────┘
+┌──────────────────┐            danh sách nổi dưới ô (như ô tìm địa điểm, mục 7.12),
+│ 09:00            │            cao tối đa 240px rồi cuộn, mỗi 15 phút một dòng;
+│▒09:30▒▒▒▒▒▒▒▒▒▒▒▒│            dòng khớp với chữ đang gõ / giá trị: nền jade-light
+│ 09:45            │            ô giờ kết thúc: chỉ các giờ sau giờ bắt đầu, mỗi dòng
+└──────────────────┘            kèm thời lượng ("10:30   1 giờ 30 phút")
+```
+
+- Thay `<input type="time">` của trình duyệt (cách hiện 24h hay SA / CH tuỳ máy). **Luôn 24h**, chữ số đều nhau, icon `Clock` bên trái, gợi ý trống "--:--". Bàn phím số trên điện thoại (`inputMode="numeric"`).
+- **Gõ tay:** "9" → 09:00, "930" / "0930" → 09:30, "9:30", "9.30", "9h30" → 09:30, "21h" → 21:00 (`lib/timeInput.parseTimeInput`), đổi khi rời ô hoặc nhấn Enter. Phút sau dấu phân cách phải đủ 2 chữ số ("9:5" không rõ là 09:05 hay 09:50). Gõ thứ không phải giờ ("25", "abc"): ô giữ chữ đã gõ, dưới ô báo "Giờ không hợp lệ, hãy nhập dạng 09:30 (hoặc gõ 930)".
+- **Danh sách:** bấm vào ô hoặc ↓ thì mở, mỗi 15 phút một dòng, danh sách tự cuộn tới dòng khớp với chữ đang gõ (hoặc giá trị đang có; ô trống: 08:00). ↑ / ↓ di chuyển, Enter chọn dòng đang sáng (không gửi form), Esc **chỉ đóng danh sách**, rời ô thì đóng. Bấm một dòng thì con trỏ vẫn ở trong ô. Danh sách hiện ra mờ dần như menu (mục 7.16).
+- **Ô giờ kết thúc** (`durationFrom` = giờ bắt đầu): danh sách chỉ gồm các giờ sau giờ bắt đầu, mỗi dòng ghi thời lượng; khi ô có giờ hợp lệ sau giờ bắt đầu, thời lượng "(1 giờ 30 phút)" hiện ở mép phải trong ô (`lib/duration`). Giờ bắt đầu trống: danh sách đủ 24 giờ, không có thời lượng.
+- Giá trị gửi lên máy chủ vẫn là "HH:mm" (hoặc bỏ trống) như trước; quy tắc "giờ kết thúc phải sau giờ bắt đầu" và "không xoá được giờ đã lưu" không đổi. Vai trò ARIA: `combobox` + `listbox`, như ô tìm địa điểm.
+
 ---
 
 ## 8. Bố cục từng màn hình

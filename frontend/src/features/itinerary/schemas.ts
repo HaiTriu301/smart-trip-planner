@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TIME_PATTERN } from '../../lib/timeInput'
 import { currencyCode, moneyText, urlText } from '../../lib/validation'
 import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../../types/activity'
 import { ACTIVITY_TYPES } from './activityType'
@@ -14,6 +15,8 @@ export const daySchema = z.object({
 })
 export type DayValues = z.infer<typeof daySchema>
 
+const TIME_FORMAT_MESSAGE = 'Giờ không hợp lệ, hãy nhập dạng 09:30 (hoặc gõ 930)'
+
 // Mirrors CreateActivityRequest / UpdateActivityRequest + ActivityServiceImpl time rules (design.md 10.2
 // "Quy ước Activity API"). Overlaps are not checked here: only the server knows the other activities' times.
 export const activitySchema = z
@@ -24,9 +27,9 @@ export const activitySchema = z
       .min(1, 'Tên hoạt động không được để trống')
       .max(200, 'Tên hoạt động không được vượt quá 200 ký tự'),
     type: z.enum(ACTIVITY_TYPES),
-    // <input type="time"> yields "HH:mm", or "" when empty
-    startTime: z.string(),
-    endTime: z.string(),
+    // TimeField yields "HH:mm", "" when empty, or the raw text when what was typed is not a time (Task 4.9)
+    startTime: z.string().refine((v) => v === '' || TIME_PATTERN.test(v), TIME_FORMAT_MESSAGE),
+    endTime: z.string().refine((v) => v === '' || TIME_PATTERN.test(v), TIME_FORMAT_MESSAGE),
     note: z.string().max(NOTE_MAX_LENGTH, `Ghi chú của hoạt động không được vượt quá ${NOTE_MAX_LENGTH} ký tự`),
     costAmount: moneyText('Chi phí'),
     currency: currencyCode,
