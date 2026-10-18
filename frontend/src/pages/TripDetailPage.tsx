@@ -141,6 +141,7 @@ export function TripDetailPage() {
         currentDayIndex={currentDayIndex}
         tripCurrency={trip.currency}
         destinationName={trip.destinationName}
+        canEdit={canEdit}
         destination={
           trip.destinationLat !== null && trip.destinationLng !== null
             ? { lat: trip.destinationLat, lng: trip.destinationLng }

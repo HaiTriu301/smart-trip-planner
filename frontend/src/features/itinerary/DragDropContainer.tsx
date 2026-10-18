@@ -91,6 +91,8 @@ function applyItems(days: TripDayDetail[], items: ReorderItem[]): TripDayDetail[
 }
 
 interface ReorderContextValue {
+  /** False for a viewer of the trip: no grip, no arrow buttons, nothing can be moved */
+  canEdit: boolean
   /** True while a reorder is saving or waiting for the overlap question: dragging and moving are paused */
   disabled: boolean
   /** True while a card is being dragged: what sits between the cards steps out of the way */
@@ -102,6 +104,7 @@ interface ReorderContextValue {
 }
 
 const ReorderContext = createContext<ReorderContextValue>({
+  canEdit: true,
   disabled: false,
   dragging: false,
   move: () => undefined,
@@ -119,6 +122,8 @@ interface PendingReorder {
 interface DragDropContainerProps {
   tripId: number
   days: TripDayDetail[]
+  /** False for a viewer: the days are shown as they are, nothing to grab */
+  canEdit: boolean
   /**
    * Renders the days; during a drag they already show the activity at its hover position.
    * moveToOtherDay goes through the same save path as a drop (menu "Chuyển sang ngày…").
@@ -132,7 +137,7 @@ interface DragDropContainerProps {
  * the returned days replace the affected ones. 409 ACTIVITY_TIME_CONFLICT asks before resending with
  * allowOverlap=true; cancelling or any other error puts every activity back where it was.
  */
-export function DragDropContainer({ tripId, days, children }: DragDropContainerProps) {
+export function DragDropContainer({ tripId, days, canEdit, children }: DragDropContainerProps) {
   const queryClient = useQueryClient()
   // Working copy while dragging, so hovering over another day previews the move without touching the cache
   const [dragDays, setDragDays] = useState<TripDayDetail[] | null>(null)
@@ -292,6 +297,7 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
   const activeActivity =
     activeId === null ? undefined : shownDays.flatMap((d) => d.activities).find((a) => a.id === activeId)
   const reorder: ReorderContextValue = {
+    canEdit,
     disabled: mutation.isPending || conflict !== null,
     dragging: activeId !== null,
     move,
@@ -313,7 +319,7 @@ export function DragDropContainer({ tripId, days, children }: DragDropContainerP
         <DragOverlay>
           {activeActivity && (
             <div className="rotate-2 rounded-card opacity-90 shadow-lg">
-              <ActivityCard activity={activeActivity} dragHandle={<GripIcon />} />
+              <ActivityCard activity={activeActivity} dragHandle={<GripIcon />} dragPreview />
             </div>
           )}
         </DragOverlay>
@@ -409,10 +415,10 @@ interface SortableActivityProps {
 
 /** One stop of the day: a node in the colour of its type on the line, the card to the right of it. */
 export function SortableActivity({ activity, children, below }: SortableActivityProps) {
-  const { disabled, dragging, move, canMove } = useContext(ReorderContext)
+  const { canEdit, disabled, dragging, move, canMove } = useContext(ReorderContext)
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: activityKey(activity.id),
-    disabled,
+    disabled: disabled || !canEdit,
   })
 
   // Mouse / pen: the grip. Touch screens: two 44px arrow buttons (UI_GUIDE 11, 12), chosen by pointer type,
@@ -457,7 +463,7 @@ export function SortableActivity({ activity, children, below }: SortableActivity
       </span>
       {/* While dragging, the row keeps its height and shows where the card will land: a 2px jade line */}
       <div className="relative pl-1.5">
-        <div className={isDragging ? 'invisible' : undefined}>{children(handle)}</div>
+        <div className={isDragging ? 'invisible' : undefined}>{children(canEdit ? handle : null)}</div>
         {isDragging && <div aria-hidden className="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-jade" />}
         {/* Hidden, not removed, during any drag: the rows keep their height, so nothing jumps under the pointer */}
         {below && <div className={dragging ? 'invisible' : undefined}>{below}</div>}

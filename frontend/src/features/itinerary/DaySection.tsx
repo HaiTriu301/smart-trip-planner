@@ -38,6 +38,8 @@ interface DaySectionProps {
   days: TripDayDetail[]
   /** Default currency of a new activity cost */
   tripCurrency: string
+  /** False for a viewer: no "Sửa", no "Thêm hoạt động", no "⋮" menu on the cards */
+  canEdit: boolean
   onMoveToDay: (activityId: number, dayId: number) => void
 }
 
@@ -54,7 +56,7 @@ interface DaySectionProps {
  * with the pinned day list on the left and cover the cards scrolling underneath. The negative top margin
  * cancels that padding while nothing is scrolled, so the page looks the same at rest.
  */
-export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: DaySectionProps) {
+export function DaySection({ tripId, day, days, tripCurrency, canEdit, onMoveToDay }: DaySectionProps) {
   const queryClient = useQueryClient()
   const [isEditingDay, setIsEditingDay] = useState(false)
   // undefined: form closed · null: adding · Activity: editing that one
@@ -123,25 +125,27 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
                   {formatWeekday(day.date)}, {formatDate(day.date)}
                 </p>
               </div>
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  fullWidth={false}
-                  aria-label={`Sửa ngày ${day.dayIndex}`}
-                  onClick={() => setIsEditingDay(true)}
-                >
-                  <Pencil aria-hidden className="size-3.5" />
-                  Sửa
-                </Button>
-                {/* The page's single primary action (UI_GUIDE 7.0). The full label only where the column has
-                    room for it: between phones and three columns, and from 1280px */}
-                <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
-                  <Plus aria-hidden className="size-4" />
-                  <span className="sm:hidden lg:inline xl:hidden">Thêm</span>
-                  <span className="hidden sm:inline lg:hidden xl:inline">Thêm hoạt động</span>
-                </Button>
-              </div>
+              {canEdit && (
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth={false}
+                    aria-label={`Sửa ngày ${day.dayIndex}`}
+                    onClick={() => setIsEditingDay(true)}
+                  >
+                    <Pencil aria-hidden className="size-3.5" />
+                    Sửa
+                  </Button>
+                  {/* The page's single primary action (UI_GUIDE 7.0). The full label only where the column has
+                      room for it: between phones and three columns, and from 1280px */}
+                  <Button fullWidth={false} aria-label="Thêm hoạt động" onClick={() => setEditing(null)}>
+                    <Plus aria-hidden className="size-4" />
+                    <span className="sm:hidden lg:inline xl:hidden">Thêm</span>
+                    <span className="hidden sm:inline lg:hidden xl:inline">Thêm hoạt động</span>
+                  </Button>
+                </div>
+              )}
             </div>
             {/* What the day is about: its own title, how many places it has, its note */}
             <div className="space-y-1.5 border-t border-tide px-4 py-3 xl:px-5">
@@ -173,7 +177,12 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
       </div>
 
       <SortableDayList dayId={day.id} activityIds={day.activities.map((a) => a.id)}>
-        {day.activities.length === 0 ? (
+        {day.activities.length === 0 && !canEdit ? (
+          // A viewer cannot fill the day: no invitation, no button
+          <li className="rounded-card border border-dashed border-gray-300 px-4 py-5 text-sm text-gray-600">
+            Ngày này chưa có hoạt động.
+          </li>
+        ) : day.activities.length === 0 ? (
           // An empty day invites the next step
           <li className="flex flex-col items-start gap-3 rounded-card border border-dashed border-gray-300 px-4 py-5">
             <p className="text-sm text-gray-600">Ngày này còn trống. Thêm địa điểm bạn muốn ghé.</p>
@@ -195,12 +204,14 @@ export function DaySection({ tripId, day, days, tripCurrency, onMoveToDay }: Day
                     activity={activity}
                     dragHandle={dragHandle}
                     overlapping={overlaps.has(activity.id)}
-                    onEdit={() => setEditing(activity)}
-                    onDelete={() => {
-                      deletion.reset()
-                      setDeleting(activity)
-                    }}
-                    onMoveToDay={days.length > 1 ? () => setMoving(activity) : undefined}
+                    {...(canEdit && {
+                      onEdit: () => setEditing(activity),
+                      onDelete: () => {
+                        deletion.reset()
+                        setDeleting(activity)
+                      },
+                      onMoveToDay: days.length > 1 ? () => setMoving(activity) : undefined,
+                    })}
                   />
                 )}
               </SortableActivity>

@@ -34,6 +34,8 @@ interface WeatherStripProps {
   currentDayIndex: number
   /** Name of the trip's destination, shown in the card heading; null when the trip has none */
   destinationName: string | null
+  /** False for a viewer: a missing destination is stated, not something they are told to fix */
+  canEdit?: boolean
 }
 
 /**
@@ -47,7 +49,7 @@ interface WeatherStripProps {
  * not answer, the card says so with a "Thử lại" and the rest of the page works as usual.
  * A forecast loaded earlier stays on screen when a later reload fails (same rule as the trip itself, BUG-UI-005).
  */
-export function WeatherStrip({ tripId, days, currentDayIndex, destinationName }: WeatherStripProps) {
+export function WeatherStrip({ tripId, days, currentDayIndex, destinationName, canEdit = true }: WeatherStripProps) {
   const { data: weather, isPending, isFetching, refetch } = useTripWeather(tripId)
   const today = useToday()
 
@@ -85,7 +87,9 @@ export function WeatherStrip({ tripId, days, currentDayIndex, destinationName }:
       <WeatherCard destinationName={destinationName}>
         {/* Same wording as the note on the map of a trip without a destination (UI_GUIDE 9) */}
         <Note icon={<MapPinOff aria-hidden className="size-5 shrink-0 text-gray-400" />}>
-          Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.
+          {canEdit
+            ? 'Đặt vị trí điểm đến trong "Sửa" chuyến đi để xem dự báo thời tiết.'
+            : 'Chuyến đi chưa đặt vị trí điểm đến nên chưa có dự báo thời tiết.'}
         </Note>
       </WeatherCard>
     )

@@ -44,6 +44,8 @@ interface DayMapProps {
    */
   listHidden?: boolean
   onShowInList?: (activityId: number) => void
+  /** False for a viewer: the note of an empty day does not tell them to add places they cannot add */
+  canEdit?: boolean
 }
 
 /**
@@ -55,7 +57,7 @@ interface DayMapProps {
  * dialog, not this one stretched: the dialog lives in the browser's top layer, above the pinned headers of the
  * page whatever their z-index, and brings the focus trap and the Esc key with it.
  */
-export function DayMap({ activities, destination, listHidden = false, onShowInList }: DayMapProps) {
+export function DayMap({ activities, destination, listHidden = false, onShowInList, canEdit = true }: DayMapProps) {
   const stops = toStops(activities)
   const [expanded, setExpanded] = useState(false)
   const expandButtonRef = useRef<HTMLButtonElement>(null)
@@ -117,6 +119,7 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
           stops={stops}
           destination={destination}
           className="min-h-0 flex-1"
+          canEdit={canEdit}
           actionSide="left"
           revealMode={touchScreen || listHidden ? 'popup' : 'direct'}
           onReveal={goToCard}
@@ -132,6 +135,7 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
           stops={stops}
           destination={destination}
           className="h-full"
+          canEdit={canEdit}
           actionSide="right"
           revealMode="popup"
           onReveal={(activityId) => {
@@ -152,6 +156,8 @@ export function DayMap({ activities, destination, listHidden = false, onShowInLi
 interface MapFrameProps {
   stops: DayStop[]
   destination: Coordinates | null
+  /** Whether the note of an empty day may suggest adding places and setting the destination */
+  canEdit: boolean
   /** Size of the frame; the inside is the same wherever the map is shown */
   className: string
   /** Button in a top corner: expand, or close when already expanded */
@@ -167,7 +173,7 @@ interface MapFrameProps {
  * layers up to z-index 1000, and without "isolate" they would cover the sticky day header and the dialogs'
  * backdrop (BUG-UI-002).
  */
-function MapFrame({ stops, destination, className, action, actionSide, revealMode, onReveal }: MapFrameProps) {
+function MapFrame({ stops, destination, canEdit, className, action, actionSide, revealMode, onReveal }: MapFrameProps) {
   return (
     <section aria-label="Bản đồ của ngày" className={`relative isolate overflow-hidden bg-gray-100 ${className}`}>
       {/* z-0 closes the layers of the map library into their own stack, so the note and the button sit above.
@@ -185,10 +191,12 @@ function MapFrame({ stops, destination, className, action, actionSide, revealMod
           <div className="pointer-events-auto max-w-[280px] rounded-card border border-tide bg-white px-5 py-4 text-center shadow-md">
             <MapIcon aria-hidden className="mx-auto size-5 text-gray-400" />
             <p className="mt-2 text-[15px] leading-5 font-semibold text-ink">Ngày này chưa có địa điểm nào.</p>
-            <p className="mt-1 text-[13px] leading-5 text-gray-600">
-              Thêm địa điểm cho hoạt động để thấy trên bản đồ.
-              {!destination && ' Đặt vị trí điểm đến trong "Sửa" chuyến đi để bản đồ mở đúng nơi bạn đến.'}
-            </p>
+            {canEdit && (
+              <p className="mt-1 text-[13px] leading-5 text-gray-600">
+                Thêm địa điểm cho hoạt động để thấy trên bản đồ.
+                {!destination && ' Đặt vị trí điểm đến trong "Sửa" chuyến đi để bản đồ mở đúng nơi bạn đến.'}
+              </p>
+            )}
           </div>
         </div>
       )}

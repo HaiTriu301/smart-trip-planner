@@ -34,7 +34,12 @@ interface ActivityCardProps {
   dragHandle?: ReactNode
   /** Its time range overlaps another activity of the day (saved with allowOverlap) */
   overlapping?: boolean
-  /** Without handlers the card is read-only (the preview that follows the pointer while dragging) */
+  /**
+   * The copy that follows the pointer while dragging: it must not take the id a map marker scrolls to, which
+   * belongs to the card in the list
+   */
+  dragPreview?: boolean
+  /** Without handlers the card has no "⋮" menu: the drag preview, and every card for a viewer of the trip */
   onEdit?: () => void
   onDelete?: () => void
   onMoveToDay?: () => void
@@ -50,6 +55,7 @@ export function ActivityCard({
   activity,
   dragHandle,
   overlapping = false,
+  dragPreview = false,
   onEdit,
   onDelete,
   onMoveToDay,
@@ -61,9 +67,9 @@ export function ActivityCard({
   const highlight = useMapLinkStore((state) => state.highlight)
   const clearHighlight = useMapLinkStore((state) => state.clearHighlight)
   const revealed = useMapLinkStore((state) => state.revealedActivityId === activity.id)
-  // The card that follows the pointer during a drag is a second copy of the same activity: only the real one
-  // (it has actions) carries the id a marker scrolls to
-  const isRealCard = Boolean(onEdit)
+  // The card that follows the pointer during a drag is a second copy of the same activity: only the one in the
+  // list carries the id a marker scrolls to, with or without actions (a viewer's cards have none)
+  const isRealCard = !dragPreview
 
   return (
     // An overlapping card is tinted with the warning colour mixed into white, not laid over the page: a card
