@@ -1,10 +1,11 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { changeMemberRole, inviteMember, inviteMemberKey } from '../../api/members'
+import { changeMemberRole, inviteMember, inviteMemberKey, removeMember } from '../../api/members'
 import { getErrorMessage } from '../../api/errors'
 import { Avatar } from '../../components/Avatar'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatDayMonthIn } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
@@ -16,7 +17,7 @@ import { TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from './tripRole'
 interface MemberListProps {
   tripId: number
   members: Member[]
-  /** The owner looking: every other row gets a role select, pending invitations get "Gửi lại" */
+  /** The owner looking: every other row gets a role select and a remove button, pending invitations "Gửi lại" */
   canManage: boolean
 }
 
@@ -27,6 +28,22 @@ interface MemberListProps {
  */
 export function MemberList({ tripId, members, canManage }: MemberListProps) {
   const headingId = useId()
+  const queryClient = useQueryClient()
+  // The row waiting for confirmation of "Gỡ" / "Huỷ lời mời"
+  const [removing, setRemoving] = useState<Member | null>(null)
+  const removingPending = removing?.status === 'PENDING'
+
+  const removal = useMutation({
+    mutationFn: (member: Member) => removeMember(tripId, member.memberId!),
+    onSuccess: async (_none, member) => {
+      await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
+      setRemoving(null)
+      toast.success(
+        member.status === 'PENDING' ? `Đã huỷ lời mời gửi tới ${member.email}` : `Đã gỡ ${member.fullName ?? member.email}`,
+      )
+    },
+  })
+
   return (
     <section aria-labelledby={headingId} className="space-y-2">
       <h3 id={headingId} className="tabular text-[15px] leading-6 font-semibold text-ink">
@@ -35,9 +52,43 @@ export function MemberList({ tripId, members, canManage }: MemberListProps) {
       <ul className="divide-y divide-tide rounded-card border border-tide">
         {members.map((member) => (
           // The owner has no member row, hence no memberId; there is only one owner
-          <MemberRow key={member.memberId ?? 'owner'} tripId={tripId} member={member} canManage={canManage} />
+          <MemberRow
+            key={member.memberId ?? 'owner'}
+            tripId={tripId}
+            member={member}
+            canManage={canManage}
+            onRemove={() => {
+              removal.reset()
+              setRemoving(member)
+            }}
+          />
         ))}
       </ul>
+
+      {/* Opens over the sharing dialog (a second native dialog on top): Esc closes this one only */}
+      <ConfirmDialog
+        open={removing !== null}
+        title={removingPending ? 'Huỷ lời mời?' : 'Gỡ thành viên?'}
+        confirmLabel={removingPending ? 'Huỷ lời mời' : 'Gỡ thành viên'}
+        cancelLabel={removingPending ? 'Giữ lời mời' : 'Huỷ'}
+        variant="danger"
+        isLoading={removal.isPending}
+        error={removal.isError ? getErrorMessage(removal.error) : undefined}
+        onCancel={() => setRemoving(null)}
+        onConfirm={() => removing && removal.mutate(removing)}
+      >
+        {removingPending ? (
+          <p>
+            Link trong mail mời gửi tới <strong className="wrap-anywhere text-ink">{removing?.email}</strong> sẽ
+            không dùng được nữa. Bạn có thể mời lại sau.
+          </p>
+        ) : (
+          <p>
+            <strong className="wrap-anywhere text-ink">{removing?.fullName ?? removing?.email}</strong> sẽ không
+            còn xem được chuyến đi này. Bạn có thể mời lại sau.
+          </p>
+        )}
+      </ConfirmDialog>
     </section>
   )
 }
@@ -46,9 +97,10 @@ interface MemberRowProps {
   tripId: number
   member: Member
   canManage: boolean
+  onRemove: () => void
 }
 
-function MemberRow({ tripId, member, canManage }: MemberRowProps) {
+function MemberRow({ tripId, member, canManage, onRemove }: MemberRowProps) {
   const pending = member.status === 'PENDING'
   const timeZone = useAuthStore((state) => state.user?.timezone) ?? DEFAULT_TIME_ZONE
   // The invitation date of a pending row, in the account's time zone: the mail is good for 7 days (design 5.2),
@@ -73,6 +125,17 @@ function MemberRow({ tripId, member, canManage }: MemberRowProps) {
           <Badge tone={TRIP_ROLE_TONES[member.role]}>{TRIP_ROLE_LABELS[member.role]}</Badge>
         )}
         {pending && canManage && <ResendButton tripId={tripId} member={member} />}
+        {canManage && member.memberId !== null && (
+          <Button
+            variant="secondary"
+            size="sm"
+            fullWidth={false}
+            aria-label={pending ? `Huỷ lời mời gửi tới ${member.email}` : `Gỡ ${member.fullName ?? member.email}`}
+            onClick={onRemove}
+          >
+            {pending ? 'Huỷ lời mời' : 'Gỡ'}
+          </Button>
+        )}
       </div>
     </li>
   )

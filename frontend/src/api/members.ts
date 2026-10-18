@@ -33,3 +33,12 @@ export async function changeMemberRole(tripId: number, memberId: number, body: C
   const { data } = await apiClient.patch<ApiResponse<Member>>(`/trips/${tripId}/members/${memberId}`, body)
   return data.data
 }
+
+/**
+ * Removes a member, or cancels a pending invitation (owner only): the row is kept as REMOVED, the person loses
+ * access at once and the link of the mail stops working; inviting the same email again reopens it (design.md 14.25).
+ * 404 when the row is not on this trip or already removed.
+ */
+export async function removeMember(tripId: number, memberId: number): Promise<void> {
+  await apiClient.delete(`/trips/${tripId}/members/${memberId}`)
+}
