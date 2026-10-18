@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { inviteMember, inviteMemberKey } from '../../api/members'
+import { changeMemberRole, inviteMember, inviteMemberKey } from '../../api/members'
 import { getErrorMessage } from '../../api/errors'
 import { Avatar } from '../../components/Avatar'
 import { Badge } from '../../components/Badge'
@@ -9,13 +9,14 @@ import { formatDayMonthIn } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
 import { toast } from '../../stores/toastStore'
-import type { Member } from '../../types/member'
+import type { Member, MemberRole } from '../../types/member'
+import { MEMBER_ROLE_OPTIONS } from './schemas'
 import { TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from './tripRole'
 
 interface MemberListProps {
   tripId: number
   members: Member[]
-  /** The owner looking: pending invitations get "Gửi lại" */
+  /** The owner looking: every other row gets a role select, pending invitations get "Gửi lại" */
   canManage: boolean
 }
 
@@ -65,10 +66,62 @@ function MemberRow({ tripId, member, canManage }: MemberRowProps) {
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         {pending && <Badge tone="warning">Đang chờ</Badge>}
-        <Badge tone={TRIP_ROLE_TONES[member.role]}>{TRIP_ROLE_LABELS[member.role]}</Badge>
+        {/* The owner's row has no member id: a fixed badge, the owner cannot be demoted (design rule 14.7) */}
+        {canManage && member.memberId !== null ? (
+          <RoleSelect tripId={tripId} memberId={member.memberId} member={member} />
+        ) : (
+          <Badge tone={TRIP_ROLE_TONES[member.role]}>{TRIP_ROLE_LABELS[member.role]}</Badge>
+        )}
         {pending && canManage && <ResendButton tripId={tripId} member={member} />}
       </div>
     </li>
+  )
+}
+
+const isMemberRole = (value: string): value is MemberRole => value === 'EDITOR' || value === 'VIEWER'
+
+interface RoleSelectProps {
+  tripId: number
+  memberId: number
+  member: Member
+}
+
+/**
+ * The role of one member, changed by the owner: saved as soon as it is picked, no save button (Task 4.5
+ * decision 5). Works on a pending invitation too: the person gets the new role when they accept. While saving it
+ * shows the chosen value; a refusal puts the stored one back and says why in a toast.
+ */
+function RoleSelect({ tripId, memberId, member }: RoleSelectProps) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (role: MemberRole) => changeMemberRole(tripId, memberId, { role }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
+      toast.success('Đã đổi vai trò')
+    },
+    onError: async (error) => {
+      // Removed or accepted elsewhere in the meantime: the reloaded list shows how things are now
+      await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
+      toast.error(`Không đổi được vai trò: ${getErrorMessage(error)}`)
+    },
+  })
+  const shown = mutation.isPending && mutation.variables ? mutation.variables : member.role
+  return (
+    <select
+      aria-label={`Vai trò của ${member.fullName ?? member.email}`}
+      value={shown}
+      disabled={mutation.isPending}
+      onChange={(event) => {
+        if (isMemberRole(event.target.value)) mutation.mutate(event.target.value)
+      }}
+      className="h-8 cursor-pointer rounded-control border border-tide bg-white pr-7 pl-2.5 text-[13px] text-ink outline-none transition-colors hover:border-gray-300 focus-visible:border-jade focus-visible:ring-[3px] focus-visible:ring-jade/15 disabled:cursor-wait disabled:bg-gray-50 pointer-coarse:h-11"
+    >
+      {MEMBER_ROLE_OPTIONS.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   )
 }
 

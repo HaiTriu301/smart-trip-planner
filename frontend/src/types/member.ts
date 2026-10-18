@@ -34,3 +34,8 @@ export interface InviteMemberRequest {
   email: string
   role: MemberRole
 }
+
+/** Body of PATCH /trips/{tripId}/members/{memberId}; also works on a pending invitation (Task 4.1). */
+export interface ChangeMemberRoleRequest {
+  role: MemberRole
+}
