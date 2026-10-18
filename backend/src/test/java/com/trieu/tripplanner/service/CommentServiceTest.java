@@ -1,19 +1,24 @@
 package com.trieu.tripplanner.service;
 
 import static com.trieu.tripplanner.support.TestComments.createRequest;
+import static com.trieu.tripplanner.support.TestComments.onActivity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.trieu.tripplanner.dto.response.CommentResponse;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.mapper.CommentMapper;
+import com.trieu.tripplanner.model.Activity;
 import com.trieu.tripplanner.model.Comment;
 import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.CommentRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -41,12 +46,16 @@ class CommentServiceTest {
     private static final long OWNER_ID = 7L;
     private static final long VIEWER_ID = 8L;
     private static final long COMMENT_ID = 51L;
+    private static final long ACTIVITY_ID = 31L;
 
     @Mock
     private CommentRepository commentRepository;
 
     @Mock
     private TripRepository tripRepository;
+
+    @Mock
+    private ActivityRepository activityRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -67,7 +76,7 @@ class CommentServiceTest {
                 .endDate(LocalDate.of(2026, 10, 3))
                 .build();
         ReflectionTestUtils.setField(trip, "id", TRIP_ID);
-        commentService = new CommentService(commentRepository, tripRepository, userRepository,
+        commentService = new CommentService(commentRepository, tripRepository, activityRepository, userRepository,
                 Mappers.getMapper(CommentMapper.class));
     }
 
@@ -95,6 +104,7 @@ class CommentServiceTest {
             assertThat(response.author()).isEqualTo(
                     new CommentResponse.Author(VIEWER_ID, "Test viewer@example.com", null));
             assertThat(response.content()).isEqualTo("Nhớ mang áo ấm");
+            verifyNoInteractions(activityRepository);
         }
 
         @Test
@@ -119,10 +129,61 @@ class CommentServiceTest {
             verify(commentRepository, never()).save(any());
         }
 
+        @Test
+        void postsACommentOnAnActivityOfTheTrip() {
+            tripExists();
+            Activity market = activityOfTheTrip();
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.of(market));
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    onActivity(createRequest("Chợ mở lúc mấy giờ?"), ACTIVITY_ID));
+
+            Comment saved = savedComment();
+            assertThat(saved.getTrip()).isSameAs(trip);
+            assertThat(saved.getActivity()).isSameAs(market);
+            assertThat(saved.getParent()).isNull();
+            assertThat(response.activityId()).isEqualTo(ACTIVITY_ID);
+            assertThat(response.parentId()).isNull();
+        }
+
+        @Test
+        void anActivityOfAnotherTripOrThatDoesNotExistIs404AndNothingIsSaved() {
+            // The query is scoped to the trip of the URL, so an activity of another trip looks missing too
+            tripExists();
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    onActivity(createRequest("Chợ mở lúc mấy giờ?"), ACTIVITY_ID)))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Activity");
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        void aMissingTripIs404BeforeTheActivityIsLookedUp() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    onActivity(createRequest("Xin chào"), ACTIVITY_ID)))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(activityRepository);
+            verify(commentRepository, never()).save(any());
+        }
+
     }
 
     private void tripExists() {
         when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+    }
+
+    private Activity activityOfTheTrip() {
+        TripDay day = TripDay.builder().trip(trip).dayIndex(1).date(LocalDate.of(2026, 10, 1)).build();
+        Activity activity = Activity.builder().tripDay(day).title("Chợ Đà Lạt").orderIndex(1000).build();
+        ReflectionTestUtils.setField(activity, "id", ACTIVITY_ID);
+        return activity;
     }
 
     /** What the database does on INSERT: the row gets its id. */

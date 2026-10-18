@@ -14,7 +14,12 @@ public final class TestComments {
 
     /** Body of POST .../comments: a root comment on the whole trip. */
     public static CreateCommentRequest createRequest(String content) {
-        return new CreateCommentRequest(content);
+        return new CreateCommentRequest(content, null);
+    }
+
+    /** The same request, about one activity of the trip. */
+    public static CreateCommentRequest onActivity(CreateCommentRequest request, Long activityId) {
+        return new CreateCommentRequest(request.content(), activityId);
     }
 
 }

@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.controller;
 
 import static com.trieu.tripplanner.support.TestComments.createRequest;
+import static com.trieu.tripplanner.support.TestComments.onActivity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -95,6 +96,29 @@ class CommentControllerTest {
                 { "content": "Xin chào", "userId": 99, "authorId": 99 }
                 """)).hasStatus(HttpStatus.CREATED);
         verify(commentService).create(TRIP_ID, USER_ID, createRequest("Xin chào"));
+    }
+
+    @Test
+    void createPassesTheActivityIdOfTheBodyToTheService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.create(eq(TRIP_ID), eq(USER_ID), any())).thenReturn(comment("Chợ mở lúc mấy giờ?"));
+
+        assertThat(create("""
+                { "content": "Chợ mở lúc mấy giờ?", "activityId": 31 }
+                """)).hasStatus(HttpStatus.CREATED);
+        verify(commentService).create(TRIP_ID, USER_ID, onActivity(createRequest("Chợ mở lúc mấy giờ?"), 31L));
+    }
+
+    @Test
+    void createWithNonNumericActivityIdReturns400() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(create("""
+                { "content": "Xin chào", "activityId": "abc" }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(commentService);
     }
 
     @Test

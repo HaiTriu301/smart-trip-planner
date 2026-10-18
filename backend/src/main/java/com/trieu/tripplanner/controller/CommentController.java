@@ -35,8 +35,9 @@ public class CommentController {
     @Operation(summary = "Đăng bình luận",
                description = "Ai xem được chuyến đi thì đăng được (kể cả người chỉ xem). content: 1 đến 2000 ký tự, "
                        + "chữ thuần (không HTML), giữ xuống dòng, khoảng trắng hai đầu bị bỏ; trống hoặc dài hơn: "
-                       + "400 ở field content. Tác giả là người đang đăng nhập. 403 nếu không xem được chuyến đi, "
-                       + "404 nếu chuyến đi không tồn tại.")
+                       + "400 ở field content. activityId (không bắt buộc): bình luận về một hoạt động của chuyến "
+                       + "đi này; bỏ trống là bình luận cho cả chuyến. Tác giả là người đang đăng nhập. 403 nếu không "
+                       + "xem được chuyến đi, 404 nếu chuyến đi không tồn tại hoặc hoạt động không thuộc chuyến đi.")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@tripPermission.canView(#tripId, principal)")
