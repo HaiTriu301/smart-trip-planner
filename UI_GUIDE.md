@@ -543,6 +543,7 @@ Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi t
 - Nút gửi chính cao 44px, rộng hết khung.
 - Dòng chuyển trang ("Chưa có tài khoản? Đăng ký") nằm **dưới** khung.
 - Không có: dải trạng thái hệ thống, mã phiên bản, bảng chú thích màu (chỉ có trong mockup).
+- **Đến từ link mời** (Task 4.5, **Đã làm**; chưa đăng nhập mà mở `/invite`): đường quay lại `/invite` đi theo cả khi bấm qua lại "Đăng ký" ↔ "Đăng nhập". Trên form có khung `info`: trang đăng nhập "Đăng nhập bằng đúng email đã nhận lời mời để tham gia chuyến đi. Chưa có tài khoản thì đăng ký bằng email đó."; trang đăng ký "Đăng ký bằng đúng email đã nhận lời mời. Xác thực email xong, mở lại link trong mail mời để tham gia chuyến đi."; trang "Kiểm tra hộp thư" sau khi đăng ký thêm khung "Xác thực xong, mở lại link trong mail mời để tham gia chuyến đi." (link xác thực mở ở tab khác nên không tự quay lại được; quyết định 1 của Task 4.5). Nếu người dùng quay lại đúng tab đó và bấm "Đăng nhập" ở dưới khung thì đăng nhập xong vẫn về `/invite`.
 
 ### 8.4. Tạo chuyến đi (`/trips/new`) — **Đã làm**
 
