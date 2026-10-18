@@ -2675,29 +2675,82 @@ Mỗi mốc thay một kiểu ô ở mọi chỗ dùng nó; phần còn lại c�
 
 ### Task 4.6 — Giao diện: bình luận
 
-Nhánh: `feat/T4.6-comments-ui` · Test ghi vào `docs/testing/11-sharing-ui.md`.
+Nhánh: `feat/T4.6-comments-ui` · Test ghi vào `docs/testing/11-sharing-ui.md` (tiếp theo: `TC-SHAREUI-027`, `MT-SHAREUI-19`). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh. Dựng mockup Stitch trước theo prompt ở UI_GUIDE 15.3 (ảnh bỏ vào `trip-planner-screenshots/stitch_smart_trip_planner_4.6/`), chủ dự án duyệt rồi mới code; dừng xem trên trình duyệt sau mỗi mốc. Đọc trước: **design.md 6.2 (dòng Comment), 10.2 "Quy ước Comment API", rule 27; UI_GUIDE 7.6, 7.14, 8.1, 15.3**.
+
+> **Rà lại bảng commit (2026-10-19, chủ dự án duyệt "theo đề xuất"):** bảng cũ 4 mốc chưa có số file và gộp nhiều chức năng (xem + trả lời lồng + thời gian tương đối + chip; đăng + trả lời; đếm + mở theo hoạt động). Nay 10 commit code theo A.2. Không có thay đổi backend: API bình luận đã đủ từ Task 4.4.
+>
+> **Quyết định (chủ dự án duyệt 2026-10-19):**
+> 1. **Panel là một kiểu mới của `Modal`** (`<dialog>` mở bằng `showModal()`, có lớp phủ): bám mép phải, rộng 360px, cao hết màn hình; dưới 1024px chiếm toàn màn. Dùng lại những gì `Modal` đã lo: Esc, giữ focus, hộp xác nhận chồng lên (BUG-UI-011), ô bật ra vẽ vào hộp (`OverlayContainerContext`), không đóng khi đang gửi (BUG-UI-004). Panel mở thì không bấm được "Chia sẻ", nên quy tắc "panel và hộp chia sẻ không mở cùng lúc" tự đúng. Không làm thanh bên để trang vẫn dùng được (kiểu Google Docs): phải tự lo focus, Esc, chặn hộp chia sẻ, panel đè cột bản đồ.
+> 2. **Bình luận cho hoạt động mở từ nút trên thẻ, không từ menu "⋮":** người chỉ xem không có menu "⋮" (Task 4.5) mà vẫn được bình luận (design 6.2). Mỗi `ActivityCard` có nút nhỏ icon `MessageCircle` kèm số bình luận; chưa có bình luận thì nút chỉ hiện khi rê chuột / focus (luôn hiện trên màn cảm ứng), như menu "⋮". Bản sao đi theo con trỏ lúc kéo và trang công khai không có nút. Bỏ mục "Bình luận" trong `ActivityMenu` của bảng cũ.
+> 3. **Mở từ một hoạt động thì panel chỉ hiện bình luận của hoạt động đó:** đầu panel có chip "{tên hoạt động} ×" (bấm × về "tất cả"); bình luận gửi lúc này gắn vào hoạt động đó. Lọc trên danh sách đã tải (hàm thuần, có test), không gọi `GET ?activityId=`.
+> 4. **Một ô nhập duy nhất** ở cuối panel, nút chính "Gửi bình luận" (mỗi màn một nút chính). "Trả lời" (chỉ dưới bình luận gốc: API trả lời một cấp) **không** mở ô thứ hai: ô nhập hiện chip "Trả lời {tên} ×" và con trỏ nhảy vào ô. Ctrl+Enter (⌘+Enter) gửi, Enter xuống dòng; bộ đếm 2000 ký tự của `TextAreaField` (Task 4.9). Gửi xong: ô trống, chip trả lời biến mất, danh sách cuộn xuống bình luận mới; không có toast (bình luận mới hiện ngay trong panel). Lỗi gửi: khung đỏ trên ô, nội dung đang gõ giữ nguyên.
+> 5. **Thứ tự và cách tải:** cũ trên, mới dưới (đúng thứ tự API), panel mở ra cuộn sẵn xuống cuối. Danh sách (`['comments', tripId]`) tải ngay khi mở trang chi tiết vì số bình luận ở đầu trang và trên thẻ cần nó; mỗi lần mở panel tải lại để thấy bình luận mới của người khác (cập nhật tức thời: Phase 5). Mở panel, con trỏ đặt vào vùng danh sách, không vào ô nhập (điện thoại không bật bàn phím khi chỉ muốn đọc).
+> 6. **Thời gian tương đối** bằng hàm thuần `lib/relativeTime.ts` (thời điểm, "bây giờ", múi giờ tài khoản) và hook mới `hooks/useNow.ts` cập nhật mỗi phút (`useToday` chỉ đổi mỗi ngày một lần nên không dùng được): dưới 1 phút (kể cả khi đồng hồ máy chủ nhanh hơn máy người dùng) "Vừa xong"; dưới 1 giờ "12 phút trước"; dưới 24 giờ "3 giờ trước"; hôm qua theo lịch của múi giờ tài khoản "Hôm qua lúc 14:30"; dưới 7 ngày "4 ngày trước"; xa hơn "12/10 lúc 14:30", khác năm "12/10/2025". Rê chuột (thuộc tính `title` của thẻ `<time>`) thấy đủ "12/10/2026 14:30" theo múi giờ tài khoản.
+> 7. **Bấm chip hoạt động trên một bình luận** (Mốc 10): đóng panel, chuyển sang ngày của hoạt động và tô viền thẻ, dùng lại cách "Xem trong lịch trình" của bản đồ (`revealActivity`).
+> 8. **Xoá:** nút xoá (icon `Trash2`, `ghost` nhỏ) chỉ hiện với tác giả và chủ chuyến (`author.id` so với tài khoản đang đăng nhập, `myRole === 'OWNER'`); máy chủ vẫn kiểm. `ConfirmDialog` kiểu `danger` "Xoá bình luận?"; bình luận gốc có trả lời thì ghi thêm "Các trả lời của bình luận này cũng bị xoá.". Xong: toast "Đã xoá bình luận". Lỗi (403, 404 đã xoá ở tab khác) hiện trong hộp hỏi qua `getErrorMessage`, danh sách tải lại.
+> 9. **Nội dung là chữ thuần** (design 10.2): giữ xuống dòng (`whitespace-pre-wrap`), chuỗi dài không khoảng trắng tự bẻ (`wrap-anywhere`), không tự biến địa chỉ web thành link.
+> 10. **Hoạt động bị xoá kéo bình luận theo** (rule 27, FK CASCADE): xoá hoạt động và rút ngắn chuyến đi làm mất hoạt động thì tải lại `['comments', tripId]` (Mốc 8). Bình luận mang `activityId` không có trong `trip.days` (dữ liệu chuyến đi cũ hơn danh sách bình luận) hiện không có chip, không ẩn.
+> 11. **Đóng panel khi rời trang:** trạng thái mở panel nằm trong store (Mốc 7) dùng chung cả ứng dụng, nên đổi sang chuyến khác hoặc rời trang chi tiết phải đóng và bỏ hoạt động đang lọc.
+>
+> Bẫy biết trước: (1) `Modal` đặt con trỏ vào phần tử đầu tiên của nội dung; ở panel đó sẽ là nút "Trả lời" đầu tiên hoặc nút × của chip: kiểu panel phải đặt con trỏ vào vùng danh sách (quyết định 5). (2) "5 phút trước" phải đổi theo thời gian mà không tải lại danh sách: chỉ phần chữ thời gian đọc `useNow`, không để cả danh sách vẽ lại mỗi phút. (3) Panel cuộn trong thân `Modal` (chỉ thân cuộn, Task 4.5): "cuộn xuống cuối" phải chờ danh sách vẽ xong, và chỉ khi mở panel hoặc vừa gửi xong, không mỗi lần tải lại ngầm (người đang đọc giữa danh sách bị kéo xuống). (4) Ctrl+Enter trên bàn phím tiếng Việt (Unikey / Telex) đang gõ dở dấu: kiểm `isComposing` trước khi gửi. (5) Nút trên thẻ nằm trong `<article>` có `onFocus` tô marker: bấm nút không được kéo theo thao tác của thẻ (kéo thả bắt đầu từ tay nắm nên không ảnh hưởng, vẫn thử trên trình duyệt).
 
 ```
-Mốc 1 — feat(frontend): show the comments of a trip
-        api/comments.ts, types/comment.ts; lib/relativeTime.ts ("5 phút trước", lấy "bây giờ" qua useToday / Clock của
-        tài khoản) + test; lib/commentTree.ts (lồng một cấp từ danh sách phẳng) + test; features/comments/CommentPanel.tsx:
-        panel phải 360px mở từ nút "Bình luận" (icon MessageCircle) ở đầu trang chi tiết, danh sách ảnh + tên + thời gian +
-        nội dung, trả lời thụt vào; bình luận của activity có chip tên activity + chấm màu tuyến
+Mốc 0 — docs (main): WORKFLOW.md Task 4.6 (bảng này, quyết định, bẫy); UI_GUIDE 3.4 (chip hoạt động của bình luận),
+        7.3 (nút bình luận trên thẻ), 7.6 (kiểu panel của Modal), 7.7 (toast "Đã xoá bình luận"), 7.9 (trạng thái
+        rỗng), 7.14 (Avatar trong bình luận), 8.1 (mục "Bình luận", chưa làm), 15.3 (prompt Stitch viết lại)
 
-Mốc 2 — feat(frontend): post a comment or a reply
-        ô "Viết bình luận…" + nút chính "Gửi bình luận"; "Trả lời" dưới bình luận gốc mở ô trả lời; sau gửi invalidate
-        ['comments', tripId]
+Mốc 1 — feat(frontend): open the comment panel from the trip page                                  (7 file)
+        types/comment.ts; api/comments.ts (listComments); components/Avatar.tsx (email không bắt buộc: tác giả bình luận
+        không có email trong CommentResponse); components/Modal.tsx (kiểu panel: bám phải 360px, cao hết màn, < 1024px
+        toàn màn, con trỏ vào vùng danh sách); features/comments/CommentPanel.tsx (CommentButton: nút phụ "Bình luận"
+        icon MessageCircle kèm số khi > 0, trước "Chia sẻ"; panel "Bình luận": các bình luận gốc với Avatar, tên, ngày
+        "12/10" (formatDayMonthIn đã có), nội dung; đang tải: khung xương; lỗi: khung đỏ + "Thử lại"; rỗng: câu của
+        UI_GUIDE 7.9; mở panel thì tải lại); pages/TripDetailPage.tsx; UI_GUIDE 7.6, 7.14, 8.1
 
-Mốc 3 — feat(frontend): comment on an activity
-        mục "Bình luận" trong ActivityMenu mở panel với activityId điền sẵn (chip hiện trên ô nhập, bỏ được); số bình luận
-        nhỏ trên ActivityCard nếu > 0, đếm từ danh sách GET bình luận đã tải (ActivityResponse không có
-        commentCount, chốt 2026-10-17 ở Task 4.4)
+Mốc 2 — feat(frontend): show replies under their comment                                          (5 file)
+        lib/commentTree.ts + test (danh sách phẳng → gốc kèm trả lời, giữ thứ tự của API; trả lời có cha không còn trong
+        danh sách thì bỏ); components/Avatar.tsx (prop size: 32 / 24px); CommentPanel (trả lời thụt vào dưới gốc);
+        UI_GUIDE 8.1
 
-Mốc 4 — feat(frontend): delete a comment
-        nút xoá hiện với tác giả và chủ chuyến, ConfirmDialog, 403 hiện qua getErrorMessage
+Mốc 3 — feat(frontend): show how long ago a comment was posted                                    (7 file)
+        lib/relativeTime.ts + test (các mức của quyết định 6); lib/format.ts + format.test.ts (formatDateTimeIn:
+        "12/10/2026 14:30" theo múi giờ tài khoản, cho title); hooks/useNow.ts; CommentPanel (<time dateTime title>,
+        thay ngày "12/10" của Mốc 1); UI_GUIDE 8.1
+
+Mốc 4 — feat(frontend): post a comment on the trip                                                (5 file)
+        api/comments.ts (createComment, createCommentKey); features/comments/schemas.ts (không trống sau trim, tối đa
+        2000); features/comments/CommentForm.tsx (TextAreaField "Viết bình luận…", nút chính "Gửi bình luận",
+        Ctrl+Enter); CommentPanel (form ở chân panel, không đóng khi đang gửi, cuộn xuống bình luận mới); UI_GUIDE 8.1
+
+Mốc 5 — feat(frontend): reply to a comment                                                        (3 file)
+        CommentPanel ("Trả lời" dưới bình luận gốc); CommentForm (chip "Trả lời {tên} ×", gửi kèm parentId, con trỏ vào
+        ô); UI_GUIDE 8.1
+
+Mốc 6 — feat(frontend): show which activity a comment is about                                    (5 file)
+        features/comments/ActivityChip.tsx (chấm màu tuyến + tên hoạt động, cắt "…"); lib/commentTree.ts + test (tìm
+        hoạt động theo mã trong trip.days); CommentPanel (chip trên bình luận gốc, trả lời không lặp chip); UI_GUIDE 3.4
+
+Mốc 7 — feat(frontend): comment on an activity                                                    (7 file)
+        stores/commentPanelStore.ts (mở / đóng, hoạt động đang lọc, đóng khi rời trang); features/itinerary/ActivityCard
+        (nút MessageCircle mở panel theo hoạt động); CommentPanel (CommentButton đọc store; lọc theo hoạt động, chip
+        "{tên} ×" đầu panel); CommentForm (gửi kèm activityId khi đang lọc); lib/commentTree.ts + test (lọc theo hoạt
+        động, trả lời đi theo gốc); UI_GUIDE 7.3
+
+Mốc 8 — feat(frontend): count the comments on each activity card                                  (6 file)
+        lib/commentTree.ts + test (đếm theo hoạt động, tính cả trả lời); ActivityCard (số cạnh icon, nút luôn hiện khi
+        > 0); DaySection (đọc danh sách một lần, truyền số; xoá hoạt động thì tải lại bình luận); EditTripDialog (rút
+        ngắn chuyến đi làm mất hoạt động thì tải lại bình luận); UI_GUIDE 7.3
+
+Mốc 9 — feat(frontend): delete a comment                                                          (5 file)
+        api/comments.ts (deleteComment); features/comments/commentRules.ts + test (canDeleteComment: tác giả hoặc chủ);
+        CommentPanel (nút xoá, ConfirmDialog, toast); UI_GUIDE 7.7, 8.1
+
+Mốc 10 — feat(frontend): open the activity of a comment                                           (4 file)
+        ActivityChip thành nút; CommentPanel (đóng panel, chuyển ngày); stores/mapLinkStore hoặc DayTimeline (tô viền
+        thẻ sau khi ngày mới hiện); UI_GUIDE 8.1
 ```
 
-**Nhớ:** panel bình luận và hộp thoại chia sẻ không mở cùng lúc. Trên màn hẹp (< 1024px) panel chiếm toàn màn như tab bản đồ. Cập nhật UI_GUIDE 8.1 và 15.2 trong cùng commit.
+**Nhớ:** cập nhật UI_GUIDE 8.1 trong cùng commit của mỗi mốc; lúc đóng task chuyển prompt Stitch của 4.6 từ 15.3 sang 15.2. Test tự động chỉ cho hàm thuần (`formatDateTimeIn`, `commentTree`, `relativeTime`, `commentRules`); phần còn lại là bài thủ công (test component: Task 8.3). Trước khi đóng task, chủ dự án chạy luôn `MT-COMMENT-01..07` (backend bình luận, còn nợ từ Task 4.4).
 
 ---
 

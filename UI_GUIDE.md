@@ -93,7 +93,7 @@ Sáu màu này phải phân biệt được khi đứng cạnh nhau trên bản 
 | `SHOPPING` | Mua sắm | `act-shopping` | `#BE3C79` | `ShoppingBag` |
 | `OTHER` | Khác | `act-other` | `#4F8A62` | `MapPin` |
 
-**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, chip loại của thẻ hoạt động (nền mờ 12%, chữ và icon theo màu; từ Task 3.9, thay cho viền trái 3px của thẻ), marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
+**Quy tắc:** màu tuyến chỉ xuất hiện ở chấm trên ray, chip loại của thẻ hoạt động (nền mờ 12%, chữ và icon theo màu; từ Task 3.9, thay cho viền trái 3px của thẻ), marker trên bản đồ, icon của gợi ý địa điểm (mục 7.12), nút đang chọn của ô "Loại" (viền và nền mờ 8%, mục 7.13), chấm 8px trên chip hoạt động của bình luận (mục 8.1, Task 4.6), cùng icon và chữ tên loại. Không tô nền thẻ bằng màu tuyến. Code nằm ở `features/itinerary/activityType.ts` (`ACTIVITY_ROUTE`); tên lớp được viết đầy đủ để Tailwind tìm thấy.
 
 ### 3.5. Màu trạng thái chuyến đi
 
@@ -329,6 +329,7 @@ Gợi ý (12px, gray-500)  hoặc  ⓘ Lỗi (12px, danger, icon 14px)
 - **Nghỉ** (Task 3.9, theo mockup "Teal Voyage"): nền trắng, **không viền**, `shadow-md`, bo 12px. Loại hoạt động là một **chip** bo tròn cao 20px cạnh giờ: icon 12px và tên loại, nền màu tuyến mờ 12%, chữ màu tuyến. Chân thẻ (khi có chi phí hoặc link): vạch `tide` phía trên, "Chi phí dự kiến:" `gray-500` kèm số tiền `jade-dark` đậm ở bên trái, link `jade-dark` ở bên phải. Trước Task 3.9: viền `tide` 1px ở ba cạnh, viền trái 3px màu tuyến, loại là chữ có màu, hàng meta 12px có icon ví.
 - **Rê chuột hoặc Tab tới thẻ:** (từ Task 3.9 nền không đổi) hiện tay nắm kéo (`GripVertical`) ở mép trái và menu "⋮" ở mép phải. **Màn hình cảm ứng:** hai nút này luôn hiện.
 - **Menu "⋮"** (`ActivityMenu`, Radix): "Sửa", "Chuyển sang ngày…" (không có khi chuyến đi chỉ có 1 ngày), "Xoá" (chữ đỏ). Dùng được bằng bàn phím: Enter mở, mũi tên chọn, Esc đóng.
+- **Nút bình luận** (Task 4.6, **chưa làm**): ở mép phải hàng đầu, ngay bên trái menu "⋮" (người chỉ xem không có menu: nút đứng ở chỗ của menu). Icon `MessageCircle` 16px `gray-500`, cao 28px (44px trên màn cảm ứng), kèm số bình luận 12px/600 khi > 0 (tính cả trả lời). Chưa có bình luận thì nút chỉ hiện khi rê chuột / Tab tới thẻ như menu "⋮" (luôn hiện trên màn cảm ứng); có bình luận thì luôn hiện. Nhãn đọc "Bình luận về {tên hoạt động}" (kèm "{N} bình luận" khi > 0). Bấm thì mở panel bình luận chỉ với các bình luận của hoạt động này (mục 8.1). Mọi vai trò đều có nút (người chỉ xem cũng bình luận được, design 6.2); bản sao đi theo con trỏ lúc kéo và thẻ ở trang công khai không có. Không có mục "Bình luận" trong menu "⋮" (chốt 2026-10-19).
 - **Đang kéo:** thẻ bay theo con trỏ có `shadow-lg`, nghiêng 2°, trong suốt 90%. Vị trí sẽ thả hiện một **đường ngang jade 2px**.
 - **Trùng giờ** với hoạt động khác trong ngày (đã lưu bằng "Vẫn lưu"): nền là `warning` pha 10% vào trắng (nền đặc, không trong suốt: thẻ có bóng phải che được phần bên dưới) và icon tam giác cảnh báo cạnh giờ. Tính ở giao diện bằng `lib/timeOverlap.ts`, cùng quy tắc với backend (chạm đầu nhau không tính).
 - Không có giờ: dòng giờ ghi "Chưa đặt giờ".
@@ -374,6 +375,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Khi hộp mở, con trỏ nằm ở **phần tử đầu tiên của nội dung**: ô nhập đầu tiên của form, hoặc nút "Huỷ" của hộp xác nhận (nhấn Enter ngay không bao giờ xoá nhầm). Không nằm ở nút "×", và bỏ qua mọi nút mang `data-no-initial-focus` (nút bỏ một thứ gì đó, Task 3.6). `Modal` tự làm việc này; **không** đặt `autoFocus` cho ô bên trong hộp thoại, vì nó không có tác dụng khi hộp còn đang ẩn (BUG-UI-003, Task 2.7).
 - **Nội dung dài** (Task 4.5): hộp cao tối đa 90% màn hình; khi nội dung dài hơn, **chỉ phần nội dung cuộn**, hàng tiêu đề và nút "×" đứng yên ở trên (hộp là một cột: tiêu đề cố định, thân cuộn). Trước Task 4.5 cả hộp cuộn, tiêu đề trôi mất.
 - **Danh sách và lịch bật ra bên trong hộp** (Task 4.9): `<dialog>` mở bằng `showModal()` nằm trên mọi thứ khác của trang, nên thứ bật ra từ một ô trong hộp phải vẽ **vào chính hộp đó**, không vẽ ở cuối `<body>` (sẽ nằm dưới hộp, không bấm được). `Modal` đưa thẻ `<dialog>` của nó xuống qua `OverlayContainerContext` (`components/overlayContainer.ts`); `Select` đọc nó qua `useOverlayContainer()`. Thành phần bật ra mới phải làm giống vậy.
+- **Kiểu panel** (`layout="panel"`, Task 4.6, **chưa làm**): cùng thẻ `<dialog>`, cùng lớp phủ, Esc, giữ focus và hộp lồng nhau như trên, nhưng bám **mép phải**, rộng 360px, cao hết màn hình, chỉ bo hai góc trái, không viền phải; thân là một cột (đầu panel đứng yên, danh sách cuộn, chân panel đứng yên cho ô nhập). Dưới 1024px chiếm toàn màn hình, không bo góc. Mở ra thì con trỏ nằm ở **vùng danh sách** (`tabIndex={-1}`), không ở ô nhập (điện thoại không bật bàn phím khi chỉ muốn đọc) và không ở nút đầu tiên của danh sách. Dùng cho panel bình luận (mục 8.1).
 - **Hộp lồng nhau** (hộp hỏi lại mở bên trong một hộp khác): phím Esc chỉ đóng hộp trên cùng, hộp bên dưới giữ nguyên nội dung. `Modal` chặn React chuyển sự kiện Esc lên hộp cha (`BUG-UI-011`, Task 4.5).
 - `ConfirmDialog` dùng trước mọi thao tác mất dữ liệu (xoá, đổi ngày làm mất hoạt động) hoặc cần nghĩ lại (trùng giờ, vừa dời vừa đổi độ dài chuyến đi).
 - **Chưa áp dụng:** trả focus về đúng nút đã mở hộp khi hộp được mở từ menu "⋮" (menu đã biến mất khi hộp đóng).
@@ -382,7 +384,7 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 
 - Góc dưới bên phải trên máy tính, trên cùng trên điện thoại; rộng 360px; tự tắt sau 4 giây; có nút "×".
 - Vùng chứa là `aria-live="polite"`; thông báo lỗi có `role="alert"`.
-- Chữ dùng thể hoàn thành, khớp với nút đã bấm: "Lưu thay đổi" → "Đã lưu thay đổi"; "Thêm hoạt động" → "Đã thêm hoạt động". Hiện có: "Đã lưu thay đổi", "Đã thêm hoạt động", "Đã xoá hoạt động", "Đã đổi trạng thái", "Đã xoá chuyến đi", `Đã chuyển "…" sang Ngày N`.
+- Chữ dùng thể hoàn thành, khớp với nút đã bấm: "Lưu thay đổi" → "Đã lưu thay đổi"; "Thêm hoạt động" → "Đã thêm hoạt động". Hiện có: "Đã lưu thay đổi", "Đã thêm hoạt động", "Đã xoá hoạt động", "Đã đổi trạng thái", "Đã xoá chuyến đi", `Đã chuyển "…" sang Ngày N`; Task 4.6 thêm "Đã xoá bình luận" (gửi bình luận **không** có toast: bình luận mới hiện ngay trong panel).
 - Toast có thể kèm **một link** dẫn tới kết quả không nằm trên màn hình: `Đã chuyển "…" sang Ngày 3` + "Mở Ngày 3".
 - Lỗi của thao tác không có form (kéo thả, đổi trạng thái) báo bằng toast đỏ, không báo bằng khung đỏ nằm xa chỗ thao tác.
 - **Không có nút "Hoàn tác"** cho tới khi API hỗ trợ khôi phục: hoạt động bị xoá cứng ngay.
@@ -403,6 +405,7 @@ Ba phần: hình minh hoạ nét đơn hai màu (bản đồ gấp có tuyến �
 | Lọc không ra kết quả | "Không tìm thấy chuyến đi nào phù hợp. Thử từ khoá khác hoặc bỏ bớt bộ lọc." | Xoá bộ lọc | **Đã làm** |
 | Ngày chưa có hoạt động | "Ngày này còn trống. Thêm địa điểm bạn muốn ghé." (khung nét đứt trên ray) | Thêm hoạt động | **Đã làm** |
 | Chưa mời ai (hộp chia sẻ, chỉ có dòng của chủ) | "Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa." | — không có nút: form "Mời" nằm ngay trên, mỗi màn một nút chính (chốt 2026-10-18, Task 4.5) | **Đã làm** |
+| Chưa có bình luận (panel bình luận) | "Chưa có bình luận nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới." | — không có nút: ô nhập nằm ngay dưới (như hộp chia sẻ). Đang lọc theo một hoạt động: "Chưa có bình luận nào về hoạt động này." | **Task 4.6**, chưa làm |
 | Chưa có chi phí | "Chưa ghi khoản nào. Thêm chi phí để theo dõi ngân sách." | Thêm chi phí | **Phase 7** |
 
 ### 7.10. Ghi chú dài — `ExpandableText`
@@ -462,7 +465,7 @@ Loại
 
 ### 7.14. Ảnh đại diện — `Avatar` (Task 4.5)
 
-Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi tài khoản đều chưa có) thì hiện chữ cái đầu 12px/600 trên nền `jade-light` chữ `jade-dark`; lời mời đang chờ dùng nền `warning` 15% chữ `gray-800` như mockup. Chữ cái đầu (`lib/initials.ts`): chữ đầu của từ đầu và từ cuối trong tên ("Trần Nhật Triều" → "TT", "Mai Anh" → "MA"; mockup ghi "TN", không theo), tên một từ thì một chữ, người được mời chưa có tài khoản (chưa có tên) thì chữ đầu của email. Chỉ để trang trí (`aria-hidden`): tên hoặc email luôn nằm cạnh. Chỉ dùng trong hộp chia sẻ; ảnh người đang xem là Phase 5.
+Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi tài khoản đều chưa có) thì hiện chữ cái đầu 12px/600 trên nền `jade-light` chữ `jade-dark`; lời mời đang chờ dùng nền `warning` 15% chữ `gray-800` như mockup. Chữ cái đầu (`lib/initials.ts`): chữ đầu của từ đầu và từ cuối trong tên ("Trần Nhật Triều" → "TT", "Mai Anh" → "MA"; mockup ghi "TN", không theo), tên một từ thì một chữ, người được mời chưa có tài khoản (chưa có tên) thì chữ đầu của email. Chỉ để trang trí (`aria-hidden`): tên hoặc email luôn nằm cạnh. Dùng trong hộp chia sẻ và (Task 4.6) panel bình luận: bình luận gốc 32px, trả lời 24px (prop `size`, chữ cái đầu 10px); ảnh người đang xem là Phase 5.
 
 ### 7.15. Nút gạt — `SegmentedControl` (Task 4.9)
 
@@ -610,6 +613,15 @@ Ai có liên kết đều xem được cho tới khi bạn thu hồi        chip
   - **Liên kết chia sẻ** (chỉ chủ chuyến, **Đã làm**): dưới danh sách thành viên, sau một vạch `tide`. Tiêu đề "Liên kết chia sẻ" và dòng "Ai có liên kết đều xem được chuyến đi, không cần tài khoản.". Mỗi liên kết chưa thu hồi là một khung viền `tide` (mới nhất trước): ô địa chỉ chỉ đọc `{origin}/share/{token}` (chữ đơn cách 13px, nền `gray-50`, bấm vào là chọn hết) và nút phụ cỡ `sm` "Sao chép" (icon `Copy`) → toast "Đã sao chép liên kết"; trình duyệt không cho chép (không phải HTTPS / localhost) → toast đỏ "Không sao chép được. Hãy chọn liên kết và sao chép thủ công.". Dòng dưới 13px: "12 lượt xem · Không hết hạn" / "· Dùng được đến hết ngày 20/10/2026"; liên kết đã hết hạn có huy hiệu `muted` "Hết hạn", "· Hết hạn ngày 10/10/2026", chữ địa chỉ nhạt và nút "Sao chép" bị khoá. Ngày tính theo múi giờ tài khoản. Danh sách chỉ tải khi chủ mở hộp; đang tải là khung xương, lỗi là khung đỏ kèm "Thử lại", chưa có liên kết nào thì ghi "Chưa có liên kết nào.". Thành viên khác không thấy mục này.
   - **Tạo liên kết** (**Đã làm**; chọn nhanh từ Task 4.9): ngay dưới dòng giải thích, trên danh sách: nhóm chip "Hết hạn" (`ChoiceChips`, mục 7.19) **"Không hết hạn"** (mặc định) / **"7 ngày"** / **"30 ngày"** / **"Chọn ngày…"**; dưới chip một dòng 12px `gray-500` nói liên kết dùng được tới khi nào: "Ai có liên kết đều xem được cho tới khi bạn thu hồi", hoặc "Dùng được đến hết ngày 25/10/2026" (7 / 30 ngày tính từ hôm nay: tạo thứ Hai thì "7 ngày" dùng được hết thứ Hai tuần sau; `lib/linkExpiry.expiryDateFor`). "Chọn ngày…" hiện ô "Dùng được đến hết ngày *" rộng 220px (`DatePickerField`, mục 7.18; ngày trước hôm nay bị mờ); bấm chip bằng chuột / ngón tay thì lịch mở luôn, đi bằng phím mũi tên qua chip thì không. Rồi nút **phụ** "Tạo liên kết" (icon `Link2`; nút chính của hộp vẫn là "Mời") ở hàng riêng. Ngày cuối nghĩa là liên kết dùng được **hết ngày đó** theo múi giờ tài khoản (`lib/linkExpiry.expiryInstant`: mili giây cuối của ngày, tính cả ngày đổi giờ mùa hè). Xong: toast "Đã tạo liên kết", về lại "Không hết hạn", liên kết mới ở đầu danh sách. "Chọn ngày…" mà chưa chọn ngày: "Chọn ngày hết hạn trên lịch" dưới ô; ngày trước hôm nay: "Ngày hết hạn phải từ hôm nay trở đi"; máy chủ từ chối (400 ở `expiresAt`) hiện dưới ô ngày, hoặc dưới nhóm chip khi đang chọn nhanh; lỗi khác là khung đỏ trên form. Đang tạo thì Esc / "×" không đóng hộp.
   - **Thu hồi liên kết** (**Đã làm**): cuối dòng lượt xem của mỗi liên kết, căn phải, nút `danger` cỡ `sm` "Thu hồi" (không thêm kiểu nút "ghost-danger" của mockup), có cả trên liên kết đã hết hạn (liên kết hết hạn vẫn giữ nhãn "chia sẻ bằng liên kết" của chuyến cho tới khi thu hồi). Bấm thì mở `ConfirmDialog` kiểu `danger` chồng lên hộp chia sẻ: "Thu hồi liên kết?" — "Ai đang có liên kết này sẽ không mở được chuyến đi nữa. Thao tác này không hoàn tác được; bạn có thể tạo liên kết mới sau." (nút "Huỷ" / "Thu hồi liên kết"). Xong: toast "Đã thu hồi liên kết", liên kết biến khỏi danh sách. Lỗi (đã thu hồi ở tab khác: 404) hiện trong hộp hỏi.
+- **Bình luận** (Task 4.6, **chưa làm**; quyết định ở WORKFLOW Task 4.6, chủ dự án duyệt 2026-10-19):
+  - **Nút "Bình luận"**: nút phụ ở cụm góc phải đầu trang, ngay **trước** "Chia sẻ" / "Thành viên"; icon `MessageCircle`, kèm số bình luận của cả chuyến (tính cả trả lời) dạng "Bình luận · 5" khi > 0. Mọi vai trò đều thấy. Danh sách bình luận tải cùng lúc mở trang (số trên nút và trên thẻ cần nó), lỗi tải thì nút không có số.
+  - **Panel** (`Modal` kiểu panel, mục 7.6): bám mép phải, rộng 360px, cao hết màn hình; dưới 1024px chiếm toàn màn. Tiêu đề "Bình luận" và "×" ở đầu; dưới tiêu đề, khi đang lọc theo một hoạt động, chip "{chấm màu tuyến} {tên hoạt động} ×" (bấm × xem bình luận của cả chuyến). Thân cuộn; ô nhập đứng yên ở chân panel. Mở panel thì danh sách tải lại và cuộn sẵn xuống cuối; tải lại ngầm không kéo người đang đọc xuống cuối. Panel mở thì không bấm được "Chia sẻ" (không mở cùng hộp chia sẻ).
+  - **Một bình luận**: `Avatar` 32px bên trái; bên phải tên 14px/600 `ink` và thời gian 12px `gray-500` cùng hàng ("Vừa xong", "12 phút trước", "3 giờ trước", "Hôm qua lúc 14:30", "4 ngày trước", "12/10 lúc 14:30", khác năm "12/10/2025"; rê chuột thấy "12/10/2026 14:30"; theo múi giờ tài khoản, tự đổi mỗi phút); dưới là nội dung 14px `gray-800`, chữ thuần, giữ xuống dòng, chuỗi dài tự bẻ, không tự tạo link. Bình luận về một hoạt động có chip nhỏ cao 20px (chấm 8px màu tuyến + tên hoạt động, cắt "…", nền `gray-100`) giữa tên và nội dung; trả lời không lặp chip. Các bình luận cách nhau 16px, không khung, không vạch.
+  - **Trả lời**: thụt vào 40px dưới bình luận gốc, `Avatar` 24px. Dưới nội dung bình luận gốc có link-nút 12px/600 `gray-500` "Trả lời" (trả lời không có nút này: API chỉ cho một cấp).
+  - **Ô nhập** (`TextAreaField`, mục 7.2): "Viết bình luận…", tự giãn 3 → 8 dòng, bộ đếm "1.800 / 2000" từ 80%; dưới ô là nút **chính** "Gửi bình luận" (icon `Send`) căn phải, nút chính duy nhất của panel. Ctrl+Enter (⌘+Enter) gửi, Enter xuống dòng. Bấm "Trả lời": trên ô hiện chip "Trả lời {tên} ×", con trỏ nhảy vào ô; × bỏ trả lời (nội dung đang gõ giữ nguyên). Đang lọc theo hoạt động thì bình luận gửi đi gắn vào hoạt động đó. Gửi xong: ô trống, chip trả lời biến mất, danh sách cuộn tới bình luận mới, không toast. Nội dung chỉ có khoảng trắng: "Nội dung bình luận không được để trống" khi bấm gửi. Lỗi máy chủ: khung đỏ trên ô, nội dung giữ nguyên. Đang gửi: Esc / "×" không đóng panel.
+  - **Xoá**: tác giả và chủ chuyến thấy nút `ghost` nhỏ icon `Trash2` ở cuối hàng tên (nhãn đọc "Xoá bình luận của {tên}"), hiện khi rê chuột / Tab tới bình luận, luôn hiện trên màn cảm ứng. `ConfirmDialog` kiểu `danger` "Xoá bình luận?" — "Bình luận sẽ bị xoá và không khôi phục được." (bình luận gốc có trả lời thêm "Các trả lời của bình luận này cũng bị xoá.") — nút "Huỷ" / "Xoá bình luận". Xong: toast "Đã xoá bình luận". Lỗi hiện trong hộp hỏi, danh sách tải lại.
+  - **Bấm chip hoạt động** trên một bình luận: panel đóng, trang chuyển sang ngày của hoạt động và thẻ được tô viền như "Xem trong lịch trình" của bản đồ. Hoạt động không còn trong lịch trình đang hiển thị: không có chip.
+  - **Trạng thái**: đang tải là 3 khung xương (tròn + hai dòng); lỗi tải là khung đỏ kèm "Thử lại" (còn dữ liệu cũ thì giữ danh sách, BUG-UI-005); rỗng: câu ở mục 7.9.
 - **Máy chủ không trả lời:** nếu chuyến đi đã tải được, trang **giữ nguyên** (kể cả hộp thoại đang mở) và hiện khung lỗi "… Đang hiển thị dữ liệu đã tải trước đó." kèm nút phụ "Thử lại" ngay trên tên chuyến đi, cùng cách trang danh sách đang làm. Chưa tải được gì thì chỉ có khung lỗi, "Thử lại" và link về danh sách. Chuyến đi không còn (404) hoặc không có quyền (403): chỉ thông báo, không có "Thử lại" (Task 2.7, BUG-UI-005).
 - **Một ngày một trang:** URL `/trips/:id/days/:dayIndex` (số thứ tự ngày, 1..n). `/trips/:id` tự chuyển về ngày 1, hoặc về ngày hôm nay khi chuyến đi đang diễn ra (Task 3.7); số ngày không tồn tại (ví dụ sau khi rút ngắn chuyến đi) tự chuyển về ngày 1. F5, nút Back và link gửi cho người khác giữ đúng ngày. (Trước đây xếp dọc mọi ngày trên một trang; đổi ở Task 2.6 commit 10 để khớp với bản đồ từng ngày ở Phase 3.)
 - **Cột trái** (Task 3.9, theo mockup "Teal Voyage"; rộng 200px, từ 1280px: 240px. Bản đầu của Task 3.9 rộng 220 / 280px với chữ lớn hơn; chủ dự án thấy to và thô nên thu gọn ở Commit 11): một **thẻ trắng không viền, `shadow-md`**, dính khi cuộn, cao tối đa bằng màn hình trừ 48px (danh sách ngày cuộn bên trong thẻ, phần đầu thẻ đứng yên). Đầu thẻ: "Kế hoạch các ngày" (16px/600) và dòng phụ in hoa 11px `gray-500` "13 ngày · 02/10 – 14/10". Mỗi ngày là một link cao khoảng 48px: "Ngày N" (14px/600), bên dưới "Thứ sáu, 02/10" (12px `gray-500`), bên phải là số hoạt động trong vòng tròn 24px. Ngày đang xem (`aria-current="page"`): nền `jade-light`, vạch `jade` 3px ở mép trái, tên `jade-dark`, vòng tròn nền `jade-dark` chữ trắng. Hôm nay: `Badge` "Hôm nay" cạnh tên, vòng tròn nền `jade-light`. Ngày đã qua **không** có nhãn và không nhạt đi ở cột này; tiêu đề của ngày cũng không còn ở đây (cả hai còn ở khối tiêu đề ngày). Trước Task 3.9: danh sách phẳng rộng 200px, có tiêu đề của ngày và nhãn "Đã qua".
@@ -1343,13 +1355,44 @@ for the role. Section "Liên kết chia sẻ": label "Hết hạn", a row of chi
 
 #### Phase 4 — Task 4.6: bình luận
 
-**Dữ liệu có thật:** bình luận của chuyến đi hoặc của một hoạt động, trả lời một cấp (`parent_id`), người viết, thời gian, xoá bình luận của mình (chủ chuyến xoá được của mọi người). Không sửa bình luận. Panel và hộp thoại chia sẻ không mở cùng lúc; dưới 1024px panel chiếm toàn màn như tab bản đồ.
+**Dữ liệu có thật:** bình luận của chuyến đi hoặc của một hoạt động, trả lời một cấp (`parent_id`), người viết (tên, ảnh: hiện mọi tài khoản đều chưa có ảnh nên là chữ cái đầu), thời điểm đăng, nội dung chữ thuần tối đa 2000 ký tự, xoá bình luận của mình (chủ chuyến xoá được của mọi người; xoá gốc mất luôn trả lời). Ai xem được chuyến đi đều đọc và đăng được, kể cả người chỉ xem. Không sửa bình luận. Panel và hộp thoại chia sẻ không mở cùng lúc; dưới 1024px panel chiếm toàn màn. Chi tiết ở mục 8.1 "Bình luận" (viết lại 2026-10-19 theo quyết định của WORKFLOW Task 4.6).
+**Không được thêm:** sửa bình luận, thả cảm xúc / "thích", nhắc tên bằng @, đính kèm ảnh / tệp, định dạng chữ (đậm, link, markdown), trả lời nhiều cấp, "đã xem", chấm "đang gõ…", số người online, thông báo, ô tìm trong bình luận, sắp xếp mới nhất trước.
+
+Panel trên máy tính (dựng trước, để chốt kiểu chung):
 
 ```
-A right-side panel 360px "Bình luận" over the trip detail. A list of comments: avatar,
-name, relative time "5 phút trước", text; one comment has one indented reply.
-A comment attached to an activity shows a small chip with the activity title and its
-colored dot. At the bottom a textarea "Viết bình luận…" and a jade button "Gửi bình luận".
+The trip detail page at 1440px, dimmed by a dark overlay, with a white side panel 360px tall as
+the screen sliding in from the right edge, rounded only on its left corners, soft shadow. Header:
+title "Bình luận" and an "×" button. Scrollable list, oldest at the top: each comment has a 32px
+round avatar with initials on a light teal circle, the name in bold 14px and a muted 12px time
+on the same line ("2 giờ trước", "Hôm qua lúc 14:30"), then the text in 14px gray, line breaks
+kept. One comment has a small gray chip between the name and the text: an 8px orange dot and
+"Bún chả cá 109". Under each root comment a small muted text button "Trả lời". One comment has
+one reply indented 40px with a 24px avatar and no "Trả lời". No borders between comments, 16px
+apart. Fixed footer: a textarea "Viết bình luận…" three lines tall and, under it on the right,
+the teal primary button "Gửi bình luận" with a send icon.
+```
+
+Panel đang lọc theo một hoạt động, đang trả lời (biến thể của prompt trên):
+
+```
+The same comment panel opened from an activity card. Under the title a removable chip with a
+blue dot "Chùa Linh Ứng ×". Only two comments about this activity. The pointer hovers the second
+comment, which shows a small ghost trash icon button at the end of its name row. In the footer,
+above the textarea, a small chip "Trả lời Mai Anh ×"; the textarea holds one line of text and is
+focused with a teal ring; a muted counter is not shown.
+```
+
+Thẻ hoạt động có nút bình luận và panel trên điện thoại:
+
+```
+Two parts. Left: two activity cards of the itinerary (white, soft shadow, 12px radius). In the
+top row of each card, at the right edge just before the "⋮" button, a small gray speech bubble
+icon button; the first card shows the count "3" next to the icon, the second card shows only the
+icon (hover state). Right: the comment panel on a 390px phone, full screen, no rounded corners,
+header "Bình luận" with "×", the list, and the textarea with "Gửi bình luận" fixed at the bottom.
+Also the trip header with a secondary button "Bình luận · 5" (speech bubble icon) placed before
+the secondary button "Chia sẻ".
 ```
 
 #### Phase 5 — Task 5.3: đồng chỉnh sửa thời gian thực
