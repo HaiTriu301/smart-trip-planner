@@ -471,7 +471,7 @@ Vai trò
 └──────────────────────────┘
 ```
 
-- Mọi menu bật ra từ một nút (Radix `DropdownMenu`) dùng chung `components/menuStyles.ts`: `MENU_CONTENT` (khung) và `MENU_ITEM` (dòng 36px, **44px trên màn cảm ứng**, chữ 14px, icon 16px `gray-500`). Đang dùng: menu "⋮" của thẻ hoạt động (mục 7.3), trạng thái chuyến đi.
+- Mọi menu bật ra từ một nút (Radix `DropdownMenu`) dùng chung `components/menuStyles.ts`: `MENU_CONTENT` (khung) và `MENU_ITEM` (dòng 36px, **44px trên màn cảm ứng**, chữ 14px, icon 16px `gray-500`). Đang dùng: menu "⋮" của thẻ hoạt động (mục 7.3), trạng thái chuyến đi, sắp xếp danh sách chuyến đi (mục 8.2).
 - **Mở / đóng:** khung mờ dần và lớn lên từ phía nút (gốc biến đổi do Radix tính, nên menu mở lên trên hay xuống dưới đều hợp) trong 140ms, đóng 100ms (`animate-pop-in` / `animate-pop-out` trong `tokens.css`); tắt khi hệ điều hành bật giảm chuyển động.
 - Dòng đang trỏ (chuột hoặc phím mũi tên) nền `gray-100`: màu trung tính hợp cả dòng "Xoá" chữ `danger`. Danh sách của ô chọn (mục 7.2) dùng `jade-light`.
 - **Trạng thái chuyến đi** (`TripStatusSelect`, trang chi tiết, chỉ người sửa được): nút là huy hiệu cùng tông với trạng thái (mục 3.5), chữ 12px/500, mũi tên `ChevronDown` 14px; menu liệt kê 5 trạng thái theo thứ tự, mỗi dòng chấm màu (`badgeDotClass`) + tên + ✓ ở trạng thái hiện tại. Chọn là **lưu ngay** (toast "Đã đổi trạng thái"); chọn lại trạng thái hiện tại không gửi gì. Đang lưu: huy hiệu hiện trạng thái vừa chọn, mũi tên thành vòng quay, nút bị khoá; lỗi: toast đỏ, huy hiệu về trạng thái cũ. Nhãn đọc "Trạng thái chuyến đi: {trạng thái}".
@@ -575,7 +575,7 @@ Vai trò
 - Tiêu đề "Chuyến đi của bạn" + dòng phụ; nút "+ Tạo chuyến đi" bên phải.
 - **Hàng lọc** giữa hai đường kẻ mảnh:
   - Chip trạng thái "Tất cả" + 5 trạng thái, mỗi chip có **số chuyến đi** (từ `GET /trips/status-counts`, tính theo từ khoá đang tìm). Chip đang chọn nền `ink` chữ trắng; "Đang diễn ra" có chấm `jade` đứng yên.
-  - Ô "Sắp xếp": Tạo gần đây nhất / Ngày đi sớm nhất / Ngày đi muộn nhất / Tên A → Z.
+  - Nút "Sắp xếp" (từ Task 4.9): cao 40px (cảm ứng 44px), nền trắng, viền `tide` (rê chuột `gray-300`, menu đang mở `jade`), icon `ArrowUpDown`, chữ "Sắp xếp: " `gray-600` rồi thứ tự hiện tại đậm 500, mũi tên `ChevronDown`. Bấm mở menu (mục 7.16, canh phải với nút): Tạo gần đây nhất / Ngày đi sớm nhất / Ngày đi muộn nhất / Tên A → Z, ✓ ở thứ tự hiện tại; chọn là sắp xếp lại và về trang 1 (thứ tự lưu trên URL như trước).
   - Mọi bộ lọc lưu trên URL (`?q=&status=&sort=&page=`).
 - **Lưới** 3 cột (≥ 1024px) / 2 cột (≥ 640px) / 1 cột.
 - **Thẻ:** ảnh bìa 16:9 (chưa có ảnh thì là khối `gray-100` có icon ghim, không gradient), huy hiệu trạng thái `solid` ở góc trên phải ảnh, tên điểm đến ở góc dưới trái ảnh (nền `ink` 85%), tên chuyến 1 dòng, ngày đi có icon lịch, chân thẻ "5 ngày · 12 hoạt động". Rê chuột: viền và tên chuyển `jade`.
