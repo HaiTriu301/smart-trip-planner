@@ -9,11 +9,12 @@ import { Button } from '../components/Button'
 import { ExpandableText } from '../components/ExpandableText'
 import { Skeleton } from '../components/Skeleton'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
-import { showsRoleBadge, TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from '../features/sharing/tripRole'
+import { canEditTrip, showsRoleBadge, TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from '../features/sharing/tripRole'
 import { useToday } from '../hooks/useToday'
 import { CompleteTripPrompt } from '../features/trips/CompleteTripPrompt'
 import { TripActions } from '../features/trips/TripActions'
 import { TripStatusSelect } from '../features/trips/TripStatusSelect'
+import { TRIP_STATUS_LABELS, TRIP_STATUS_TONES } from '../features/trips/tripStatus'
 import { countDays, formatDateRange, formatMoney } from '../lib/format'
 import { openingDayIndex } from '../lib/tripDates'
 
@@ -56,6 +57,9 @@ export function TripDetailPage() {
     return <Navigate to={`/trips/${trip.id}/days/${opening}`} replace />
   }
 
+  // A viewer reads the trip: no control that would only end in a 403 (design.md 6.2)
+  const canEdit = canEditTrip(trip.myRole)
+
   return (
     <div className="space-y-6">
       <BackLink />
@@ -89,8 +93,17 @@ export function TripDetailPage() {
             )}
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 sm:pt-1">
-            <TripStatusSelect trip={trip} />
-            <TripActions trip={trip} />
+            {canEdit ? (
+              <>
+                <TripStatusSelect trip={trip} />
+                <TripActions trip={trip} />
+              </>
+            ) : (
+              // Read-only status: centred on the first line of the title like the select it replaces
+              <span className="sm:pt-1.5">
+                <Badge tone={TRIP_STATUS_TONES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
+              </span>
+            )}
           </div>
         </div>
         <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
@@ -118,8 +131,9 @@ export function TripDetailPage() {
         {trip.description && <ExpandableText text={trip.description} className="max-w-[68ch] text-gray-600" />}
       </header>
 
-      {/* key: "Để sau" is remembered per trip, a different trip asks its own question */}
-      <CompleteTripPrompt key={trip.id} trip={trip} />
+      {/* key: "Để sau" is remembered per trip, a different trip asks its own question. A viewer is never asked:
+          they cannot change the status */}
+      {canEdit && <CompleteTripPrompt key={trip.id} trip={trip} />}
 
       <DayTimeline
         tripId={trip.id}

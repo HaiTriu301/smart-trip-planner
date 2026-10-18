@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { showsRoleBadge } from './tripRole'
+import { canEditTrip, showsRoleBadge } from './tripRole'
+
+describe('canEditTrip', () => {
+  it.each(['OWNER', 'EDITOR'] as const)('lets the %s change the trip', (role) => {
+    expect(canEditTrip(role)).toBe(true)
+  })
+
+  it('keeps a viewer to reading', () => {
+    expect(canEditTrip('VIEWER')).toBe(false)
+  })
+})
 
 describe('showsRoleBadge', () => {
   it('hides the owner badge on a trip nobody else is on', () => {

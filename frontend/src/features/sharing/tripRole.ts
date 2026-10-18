@@ -14,6 +14,11 @@ export const TRIP_ROLE_TONES: Record<TripRole, BadgeTone> = {
   VIEWER: 'neutral',
 }
 
+/** Owner and editor change the trip and its itinerary; a viewer only reads it (design.md 6.2). */
+export function canEditTrip(role: TripRole): boolean {
+  return role !== 'VIEWER'
+}
+
 /**
  * Whether the trip page shows the caller's role next to the title (Task 4.5, decision 4). A member always sees it;
  * the owner only once somebody else is on the list (a pending invitation counts), so a private trip carries no
