@@ -564,9 +564,16 @@ Tròn 32px. Có ảnh (`avatarUrl`) thì hiện ảnh; chưa có (hiện mọi t
   - Chọn vị trí khi ô tên **còn trống** thì tên địa điểm được điền vào, vẫn sửa được.
   - Nút chữ "Bỏ vị trí" chỉ có khi vị trí **chưa được lưu** (wizard, hoặc chuyến đi chưa có vị trí). Vị trí đã lưu chỉ đổi được, chưa bỏ được (máy chủ chưa hỗ trợ xoá trắng).
 
-### 8.5. Trang chuyến đi công khai (share link) — **Phase 4**
+### 8.5. Trang chuyến đi công khai (`/share/:token`) — **Đã làm** (Task 4.5; bản đồ: Mốc 17)
 
-Một cột, rộng tối đa 760px, canh giữa. Không có thanh điều hướng của ứng dụng, chỉ có logo nhỏ và nút "Tạo chuyến đi của bạn" ở cuối. Bản đồ đặt dưới phần tóm tắt, không dính.
+Một cột, rộng tối đa 760px, canh giữa, trên nền `paper`. Không có thanh điều hướng của ứng dụng, chỉ có logo nhỏ ở góc trên trái (không phải link). Ai cũng mở được, đã đăng nhập hay chưa, và trang giống nhau với mọi người. Bản đồ đặt dưới phần tóm tắt, không dính (Mốc 17).
+
+- **Tóm tắt:** tên chuyến 32px/700 (không cắt, xuống dòng), dòng thông tin có icon (điểm đến, ngày đi, số ngày), mô tả thu gọn có "Đọc thêm". Không có ngân sách, trạng thái, tên chủ, thành viên.
+- **Các ngày:** **mọi ngày trên một trang**, theo thứ tự (không có cột ngày, chip ngày, hay chuyển trang). Mỗi ngày: "Ngày 1 · Thứ năm, 12/03" (18px/600), dưới là tiêu đề của ngày với icon `Flag` màu `jade-dark` (theo trang trong ứng dụng; mockup đặt bên phải, không theo vì tên dài bị chen trên điện thoại). Rồi ray thời gian như mục 7.4 với thẻ chỉ đọc: cùng phần thân thẻ của lịch trình (`ActivityCardContent`), chip loại cạnh giờ (mockup đặt ở góc phải, không theo), không có tay kéo, menu "⋮", nút thêm, chi phí, link đặt chỗ. Không có ghi chú của ngày (máy chủ không gửi). Ngày trống: khung nét đứt "Ngày này chưa có hoạt động.".
+- **Cuối trang**, sau một vạch `tide`, canh giữa: nút **phụ** "Tạo chuyến đi của bạn" (tới `/trips/new`: chưa đăng nhập thì qua trang đăng nhập), dòng 13px "Được chia sẻ qua Smart Trip Planner", dòng 12px "Bản đồ và địa điểm © OpenStreetMap" (link tới trang bản quyền, mở tab mới; điều khoản OSM yêu cầu ghi nguồn). Trang không có nút chính. Không có biểu tượng tài khoản và chân trang "Public Itinerary" của mockup.
+- **Không tự tải lại:** mỗi lần tải thành công là một lượt xem của liên kết (design.md 10.2), nên trang hỏi máy chủ một lần, không tải lại khi quay lại tab hay khi có mạng lại.
+- **Liên kết không còn hiệu lực** (sai, đã thu hồi, hết hạn, chuyến đã xoá: máy chủ trả cùng một 404; địa chỉ không đúng dạng 32 ký tự `[a-z0-9]` thì báo ngay, không hỏi máy chủ): thẻ trắng 420px `shadow-md` canh giữa, icon `Link2Off`, "Liên kết không còn hiệu lực", "Liên kết đã bị thu hồi, đã hết hạn, hoặc chuyến đi không còn.", nút phụ rộng hết thẻ "Tạo chuyến đi của bạn" (theo mockup "public-trip-error").
+- Đang tải: khung xương (tên, dòng thông tin, ba khối). Không gọi được máy chủ: thẻ "Chưa tải được chuyến đi" với câu lỗi và nút "Thử lại".
 
 ### 8.6. Landing — **Phase 8**
 
