@@ -1,0 +1,56 @@
+package com.trieu.tripplanner.repository;
+
+import com.trieu.tripplanner.model.Comment;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+/**
+ * Comments of trips (design.md 5.2 "comments"). Comment carries {@code @SQLRestriction("deleted_at IS NULL")}, so
+ * every query here sees live comments only.
+ */
+public interface CommentRepository extends JpaRepository<Comment, Long> {
+
+    /** A live comment of the trip; empty when it was deleted or belongs to another trip. */
+    Optional<Comment> findByIdAndTripId(Long id, Long tripId);
+
+    /**
+     * Soft-deletes the comment and, for a root, its replies: one statement, one instant (design.md 5.2). Rows
+     * deleted before keep their own instant. Native SQL because every column of Comment is not updatable
+     * through the entity (rule 27). Returns the number of rows stamped.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE comments SET deleted_at = :now WHERE (id = :id OR parent_id = :id) AND deleted_at IS NULL",
+           nativeQuery = true)
+    int softDeleteWithReplies(@Param("id") Long id, @Param("now") Instant now);
+
+    /**
+     * A live root comment of the trip: the only thing a reply may point to (one level, design.md 5.2). Empty when
+     * the comment does not exist, was deleted, is itself a reply, or belongs to another trip.
+     */
+    @Query("select c from Comment c where c.id = :id and c.trip.id = :tripId and c.parent is null")
+    Optional<Comment> findRootByIdAndTripId(@Param("id") Long id, @Param("tripId") Long tripId);
+
+    /**
+     * Every live comment of the trip, roots and replies in one flat list, oldest first; the id breaks ties of the
+     * same instant so the order never changes between two reads (design.md 10.2). The author comes in the same
+     * query, so the number of SQL statements does not grow with the number of comments; activity and parent are
+     * read as ids only, which needs no join.
+     */
+    @Query("select c from Comment c join fetch c.author where c.trip.id = :tripId order by c.createdAt, c.id")
+    List<Comment> findAllByTripIdWithAuthor(@Param("tripId") Long tripId);
+
+    /**
+     * The same list narrowed to one activity of the trip. Replies come along because they carry the activity of
+     * their parent (design.md 10.2), so a thread is never cut in half.
+     */
+    @Query("select c from Comment c join fetch c.author where c.trip.id = :tripId and c.activity.id = :activityId"
+            + " order by c.createdAt, c.id")
+    List<Comment> findAllByTripIdAndActivityIdWithAuthor(@Param("tripId") Long tripId,
+                                                         @Param("activityId") Long activityId);
+
+}

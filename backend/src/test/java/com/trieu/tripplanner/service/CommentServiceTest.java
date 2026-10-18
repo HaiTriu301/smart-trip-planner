@@ -1,0 +1,448 @@
+package com.trieu.tripplanner.service;
+
+import static com.trieu.tripplanner.support.TestComments.createRequest;
+import static com.trieu.tripplanner.support.TestComments.onActivity;
+import static com.trieu.tripplanner.support.TestComments.replyTo;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import com.trieu.tripplanner.common.constant.ErrorCode;
+import com.trieu.tripplanner.dto.response.CommentResponse;
+import com.trieu.tripplanner.exception.BusinessRuleException;
+import com.trieu.tripplanner.exception.FieldViolation;
+import com.trieu.tripplanner.exception.ForbiddenException;
+import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.mapper.CommentMapper;
+import com.trieu.tripplanner.model.Activity;
+import com.trieu.tripplanner.model.Comment;
+import com.trieu.tripplanner.model.Trip;
+import com.trieu.tripplanner.model.TripDay;
+import com.trieu.tripplanner.model.User;
+import com.trieu.tripplanner.repository.ActivityRepository;
+import com.trieu.tripplanner.repository.CommentRepository;
+import com.trieu.tripplanner.repository.TripRepository;
+import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.support.TestUsers;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+/**
+ * Repositories are mocks; the MapStruct mapper is the real generated one. Who may call these methods at all is the
+ * job of the controller guard and is tested there and in TripPermissionMatrixIntegrationTest.
+ */
+@ExtendWith(MockitoExtension.class)
+class CommentServiceTest {
+
+    private static final long TRIP_ID = 5L;
+    private static final long OWNER_ID = 7L;
+    private static final long VIEWER_ID = 8L;
+    private static final long COMMENT_ID = 51L;
+    private static final long ACTIVITY_ID = 31L;
+    private static final long PARENT_ID = 50L;
+    private static final long EDITOR_ID = 9L;
+    private static final Instant NOW = Instant.parse("2026-10-18T03:00:00Z");
+
+    @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
+    private TripRepository tripRepository;
+
+    @Mock
+    private ActivityRepository activityRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    private CommentService commentService;
+    private User owner;
+    private Trip trip;
+    private User viewer;
+
+    @BeforeEach
+    void setUp() {
+        owner = TestUsers.verified(OWNER_ID, "owner@example.com");
+        viewer = TestUsers.verified(VIEWER_ID, "viewer@example.com");
+        trip = Trip.builder()
+                .owner(owner)
+                .title("Đà Lạt mùa hoa")
+                .slug("da-lat-mua-hoa-x7k2qp")
+                .startDate(LocalDate.of(2026, 10, 1))
+                .endDate(LocalDate.of(2026, 10, 3))
+                .build();
+        ReflectionTestUtils.setField(trip, "id", TRIP_ID);
+        commentService = new CommentService(commentRepository, tripRepository, activityRepository, userRepository,
+                Mappers.getMapper(CommentMapper.class), Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    @Nested
+    class Create {
+
+        @Test
+        void postsATrimmedRootCommentOnTheWholeTripWrittenByTheCaller() {
+            tripExists();
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    createRequest("  Nhớ mang áo ấm  "));
+
+            Comment saved = savedComment();
+            assertThat(saved.getTrip()).isSameAs(trip);
+            assertThat(saved.getAuthor()).isSameAs(viewer);
+            assertThat(saved.getContent()).isEqualTo("Nhớ mang áo ấm");
+            assertThat(saved.getActivity()).isNull();
+            assertThat(saved.getParent()).isNull();
+            assertThat(response.id()).isEqualTo(COMMENT_ID);
+            assertThat(response.activityId()).isNull();
+            assertThat(response.parentId()).isNull();
+            assertThat(response.author()).isEqualTo(
+                    new CommentResponse.Author(VIEWER_ID, "Test viewer@example.com", null));
+            assertThat(response.content()).isEqualTo("Nhớ mang áo ấm");
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void keepsTheLineBreaksInsideTheContent() {
+            tripExists();
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            commentService.create(TRIP_ID, VIEWER_ID, createRequest("\n  Sáng: chợ\nChiều: hồ  \n"));
+
+            // Only the two ends are trimmed: the text is shown as written
+            assertThat(savedComment().getContent()).isEqualTo("Sáng: chợ\nChiều: hồ");
+        }
+
+        @Test
+        void aTripThatDoesNotExistOrWasDeletedIs404AndNothingIsSaved() {
+            // A soft-deleted trip is invisible to findById (@SQLRestriction), so both cases look the same here
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID, createRequest("Xin chào")))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        void postsACommentOnAnActivityOfTheTrip() {
+            tripExists();
+            Activity market = activityOfTheTrip();
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.of(market));
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    onActivity(createRequest("Chợ mở lúc mấy giờ?"), ACTIVITY_ID));
+
+            Comment saved = savedComment();
+            assertThat(saved.getTrip()).isSameAs(trip);
+            assertThat(saved.getActivity()).isSameAs(market);
+            assertThat(saved.getParent()).isNull();
+            assertThat(response.activityId()).isEqualTo(ACTIVITY_ID);
+            assertThat(response.parentId()).isNull();
+        }
+
+        @Test
+        void anActivityOfAnotherTripOrThatDoesNotExistIs404AndNothingIsSaved() {
+            // The query is scoped to the trip of the URL, so an activity of another trip looks missing too
+            tripExists();
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    onActivity(createRequest("Chợ mở lúc mấy giờ?"), ACTIVITY_ID)))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Activity");
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        void aMissingTripIs404BeforeTheActivityIsLookedUp() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    onActivity(createRequest("Xin chào"), ACTIVITY_ID)))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(activityRepository);
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        void repliesToARootCommentOfTheTrip() {
+            tripExists();
+            Comment root = rootComment(null);
+            when(commentRepository.findRootByIdAndTripId(PARENT_ID, TRIP_ID)).thenReturn(Optional.of(root));
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(createRequest("7 giờ nhé"), PARENT_ID));
+
+            Comment saved = savedComment();
+            assertThat(saved.getParent()).isSameAs(root);
+            assertThat(saved.getTrip()).isSameAs(trip);
+            assertThat(saved.getAuthor()).isSameAs(viewer);
+            assertThat(saved.getActivity()).isNull();
+            assertThat(response.parentId()).isEqualTo(PARENT_ID);
+            assertThat(response.activityId()).isNull();
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void aReplyTakesTheActivityOfItsParentAndIgnoresTheActivitySent() {
+            tripExists();
+            Activity market = activityOfTheTrip();
+            when(commentRepository.findRootByIdAndTripId(PARENT_ID, TRIP_ID))
+                    .thenReturn(Optional.of(rootComment(market)));
+            when(userRepository.getReferenceById(VIEWER_ID)).thenReturn(viewer);
+            saveAssignsId();
+
+            // 32 is not even looked up: a reply sits where its parent sits
+            CommentResponse response = commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(onActivity(createRequest("7 giờ nhé"), 32L), PARENT_ID));
+
+            assertThat(savedComment().getActivity()).isSameAs(market);
+            assertThat(response.activityId()).isEqualTo(ACTIVITY_ID);
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void aParentThatIsNotALiveRootCommentOfTheTripIs400OnParentIdAndNothingIsSaved() {
+            // Missing, deleted, a reply, of another trip: the query answers empty for all four
+            // (CommentRepositoryTest)
+            tripExists();
+            when(commentRepository.findRootByIdAndTripId(PARENT_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(createRequest("7 giờ nhé"), PARENT_ID)))
+                    .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+                        assertThat(ex.getDetails()).containsExactly(
+                                FieldViolation.of("parentId", "error.comment.parent-not-root"));
+                    });
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        void aMissingTripIs404BeforeTheParentIsLookedUp() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.create(TRIP_ID, VIEWER_ID,
+                    replyTo(createRequest("7 giờ nhé"), PARENT_ID)))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(commentRepository, never()).findRootByIdAndTripId(any(), any());
+            verify(commentRepository, never()).save(any());
+        }
+
+    }
+
+    @Nested
+    class ListComments {
+
+        @Test
+        void returnsTheCommentsInTheOrderOfTheQueryWithRepliesPointingToTheirParent() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            Comment root = rootComment(null);
+            Comment reply = Comment.builder().trip(trip).author(viewer).parent(root).content("7 giờ nhé").build();
+            ReflectionTestUtils.setField(reply, "id", COMMENT_ID);
+            when(commentRepository.findAllByTripIdWithAuthor(TRIP_ID)).thenReturn(List.of(root, reply));
+
+            List<CommentResponse> comments = commentService.list(TRIP_ID, null);
+
+            // The order is the query's (CommentRepositoryTest): the service neither sorts nor nests
+            assertThat(comments).extracting(CommentResponse::id, CommentResponse::parentId,
+                            comment -> comment.author().id(), CommentResponse::content)
+                    .containsExactly(
+                            tuple(PARENT_ID, null, OWNER_ID, "Mấy giờ đi chợ?"),
+                            tuple(COMMENT_ID, PARENT_ID, VIEWER_ID, "7 giờ nhé"));
+        }
+
+        @Test
+        void aTripWithoutCommentsGivesAnEmptyList() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(commentRepository.findAllByTripIdWithAuthor(TRIP_ID)).thenReturn(List.of());
+
+            assertThat(commentService.list(TRIP_ID, null)).isEmpty();
+            verifyNoInteractions(activityRepository);
+        }
+
+        @Test
+        void aTripThatDoesNotExistOrWasDeletedIs404AndTheCommentsAreNotRead() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> commentService.list(TRIP_ID, null))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(commentRepository, never()).findAllByTripIdWithAuthor(any());
+        }
+
+        @Test
+        void withAnActivityReturnsTheCommentsOfThatActivityOnly() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            Activity market = activityOfTheTrip();
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.of(market));
+            when(commentRepository.findAllByTripIdAndActivityIdWithAuthor(TRIP_ID, ACTIVITY_ID))
+                    .thenReturn(List.of(rootComment(market)));
+
+            List<CommentResponse> comments = commentService.list(TRIP_ID, ACTIVITY_ID);
+
+            assertThat(comments).extracting(CommentResponse::id, CommentResponse::activityId)
+                    .containsExactly(tuple(PARENT_ID, ACTIVITY_ID));
+            verify(commentRepository, never()).findAllByTripIdWithAuthor(any());
+        }
+
+        @Test
+        void anActivityOfAnotherTripOrThatDoesNotExistIs404AndTheCommentsAreNotRead() {
+            // Not an empty list: the client asked about something that is not in this trip
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.list(TRIP_ID, ACTIVITY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Activity");
+            verify(commentRepository, never()).findAllByTripIdAndActivityIdWithAuthor(any(), any());
+        }
+
+        @Test
+        void aMissingTripIs404BeforeTheActivityIsLookedUp() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> commentService.list(TRIP_ID, ACTIVITY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(activityRepository);
+        }
+
+    }
+
+    @Nested
+    class Delete {
+
+        @Test
+        void theAuthorDeletesTheirCommentWithItsRepliesAtTheInstantOfTheClock() {
+            tripExists();
+            commentOfTheTripWrittenBy(viewer);
+
+            commentService.delete(TRIP_ID, COMMENT_ID, VIEWER_ID);
+
+            // One statement for the comment and its replies (CommentRepositoryTest shows what it touches)
+            verify(commentRepository).softDeleteWithReplies(COMMENT_ID, NOW);
+        }
+
+        @Test
+        void theOwnerOfTheTripDeletesTheCommentOfAViewer() {
+            tripExists();
+            commentOfTheTripWrittenBy(viewer);
+
+            commentService.delete(TRIP_ID, COMMENT_ID, OWNER_ID);
+
+            verify(commentRepository).softDeleteWithReplies(COMMENT_ID, NOW);
+        }
+
+        @Test
+        void aViewerDeletingTheCommentOfSomeoneElseIs403AndNothingIsDeleted() {
+            tripExists();
+            commentOfTheTripWrittenBy(owner);
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, VIEWER_ID))
+                    .isInstanceOf(ForbiddenException.class);
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        @Test
+        void anEditorIsNoModeratorEither() {
+            // Editing the trip is not owning it: only the author or the owner removes a comment
+            tripExists();
+            commentOfTheTripWrittenBy(viewer);
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, EDITOR_ID))
+                    .isInstanceOf(ForbiddenException.class);
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        @Test
+        void aCommentOfAnotherTripOrAlreadyDeletedIs404BeforeTheAuthorIsChecked() {
+            // findByIdAndTripId is empty for both (CommentRepositoryTest): a second delete is a 404, and nothing
+            // tells whether the comment of another trip exists
+            tripExists();
+            when(commentRepository.findByIdAndTripId(COMMENT_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, OWNER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Comment");
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        @Test
+        void aTripThatDoesNotExistOrWasDeletedIs404BeforeTheCommentIsLookedUp() {
+            when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.delete(TRIP_ID, COMMENT_ID, OWNER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verify(commentRepository, never()).findByIdAndTripId(any(), any());
+            verify(commentRepository, never()).softDeleteWithReplies(any(), any());
+        }
+
+        private void commentOfTheTripWrittenBy(User author) {
+            Comment comment = Comment.builder().trip(trip).author(author).content("Nhớ mang áo ấm").build();
+            ReflectionTestUtils.setField(comment, "id", COMMENT_ID);
+            when(commentRepository.findByIdAndTripId(COMMENT_ID, TRIP_ID)).thenReturn(Optional.of(comment));
+        }
+
+    }
+
+    private void tripExists() {
+        when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+    }
+
+    /** A root comment of the trip written by the owner, on the given activity (null: on the whole trip). */
+    private Comment rootComment(Activity onActivity) {
+        Comment root = Comment.builder().trip(trip).activity(onActivity).author(owner).content("Mấy giờ đi chợ?")
+                .build();
+        ReflectionTestUtils.setField(root, "id", PARENT_ID);
+        return root;
+    }
+
+    private Activity activityOfTheTrip() {
+        TripDay day = TripDay.builder().trip(trip).dayIndex(1).date(LocalDate.of(2026, 10, 1)).build();
+        Activity activity = Activity.builder().tripDay(day).title("Chợ Đà Lạt").orderIndex(1000).build();
+        ReflectionTestUtils.setField(activity, "id", ACTIVITY_ID);
+        return activity;
+    }
+
+    /** What the database does on INSERT: the row gets its id. */
+    private void saveAssignsId() {
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment comment = invocation.getArgument(0);
+            ReflectionTestUtils.setField(comment, "id", COMMENT_ID);
+            return comment;
+        });
+    }
+
+    private Comment savedComment() {
+        ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
+        verify(commentRepository).save(captor.capture());
+        return captor.getValue();
+    }
+
+}

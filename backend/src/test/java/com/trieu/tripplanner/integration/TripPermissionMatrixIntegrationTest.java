@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
+import com.trieu.tripplanner.model.Comment;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripMember;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.model.enums.MemberRole;
 import com.trieu.tripplanner.model.enums.MemberStatus;
 import com.trieu.tripplanner.provider.mail.MockMailProvider;
+import com.trieu.tripplanner.repository.CommentRepository;
 import com.trieu.tripplanner.repository.TripMemberRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
@@ -120,6 +122,12 @@ class TripPermissionMatrixIntegrationTest {
             new Action("Xem thời tiết", HttpMethod.GET, "/api/v1/weather/trips/{tripId}", Level.VIEW,
                     HttpStatus.OK, null),
             new Action("Xem thành viên", HttpMethod.GET, TRIP_OF + "/members", Level.VIEW, HttpStatus.OK, null),
+            new Action("Xem bình luận", HttpMethod.GET, TRIP_OF + "/comments", Level.VIEW, HttpStatus.OK, null),
+            new Action("Đăng bình luận", HttpMethod.POST, TRIP_OF + "/comments", Level.VIEW, HttpStatus.CREATED, """
+                    { "content": "Nhớ mang áo ấm" }"""),
+            // {commentId} is the caller's own comment: this row checks the guard, not the author-or-owner rule
+            new Action("Xoá bình luận", HttpMethod.DELETE, TRIP_OF + "/comments/{commentId}", Level.VIEW,
+                    HttpStatus.OK, null),
             // Edit: owner and accepted editors
             new Action("Sửa chuyến đi", HttpMethod.PATCH, TRIP, Level.EDIT, HttpStatus.OK, """
                     { "title": "Đà Lạt mùa hoa" }"""),
@@ -185,6 +193,9 @@ class TripPermissionMatrixIntegrationTest {
     private TripMemberRepository tripMemberRepository;
 
     @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
@@ -195,9 +206,14 @@ class TripPermissionMatrixIntegrationTest {
     /** The ids the placeholders of {@link #ACTIONS} stand for. */
     private final Map<String, Long> ids = new TreeMap<>();
 
+    /** What {commentId} stands for: a comment of the trip written by the caller (design.md 10.2, matrix). */
+    private final Map<Caller, Long> ownComments = new EnumMap<>(Caller.class);
+
     /**
      * A trip 01/10 → 03/10 of the owner, with one activity on day 1, one share link, and one member row for each
-     * of EDITOR, VIEWER (ACCEPTED), PENDING and REMOVED; the stranger has an account and no row.
+     * of EDITOR, VIEWER (ACCEPTED), PENDING and REMOVED; the stranger has an account and no row. Every caller with
+     * an account has one comment of their own on the trip, written straight to the database: PENDING, REMOVED
+     * and the stranger could not post one (a removed member may have posted before being removed).
      */
     @BeforeEach
     void createTripWithOneMemberOfEveryKind() {
@@ -231,11 +247,14 @@ class TripPermissionMatrixIntegrationTest {
         tripMemberRepository.save(member(trip, owner, users.get(Caller.EDITOR), MemberRole.EDITOR, MemberStatus.ACCEPTED));
         tripMemberRepository.save(member(trip, owner, users.get(Caller.PENDING), MemberRole.EDITOR, MemberStatus.PENDING));
         tripMemberRepository.save(member(trip, owner, users.get(Caller.REMOVED), MemberRole.EDITOR, MemberStatus.REMOVED));
+        users.forEach((caller, user) -> ownComments.put(caller, commentRepository.save(Comment.builder()
+                .trip(trip).author(user).content("Bình luận của " + caller).build()).getId()));
     }
 
     @AfterEach
     void cleanUp() {
-        // Days, activities, members and share links go with their trips (ON DELETE CASCADE); trips before users
+        // Days, activities, members, share links and comments go with their trips (ON DELETE CASCADE); trips
+        // before users
         jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM users");
         mailProvider.clear();
@@ -328,7 +347,10 @@ class TripPermissionMatrixIntegrationTest {
     // ---- helpers -------------------------------------------------------------------------------------------------
 
     private MvcTestResult call(Action action, Caller caller) {
-        return send(action.method(), fill(action.pattern()), bearers.get(caller),
+        // The guest has no account and so no comment; any comment will do, the answer is 401 before it is read
+        String path = action.pattern().replace("{commentId}",
+                ownComments.getOrDefault(caller, ownComments.get(Caller.OWNER)).toString());
+        return send(action.method(), fill(path), bearers.get(caller),
                 action.body() == null ? null : fill(action.body()));
     }
 
