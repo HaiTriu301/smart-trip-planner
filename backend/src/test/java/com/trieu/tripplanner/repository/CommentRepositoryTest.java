@@ -43,6 +43,7 @@ class CommentRepositoryTest {
     private User owner;
     private User viewer;
     private Trip trip;
+    private TripDay day;
     private Activity activity;
 
     @BeforeEach
@@ -50,7 +51,7 @@ class CommentRepositoryTest {
         owner = entityManager.persist(user("owner@example.com", "Chủ chuyến đi"));
         viewer = entityManager.persist(user("viewer@example.com", "Người xem"));
         trip = entityManager.persist(trip("da-lat-3-ngay-x7k2qp"));
-        TripDay day = entityManager.persist(TripDay.builder().trip(trip).dayIndex(1).date(OCT_1).build());
+        day = entityManager.persist(TripDay.builder().trip(trip).dayIndex(1).date(OCT_1).build());
         activity = entityManager.persist(Activity.builder().tripDay(day).title("Chợ Đà Lạt").orderIndex(1000)
                 .createdBy(owner).build());
         entityManager.flush();
@@ -146,6 +147,34 @@ class CommentRepositoryTest {
     @Test
     void aTripWithoutCommentsGivesAnEmptyList() {
         assertThat(repository.findAllByTripIdWithAuthor(trip.getId())).isEmpty();
+    }
+
+    // ---- findAllByTripIdAndActivityIdWithAuthor: the list of one activity -----------------------------------------
+
+    @Test
+    void theListOfAnActivityHasItsRootsAndTheirRepliesOldestFirst() {
+        Activity otherActivity = entityManager.persist(Activity.builder().tripDay(day).title("Hồ Xuân Hương")
+                .orderIndex(2000).createdBy(owner).build());
+        Comment later = repository.saveAndFlush(comment(trip, owner, "Mấy giờ đi chợ?").activity(activity).build());
+        Comment reply = repository.saveAndFlush(comment(trip, viewer, "7 giờ nhé").parent(later)
+                .activity(activity).build());
+        Comment earlier = repository.saveAndFlush(comment(trip, viewer, "Chợ có bán dâu").activity(activity).build());
+        repository.saveAndFlush(comment(trip, owner, "Cả nhà nhớ áo ấm").build());
+        repository.saveAndFlush(comment(trip, owner, "Đi bộ quanh hồ").activity(otherActivity).build());
+        Comment deleted = repository.saveAndFlush(comment(trip, viewer, "Đã xoá").activity(activity).build());
+        repository.delete(deleted);
+        repository.flush();
+        createdAt(later, "2026-10-17 03:00:00");
+        createdAt(reply, "2026-10-17 04:00:00");
+        createdAt(earlier, "2026-10-17 02:00:00");
+        entityManager.clear();
+
+        List<Comment> comments = repository.findAllByTripIdAndActivityIdWithAuthor(trip.getId(), activity.getId());
+
+        // Not the whole-trip comment, not the other activity's, not the deleted one
+        assertThat(comments).extracting(Comment::getId)
+                .containsExactly(earlier.getId(), later.getId(), reply.getId());
+        assertThat(comments).allSatisfy(comment -> assertThat(Hibernate.isInitialized(comment.getAuthor())).isTrue());
     }
 
     private void createdAt(Comment comment, String utc) {

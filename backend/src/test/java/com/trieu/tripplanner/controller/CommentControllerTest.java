@@ -74,7 +74,7 @@ class CommentControllerTest {
     @Test
     void listReturns200WithTheCommentsInTheOrderOfTheService() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(commentService.list(TRIP_ID)).thenReturn(List.of(comment(50L, null, "Mấy giờ đi chợ?"),
+        when(commentService.list(TRIP_ID, null)).thenReturn(List.of(comment(50L, null, "Mấy giờ đi chợ?"),
                 comment(51L, 50L, "7 giờ nhé")));
 
         assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
@@ -91,7 +91,7 @@ class CommentControllerTest {
     @Test
     void listOfATripWithoutCommentsReturnsAnEmptyArray() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(commentService.list(TRIP_ID)).thenReturn(List.of());
+        when(commentService.list(TRIP_ID, null)).thenReturn(List.of());
 
         assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.OK)
@@ -105,7 +105,7 @@ class CommentControllerTest {
         assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
-        verify(commentService, never()).list(any());
+        verify(commentService, never()).list(any(), any());
     }
 
     @Test
@@ -117,11 +117,42 @@ class CommentControllerTest {
     @Test
     void listForMissingTripReturns404() {
         when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
-        when(commentService.list(TRIP_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
+        when(commentService.list(TRIP_ID, null)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
 
         assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void listPassesTheActivityIdOfTheQueryToTheService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.list(TRIP_ID, 31L)).thenReturn(List.of(comment("Chợ mở lúc mấy giờ?")));
+
+        assertThat(mvc.get().uri(COMMENTS_URL + "?activityId=31").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson().extractingPath("$.data[0].content").isEqualTo("Chợ mở lúc mấy giờ?");
+        verify(commentService).list(TRIP_ID, 31L);
+    }
+
+    @Test
+    void listForAnActivityOutsideTheTripReturns404() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.list(TRIP_ID, 31L)).thenThrow(new ResourceNotFoundException("Activity", 31L));
+
+        assertThat(mvc.get().uri(COMMENTS_URL + "?activityId=31").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void listWithNonNumericActivityIdReturns400() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.get().uri(COMMENTS_URL + "?activityId=abc").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(commentService);
     }
 
     @Test

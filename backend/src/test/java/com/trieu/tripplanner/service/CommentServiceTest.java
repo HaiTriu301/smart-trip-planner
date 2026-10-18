@@ -261,7 +261,7 @@ class CommentServiceTest {
             ReflectionTestUtils.setField(reply, "id", COMMENT_ID);
             when(commentRepository.findAllByTripIdWithAuthor(TRIP_ID)).thenReturn(List.of(root, reply));
 
-            List<CommentResponse> comments = commentService.list(TRIP_ID);
+            List<CommentResponse> comments = commentService.list(TRIP_ID, null);
 
             // The order is the query's (CommentRepositoryTest): the service neither sorts nor nests
             assertThat(comments).extracting(CommentResponse::id, CommentResponse::parentId,
@@ -276,15 +276,54 @@ class CommentServiceTest {
             when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
             when(commentRepository.findAllByTripIdWithAuthor(TRIP_ID)).thenReturn(List.of());
 
-            assertThat(commentService.list(TRIP_ID)).isEmpty();
+            assertThat(commentService.list(TRIP_ID, null)).isEmpty();
+            verifyNoInteractions(activityRepository);
         }
 
         @Test
         void aTripThatDoesNotExistOrWasDeletedIs404AndTheCommentsAreNotRead() {
             when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
 
-            assertThatThrownBy(() -> commentService.list(TRIP_ID)).isInstanceOf(ResourceNotFoundException.class);
+            assertThatThrownBy(() -> commentService.list(TRIP_ID, null))
+                    .isInstanceOf(ResourceNotFoundException.class);
             verify(commentRepository, never()).findAllByTripIdWithAuthor(any());
+        }
+
+        @Test
+        void withAnActivityReturnsTheCommentsOfThatActivityOnly() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            Activity market = activityOfTheTrip();
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.of(market));
+            when(commentRepository.findAllByTripIdAndActivityIdWithAuthor(TRIP_ID, ACTIVITY_ID))
+                    .thenReturn(List.of(rootComment(market)));
+
+            List<CommentResponse> comments = commentService.list(TRIP_ID, ACTIVITY_ID);
+
+            assertThat(comments).extracting(CommentResponse::id, CommentResponse::activityId)
+                    .containsExactly(tuple(PARENT_ID, ACTIVITY_ID));
+            verify(commentRepository, never()).findAllByTripIdWithAuthor(any());
+        }
+
+        @Test
+        void anActivityOfAnotherTripOrThatDoesNotExistIs404AndTheCommentsAreNotRead() {
+            // Not an empty list: the client asked about something that is not in this trip
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(activityRepository.findByIdAndTripId(ACTIVITY_ID, TRIP_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> commentService.list(TRIP_ID, ACTIVITY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Activity");
+            verify(commentRepository, never()).findAllByTripIdAndActivityIdWithAuthor(any(), any());
+        }
+
+        @Test
+        void aMissingTripIs404BeforeTheActivityIsLookedUp() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> commentService.list(TRIP_ID, ACTIVITY_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Trip");
+            verifyNoInteractions(activityRepository);
         }
 
     }

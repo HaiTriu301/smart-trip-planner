@@ -29,4 +29,13 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("select c from Comment c join fetch c.author where c.trip.id = :tripId order by c.createdAt, c.id")
     List<Comment> findAllByTripIdWithAuthor(@Param("tripId") Long tripId);
 
+    /**
+     * The same list narrowed to one activity of the trip. Replies come along because they carry the activity of
+     * their parent (design.md 10.2), so a thread is never cut in half.
+     */
+    @Query("select c from Comment c join fetch c.author where c.trip.id = :tripId and c.activity.id = :activityId"
+            + " order by c.createdAt, c.id")
+    List<Comment> findAllByTripIdAndActivityIdWithAuthor(@Param("tripId") Long tripId,
+                                                         @Param("activityId") Long activityId);
+
 }

@@ -64,15 +64,24 @@ public class CommentService {
 
     /**
      * Every live comment of the trip, flat and oldest first; replies carry parentId so the client nests them one
-     * level. No paging (design.md 10.2): a trip of a small group rarely has more than a few hundred.
+     * level. With an activity, only the comments on that activity, replies included. No paging (design.md 10.2): a
+     * trip of a small group rarely has more than a few hundred.
      */
     @Transactional(readOnly = true)
-    public List<CommentResponse> list(Long tripId) {
+    public List<CommentResponse> list(Long tripId, Long activityId) {
         // existsById goes through JPQL, so @SQLRestriction hides a soft-deleted trip: 404, like a missing one
         if (!tripRepository.existsById(tripId)) {
             throw new ResourceNotFoundException(TRIP, tripId);
         }
-        return commentRepository.findAllByTripIdWithAuthor(tripId).stream()
+        List<Comment> comments;
+        if (activityId == null) {
+            comments = commentRepository.findAllByTripIdWithAuthor(tripId);
+        } else {
+            // An activity of another trip is a 404, as when posting: an empty list would hide the mistake
+            findActivityOfTrip(activityId, tripId);
+            comments = commentRepository.findAllByTripIdAndActivityIdWithAuthor(tripId, activityId);
+        }
+        return comments.stream()
                 .map(commentMapper::toResponse)
                 .toList();
     }

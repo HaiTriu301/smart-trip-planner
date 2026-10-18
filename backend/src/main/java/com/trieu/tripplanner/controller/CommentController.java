@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,12 +38,15 @@ public class CommentController {
     @Operation(summary = "Danh sách bình luận",
                description = "Mọi bình luận còn tồn tại của chuyến đi (cho cả chuyến, về từng hoạt động, và các câu "
                        + "trả lời) trong một danh sách phẳng, cũ trước; cùng thời điểm thì theo mã. Câu trả lời có "
-                       + "parentId để giao diện lồng một cấp. Không phân trang. Ai xem được chuyến đi thì xem được. "
-                       + "403 nếu không xem được chuyến đi, 404 nếu chuyến đi không tồn tại.")
+                       + "parentId để giao diện lồng một cấp. activityId (không bắt buộc): chỉ bình luận về hoạt "
+                       + "động đó, kể cả các câu trả lời. Không phân trang. Ai xem được chuyến đi thì xem được. "
+                       + "403 nếu không xem được chuyến đi, 404 nếu chuyến đi không tồn tại hoặc hoạt động không "
+                       + "thuộc chuyến đi.")
     @GetMapping
     @PreAuthorize("@tripPermission.canView(#tripId, principal)")
-    public ApiResponse<List<CommentResponse>> list(@PathVariable Long tripId) {
-        return ApiResponse.ok(commentService.list(tripId));
+    public ApiResponse<List<CommentResponse>> list(@PathVariable Long tripId,
+                                                   @RequestParam(required = false) Long activityId) {
+        return ApiResponse.ok(commentService.list(tripId, activityId));
     }
 
     @Operation(summary = "Đăng bình luận",
