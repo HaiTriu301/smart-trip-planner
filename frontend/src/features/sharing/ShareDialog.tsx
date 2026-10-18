@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useIsMutating } from '@tanstack/react-query'
 import { Share2, Users } from 'lucide-react'
+import { inviteMemberKey } from '../../api/members'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import type { TripDetail } from '../../types/trip'
+import { InviteMemberForm } from './InviteMemberForm'
 import { MemberList } from './MemberList'
 
 /**
@@ -32,13 +35,33 @@ interface ShareDialogProps {
 
 /**
  * Sharing a trip, a 640px dialog (UI_GUIDE 15.3). The members come with the trip itself (GET /trips/{id}), so the
- * dialog opens without a request of its own and shows what the page shows.
+ * dialog opens without a request of its own and shows what the page shows. Only the owner gets the invite form;
+ * the cursor starts in its email field. Esc and "×" wait while an invitation is being sent: closing would leave
+ * the answer (an error under the email) nowhere to show (BUG-UI-004).
  */
 function ShareDialog({ trip, open, onClose }: ShareDialogProps) {
   const isOwner = trip.myRole === 'OWNER'
+  const isInviting = useIsMutating({ mutationKey: inviteMemberKey(trip.id) }) > 0
+  // Only the owner's own row: nobody else sees this trip yet (UI_GUIDE 7.9, no button: the form is right above)
+  const alone = trip.members.length === 1
   return (
-    <Modal open={open} onClose={onClose} size="lg" title={isOwner ? 'Chia sẻ chuyến đi' : 'Thành viên chuyến đi'}>
-      <MemberList members={trip.members} />
+    <Modal
+      open={open}
+      onClose={() => !isInviting && onClose()}
+      size="lg"
+      title={isOwner ? 'Chia sẻ chuyến đi' : 'Thành viên chuyến đi'}
+    >
+      <div className="space-y-6">
+        {isOwner && (
+          <div className="space-y-3">
+            <InviteMemberForm tripId={trip.id} />
+            {alone && (
+              <p className="text-sm text-gray-600">Chỉ mình bạn thấy chuyến đi này. Mời bạn bè để cùng chỉnh sửa.</p>
+            )}
+          </div>
+        )}
+        <MemberList members={trip.members} />
+      </div>
     </Modal>
   )
 }

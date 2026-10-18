@@ -3,6 +3,9 @@
 /** What a person is to a trip. The owner has no member row: OWNER comes from trips.owner_id (design.md 5.2). */
 export type TripRole = 'OWNER' | 'EDITOR' | 'VIEWER'
 
+/** The roles an invitation can give; nobody can be invited as a second owner. */
+export type MemberRole = Exclude<TripRole, 'OWNER'>
+
 /** REMOVED rows are never sent to the client. */
 export type MemberStatus = 'PENDING' | 'ACCEPTED'
 
@@ -24,4 +27,10 @@ export interface Member {
   invitedAt: string | null
   /** null while pending and for the owner */
   acceptedAt: string | null
+}
+
+/** Body of POST /trips/{tripId}/members; inviting an email already pending sends a new mail (design.md 10.2). */
+export interface InviteMemberRequest {
+  email: string
+  role: MemberRole
 }
