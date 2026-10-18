@@ -13,10 +13,12 @@ import { DEFAULT_TIME_ZONE, todayIn } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
 import { toast } from '../../stores/toastStore'
 import type { ShareLink } from '../../types/shareLink'
+import { CreateShareLinkForm } from './CreateShareLinkForm'
 
 /**
  * "Liên kết chia sẻ" of the sharing dialog, for the owner (UI_GUIDE 15.3): every link not revoked, newest first,
- * as a read-only address with "Sao chép", how many times it was opened and until when it works. The dialog mounts
+ * as a read-only address with "Sao chép", how many times it was opened and until when it works, under the form that
+ * creates one. The dialog mounts
  * this only while it is open, so the links are asked for when the owner looks, not with every trip page.
  */
 export function ShareLinkList({ tripId }: { tripId: number }) {
@@ -34,6 +36,7 @@ export function ShareLinkList({ tripId }: { tripId: number }) {
         </h3>
         <p className="text-sm text-gray-600">Ai có liên kết đều xem được chuyến đi, không cần tài khoản.</p>
       </div>
+      <CreateShareLinkForm tripId={tripId} />
       {isPending ? (
         <Skeleton className="h-24 w-full" />
       ) : !links ? (

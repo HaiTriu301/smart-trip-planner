@@ -10,3 +10,15 @@ export async function listShareLinks(tripId: number): Promise<ShareLink[]> {
   const { data } = await apiClient.get<ApiResponse<ShareLink[]>>(`/trips/${tripId}/share-links`)
   return data.data
 }
+
+/** Names the create mutation, so the sharing dialog stays open until the server has answered. */
+export const createShareLinkKey = (tripId: number) => ['create-share-link', tripId]
+
+/**
+ * Creates a view-only link (owner only). expiresAt is optional, an ISO Instant in the future; without it the link
+ * never expires. 400 VALIDATION_ERROR on field expiresAt when it is not ahead of the server clock (design.md 10.2).
+ */
+export async function createShareLink(tripId: number, expiresAt: string | undefined): Promise<ShareLink> {
+  const { data } = await apiClient.post<ApiResponse<ShareLink>>(`/trips/${tripId}/share-links`, { expiresAt })
+  return data.data
+}
