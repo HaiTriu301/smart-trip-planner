@@ -2646,6 +2646,29 @@ Mốc 10 — feat(frontend): choose when a share link expires with quick picks  
 
 Mỗi mốc thay một kiểu ô ở mọi chỗ dùng nó; phần còn lại của ứng dụng vẫn chạy với ô cũ tới mốc của nó. Số file là ước lượng (cột "File" của "Thực tế khi làm" ghi số thật).
 
+> **Thực tế khi làm 4.9 (2026-10-18):** 11 commit code trên nhánh: 10 mốc của bảng duyệt và 1 commit sửa lỗi ngoài kế hoạch (`BUG-UI-012`, chủ dự án báo sau Mốc 10). Docs Mốc 0 đã commit trước trên `main` (`21b1931`). Cột "File" đếm cả `UI_GUIDE.md`, `package.json` và `package-lock.json`.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `0f59cfd` feat(frontend): grow note fields with their content | 5 (bảng: 4) | `TextAreaField` tự giãn 90 → 210px (`field-sizing-content` + đặt chiều cao bằng JS khi trình duyệt chưa hỗ trợ); `lib/charCounter` + 4 test; `FieldShell` thêm `aside` (chỗ cho bộ đếm bên phải hàng gợi ý). Giá trị ban đầu đọc trong hàm `ref` sau khi react-hook-form ghi vào ô, không dùng effect |
+> | `b7fd53d` feat(frontend): pick the invite role with a segmented control | 3 | `SegmentedControl`: radio thật ẩn sau nhãn, dùng thẳng `register()`; icon `Pencil` / `Eye` |
+> | `40d2462` feat(frontend): pick the trip status from a menu | 6 (bảng: 4) | `components/menuStyles` dùng chung với menu "⋮"; `badgeDotClass`; keyframe `pop-in` / `pop-out` chuyển từ Mốc 5 lên đây (menu là thứ bật ra đầu tiên). Dòng đang trỏ của menu nền `gray-100` (dòng "Xoá" chữ đỏ hợp nền trung tính), danh sách ô chọn dùng `jade-light` |
+> | `29b3f94` feat(frontend): sort the trip list from a menu | 2 | Viền khi rê chuột chỉ áp dụng lúc menu đóng, không đè viền `jade` lúc mở |
+> | `5fa90f5` feat(frontend): pick the currency from a styled list | 10 (bảng: 9) | `Select` / `SelectField` (Radix Select, mẫu shadcn); `OverlayContainerContext` + `Modal` (quyết định 8); `fieldStyles.controlLookClass` (kiểu ô không kèm `block`, vì nút của ô chọn là hàng flex: BUG-UI-001); tên tiếng Việt của 7 loại tiền |
+> | `5791acb` feat(frontend): pick the target day from a list with dates | 4 (bảng: 2) | Xoá `components/SelectField.tsx` cũ ở đây (bảng: Mốc 7) vì hộp chuyển ngày là chỗ dùng cuối; danh sách rộng tối đa bằng ô để tiêu đề ngày dài xuống dòng |
+> | `b2d2c69` feat(frontend): change a member's role from a compact list | 4 (bảng: 3) | `Select size="sm"` (bảng `TRIGGER_SIZES`, mỗi cỡ một bộ lớp); `controlLookClass` nhận cỡ chữ 13px / 15px |
+> | `92efda5` feat(frontend): type a time or pick it from a list | 8 (bảng: 7) | `TimeField` kiểu combobox; `lib/timeInput` + 9 test, `lib/duration` + 4 test; schema kiểm "HH:mm" (ô gõ tay không còn được trình duyệt bảo đảm định dạng). Danh sách nổi ngay dưới ô như ô tìm địa điểm, không dùng Popover: không cần gói mới ở mốc này |
+> | `423207a` feat(frontend): pick the trip dates on a calendar | 8 (bảng: 9) | `Calendar` (react-day-picker 9 + `DayButton` tự viết), `DateRangeField` (Radix Popover), `lib/calendarDate` + 7 test (tên thay cho `tripLength`: chứa cả phần đổi ngày của bẫy 4). Lịch **tải lười**: gói chính 930 → 841 kB, lịch 77 kB tải lần đầu mở ô ngày |
+> | `6f3ff96` feat(frontend): choose when a share link expires with quick picks | 7 (bảng: 6) | `ChoiceChips` (nút gạt 4 phần tràn ở 375px), `DatePickerField`, `expiryDateFor` + 4 test; "Chọn ngày…" mở lịch khi bấm, không mở khi đi bằng phím mũi tên |
+> | `26b61bc` fix(frontend): check the invite email only when Mời is pressed | 2 | `BUG-UI-012`: hộp chia sẻ đặt con trỏ vào ô email, form mời kiểm "khi rời ô", nên mở hộp để làm việc khác cũng bị báo "Email không được để trống". Form mời chỉ kiểm khi bấm "Mời" (ngoại lệ ghi ở UI_GUIDE 7.2). Có từ Task 4.5 |
+>
+> Không có thay đổi backend. Ba gói mới (`@radix-ui/react-select` 2.3.7, `@radix-ui/react-popover` 1.1.23, `react-day-picker` 9.14.0) dùng chung `@radix-ui/react-popper` 1.3.7 với menu (kiểm bằng `npm ls`). Giao diện **204 test** tự động trong 20 file (thêm 28 so với 176 của Task 4.5); `12-form-controls.md` (file mới) có 28 kịch bản tự động (`TC-FORM-001` đến `028`) và 11 bài thủ công `MT-FORM-01` đến `11`, **chủ dự án chạy cả 11 ngày 2026-10-18, đều đạt**, kèm kiểm lại `BUG-UI-012`.
+>
+> Ghi chú khi làm:
+> - Không còn chỗ nào dùng `<select>`, `<input type="date">` hay `<input type="time">` của trình duyệt trong form.
+> - `npm audit` báo 1 lỗ hổng mức cao ở `source-map-js` (công cụ lúc build, đi theo Vite), có từ trước task, không liên quan gói mới; chưa sửa.
+> - Claude lỡ chạy `git rm --cached` rồi `git reset` lên file bị xoá ở Mốc 6 (trái quy tắc chỉ dùng lệnh git chỉ đọc); vùng staging đã về như cũ, chủ dự án tự `git rm` lúc commit.
+
 **Nhớ:** mỗi màn vẫn chỉ một nút chính (UI_GUIDE 7.0); nút gạt, chip, menu không phải nút chính. Mọi ô mới vẫn đi qua `FieldShell` (nhãn, `*`, gợi ý, lỗi, `aria-describedby`) và giữ vòng focus `jade`. Cập nhật mục UI_GUIDE của từng ô trong cùng commit.
 
 ---
@@ -3175,7 +3198,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.3 Cache quyền và ma trận test | ☑ | 2026-10-17 |
 | 4 | 4.4 Bình luận | ☑ | 2026-10-18 |
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☑ | 2026-10-18 |
-| 4 | 4.9 UI: ô chọn, ngày, giờ, ghi chú kiểu mới (làm trước 4.6) | ☐ | |
+| 4 | 4.9 UI: ô chọn, ngày, giờ, ghi chú kiểu mới (làm trước 4.6) | ☑ | 2026-10-18 |
 | 4 | 4.6 UI: bình luận | ☐ | |
 | 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
 | 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☐ | |
