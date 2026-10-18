@@ -14,3 +14,13 @@ export async function inviteMember(tripId: number, body: InviteMemberRequest): P
   const { data } = await apiClient.post<ApiResponse<Member>>(`/trips/${tripId}/members`, body)
   return data.data
 }
+
+/**
+ * Accepts an invitation with the token of the mail link (design.md 10.2, rule 14.24). Needs a session but no right
+ * on the trip yet. 400 INVALID_TOKEN: used, expired, cancelled or for another trip; 403: the account is not the
+ * invited email; 404: the trip was deleted.
+ */
+export async function acceptInvitation(tripId: number, token: string): Promise<Member> {
+  const { data } = await apiClient.post<ApiResponse<Member>>(`/trips/${tripId}/members/accept`, { token })
+  return data.data
+}

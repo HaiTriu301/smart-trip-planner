@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 import { CreateTripPage } from './pages/CreateTripPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { InvitePage } from './pages/InvitePage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -28,6 +29,9 @@ const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      // Opened from the invitation mail: needs an account (accepting binds the invitation to it, design.md 15),
+      // but stands alone like the sign-in pages, without the app bar
+      { path: '/invite', element: <InvitePage /> },
       {
         element: <AppLayout />,
         children: [

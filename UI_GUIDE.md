@@ -568,6 +568,20 @@ Hero **không** dùng khối chữ lớn với gradient. Hiển thị một lị
 
 Hai cột so sánh Free và Premium, không có thẻ "phổ biến nhất" phóng to. Dòng giới hạn mà người dùng đang chạm tới được tô nền `warning` 8% (ví dụ đã có 3 chuyến đi thì dòng "Số chuyến đi" được tô).
 
+### 8.8. Trang nhận lời mời (`/invite?trip=&token=`) — **Đã làm** (Task 4.5)
+
+Mở từ link trong mail mời. Nằm sau đăng nhập (chưa đăng nhập thì sang trang đăng nhập rồi quay lại), nhưng **không** có thanh điều hướng: logo nhỏ phía trên một thẻ trắng 420px, `shadow-md`, không viền, canh giữa trên nền `paper`, nội dung canh giữa. Không có form: mở ra là nhận lời ngay.
+
+| Trạng thái | Nội dung thẻ |
+|---|---|
+| Đang nhận | Vòng quay 32px `jade` và "Đang nhận lời mời…" (`role="status"`), thường chỉ thoáng qua |
+| Thành công | Không có thẻ: chuyển thẳng vào `/trips/{id}` kèm toast "Đã nhận lời mời tham gia chuyến đi". Đã là thành viên mà mở lại mail (máy chủ trả 400 vì token đã dùng, nhưng chuyến đi mở được): cũng vào thẳng, toast "Bạn đã là thành viên của chuyến đi này" |
+| Không còn hiệu lực | Icon `Link2Off`, "Lời mời không còn hiệu lực", "Lời mời đã được dùng, đã hết hạn hoặc đã bị huỷ. Nhờ chủ chuyến đi gửi lại.", nút phụ rộng hết thẻ "Về danh sách chuyến đi". Dùng cho 400, 404 (chuyến đã xoá) và link thiếu / hỏng (kiểm ở trình duyệt, không hỏi máy chủ) |
+| Sai tài khoản (403) | Icon `UserX`, "Lời mời này dành cho email khác", "Bạn đang đăng nhập bằng {email}.", nút phụ "Đăng xuất để đổi tài khoản": đăng xuất xong là trang đăng nhập, đăng nhập đúng tài khoản thì quay lại đây và nhận lời |
+| Không gọi được máy chủ | Icon `CloudOff`, "Chưa nhận được lời mời", câu lỗi, nút phụ "Thử lại" (token chưa bị dùng nên gửi lại an toàn) |
+
+Thanh chọn "Trạng thái 1 / 2 / 3" trong mockup Stitch là công cụ xem trước, không làm.
+
 ---
 
 ## 9. Bản đồ và thời tiết — **Phase 3**
