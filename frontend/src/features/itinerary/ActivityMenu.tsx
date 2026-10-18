@@ -1,5 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { CalendarArrowUp, EllipsisVertical, Pencil, Trash2 } from 'lucide-react'
+import { MENU_CONTENT, MENU_ITEM as ITEM } from '../../components/menuStyles'
 
 interface ActivityMenuProps {
   title: string
@@ -10,9 +11,6 @@ interface ActivityMenuProps {
   /** Classes of the trigger's wrapper, e.g. to show it only on hover */
   className?: string
 }
-
-const ITEM =
-  'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm outline-none select-none data-[highlighted]:bg-gray-50'
 
 /**
  * "⋮" menu of an activity card (UI_GUIDE 7.3). Radix handles keyboard navigation, focus and screen readers;
@@ -34,11 +32,7 @@ export function ActivityMenu({ title, onEdit, onDelete, onMoveToDay, className }
         </DropdownMenu.Trigger>
       </div>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={4}
-          className="z-40 min-w-40 rounded-control border border-tide bg-white py-1 text-ink shadow-md"
-        >
+        <DropdownMenu.Content align="end" sideOffset={4} className={MENU_CONTENT}>
           <DropdownMenu.Item onSelect={onEdit} className={ITEM}>
             <Pencil aria-hidden className="size-4 text-gray-500" />
             Sửa

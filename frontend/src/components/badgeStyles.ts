@@ -25,3 +25,17 @@ const SOLID: Record<BadgeTone, string> = {
 export function badgeToneClass(tone: BadgeTone, surface: 'tint' | 'solid' = 'tint'): string {
   return surface === 'solid' ? SOLID[tone] : TINT[tone]
 }
+
+// A small dot in the full colour of the tone, for menus that list badge values (the trip status menu)
+const DOT: Record<BadgeTone, string> = {
+  neutral: 'bg-gray-500',
+  muted: 'bg-gray-400',
+  brand: 'bg-jade',
+  info: 'bg-info',
+  success: 'bg-success',
+  warning: 'bg-warning',
+}
+
+export function badgeDotClass(tone: BadgeTone): string {
+  return DOT[tone]
+}

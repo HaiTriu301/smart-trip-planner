@@ -341,7 +341,7 @@ Cao 20px, bo 6px, chữ 12px / 500, lề ngang 8px.
 - `surface="tint"` (mặc định): nền là màu gốc pha 12%, chữ màu gốc đậm.
 - `surface="solid"`: nền trắng + viền mảnh; dùng khi huy hiệu nằm đè lên ảnh (trạng thái trên ảnh bìa thẻ chuyến đi).
 
-Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). Dùng cho trạng thái chuyến đi, vai trò thành viên (**Phase 4**), gói Premium (**Phase 6**). Ô chọn trạng thái trên trang chi tiết (`TripStatusSelect`) dùng cùng màu với huy hiệu.
+Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). Dùng cho trạng thái chuyến đi, vai trò thành viên (**Phase 4**), gói Premium (**Phase 6**). Trạng thái trên trang chi tiết (`TripStatusSelect`) là một huy hiệu cùng màu có mũi tên, bấm thì mở menu (mục 7.16, từ Task 4.9; trước đó là ô `<select>` tô màu huy hiệu).
 
 ### 7.6. Hộp thoại — `Modal`, `ConfirmDialog`
 
@@ -457,6 +457,25 @@ Vai trò
 - Chữ 14px, có thể kèm icon 16px. Các phần rộng bằng nhau và lấp đầy khung chứa; đặt trong một cột lưới `auto` thì rộng vừa chữ.
 - Đổi màu khi chọn mờ dần 150ms; tắt khi hệ điều hành bật giảm chuyển động.
 - Như `ActivityTypeField` (mục 7.13): các phần là **ô radio thật** ẩn sau nhãn, nằm trong `fieldset` có `legend`. Tab vào nhóm một lần, phím mũi tên đổi lựa chọn, vòng focus `jade` quanh phần có con trỏ; dùng thẳng `register()` của react-hook-form. Lỗi hiện dưới rãnh như ô thường.
+
+### 7.16. Menu thả xuống — `menuStyles` (Task 4.9)
+
+```
+[ Đã lên kế hoạch ⌄ ]          huy hiệu 28px có mũi tên (xoay 180° khi mở)
+┌──────────────────────────┐   khung trắng, viền tide, bo 6px, shadow-md, cách nút 4px
+│ ● Nháp                   │   chấm 8px màu đậm của tông huy hiệu
+│ ● Đã lên kế hoạch      ✓ │   ✓ jade ở dòng hiện tại
+│ ● Đang diễn ra           │   dòng đang trỏ: nền gray-100
+│ ● Đã hoàn thành          │
+│ ● Đã lưu trữ             │
+└──────────────────────────┘
+```
+
+- Mọi menu bật ra từ một nút (Radix `DropdownMenu`) dùng chung `components/menuStyles.ts`: `MENU_CONTENT` (khung) và `MENU_ITEM` (dòng 36px, **44px trên màn cảm ứng**, chữ 14px, icon 16px `gray-500`). Đang dùng: menu "⋮" của thẻ hoạt động (mục 7.3), trạng thái chuyến đi.
+- **Mở / đóng:** khung mờ dần và lớn lên từ phía nút (gốc biến đổi do Radix tính, nên menu mở lên trên hay xuống dưới đều hợp) trong 140ms, đóng 100ms (`animate-pop-in` / `animate-pop-out` trong `tokens.css`); tắt khi hệ điều hành bật giảm chuyển động.
+- Dòng đang trỏ (chuột hoặc phím mũi tên) nền `gray-100`: màu trung tính hợp cả dòng "Xoá" chữ `danger`. Danh sách của ô chọn (mục 7.2) dùng `jade-light`.
+- **Trạng thái chuyến đi** (`TripStatusSelect`, trang chi tiết, chỉ người sửa được): nút là huy hiệu cùng tông với trạng thái (mục 3.5), chữ 12px/500, mũi tên `ChevronDown` 14px; menu liệt kê 5 trạng thái theo thứ tự, mỗi dòng chấm màu (`badgeDotClass`) + tên + ✓ ở trạng thái hiện tại. Chọn là **lưu ngay** (toast "Đã đổi trạng thái"); chọn lại trạng thái hiện tại không gửi gì. Đang lưu: huy hiệu hiện trạng thái vừa chọn, mũi tên thành vòng quay, nút bị khoá; lỗi: toast đỏ, huy hiệu về trạng thái cũ. Nhãn đọc "Trạng thái chuyến đi: {trạng thái}".
+- Bàn phím (Radix): Enter / Space / ↓ mở menu, ↑ / ↓ di chuyển, Enter chọn, Esc đóng và trả focus về nút.
 
 ---
 
