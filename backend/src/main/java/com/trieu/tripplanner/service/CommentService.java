@@ -12,6 +12,7 @@ import com.trieu.tripplanner.repository.ActivityRepository;
 import com.trieu.tripplanner.repository.CommentRepository;
 import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,21 @@ public class CommentService {
 
         log.info("Trip {}: comment {} posted by user {}", tripId, saved.getId(), userId);
         return commentMapper.toResponse(saved);
+    }
+
+    /**
+     * Every live comment of the trip, flat and oldest first; replies carry parentId so the client nests them one
+     * level. No paging (design.md 10.2): a trip of a small group rarely has more than a few hundred.
+     */
+    @Transactional(readOnly = true)
+    public List<CommentResponse> list(Long tripId) {
+        // existsById goes through JPQL, so @SQLRestriction hides a soft-deleted trip: 404, like a missing one
+        if (!tripRepository.existsById(tripId)) {
+            throw new ResourceNotFoundException(TRIP, tripId);
+        }
+        return commentRepository.findAllByTripIdWithAuthor(tripId).stream()
+                .map(commentMapper::toResponse)
+                .toList();
     }
 
     // One level of replies (design.md 5.2): the parent must be a live root comment of this trip. Missing, deleted,

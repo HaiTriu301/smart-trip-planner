@@ -21,6 +21,7 @@ import com.trieu.tripplanner.security.permission.TripPermissionEvaluator;
 import com.trieu.tripplanner.service.CommentService;
 import com.trieu.tripplanner.support.TestUsers;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,6 +67,69 @@ class CommentControllerTest {
     void signIn() {
         bearer = "Bearer " + jwtTokenProvider.generateAccessToken(TestUsers.verified(USER_ID, "viewer@example.com"))
                 .token();
+    }
+
+    // ---- GET /trips/{tripId}/comments -----------------------------------------------------------------------------
+
+    @Test
+    void listReturns200WithTheCommentsInTheOrderOfTheService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.list(TRIP_ID)).thenReturn(List.of(comment(50L, null, "Mấy giờ đi chợ?"),
+                comment(51L, 50L, "7 giờ nhé")));
+
+        assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": true,
+                          "data": [ { "id": 50, "activityId": null, "parentId": null, "content": "Mấy giờ đi chợ?",
+                                      "author": { "id": 8, "fullName": "Người xem", "avatarUrl": null },
+                                      "createdAt": "2026-10-17T03:00:00Z" },
+                                    { "id": 51, "parentId": 50, "content": "7 giờ nhé" } ] }
+                        """);
+    }
+
+    @Test
+    void listOfATripWithoutCommentsReturnsAnEmptyArray() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.list(TRIP_ID)).thenReturn(List.of());
+
+        assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.OK)
+                .bodyJson().extractingPath("$.data").asArray().isEmpty();
+    }
+
+    @Test
+    void listReturns403WhenTheCallerMayNotViewTheTripAndNeverReachesService() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(false);
+
+        assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
+        verify(commentService, never()).list(any());
+    }
+
+    @Test
+    void listWithoutTokenReturns401() {
+        assertThat(mvc.get().uri(COMMENTS_URL)).hasStatus(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(commentService, tripPermission);
+    }
+
+    @Test
+    void listForMissingTripReturns404() {
+        when(tripPermission.canView(eq(TRIP_ID), any())).thenReturn(true);
+        when(commentService.list(TRIP_ID)).thenThrow(new ResourceNotFoundException("Trip", TRIP_ID));
+
+        assertThat(mvc.get().uri(COMMENTS_URL).header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
+    }
+
+    @Test
+    void listWithNonNumericTripIdReturns400() {
+        assertThat(mvc.get().uri("/api/v1/trips/abc/comments").header(HttpHeaders.AUTHORIZATION, bearer))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
+        verifyNoInteractions(commentService);
     }
 
     // ---- POST /trips/{tripId}/comments ----------------------------------------------------------------------------
@@ -274,10 +338,14 @@ class CommentControllerTest {
                 .contentType(MediaType.APPLICATION_JSON).content(json).exchange();
     }
 
-    /** The one place of this class that builds the response, so a new field is added here only. */
     private static CommentResponse comment(String content) {
-        return new CommentResponse(51L, null, null, new CommentResponse.Author(USER_ID, "Người xem", null), content,
-                CREATED_AT);
+        return comment(51L, null, content);
+    }
+
+    /** The one place of this class that builds the response, so a new field is added here only. */
+    private static CommentResponse comment(long id, Long parentId, String content) {
+        return new CommentResponse(id, null, parentId, new CommentResponse.Author(USER_ID, "Người xem", null),
+                content, CREATED_AT);
     }
 
 }

@@ -8,10 +8,12 @@ import com.trieu.tripplanner.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +33,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class CommentController {
 
     private final CommentService commentService;
+
+    @Operation(summary = "Danh sách bình luận",
+               description = "Mọi bình luận còn tồn tại của chuyến đi (cho cả chuyến, về từng hoạt động, và các câu "
+                       + "trả lời) trong một danh sách phẳng, cũ trước; cùng thời điểm thì theo mã. Câu trả lời có "
+                       + "parentId để giao diện lồng một cấp. Không phân trang. Ai xem được chuyến đi thì xem được. "
+                       + "403 nếu không xem được chuyến đi, 404 nếu chuyến đi không tồn tại.")
+    @GetMapping
+    @PreAuthorize("@tripPermission.canView(#tripId, principal)")
+    public ApiResponse<List<CommentResponse>> list(@PathVariable Long tripId) {
+        return ApiResponse.ok(commentService.list(tripId));
+    }
 
     @Operation(summary = "Đăng bình luận",
                description = "Ai xem được chuyến đi thì đăng được (kể cả người chỉ xem). content: 1 đến 2000 ký tự, "

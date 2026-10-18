@@ -5,6 +5,7 @@ import static com.trieu.tripplanner.support.TestComments.onActivity;
 import static com.trieu.tripplanner.support.TestComments.replyTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,7 @@ import com.trieu.tripplanner.repository.TripRepository;
 import com.trieu.tripplanner.repository.UserRepository;
 import com.trieu.tripplanner.support.TestUsers;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -244,6 +246,45 @@ class CommentServiceTest {
                     .isInstanceOf(ResourceNotFoundException.class);
             verify(commentRepository, never()).findRootByIdAndTripId(any(), any());
             verify(commentRepository, never()).save(any());
+        }
+
+    }
+
+    @Nested
+    class ListComments {
+
+        @Test
+        void returnsTheCommentsInTheOrderOfTheQueryWithRepliesPointingToTheirParent() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            Comment root = rootComment(null);
+            Comment reply = Comment.builder().trip(trip).author(viewer).parent(root).content("7 giờ nhé").build();
+            ReflectionTestUtils.setField(reply, "id", COMMENT_ID);
+            when(commentRepository.findAllByTripIdWithAuthor(TRIP_ID)).thenReturn(List.of(root, reply));
+
+            List<CommentResponse> comments = commentService.list(TRIP_ID);
+
+            // The order is the query's (CommentRepositoryTest): the service neither sorts nor nests
+            assertThat(comments).extracting(CommentResponse::id, CommentResponse::parentId,
+                            comment -> comment.author().id(), CommentResponse::content)
+                    .containsExactly(
+                            tuple(PARENT_ID, null, OWNER_ID, "Mấy giờ đi chợ?"),
+                            tuple(COMMENT_ID, PARENT_ID, VIEWER_ID, "7 giờ nhé"));
+        }
+
+        @Test
+        void aTripWithoutCommentsGivesAnEmptyList() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(true);
+            when(commentRepository.findAllByTripIdWithAuthor(TRIP_ID)).thenReturn(List.of());
+
+            assertThat(commentService.list(TRIP_ID)).isEmpty();
+        }
+
+        @Test
+        void aTripThatDoesNotExistOrWasDeletedIs404AndTheCommentsAreNotRead() {
+            when(tripRepository.existsById(TRIP_ID)).thenReturn(false);
+
+            assertThatThrownBy(() -> commentService.list(TRIP_ID)).isInstanceOf(ResourceNotFoundException.class);
+            verify(commentRepository, never()).findAllByTripIdWithAuthor(any());
         }
 
     }

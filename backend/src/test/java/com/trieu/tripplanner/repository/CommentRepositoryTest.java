@@ -9,12 +9,15 @@ import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.TripDay;
 import com.trieu.tripplanner.model.User;
 import java.time.LocalDate;
+import java.util.List;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
@@ -33,6 +36,9 @@ class CommentRepositoryTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private User owner;
     private User viewer;
@@ -89,6 +95,61 @@ class CommentRepositoryTest {
         assertThat(repository.findRootByIdAndTripId(rootOfOther.getId(), trip.getId())).isEmpty();
         // Same comment through its own trip: the trip is what made the difference
         assertThat(repository.findRootByIdAndTripId(rootOfOther.getId(), otherTrip.getId())).isPresent();
+    }
+
+    // ---- findAllByTripIdWithAuthor: the list of a trip -------------------------------------------------------------
+
+    @Test
+    void listsRootsAndRepliesFlatOldestFirstAndTheIdBreaksTies() {
+        Comment first = repository.saveAndFlush(comment(trip, owner, "Mấy giờ đi chợ?").activity(activity).build());
+        Comment earlier = repository.saveAndFlush(comment(trip, viewer, "Cả nhà nhớ áo ấm").build());
+        Comment sameInstant = repository.saveAndFlush(comment(trip, viewer, "7 giờ nhé").parent(first)
+                .activity(activity).build());
+        // Literal times in SQL, read back as UTC like the rest of the schema (CLAUDE.md section 8, BUG-AUTH-008)
+        createdAt(first, "2026-10-17 03:00:00");
+        createdAt(earlier, "2026-10-17 02:00:00");
+        createdAt(sameInstant, "2026-10-17 03:00:00");
+        entityManager.clear();
+
+        assertThat(repository.findAllByTripIdWithAuthor(trip.getId())).extracting(Comment::getId)
+                .containsExactly(earlier.getId(), first.getId(), sameInstant.getId());
+    }
+
+    @Test
+    void theListLeavesOutDeletedCommentsAndCommentsOfOtherTrips() {
+        Trip otherTrip = entityManager.persist(trip("hue-2-ngay-q1w2e3"));
+        Comment kept = repository.saveAndFlush(comment(trip, owner, "Còn đây").build());
+        Comment deleted = repository.saveAndFlush(comment(trip, viewer, "Đã xoá").build());
+        repository.saveAndFlush(comment(otherTrip, owner, "Của chuyến khác").build());
+        repository.delete(deleted);
+        repository.flush();
+        entityManager.clear();
+
+        assertThat(repository.findAllByTripIdWithAuthor(trip.getId())).extracting(Comment::getId)
+                .containsExactly(kept.getId());
+    }
+
+    @Test
+    void theAuthorComesInTheSameQuery() {
+        repository.saveAndFlush(comment(trip, owner, "Mấy giờ đi chợ?").build());
+        repository.saveAndFlush(comment(trip, viewer, "Cả nhà nhớ áo ấm").build());
+        entityManager.clear();
+
+        List<Comment> comments = repository.findAllByTripIdWithAuthor(trip.getId());
+
+        // Without the join fetch each author would be a proxy, loaded by one more query per comment
+        assertThat(comments).allSatisfy(comment -> assertThat(Hibernate.isInitialized(comment.getAuthor())).isTrue());
+        assertThat(comments).extracting(comment -> comment.getAuthor().getFullName())
+                .containsExactlyInAnyOrder("Chủ chuyến đi", "Người xem");
+    }
+
+    @Test
+    void aTripWithoutCommentsGivesAnEmptyList() {
+        assertThat(repository.findAllByTripIdWithAuthor(trip.getId())).isEmpty();
+    }
+
+    private void createdAt(Comment comment, String utc) {
+        jdbcTemplate.update("UPDATE comments SET created_at = ? WHERE id = ?", utc, comment.getId());
     }
 
     private static Comment.CommentBuilder comment(Trip onTrip, User author, String content) {
