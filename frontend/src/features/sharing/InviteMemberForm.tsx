@@ -2,16 +2,23 @@ import { useId } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Eye, Pencil } from 'lucide-react'
 import { inviteMember, inviteMemberKey } from '../../api/members'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { FormField } from '../../components/FormField'
-import { SelectField } from '../../components/SelectField'
+import { SegmentedControl } from '../../components/SegmentedControl'
 import { toast } from '../../stores/toastStore'
 import { inviteSchema, MEMBER_ROLE_OPTIONS, type InviteValues } from './schemas'
 
 const FORM_FIELDS = ['email', 'role'] as const
+
+// Pencil like every "Sửa" of the app, an eye for looking only
+const ROLE_SEGMENTS = MEMBER_ROLE_OPTIONS.map((option) => ({
+  ...option,
+  icon: option.value === 'EDITOR' ? Pencil : Eye,
+}))
 
 /** A refusal the form shows under a field: "already a member", or a field rule of the server (owner's own email). */
 function landsOnField(error: unknown): boolean {
@@ -75,7 +82,7 @@ export function InviteMemberForm({ tripId }: { tripId: number }) {
         })}
       >
         {bannerError && <Alert variant="error">{bannerError}</Alert>}
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-start">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-start">
           <FormField
             label="Email"
             type="email"
@@ -85,7 +92,12 @@ export function InviteMemberForm({ tripId }: { tripId: number }) {
             error={errors.email?.message}
             {...register('email')}
           />
-          <SelectField label="Vai trò" options={MEMBER_ROLE_OPTIONS} error={errors.role?.message} {...register('role')} />
+          <SegmentedControl
+            label="Vai trò"
+            options={ROLE_SEGMENTS}
+            error={errors.role?.message}
+            registration={register('role')}
+          />
           {/* Down by the height of a field label (18px + 6px), so the button lines up with the inputs */}
           <div className="sm:pt-6">
             <Button type="submit" fullWidth={false} isLoading={mutation.isPending}>
