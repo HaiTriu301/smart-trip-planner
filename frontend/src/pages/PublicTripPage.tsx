@@ -10,13 +10,15 @@ import { LinkButton } from '../components/LinkButton'
 import { Logo } from '../components/Logo'
 import { Skeleton } from '../components/Skeleton'
 import { PublicDay } from '../features/public/PublicDay'
+import { PublicTripMap } from '../features/public/PublicTripMap'
 import { countDays, formatDateRange } from '../lib/format'
 import { isShareToken } from '../lib/shareUrl'
 
 /**
  * The trip behind a share link, for anybody, without an account (design.md 15, UI_GUIDE 8.5): one column of
- * 760px, a small logo instead of the app bar, the summary, then every day on one page with read-only cards, and
- * at the end an invitation to plan one's own trip. Outside every guard: signed in or not, the page is the same.
+ * 760px, a small logo instead of the app bar, the summary, one map of every place, then every day on one page with
+ * read-only cards, and at the end an invitation to plan one's own trip. Outside every guard: signed in or not, the
+ * page is the same.
  * <p>
  * Each successful load counts one view of the link (design.md 10.2), so the page asks once: no reload when the tab
  * comes back into focus or the network returns, and the answer is kept while the page stays open.
@@ -103,6 +105,15 @@ export function PublicTripPage() {
           </ul>
           {trip.description && <ExpandableText text={trip.description} className="text-gray-600" />}
         </header>
+
+        <PublicTripMap
+          days={trip.days}
+          destination={
+            trip.destinationLat !== null && trip.destinationLng !== null
+              ? { lat: trip.destinationLat, lng: trip.destinationLng }
+              : null
+          }
+        />
 
         {trip.days.map((day) => (
           <PublicDay key={day.dayIndex} day={day} />
