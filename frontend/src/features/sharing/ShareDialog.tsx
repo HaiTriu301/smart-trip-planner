@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal'
 import type { TripDetail } from '../../types/trip'
 import { InviteMemberForm } from './InviteMemberForm'
 import { MemberList } from './MemberList'
+import { ShareLinkList } from './ShareLinkList'
 
 /**
  * The button of the trip header that opens the sharing dialog (UI_GUIDE 8.1, 15.3; Task 4.5 decision 3). The
@@ -35,8 +36,8 @@ interface ShareDialogProps {
 
 /**
  * Sharing a trip, a 640px dialog (UI_GUIDE 15.3). The members come with the trip itself (GET /trips/{id}), so the
- * dialog opens without a request of its own and shows what the page shows. Only the owner gets the invite form;
- * the cursor starts in its email field. Esc and "×" wait while an invitation is being sent: closing would leave
+ * dialog opens without a request of its own and shows what the page shows. Only the owner gets the invite form
+ * (the cursor starts in its email field) and the share links, under a rule. Esc and "×" wait while an invitation is being sent: closing would leave
  * the answer (an error under the email) nowhere to show (BUG-UI-004).
  */
 function ShareDialog({ trip, open, onClose }: ShareDialogProps) {
@@ -61,6 +62,11 @@ function ShareDialog({ trip, open, onClose }: ShareDialogProps) {
           </div>
         )}
         <MemberList tripId={trip.id} members={trip.members} canManage={isOwner} />
+        {isOwner && (
+          <div className="border-t border-tide pt-6">
+            <ShareLinkList tripId={trip.id} />
+          </div>
+        )}
       </div>
     </Modal>
   )
