@@ -9,6 +9,9 @@ export type TripVisibility = 'PRIVATE' | 'LINK' | 'PUBLIC'
 /** One row of GET /trips. Dates are ISO "YYYY-MM-DD" strings (LocalDate). */
 export interface TripSummary {
   id: number
+  /** Not the caller when a member shared the trip with them (design.md 10.2, Task 4.1) */
+  ownerId: number
+  ownerName: string
   title: string
   slug: string
   coverImageUrl: string | null
