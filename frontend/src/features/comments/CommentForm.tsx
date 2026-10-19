@@ -128,6 +128,8 @@ export function CommentForm({ tripId, activityId, replyTo, onCancelReply, onSent
         key={round}
         label="Viết bình luận"
         hideLabel
+        // Fixed at 3 lines: a box growing at the bottom of the panel would squeeze the list above it
+        autoGrow={false}
         placeholder="Viết bình luận…"
         maxLength={COMMENT_MAX_LENGTH}
         error={errors.content?.message}
