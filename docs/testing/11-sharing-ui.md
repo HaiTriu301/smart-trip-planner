@@ -1,6 +1,6 @@
 # 11 · Giao diện chia sẻ
 
-> Cập nhật: 2026-10-18 · **Sửa `BUG-UI-012`** (hộp "Chia sẻ" báo "Email không được để trống" khi chủ chuyến không định mời ai) trên nhánh `feat/T4.9-form-controls` tại `26b61bc`; chủ dự án kiểm lại ngày 2026-10-18 bằng `MT-FORM-11` ở [12-form-controls.md](12-form-controls.md), đạt · **Task 4.5 code xong** (19 commit `6760a26` đến `3ff64fd` trên nhánh `feat/T4.5-sharing-ui`; lint, build và 176 test tự động của giao diện xanh). Chủ dự án đã chạy cả 18 bài thủ công `MT-SHAREUI-01` đến `18`, **đều đạt**, và kiểm lại `BUG-UI-011` ngày 2026-10-18 · Mốc 17 (bản đồ trên trang công khai) tại `3ff64fd` · Mốc 16 (trang chuyến đi công khai) tại `d3374d0` · Mốc 15 (tách phần thân thẻ hoạt động) tại `154ba33` · Mốc 14 (thu hồi liên kết) tại `154cd99` · Mốc 13 (tạo liên kết) tại `f2ced15` · Sau Mốc 12 (tiêu đề hộp thoại đứng yên) tại `da20805` · Mốc 12 (xem và sao chép liên kết chia sẻ) tại `9271a54` · Mốc 11 (gỡ thành viên, huỷ lời mời) tại `80cd003` · **Sửa `BUG-UI-011`** (Esc trên hộp hỏi lại đóng luôn hộp bên ngoài; chủ dự án đã xác nhận trên trình duyệt) tại `540c624`, chủ dự án đã kiểm lại; ghi ở [06-itinerary-ui.md](06-itinerary-ui.md) · Mốc 10 (đổi vai trò) tại `0f9775b` · Mốc 9 (gửi lại lời mời) tại `47e4b19` · Mốc 8 (đăng nhập / đăng ký khi mở link mời) tại `4d805f9` · Mốc 7 (trang nhận lời mời) tại `0ef4c10` · Mốc 6 (mời thành viên) tại `1f537f5` · Mốc 5 (hộp thoại thành viên) tại `7575498` · Mốc 4 (lịch trình chỉ đọc) tại `b7aef61` · Mốc 3 (ẩn nút sửa ở đầu trang) tại `401e1c8` · Mốc 2 (huy hiệu vai trò cạnh tên chuyến đi) tại `91053c4` · Mốc 1 (thẻ chuyến đi được chia sẻ) tại `6760a26` · [Về trang chính](README.md)
+> Cập nhật: 2026-10-19 · **Task 4.6 Mốc 16** (panel bình luận và ô bình luận không hiện thanh cuộn, yêu cầu sau khi chạy thử) code xong, chưa commit; `MT-SHAREUI-34` chưa chạy · **Sửa `BUG-UI-013`** (khung nút gạt / chip đầu panel bình luận lệch xuống 16px) code xong, chưa commit; chờ chủ dự án kiểm lại ở `MT-SHAREUI-32` · **Task 4.6 Mốc 15** (tab "Hoạt động": các hoạt động đang được bàn) tại `d5c3fe3`; 239 test giao diện xanh (thêm `TC-SHAREUI-061` đến `064`); `MT-SHAREUI-33` chưa chạy · **Task 4.6 Mốc 14** (hai tab "Chung" / "Hoạt động") tại `fc63d7e`; `MT-SHAREUI-32` chưa chạy · **Task 4.6 Mốc 13** (panel trượt vào / ra) tại `90414e6`; `MT-SHAREUI-31` chưa chạy · **Task 4.6 Mốc 12** (bấm ra ngoài để đóng panel, giữ bản nháp) tại `ede475a`; `MT-SHAREUI-30` chưa chạy · **Task 4.6 Mốc 11** (ô bình luận cao cố định) tại `085d29d`; `MT-SHAREUI-29` chưa chạy · **Chủ dự án đã chạy cả 10 bài `MT-SHAREUI-19` đến `28` của Task 4.6, đều đạt**; sau đó yêu cầu thêm: ô bình luận cao cố định, bấm ra ngoài để đóng panel (có hiệu ứng), tách bình luận chung khỏi bình luận của hoạt động (Mốc 11 trở đi, WORKFLOW Task 4.6) · **Task 4.6 Mốc 10** (từ bình luận tới hoạt động) tại `8bd5ec4`; lint, build và 233 test giao diện xanh · **Task 4.6 Mốc 9** (xoá bình luận) tại `2b6d4ee`; 233 test giao diện xanh (thêm `TC-SHAREUI-053` đến `058`); `MT-SHAREUI-27` chưa chạy · **Task 4.6 Mốc 8** (số bình luận trên thẻ hoạt động) tại `c50c9ba`; `MT-SHAREUI-26` chưa chạy · **Task 4.6 Mốc 7** (bình luận về một hoạt động) tại `f384105`; `MT-SHAREUI-25` chưa chạy · **Task 4.6 Mốc 6** (chip hoạt động trên bình luận) tại `cb0fa85`; `MT-SHAREUI-24` chưa chạy · **Task 4.6 Mốc 5** (trả lời một bình luận) tại `826144f`; `MT-SHAREUI-23` chưa chạy · **Task 4.6 Mốc 4** (viết và gửi bình luận) tại `0602c96`; `MT-SHAREUI-22` chưa chạy · **Task 4.6 Mốc 3** (thời gian "5 phút trước") tại `fd9b3e5`; 221 test giao diện xanh (thêm `TC-SHAREUI-033` đến `046`); `MT-SHAREUI-21` chưa chạy · **Task 4.6 Mốc 2** (trả lời nằm dưới bình luận gốc) tại `9fe5da0`; 207 test giao diện xanh (thêm `TC-SHAREUI-030` đến `032`); `MT-SHAREUI-20` chưa chạy · **Task 4.6 Mốc 1** (nút "Bình luận" ở đầu trang chuyến đi mở panel với các bình luận gốc) tại `d3a306a` trên nhánh `feat/T4.6-comments-ui`; lint, build và 204 test giao diện xanh; `MT-SHAREUI-19` chưa chạy · 2026-10-18 · **Sửa `BUG-UI-012`** (hộp "Chia sẻ" báo "Email không được để trống" khi chủ chuyến không định mời ai) trên nhánh `feat/T4.9-form-controls` tại `26b61bc`; chủ dự án kiểm lại ngày 2026-10-18 bằng `MT-FORM-11` ở [12-form-controls.md](12-form-controls.md), đạt · **Task 4.5 code xong** (19 commit `6760a26` đến `3ff64fd` trên nhánh `feat/T4.5-sharing-ui`; lint, build và 176 test tự động của giao diện xanh). Chủ dự án đã chạy cả 18 bài thủ công `MT-SHAREUI-01` đến `18`, **đều đạt**, và kiểm lại `BUG-UI-011` ngày 2026-10-18 · Mốc 17 (bản đồ trên trang công khai) tại `3ff64fd` · Mốc 16 (trang chuyến đi công khai) tại `d3374d0` · Mốc 15 (tách phần thân thẻ hoạt động) tại `154ba33` · Mốc 14 (thu hồi liên kết) tại `154cd99` · Mốc 13 (tạo liên kết) tại `f2ced15` · Sau Mốc 12 (tiêu đề hộp thoại đứng yên) tại `da20805` · Mốc 12 (xem và sao chép liên kết chia sẻ) tại `9271a54` · Mốc 11 (gỡ thành viên, huỷ lời mời) tại `80cd003` · **Sửa `BUG-UI-011`** (Esc trên hộp hỏi lại đóng luôn hộp bên ngoài; chủ dự án đã xác nhận trên trình duyệt) tại `540c624`, chủ dự án đã kiểm lại; ghi ở [06-itinerary-ui.md](06-itinerary-ui.md) · Mốc 10 (đổi vai trò) tại `0f9775b` · Mốc 9 (gửi lại lời mời) tại `47e4b19` · Mốc 8 (đăng nhập / đăng ký khi mở link mời) tại `4d805f9` · Mốc 7 (trang nhận lời mời) tại `0ef4c10` · Mốc 6 (mời thành viên) tại `1f537f5` · Mốc 5 (hộp thoại thành viên) tại `7575498` · Mốc 4 (lịch trình chỉ đọc) tại `b7aef61` · Mốc 3 (ẩn nút sửa ở đầu trang) tại `401e1c8` · Mốc 2 (huy hiệu vai trò cạnh tên chuyến đi) tại `91053c4` · Mốc 1 (thẻ chuyến đi được chia sẻ) tại `6760a26` · [Về trang chính](README.md)
 
 Giao diện cho phần chia sẻ của Phase 4: người được mời thấy chuyến đi trong danh sách của mình, người chỉ xem không thấy nút sửa, chủ chuyến mời và quản lý thành viên, tạo liên kết chia sẻ, người được mời nhận lời từ link trong mail, và khách cầm liên kết xem được lịch trình mà không cần tài khoản (Task 4.5). Bình luận (Task 4.6) ghi tiếp vào file này.
 
@@ -29,6 +29,28 @@ File này được ghi dần theo từng mốc của Task 4.5:
 | 15 | Tách phần thân của thẻ hoạt động (giờ, loại, tên, địa điểm, ghi chú, chi phí, link đặt chỗ) thành một phần dùng chung, để trang công khai (Mốc 16) vẽ cùng một kiểu thẻ. Không đổi gì trên màn hình | `MT-SHAREUI-16` | `154ba33` |
 | 16 | Trang công khai `/share/:token`: ai có liên kết đều xem được tóm tắt và mọi ngày của chuyến đi, không cần tài khoản; liên kết hỏng hoặc không còn dùng được báo "Liên kết không còn hiệu lực" | `TC-SHAREUI-025`, `026`, `MT-SHAREUI-17` | `d3374d0` |
 | 17 | Trang công khai có một bản đồ với mọi địa điểm của chuyến đi, không số, không đường nối; bản đồ trong ứng dụng không đổi | `TC-SHAREUI-027` đến `029`, `MT-SHAREUI-18` | `3ff64fd` |
+
+Bình luận (Task 4.6), ghi tiếp theo từng mốc trên nhánh `feat/T4.6-comments-ui`. Backend bình luận đã kiểm ở [10-comment.md](10-comment.md). Mã test tự động mới bắt đầu từ `TC-SHAREUI-030`.
+
+| Mốc | Nội dung | Kiểm tra | Mã commit |
+|---|---|---|---|
+| 1 | Nút "Bình luận" (kèm số bình luận của chuyến) ở đầu trang chuyến đi, mọi vai trò đều thấy; bấm thì mở panel bên phải với các bình luận gốc: ảnh chữ cái đầu, tên, ngày, nội dung. Chỉ là hiển thị, không có hàm tính toán mới nên không có test tự động | `MT-SHAREUI-19` | `d3a306a` |
+| 2 | Trả lời hiện ngay dưới bình luận gốc của nó, thụt vào thẳng cột với nội dung, ảnh nhỏ hơn; trả lời mất bình luận gốc thì không hiện | `TC-SHAREUI-030` đến `032`, `MT-SHAREUI-20` | `9fe5da0` |
+| 3 | Thời gian của bình luận ghi kiểu "5 phút trước", "Hôm qua lúc 14:30", "4 ngày trước", tự đổi khi để trang mở; rê chuột thấy đủ ngày giờ. Mọi mốc ngày theo múi giờ tài khoản | `TC-SHAREUI-033` đến `046`, `MT-SHAREUI-21` | `fd9b3e5` |
+| 4 | Ô "Viết bình luận…" và nút "Gửi bình luận" ở chân panel; Ctrl+Enter để gửi; bình luận mới hiện ngay ở cuối danh sách; không đóng được panel khi đang gửi. Quy tắc nội dung (không trống, tối đa 2000 ký tự) giống máy chủ, máy chủ đã kiểm ở [10-comment.md](10-comment.md); không có hàm tính toán mới nên không có test tự động | `MT-SHAREUI-22` | `0602c96` |
+| 5 | Nút "Trả lời" dưới bình luận gốc: ô nhập hiện chip "Trả lời {tên} ×", trả lời gửi đi nằm dưới đúng bình luận đó. Quy tắc trả lời một cấp máy chủ đã kiểm ở [10-comment.md](10-comment.md); không có hàm tính toán mới nên không có test tự động | `MT-SHAREUI-23` | `826144f` |
+| 6 | Bình luận về một hoạt động có chip nhỏ: chấm màu theo loại và tên hoạt động; trả lời không lặp chip; hoạt động không còn trong lịch trình đang hiển thị thì không có chip | `TC-SHAREUI-047`, `048`, `MT-SHAREUI-24` | `cb0fa85` |
+| 7 | Nút bong bóng trên mỗi thẻ hoạt động (mọi vai trò) mở panel chỉ với bình luận của hoạt động đó, có chip "{tên} ×" ở đầu panel để xem lại tất cả; bình luận viết lúc đó tự gắn vào hoạt động | `TC-SHAREUI-049`, `050`, `MT-SHAREUI-25` | `f384105` |
+| 8 | Nút bong bóng trên thẻ ghi số bình luận của hoạt động (tính cả trả lời) và luôn hiện khi có bình luận; xoá hoạt động hoặc rút ngắn chuyến đi thì số ở đầu trang giảm ngay | `TC-SHAREUI-051`, `052`, `MT-SHAREUI-26` | `c50c9ba` |
+| 9 | Tác giả và chủ chuyến xoá được bình luận (có hộp hỏi lại; xoá bình luận gốc mất luôn trả lời), xong có thông báo "Đã xoá bình luận"; rê chuột lên bình luận thì nền xám nhạt | `TC-SHAREUI-053` đến `058`, `MT-SHAREUI-27` | `2b6d4ee` |
+| 10 | Bấm chip hoạt động trên một bình luận: panel đóng, trang sang ngày của hoạt động và thẻ được tô viền (như "Xem trong lịch trình" của bản đồ). Không có hàm tính toán mới nên không có test tự động | `MT-SHAREUI-28` | `8bd5ec4` |
+| 11 | Ô "Viết bình luận…" cao cố định 3 dòng, chữ dài cuộn bên trong ô thay vì kéo ô cao lên (yêu cầu sau khi chạy thử). Chỉ là bố cục, không có test tự động | `MT-SHAREUI-29` | `085d29d` |
+| 12 | Bấm ra vùng tối bên ngoài thì panel bình luận đóng (hộp thoại khác vẫn không); chữ đang gõ dở được giữ, mở lại panel thì còn. Không có hàm tính toán mới nên không có test tự động | `MT-SHAREUI-30` | `ede475a` |
+| 13 | Panel bình luận trượt vào từ mép phải khi mở, trượt ra khi đóng, vùng tối hiện / mờ dần; giảm chuyển động của hệ điều hành thì tức thì. Chỉ là hiệu ứng, không có test tự động | `MT-SHAREUI-31` | `90414e6` |
+| 14 | Panel có hai tab "Chung · N \| Hoạt động · M": tab "Chung" chỉ bình luận của cả chuyến; tab "Hoạt động" (tạm tới Mốc 15) là các bình luận về hoạt động, chỉ để đọc. Màn của một hoạt động có "Xem trong lịch trình", × quay về tab "Hoạt động" | `TC-SHAREUI-059`, `060`, `MT-SHAREUI-32` | `fc63d7e` |
+| 15 | Tab "Hoạt động" thành danh sách các hoạt động đang được bàn: nhóm theo ngày, mỗi dòng có số bình luận và bình luận mới nhất; bấm thì mở bình luận của hoạt động đó. Bình luận không còn chip hoạt động | `TC-SHAREUI-061` đến `064`, `MT-SHAREUI-33` | `d5c3fe3` |
+| Sửa lỗi | Khung nút gạt "Chung \| Hoạt động" và chip đầu màn một hoạt động nằm sát dưới tiêu đề panel, khoảng trên / dưới cân nhau, không đè lên bình luận đầu (`BUG-UI-013`) | `MT-SHAREUI-32` bước cuối | (chưa commit) |
+| 16 | Panel bình luận không hiện thanh cuộn, cả ở danh sách bình luận lẫn bên trong ô "Viết bình luận…" (yêu cầu sau khi chạy thử); hộp thoại và ô ghi chú khác không đổi. Chỉ là giao diện, không có test tự động | `MT-SHAREUI-34` | (chưa commit) |
 
 ## A. Test tự động: khi nào hiện huy hiệu vai trò
 
@@ -137,6 +159,94 @@ Link thiếu hoặc hỏng bị nhận ra ngay trên trình duyệt, trang báo 
 | TC-SHAREUI-028 | Có hoạt động không gắn địa điểm và có ngày trống | Chúng không lên bản đồ; mã của từng điểm không trùng nhau dù khác ngày | Biên | Đạt |
 | TC-SHAREUI-029 | Chuyến không có hoạt động nào gắn địa điểm | Danh sách rỗng, trang không vẽ bản đồ | Biên | Đạt |
 
+## K. Test tự động: xếp trả lời dưới bình luận gốc
+
+> **Yêu cầu:** design.md rule 27 (trả lời một cấp), WORKFLOW.md Task 4.6 Mốc 2, UI_GUIDE 8.1 "Bình luận" · **Kiểm bởi:** `lib/commentTree.test.ts` (3 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-030 | Danh sách phẳng của máy chủ có 3 bình luận gốc xen kẽ 3 trả lời (hai trả lời cho bình luận đầu, một cho bình luận thứ hai) | Mỗi trả lời nằm dưới đúng bình luận gốc của nó; bình luận gốc và trả lời giữ thứ tự cũ trước như máy chủ trả | Đúng | Đạt |
+| TC-SHAREUI-031 | Có trả lời trỏ tới một bình luận không còn trong danh sách, và một "trả lời" trỏ tới một trả lời khác | Cả hai không hiện, không bị đưa lên thành bình luận gốc; trả lời hợp lệ vẫn hiện | Biên | Đạt |
+| TC-SHAREUI-032 | Chuyến chưa có bình luận nào | Không có chuỗi bình luận nào (panel hiện câu trạng thái rỗng) | Biên | Đạt |
+
+Tìm hoạt động của bình luận (Task 4.6 Mốc 6) · **Kiểm bởi:** `lib/commentTree.test.ts`, nhóm `activitiesById` (2 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-047 | Chuyến ba ngày, hoạt động nằm ở ngày 1 và ngày 3, ngày 2 trống | Tìm được hoạt động của bất kỳ ngày nào theo mã (tên đúng), đếm đủ 3 hoạt động | Đúng | Đạt |
+| TC-SHAREUI-048 | Bình luận mang mã hoạt động chuyến đi không có (đã xoá, hoặc mới thêm sau khi trang tải); chuyến không có ngày nào | Không tìm thấy gì: bình luận hiện không có chip, không bị ẩn | Biên | Đạt |
+
+Lọc bình luận theo một hoạt động (Task 4.6 Mốc 7) · **Kiểm bởi:** `lib/commentTree.test.ts`, nhóm `commentsAbout` (2 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-049 | Danh sách xen kẽ bình luận của hoạt động 7, hoạt động 8 và của cả chuyến; có trả lời của cả hai hoạt động | Chỉ còn bình luận của hoạt động 7 cùng trả lời của chúng, đúng thứ tự; xếp lại thì trả lời vẫn nằm dưới đúng bình luận gốc | Đúng | Đạt |
+| TC-SHAREUI-050 | Hoạt động chưa ai bình luận | Danh sách rỗng (panel ghi "Chưa có bình luận nào về hoạt động này.") | Biên | Đạt |
+
+Đếm bình luận của từng hoạt động (Task 4.6 Mốc 8) · **Kiểm bởi:** `lib/commentTree.test.ts`, nhóm `commentCountsByActivity` (2 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-051 | Hoạt động 7 có 2 bình luận gốc và 2 trả lời, hoạt động 8 có 1 bình luận | Hoạt động 7: 4 (tính cả trả lời); hoạt động 8: 1 | Đúng | Đạt |
+| TC-SHAREUI-052 | Chỉ có bình luận của cả chuyến (kèm trả lời) và một bình luận của hoạt động 8; danh sách rỗng | Chỉ hoạt động 8 có số (1); bình luận của cả chuyến không tính cho hoạt động nào; hoạt động không có bình luận thì không có số | Biên | Đạt |
+
+Chia bình luận vào hai tab "Chung" / "Hoạt động" (Task 4.6 Mốc 14) · **Kiểm bởi:** `lib/commentTree.test.ts`, nhóm `splitComments` (2 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-059 | Danh sách xen kẽ bình luận của cả chuyến và của hai hoạt động, có trả lời ở cả hai loại | Tab "Chung": bình luận của cả chuyến cùng trả lời của chúng; tab "Hoạt động": bình luận về hoạt động cùng trả lời; mỗi bên giữ đúng thứ tự | Đúng | Đạt |
+| TC-SHAREUI-060 | Chỉ có bình luận về hoạt động; chỉ có bình luận chung; danh sách rỗng | Tab không có ai viết thì rỗng (panel hiện câu trạng thái rỗng của tab đó) | Biên | Đạt |
+
+Các hoạt động đang được bàn (Task 4.6 Mốc 15) · **Kiểm bởi:** `lib/commentTree.test.ts`, nhóm `activitiesUnderDiscussion` (4 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-061 | Bình luận đến theo thứ tự khác lịch trình (hoạt động cuối ngày 3 được bàn trước, rồi ngày 1); có cả bình luận chung | Nhóm theo ngày tăng dần, trong ngày theo thứ tự lịch trình; ngày không có hoạt động được bàn thì không có; bình luận chung không tính | Đúng | Đạt |
+| TC-SHAREUI-062 | Một hoạt động có 2 bình luận gốc và 2 trả lời, trả lời là thứ được viết cuối cùng | Số là 4; dòng xem trước là bình luận mới nhất, kể cả khi đó là một trả lời | Đúng | Đạt |
+| TC-SHAREUI-063 | Bình luận về hoạt động chuyến đi không còn; chỉ có bình luận chung; không có bình luận nào | Không có dòng cho hoạt động không còn; danh sách rỗng (tab hiện câu trạng thái rỗng) | Biên | Đạt |
+| TC-SHAREUI-064 | Các ngày đến không theo thứ tự (ngày 3 trước ngày 1) | Vẫn xếp theo số ngày | Biên | Đạt |
+
+## N. Test tự động: ai xoá được bình luận
+
+> **Yêu cầu:** design.md 6.2 (dòng "Xoá comment"), rule 27, WORKFLOW.md Task 4.6 quyết định 8 · **Kiểm bởi:** `features/comments/commentRules.test.ts` (6 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-053 | Người chỉ xem / người chỉnh sửa xem bình luận của chính mình | Có nút xoá | Đúng | Đạt |
+| TC-SHAREUI-054 | Chủ chuyến xem bình luận của người khác | Có nút xoá | Đúng | Đạt |
+| TC-SHAREUI-055 | Người chỉnh sửa / người chỉ xem xem bình luận của người khác | Không có nút xoá (máy chủ sẽ trả 403) | Phân quyền | Đạt |
+| TC-SHAREUI-056 | Chưa biết tài khoản đang đăng nhập (phiên đang khôi phục) | Không ai có nút xoá, trừ chủ chuyến | Biên | Đạt |
+| TC-SHAREUI-057 | Xoá một bình luận gốc có 2 trả lời, danh sách có thêm bình luận khác và trả lời của nó | Bình luận gốc và 2 trả lời rời danh sách ngay; bình luận khác và trả lời của nó giữ nguyên | Đúng | Đạt |
+| TC-SHAREUI-058 | Xoá một trả lời | Chỉ trả lời đó rời danh sách; bình luận gốc và trả lời còn lại giữ nguyên | Biên | Đạt |
+
+## L. Test tự động: giờ và ngày giờ đầy đủ theo múi giờ tài khoản
+
+> **Yêu cầu:** design.md rule 14.22 (ngày giờ theo múi giờ tài khoản), WORKFLOW.md Task 4.6 quyết định 6 · **Kiểm bởi:** `lib/format.test.ts`, nhóm `formatTimeIn` và `formatDateTimeIn` (4 lượt)
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-033 | Thời điểm 07:30, 01:05 và 17:00 giờ UTC, xem theo giờ Việt Nam | "14:30", "08:05", "00:00": luôn 24 giờ, hai chữ số | Đúng | Đạt |
+| TC-SHAREUI-034 | Tài khoản mang tên múi giờ trình duyệt không biết | Dùng giờ Việt Nam thay vì làm hỏng trang | Lỗi | Đạt |
+| TC-SHAREUI-035 | Ngày giờ đầy đủ của một thời điểm có phần lẻ micro giây như máy chủ gửi | "12/10/2026 14:30" | Đúng | Đạt |
+| TC-SHAREUI-036 | 17:30 UTC ngày 12/10: đã là 00:30 ngày 13/10 ở Việt Nam | Giờ Việt Nam: "13/10/2026 00:30"; giờ UTC: "12/10/2026 17:30" (ngày và giờ lấy cùng một múi giờ) | Biên | Đạt |
+
+## M. Test tự động: thời gian tương đối của bình luận
+
+> **Yêu cầu:** WORKFLOW.md Task 4.6 quyết định 6, UI_GUIDE 8.1 "Một bình luận" · **Kiểm bởi:** `lib/relativeTime.test.ts` (10 lượt) · Giờ đọc cố định: 19/10/2026 10:00 giờ Việt Nam
+
+| Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
+|---|---|---|---|---|
+| TC-SHAREUI-037 | Đăng 0 giây và 59 giây trước; và một thời điểm **sau** giờ của máy người dùng 30 giây (đồng hồ máy chủ chạy nhanh hơn) | Cả ba là "Vừa xong", không ra số âm | Biên | Đạt |
+| TC-SHAREUI-038 | Đăng 1 phút, 12 phút 40 giây, 59 phút 59 giây trước | "1 phút trước", "12 phút trước", "59 phút trước" (làm tròn xuống) | Đúng | Đạt |
+| TC-SHAREUI-039 | Đăng đúng 1 giờ và 23 giờ 59 phút trước | "1 giờ trước", "23 giờ trước" | Biên | Đạt |
+| TC-SHAREUI-040 | Đăng 23:00, đọc lúc 00:30 hôm sau | "1 giờ trước", không phải "Hôm qua" | Biên | Đạt |
+| TC-SHAREUI-041 | Đăng hôm qua lúc 08:00, đọc 10:00 hôm nay (26 giờ) | "Hôm qua lúc 08:00" | Đúng | Đạt |
+| TC-SHAREUI-042 | Thời điểm là 01:00 ngày 18/10 ở Việt Nam nhưng vẫn là ngày 17/10 theo UTC | Giờ Việt Nam: "Hôm qua lúc 01:00"; giờ UTC: "2 ngày trước" (ngày theo múi giờ tài khoản) | Biên | Đạt |
+| TC-SHAREUI-043 | Đăng 4 và 6 ngày trước | "4 ngày trước", "6 ngày trước" | Đúng | Đạt |
+| TC-SHAREUI-044 | Đăng từ 7 ngày trước, cùng năm | "12/10 lúc 14:30", "02/01 lúc 08:05" | Đúng | Đạt |
+| TC-SHAREUI-045 | Đăng năm trước | "30/12/2025": đủ ngày tháng năm, không ghi giờ | Đúng | Đạt |
+| TC-SHAREUI-046 | Đăng 31/12/2025, đọc 02/01/2026 | "2 ngày trước": dưới một tuần thì vẫn đếm ngày dù đã sang năm | Biên | Đạt |
+
 ## Chuẩn bị chung cho các bài thủ công
 
 Cần hai tài khoản đã xác thực email: **A** (chủ chuyến) và **B** (người được mời). Chạy backend với profile `local`, frontend bằng `npm run dev`, MailHog mở ở `http://localhost:8025`.
@@ -147,6 +257,8 @@ Trước khi có giao diện mời (Mốc 6) và trang nhận lời (Mốc 7), t
 2. `POST /api/v1/trips/{tripId}/members` với `{"email": "<email của B>", "role": "VIEWER"}` → 201.
 3. Mở mail mời trong MailHog, chép giá trị `token` trong link `/invite?trip=...&token=...`.
 4. Đăng nhập B trên Swagger, `POST /api/v1/trips/{tripId}/members/accept` với `{"token": "<token vừa chép>"}` → 200.
+
+Bình luận (Task 4.6): trước khi có ô viết bình luận (Mốc 4), tạo bình luận bằng Swagger, đăng nhập bằng tài khoản muốn làm tác giả: `POST /api/v1/trips/{tripId}/comments` với `{"content": "..."}` → 201; thêm `"parentId": <mã bình luận gốc>` để tạo một trả lời. Nội dung có dấu tiếng Việt thì gõ trong Swagger, không gửi bằng `curl` (CLAUDE.md mục 2).
 
 ## Kiểm tra thủ công
 
@@ -417,10 +529,269 @@ Dùng chuyến của `MT-SHAREUI-17` (vài ngày, có hoạt động gắn đị
 
 **Kết quả:** Đạt · **Ngày:** 2026-10-18 · **Ghi chú:** chủ dự án tự chạy
 
+### MT-SHAREUI-19 · Mở panel bình luận (Task 4.6 Mốc 1)
+
+A chủ, B VIEWER (đã nhận lời) trên một chuyến của A. Bằng Swagger (mục "Chuẩn bị chung"): A viết 2 bình luận gốc, trong đó một bình luận dài nhiều dòng (có xuống dòng) và một chuỗi rất dài không khoảng trắng; B viết 1 bình luận gốc và 1 trả lời vào bình luận đầu của A. A có thêm một chuyến không có bình luận nào.
+
+- [x] A mở chuyến: ở cụm nút đầu trang có nút viền trắng "Bình luận · 4" (icon bong bóng) ngay **trước** "Chia sẻ"; số 4 tính cả trả lời. Nút chính của trang vẫn chỉ là "+ Thêm hoạt động".
+- [x] B (chỉ xem) mở cùng chuyến: thấy "Bình luận · 4" sau huy hiệu trạng thái, trước "Thành viên".
+- [x] Bấm "Bình luận": trang tối đi, panel trắng tiêu đề "Bình luận" hiện sát **mép phải**, cao hết màn hình, rộng khoảng 360px, hai góc trái bo tròn; có vạch ngăn dưới tiêu đề.
+- [x] Panel có 3 bình luận gốc, cũ ở trên, mới ở dưới (chạy sau Mốc 2 thì trả lời của B hiện dưới bình luận đầu: kiểm ở `MT-SHAREUI-20`). Mỗi bình luận: vòng tròn chữ cái đầu nền xanh nhạt, tên đậm, ngày dạng "19/10" màu xám cùng hàng, nội dung bên dưới.
+- [x] Bình luận nhiều dòng giữ đúng chỗ xuống dòng; chuỗi dài không khoảng trắng tự bẻ dòng, không có thanh cuộn ngang.
+- [x] Mở panel lần đầu thì danh sách đã cuộn sẵn xuống cuối (khi đủ nhiều bình luận để phải cuộn: thêm vài bình luận bằng Swagger). Cuộn lên giữa danh sách, đóng rồi mở lại: lại ở cuối.
+- [x] Mở panel xong nhấn phím mũi tên xuống / lên: danh sách cuộn (con trỏ nằm ở thân panel, không ở nút "×").
+- [x] Khi panel đang mở: bấm vào vùng tối bên ngoài **không** đóng panel và không bấm được "Chia sẻ"; Esc hoặc "×" đóng panel, trang giữ nguyên.
+- [x] Panel đang mở, dùng Swagger để B viết thêm một bình luận; đóng rồi mở lại panel: bình luận mới hiện (danh sách tải lại khi mở), số trên nút tăng 1.
+- [x] A mở chuyến không có bình luận: nút ghi "Bình luận" không có số; panel ghi "Chưa có bình luận nào.".
+- [x] Mở chuyến có bình luận (backend đang chạy), rồi tắt backend và mở panel: sau vài giây hiện khung đỏ "… Đang hiển thị bình luận đã tải trước đó." kèm "Thử lại", **các bình luận vẫn còn** bên dưới. Bật lại backend, bấm "Thử lại": khung đỏ biến mất.
+- [x] (Khung xương) Trong DevTools → Network chọn "Slow 4G", tải lại trang rồi bấm ngay "Bình luận": trong lúc chờ có 3 khung xương (vòng tròn + hai dòng) chạy sáng, sau đó là danh sách.
+- [x] 375px: panel chiếm toàn màn hình, không bo góc; cụm nút đầu trang xuống dòng nếu thiếu chỗ, không có thanh cuộn ngang.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-20 · Trả lời nằm dưới bình luận gốc (Task 4.6 Mốc 2)
+
+Dùng chuyến của `MT-SHAREUI-19`. Bằng Swagger, thêm: A trả lời bình luận của B; B trả lời thêm một lần nữa vào bình luận đầu của A (bình luận đầu có 2 trả lời). Ghi lại mã của một bình luận gốc có trả lời để dùng ở bước cuối.
+
+- [x] Mở panel: trả lời nằm ngay dưới nội dung của bình luận gốc, **thẳng cột với chữ** của bình luận gốc (không thẳng với ảnh); ảnh của trả lời nhỏ hơn (24px), chữ cái đầu nhỏ hơn.
+- [x] Bình luận đầu có 2 trả lời theo thứ tự cũ trước; bình luận của B có 1 trả lời của A; bình luận không có trả lời không có khoảng trống thừa bên dưới.
+- [x] Số trên nút "Bình luận · N" bằng tổng bình luận gốc và trả lời.
+- [x] Trả lời dài nhiều dòng vẫn giữ xuống dòng và nằm gọn trong panel 360px, không tràn mép phải.
+- [x] Bằng Swagger, A xoá bình luận gốc đã ghi mã (`DELETE /api/v1/trips/{tripId}/comments/{id}`); đóng rồi mở lại panel: bình luận đó **cùng các trả lời của nó** biến mất, không trả lời nào bị đẩy lên thành bình luận gốc; số trên nút giảm đúng.
+- [x] 375px: trả lời vẫn thụt vào, tên và thời gian xuống dòng khi thiếu chỗ, không có thanh cuộn ngang.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-21 · Thời gian "5 phút trước" (Task 4.6 Mốc 3)
+
+Dùng chuyến của `MT-SHAREUI-19` (các bình luận vừa tạo hôm nay). Tài khoản A để múi giờ mặc định (Việt Nam).
+
+- [x] Mở panel: bình luận tạo dưới 1 phút trước ghi "Vừa xong"; bình luận cũ hơn ghi "N phút trước" hoặc "N giờ trước". Không còn ngày dạng "19/10" như Mốc 1.
+- [x] Rê chuột lên chữ thời gian: hiện ô nhỏ "19/10/2026 14:30" (ngày giờ đầy đủ, 24 giờ, giờ Việt Nam).
+- [x] Bằng Swagger tạo một bình luận mới, đóng rồi mở lại panel: bình luận đó ghi "Vừa xong". **Để nguyên panel mở** khoảng 2–3 phút (không bấm gì): chữ tự đổi thành "1 phút trước", rồi "2 phút trước".
+- [x] Chuyển sang tab khác vài phút rồi quay lại: thời gian cập nhật ngay khi quay lại, không phải chờ.
+- [x] (Ngày cũ, tuỳ chọn) Trong MySQL đổi `created_at` của vài bình luận: `UPDATE comments SET created_at = UTC_TIMESTAMP(6) - INTERVAL 1 DAY WHERE id = …;` rồi 3 ngày, 10 ngày, 400 ngày. Mở lại panel: "Hôm qua lúc …", "3 ngày trước", "dd/mm lúc hh:mm", "dd/mm/yyyy" (năm trước, không có giờ). Thứ tự hiển thị vẫn theo lúc đăng thật của máy chủ, chỉ chữ thời gian đổi.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-22 · Viết và gửi bình luận (Task 4.6 Mốc 4)
+
+A chủ, B VIEWER (đã nhận lời) trên một chuyến của A; chuyến có vài bình luận. A có thêm một chuyến không có bình luận nào.
+
+- [x] A mở panel: chân panel đứng yên dưới một vạch, có ô "Viết bình luận…" cao 3 dòng (không có nhãn phía trên) và nút chính "Gửi bình luận" có icon gửi, căn phải. Con trỏ **không** nằm trong ô khi vừa mở panel.
+- [x] Cuộn danh sách: chỉ phần danh sách cuộn, tiêu đề và chân panel đứng yên.
+- [x] Gõ "Gặp nhau ở sảnh lúc 7 giờ" rồi bấm "Gửi bình luận": bình luận hiện ngay ở **cuối** danh sách với tên A và "Vừa xong", danh sách cuộn xuống tới nó; ô trống lại, con trỏ vẫn ở trong ô; không có thông báo (toast); số trên nút "Bình luận · N" tăng 1.
+- [x] Gõ nhiều dòng (Enter xuống dòng), rồi nhấn **Ctrl+Enter**: bình luận được gửi, giữ đúng các chỗ xuống dòng. Enter một mình không gửi.
+- [x] Gõ tiếng Việt bằng bộ gõ (Unikey / bàn phím có dấu), nhấn Ctrl+Enter ngay sau một chữ có dấu: gửi một lần, chữ cuối không bị mất dấu.
+- [x] Bấm "Gửi bình luận" khi ô trống, hoặc chỉ có dấu cách / xuống dòng: dưới ô hiện "Nội dung bình luận không được để trống", không có gì được gửi. Gõ một chữ: lỗi biến mất ngay.
+- [x] Dán một đoạn dài hơn 2000 ký tự: ô dừng ở 2000; từ khoảng 1600 ký tự bộ đếm "1.6xx / 2000" hiện bên phải dưới ô. Gửi được.
+- [x] Mở panel, bấm vào ô rồi bấm ra chỗ khác mà không gõ: **không** có lỗi nào hiện.
+- [x] Cuộn lên đầu danh sách (một chuyến nhiều bình luận), gửi một bình luận: danh sách tự cuộn xuống bình luận mới.
+- [x] Trong DevTools → Network chọn "Slow 3G", gửi một bình luận rồi nhấn ngay Esc và bấm "×": panel **không** đóng; nút hiện vòng quay; nhấn Ctrl+Enter thêm lần nữa không tạo bình luận thứ hai. Gửi xong mới đóng được.
+- [x] Gõ dở một bình luận, tắt backend, bấm gửi: khung đỏ hiện **trên** ô, chữ đang gõ còn nguyên. Bật backend, gửi lại: được.
+- [x] B (chỉ xem) mở panel và gửi một bình luận: được, tên B hiện trên bình luận.
+- [x] Chuyến không có bình luận: panel ghi "Chưa có bình luận nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới."; gửi bình luận đầu tiên thì câu này biến mất.
+- [x] 375px: nút "Gửi bình luận" rộng hết hàng; khi bàn phím điện thoại bật lên (máy thật), ô và nút vẫn nhìn thấy được.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-23 · Trả lời một bình luận (Task 4.6 Mốc 5)
+
+A chủ, B VIEWER trên một chuyến có khoảng 10 bình luận gốc (đủ để danh sách phải cuộn), một vài bình luận đã có trả lời.
+
+- [x] Mỗi bình luận **gốc** có chữ nhỏ màu xám "Trả lời" ngay dưới nội dung; các **trả lời** không có chữ này. Rê chuột: chữ đậm màu hơn.
+- [x] B bấm "Trả lời" dưới bình luận của A: trên ô nhập hiện viên xanh nhạt "Trả lời **{tên A}** ×", con trỏ nhảy vào ô (gõ được ngay).
+- [x] Gõ rồi gửi: trả lời hiện **ngay dưới bình luận của A** (sau các trả lời cũ của nó), ảnh nhỏ, tên B, "Vừa xong"; viên "Trả lời …" biến mất, ô trống, con trỏ vẫn ở ô.
+- [x] Trả lời một bình luận nằm ở **giữa** danh sách (đã cuộn lên): sau khi gửi danh sách chỉ cuộn vừa đủ để thấy trả lời mới, **không** nhảy xuống cuối.
+- [x] Bấm "Trả lời" dưới bình luận X rồi bấm "Trả lời" dưới bình luận Y: viên đổi sang tên của Y; gửi thì trả lời nằm dưới Y.
+- [x] Gõ dở, bấm × trên viên: viên biến mất, **chữ đang gõ còn nguyên**, con trỏ về ô; gửi thì thành bình luận gốc mới ở cuối danh sách.
+- [x] Bấm "Trả lời", đóng panel (Esc), mở lại: không còn viên "Trả lời …".
+- [x] Bấm "Trả lời" dưới một bình luận, rồi dùng Swagger để A xoá bình luận đó; quay lại gửi trả lời: khung đỏ trên ô ghi "Chỉ trả lời được một bình luận gốc còn tồn tại của chuyến đi này", chữ còn nguyên. Bấm × trên viên rồi gửi: thành bình luận gốc mới.
+- [x] Tên rất dài: viên "Trả lời …" cắt bằng "…", không tràn khỏi panel; nút × vẫn bấm được.
+- [x] Dùng phím: Tab tới "Trả lời", Enter → con trỏ vào ô; Shift+Tab lùi lại được tới nút × của viên.
+- [x] Màn cảm ứng (DevTools giả lập điện thoại có cảm ứng): "Trả lời" và × đủ lớn để chạm, không chạm nhầm sang chữ bên cạnh.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-24 · Chip hoạt động trên bình luận (Task 4.6 Mốc 6)
+
+Chuyến có ít nhất hai ngày, mỗi ngày vài hoạt động khác loại (ví dụ "Chùa Linh Ứng" Tham quan ở Ngày 1, "Bún chả cá 109" Ăn uống ở Ngày 2). Bằng Swagger (chưa có giao diện bình luận theo hoạt động: Mốc 7) tạo: một bình luận có `"activityId"` của "Bún chả cá 109", một trả lời vào bình luận đó, một bình luận có `"activityId"` của "Chùa Linh Ứng", một bình luận không có `activityId`.
+
+- [x] Mở panel **khi đang xem Ngày 1**: bình luận về "Bún chả cá 109" (hoạt động của Ngày 2) vẫn có chip: viên xám nhỏ, chấm **cam** (màu Ăn uống) và tên hoạt động, nằm giữa hàng tên và nội dung.
+- [x] Chip của "Chùa Linh Ứng" có chấm **xanh dương** (Tham quan); màu chấm khớp màu chấm trên ray của thẻ đó.
+- [x] Trả lời của bình luận về "Bún chả cá 109" **không** có chip; bình luận không gắn hoạt động không có chip.
+- [x] Đổi tên hoạt động thật dài (sửa hoạt động), mở lại panel: chip cắt bằng "…", không tràn panel; rê chuột lên chip thấy đủ tên.
+- [x] Xoá hoạt động "Chùa Linh Ứng" (menu "⋮" → Xoá) rồi mở panel: bình luận về nó **biến mất** sau giây lát (máy chủ xoá theo hoạt động, panel tải lại danh sách khi mở). Trong giây lát trước đó nó có thể còn hiện nhưng **không có chip**, không có chip sai tên. Số trên nút "Bình luận · N" chỉ đúng lại sau khi mở panel (đếm đúng ngay sau khi xoá: Mốc 8).
+- [x] Trình đọc màn hình (hoặc DevTools → Accessibility): chip đọc là "Về hoạt động: Bún chả cá 109".
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-25 · Bình luận về một hoạt động (Task 4.6 Mốc 7)
+
+Dùng chuyến của `MT-SHAREUI-24` (đã có bình luận về "Bún chả cá 109" và "Chùa Linh Ứng", và bình luận của cả chuyến). A chủ, B VIEWER.
+
+- [x] A rê chuột lên một thẻ hoạt động: bên trái nút "⋮" hiện nút bong bóng xám cùng cỡ; rời chuột thì cả hai ẩn. Tab tới thẻ bằng bàn phím cũng hiện. B (chỉ xem, không có "⋮"): nút bong bóng nằm ở mép phải thẻ.
+- [x] A bấm bong bóng trên thẻ "Bún chả cá 109": panel mở, đầu thân panel có chip viền "● Bún chả cá 109 ×" (chấm cam); danh sách **chỉ** có bình luận về hoạt động này cùng các trả lời; các bình luận **không** có chip riêng.
+- [x] Gửi một bình luận mới: nó hiện trong danh sách đang lọc; bấm × trên chip đầu panel: thấy mọi bình luận của chuyến, bình luận vừa gửi giờ có chip "Bún chả cá 109". Chữ đang gõ dở (nếu có) không mất khi bấm ×.
+- [x] Mở từ một hoạt động chưa ai bình luận: "Chưa có bình luận nào về hoạt động này."; gửi bình luận đầu tiên thì câu này biến mất.
+- [x] Đang lọc theo hoạt động, bấm "Trả lời" dưới một bình luận và gửi: trả lời nằm dưới đúng bình luận đó (vẫn trong danh sách đang lọc).
+- [x] Hoạt động có nhiều bình luận (≥ 8): cuộn danh sách, chip đầu panel **đứng yên** ở trên, các bình luận trượt bên dưới nó, không lộ chữ qua chip.
+- [x] Đóng panel, bấm nút "Bình luận · N" ở đầu trang: panel mở với **mọi** bình luận (không còn lọc theo hoạt động cũ).
+- [x] Panel đang lọc, dùng Swagger xoá hoạt động đó (`DELETE /api/v1/trips/{tripId}/activities/{id}`), rồi gửi một bình luận: khung đỏ trên ô báo không tìm thấy, chữ còn nguyên. Bấm × trên chip rồi gửi: thành bình luận của cả chuyến.
+- [x] Mở panel từ một thẻ, bấm "Chuyến đi của bạn" hoặc nút Back của trình duyệt (Esc trước nếu cần) để rời trang; mở một chuyến khác: panel **không** tự mở.
+- [x] Đang kéo một thẻ (chuột): thẻ bay theo con trỏ **không** có nút bong bóng; thả xong, thẻ vẫn có nút.
+- [x] Màn cảm ứng: nút bong bóng luôn hiện, đủ lớn để chạm (cỡ nút "⋮"); trang công khai `/share/:token` **không** có nút bong bóng.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-26 · Số bình luận trên thẻ hoạt động (Task 4.6 Mốc 8)
+
+Dùng chuyến của `MT-SHAREUI-25`: "Bún chả cá 109" có vài bình luận và trả lời, một hoạt động khác chưa có bình luận nào. Ghi lại số trên nút "Bình luận · N" ở đầu trang.
+
+- [x] Thẻ "Bún chả cá 109": nút bong bóng **luôn hiện** (không cần rê chuột) kèm số bằng tổng bình luận và trả lời về hoạt động đó. Thẻ chưa có bình luận: bong bóng chỉ hiện khi rê chuột, không có số.
+- [x] Rê chuột lên nút có số: nền xám nhạt như nút "⋮"; nút có số vẫn cao bằng nút "⋮", chỉ rộng hơn.
+- [x] Mở panel từ thẻ chưa có bình luận, gửi một bình luận, đóng panel: thẻ đó giờ có bong bóng luôn hiện với số 1; số ở đầu trang tăng 1.
+- [x] Trả lời một bình luận về "Bún chả cá 109": số trên thẻ đó tăng 1.
+- [x] Bình luận của cả chuyến (gửi từ nút ở đầu trang) **không** làm tăng số trên thẻ nào.
+- [x] Xoá hoạt động "Bún chả cá 109" (menu "⋮" → Xoá): ngay sau khi xoá, số ở đầu trang **giảm** đúng bằng số bình luận của hoạt động đó, không cần mở panel hay tải lại trang.
+- [x] Với một hoạt động có bình luận ở ngày cuối: "Sửa" chuyến đi, rút ngắn để bỏ ngày đó (xác nhận xoá hoạt động): sau khi lưu, số ở đầu trang giảm tương ứng.
+- [x] Chuyển ngày bằng cột ngày bên trái: số trên các thẻ của ngày mới hiện ngay, không có lần tải bình luận mới (DevTools → Network: không có `GET .../comments` khi chỉ đổi ngày).
+- [x] B (chỉ xem): thẻ có bình luận cũng hiện bong bóng với số.
+- [x] Trình đọc màn hình (hoặc DevTools → Accessibility): nút có số đọc "Bình luận về Bún chả cá 109, 3 bình luận".
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-27 · Xoá bình luận (Task 4.6 Mốc 9)
+
+A chủ, B VIEWER, C EDITOR trên một chuyến của A. Mỗi người có vài bình luận; một bình luận gốc của B có 2 trả lời (của A và C).
+
+- [x] A rê chuột lên một bình luận: nền bình luận xám nhạt, chữ không xê dịch; ở cuối hàng tên hiện nút thùng rác. Rê lên một trả lời: chỉ trả lời đó xám, bình luận gốc không.
+- [x] A (chủ) thấy thùng rác ở **mọi** bình luận. B chỉ thấy ở bình luận của B; C chỉ thấy ở bình luận của C.
+- [x] A bấm thùng rác trên bình luận gốc của B: hộp "Xoá bình luận?" chồng lên panel, ghi "Bình luận sẽ bị xoá và không khôi phục được." và "Các trả lời của bình luận này cũng bị xoá."; con trỏ ở nút "Huỷ". Bình luận không có trả lời: chỉ câu đầu.
+- [x] Nhấn Esc: chỉ hộp hỏi đóng, panel vẫn mở (BUG-UI-011).
+- [x] Bấm "Xoá bình luận": bình luận và 2 trả lời biến mất ngay, thông báo "Đã xoá bình luận"; số trên nút "Bình luận · N" giảm 3; nếu bình luận đó về một hoạt động thì số trên thẻ hoạt động cũng giảm.
+- [x] C xoá một trả lời của mình: chỉ trả lời đó mất, bình luận gốc còn.
+- [x] B bấm "Trả lời" dưới **bình luận của chính B** (viên "Trả lời B" hiện), gõ dở vài chữ, rồi xoá chính bình luận đó: viên "Trả lời …" biến mất, chữ đang gõ còn; gửi thì thành bình luận gốc mới.
+- [x] Mở cùng chuyến ở hai tab của A, xoá một bình luận ở tab 1, rồi xoá đúng bình luận đó ở tab 2: hộp hỏi hiện câu lỗi của máy chủ (không tìm thấy), danh sách ở tab 2 tải lại.
+- [x] Trong DevTools → Network chọn "Slow 3G", bấm "Xoá bình luận" rồi nhấn ngay Esc: hộp hỏi **không** đóng, nút hiện vòng quay; xong mới đóng.
+- [x] Dùng phím: Tab vào một bình luận thì thùng rác hiện; Enter mở hộp hỏi.
+- [x] Màn cảm ứng: thùng rác luôn hiện trên bình luận xoá được, đủ lớn để chạm.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-28 · Từ bình luận tới hoạt động (Task 4.6 Mốc 10)
+
+Chuyến nhiều ngày; có bình luận về một hoạt động ở **Ngày 3** (nằm dưới cùng một ngày dài, phải cuộn mới thấy) và một bình luận về hoạt động của Ngày 1.
+
+- [x] Đang xem Ngày 1, mở panel từ nút "Bình luận · N": rê chuột lên chip của bình luận về hoạt động Ngày 3: chip đậm màu hơn, con trỏ hình bàn tay.
+- [x] Bấm chip: panel đóng, trang sang **Ngày 3** (địa chỉ đổi thành `/days/3`), thẻ hoạt động đó cuộn vào giữa màn hình và có viền xanh trong khoảng 2 giây; marker của nó trên bản đồ nổi lên.
+- [x] Nút Back của trình duyệt: về lại Ngày 1.
+- [x] Bấm chip của hoạt động **cùng ngày đang xem**: panel đóng, thẻ được tô viền, địa chỉ không đổi, nút Back không có thêm bước thừa.
+- [x] Panel mở từ nút bong bóng của một thẻ (đang lọc theo hoạt động): bình luận **không** có chip nên không có gì để bấm (đúng như thiết kế).
+- [x] Màn hẹp (< 1024px), chọn tab "Bản đồ", mở panel, bấm chip của hoạt động ngày khác: panel đóng, sang đúng ngày, tab tự về "Lịch trình" và thẻ được tô viền.
+- [x] Dùng phím: Tab tới chip, Enter: cùng kết quả; sau đó con trỏ nằm ở thẻ (Tab tiếp đi vào các nút của thẻ).
+- [x] Trong DevTools → Network chọn "Slow 3G", gửi một bình luận rồi bấm ngay một chip: không có gì xảy ra trong lúc đang gửi (panel không đóng).
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-29 · Ô bình luận cao cố định (Task 4.6 Mốc 11)
+
+Một chuyến có đủ bình luận để danh sách phải cuộn.
+
+- [x] Mở panel: ô "Viết bình luận…" cao 3 dòng như trước.
+- [x] Gõ (hoặc dán) một bình luận 10–15 dòng: ô **không cao lên**; chữ cuộn được bên trong ô bằng chuột / phím mũi tên; dòng đang gõ luôn nhìn thấy được (từ Mốc 16 ô không hiện thanh cuộn: xem `MT-SHAREUI-34`).
+- [x] Phần danh sách bình luận phía trên giữ nguyên chiều cao, không bị đẩy lên hay thu nhỏ.
+- [x] Gửi bình luận dài đó: ô trống lại, vẫn cao 3 dòng; trong danh sách bình luận hiện đủ các dòng.
+- [x] Bộ đếm "1.6xx / 2000" vẫn hiện dưới ô khi gõ gần giới hạn.
+- [x] Các ô ghi chú khác (ghi chú hoạt động, mô tả chuyến đi) **vẫn tự giãn** như cũ.
+- [x] 375px: ô vẫn cao 3 dòng, nút "Gửi bình luận" vẫn rộng hết hàng ngay dưới ô.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-30 · Bấm ra ngoài để đóng panel, giữ bản nháp (Task 4.6 Mốc 12)
+
+Chuyến có vài bình luận; A có thêm một chuyến thứ hai. Thay cho bước "bấm vào vùng tối không đóng panel" của `MT-SHAREUI-19` (hành vi đã đổi theo yêu cầu).
+
+- [x] Mở panel, bấm vào vùng tối bên trái panel: panel đóng, trang giữ nguyên.
+- [x] Mở panel, gõ "Nhớ mang áo mưa" (chưa gửi), bấm ra vùng tối: panel đóng. Mở lại bằng nút "Bình luận": ô vẫn còn "Nhớ mang áo mưa". Đóng bằng Esc, rồi bằng "×", mở lại: chữ vẫn còn.
+- [x] Gửi bình luận đó: ô trống; đóng rồi mở lại panel: ô vẫn trống (không hiện lại bản nháp cũ).
+- [x] Gõ dở, mở panel từ bong bóng của một thẻ hoạt động (đóng panel trước): ô vẫn có chữ đang gõ dở.
+- [x] Gõ dở, quay về "Chuyến đi của bạn" rồi mở **chuyến thứ hai**: ô trống. Quay lại chuyến đầu: ô cũng trống (rời trang thì bỏ nháp).
+- [x] Bôi đen một đoạn nội dung bình luận trong panel bằng cách kéo chuột, **thả chuột ở vùng tối** bên ngoài: panel **không** đóng.
+- [x] Mở hộp "Xoá bình luận?" trên panel, bấm vùng tối bên ngoài hộp: không có gì đóng (hộp hỏi lại không đóng khi bấm ra ngoài, panel cũng không).
+- [x] Trong DevTools → Network chọn "Slow 3G", gửi một bình luận rồi bấm ngay ra vùng tối: panel **không** đóng tới khi gửi xong.
+- [x] Hộp thoại khác ("Sửa" chuyến đi, "Chia sẻ", thêm hoạt động): bấm ra vùng tối **vẫn không** đóng như trước.
+- [x] Bấm "Trả lời" (viên "Trả lời …" hiện), gõ dở, bấm ra ngoài rồi mở lại: chữ còn, viên "Trả lời …" không còn (gửi sẽ thành bình luận mới).
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-31 · Panel trượt vào, trượt ra (Task 4.6 Mốc 13)
+
+Chuyến có bình luận về hoạt động ở một ngày khác ngày đang xem (như `MT-SHAREUI-28`).
+
+- [x] Bấm "Bình luận": panel trượt vào từ mép phải (khoảng 0,2 giây), vùng tối hiện dần cùng lúc; không giật, không nháy trắng.
+- [x] Đóng bằng "×", bằng Esc, bằng bấm ra vùng tối: lần nào panel cũng trượt ra phía phải và vùng tối mờ dần, xong mới biến mất; nội dung vẫn hiện trong lúc trượt ra (không trống trơn).
+- [x] Bấm "Bình luận" lại ngay khi panel vừa trượt ra xong: trượt vào bình thường, danh sách và bản nháp như cũ.
+- [x] Mở từ bong bóng trên thẻ: cùng hiệu ứng.
+- [x] Bấm chip hoạt động của ngày khác (Mốc 10, kiểm lại sau khi có hiệu ứng): panel trượt ra, trang sang đúng ngày, thẻ **được cuộn vào giữa màn hình và tô viền**, không bị kéo ngược về nút "Bình luận" ở đầu trang.
+- [x] Hộp hỏi "Xoá bình luận?" và các hộp thoại khác vẫn hiện / tắt tức thì như trước (không trượt).
+- [x] Bật "giảm chuyển động" (Windows: Cài đặt → Trợ năng → Hiệu ứng hình ảnh → tắt "Hiệu ứng hoạt hình"; hoặc DevTools → Rendering → "prefers-reduced-motion: reduce"): panel và vùng tối hiện / tắt tức thì, không trượt; đóng vẫn hoạt động.
+- [x] 375px: panel toàn màn hình cũng trượt vào / ra từ phải.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-32 · Hai tab "Chung" và "Hoạt động" (Task 4.6 Mốc 14)
+
+Chuyến có 3 bình luận chung (một có trả lời) và 4 bình luận về hai hoạt động khác nhau (một có trả lời). Một chuyến khác chưa có bình luận nào.
+
+- [x] Bấm "Bình luận · N" ở đầu trang: đầu panel có nút gạt **"Chung · 4 | Hoạt động · 5"** (số tính cả trả lời), đang chọn "Chung" (nền trắng); dính lại khi cuộn danh sách.
+- [x] Tab "Chung": chỉ bình luận chung và trả lời của chúng, **không** có bình luận nào về hoạt động; có "Trả lời" và ô nhập. Gửi một bình luận: nó vào tab "Chung", số "Chung" tăng 1.
+- [x] Bấm "Hoạt động": chỉ bình luận về hoạt động, mỗi bình luận gốc có chip hoạt động; **không** có "Trả lời"; chân panel thay ô nhập bằng câu "Bấm nút bình luận trên thẻ hoạt động để viết về hoạt động đó.". Bấm chip: panel đóng, tới thẻ (như Mốc 10).
+- [x] Gõ dở trong tab "Chung", sang tab "Hoạt động" rồi quay lại: chữ còn nguyên. Bấm "Trả lời" (viên "Trả lời …" hiện), sang tab khác rồi quay lại: viên mất, chữ còn.
+- [x] Bấm bong bóng trên một thẻ: panel mở thẳng vào bình luận của hoạt động đó, đầu panel là chip "● tên ×" và bên phải nút xanh "Xem trong lịch trình" (không có nút gạt).
+- [x] Bấm "Xem trong lịch trình": panel trượt ra, trang sang ngày của hoạt động, thẻ được tô viền.
+- [x] Mở lại từ bong bóng, bấm × trên chip: về tab **"Hoạt động"** (không phải "Chung").
+- [x] Đóng panel, mở lại bằng nút ở đầu trang: luôn vào tab "Chung".
+- [x] Chuyến chưa có bình luận: nút gạt ghi "Chung | Hoạt động" (không số); tab "Chung" ghi "Chưa có bình luận chung nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới."; tab "Hoạt động" ghi "Chưa có bình luận nào về các hoạt động."
+- [x] Dùng phím: Tab tới nút gạt, Enter / Space chuyển tab; trình đọc màn hình đọc nhóm "Loại bình luận" và nút đang chọn là "đã nhấn".
+- [x] 375px: nút gạt cao 44px trên màn cảm ứng, chip và "Xem trong lịch trình" cùng một hàng (tên dài cắt "…"), không tràn.
+- [x] (Kiểm lại `BUG-UI-013`) Khung chứa nút gạt nằm sát ngay dưới vạch của tiêu đề "Bình luận"; khoảng trắng trên và dưới nút gạt bằng nhau; nội dung bên dưới (bình luận đầu, hoặc "Ngày 1 · …" ở tab "Hoạt động") cách vạch dưới khung một khoảng rõ ràng, không dính. Cuộn danh sách: khung vẫn dính ở đúng chỗ đó, bình luận trượt bên dưới, không lộ chữ phía trên khung. Mở màn một hoạt động: chip và "Xem trong lịch trình" cũng cân như vậy.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-33 · Tab "Hoạt động": các hoạt động đang được bàn (Task 4.6 Mốc 15)
+
+Chuyến 3 ngày: Ngày 1 có "Chùa Linh Ứng" (2 bình luận) và "Cầu Rồng" (1 bình luận + 1 trả lời), Ngày 2 không hoạt động nào có bình luận, Ngày 3 có "Hội An" (1 bình luận). Có thêm vài bình luận chung.
+
+- [x] Mở panel, bấm "Hoạt động": danh sách bắt đầu từ trên cùng (không cuộn xuống cuối); có tiêu đề "Ngày 1 · {thứ}, {ngày/tháng}" và "Ngày 3 · …", **không** có Ngày 2.
+- [x] Trong Ngày 1, "Chùa Linh Ứng" đứng trước "Cầu Rồng" (đúng thứ tự trong lịch trình, không theo thứ tự bình luận). Mỗi dòng: chấm màu đúng loại, tên đậm, bên phải số ("2", "2") và mũi tên ›; dòng dưới "{tên}: {bình luận mới nhất} · {thời gian}" (của "Cầu Rồng" là trả lời vì nó mới nhất).
+- [x] Bình luận nhiều dòng hoặc rất dài: dòng xem trước chỉ một dòng, cắt "…", thời gian vẫn hiện đủ ở cuối; tên hoạt động dài cắt "…", số và mũi tên không bị đẩy ra ngoài.
+- [x] Rê chuột lên một dòng: nền xám nhạt. Bấm: mở bình luận của hoạt động đó (chip "● tên ×", "Xem trong lịch trình", ô nhập). Bấm ×: về lại danh sách.
+- [x] Viết một bình luận về "Hội An" từ màn của nó, bấm × về danh sách: dòng "Hội An" ghi số mới và bình luận vừa viết làm dòng xem trước, "Vừa xong".
+- [x] Chân panel ở tab này chỉ có câu "Chọn một hoạt động để xem và viết bình luận.", không có ô nhập.
+- [x] Tab "Chung" và màn một hoạt động: **không** bình luận nào có chip hoạt động nữa.
+- [x] Chuyến không có bình luận về hoạt động nào: tab ghi "Chưa có bình luận nào về các hoạt động."
+- [x] Dùng phím: Tab qua từng dòng, Enter mở; trình đọc màn hình đọc "{tên hoạt động}, N bình luận. Mới nhất của {tên}".
+- [x] 375px: các dòng gọn trong màn hình, không có thanh cuộn ngang.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
+### MT-SHAREUI-34 · Panel bình luận không hiện thanh cuộn (Task 4.6 Mốc 16)
+
+Chuyến có đủ bình luận để danh sách trong panel phải cuộn. Thử trên Chrome (hoặc Edge) và, nếu có, Firefox.
+
+- [x] Mở panel: bên phải danh sách bình luận **không** có thanh cuộn, kể cả khi rê chuột vào danh sách. Cuộn bằng con lăn, bàn di chuột, phím mũi tên / Page Down (vừa mở panel): danh sách vẫn cuộn; khung nút gạt ở trên vẫn dính.
+- [x] Gõ (hoặc dán) một bình luận 10–15 dòng: ô vẫn cao 3 dòng và **không** có thanh cuộn bên trong ô. Lăn chuột trên ô hoặc bấm mũi tên lên / xuống: chữ trong ô cuộn được; dòng đang gõ luôn nhìn thấy được.
+- [x] Màn cảm ứng (DevTools giả lập điện thoại): vuốt danh sách và vuốt trong ô đều cuộn, không có thanh cuộn.
+- [x] Thanh cuộn của **trang** (khi đóng panel), của các hộp thoại khác (ví dụ form thêm hoạt động dài trên màn thấp) và của các ô ghi chú khác vẫn như trước.
+
+**Kết quả:** Đạt · **Ngày:** 2026-10-19 · **Ghi chú:** chủ dự án tự chạy
+
 ## Lỗi đã phát hiện
 
 | Mã lỗi | Test case | Ngày | Hiện tượng | Nguyên nhân | Cách sửa | Trạng thái |
 |---|---|---|---|---|---|---|
 | BUG-UI-012 | MT-SHAREUI-06, MT-FORM-11 | 2026-10-18 | Chủ dự án báo khi dùng hộp "Chia sẻ" (Task 4.9, trước khi chạy bài thủ công): mở hộp chỉ để đổi vai trò, gỡ thành viên hay tạo liên kết, không định mời ai, thì vừa bấm sang chỗ khác là dưới ô email hiện "Email không được để trống" | Hộp thoại tự đặt con trỏ vào ô đầu tiên (ô email, UI_GUIDE 7.6), và form mời theo quy tắc chung "lỗi hiện khi rời ô" (`mode: 'onTouched'`, UI_GUIDE 7.2). Bấm sang bất cứ chỗ nào khác là "rời ô" một ô trống bắt buộc. Quy tắc chung hợp với form mà người dùng mở ra để điền; ở đây form mời chỉ là một phần không bắt buộc của hộp. Có từ Task 4.5 Mốc 6; bài `MT-SHAREUI-06` chỉ thử lúc có ý mời nên không lộ ra | Form mời chỉ kiểm khi bấm "Mời" (`mode: 'onSubmit'`), sau lần bấm đó lỗi cập nhật theo từng phím gõ (`reValidateMode: 'onChange'`); ghi thành ngoại lệ ở UI_GUIDE 7.2 và 8.1 | Đã sửa (`26b61bc`, Task 4.9). Chủ dự án kiểm lại ngày 2026-10-18 bằng `MT-FORM-11` và xác nhận: mở hộp để làm việc khác không còn báo lỗi, bấm "Mời" thì báo như trước |
+| BUG-UI-013 | MT-SHAREUI-32, MT-SHAREUI-33 | 2026-10-19 | Chủ dự án báo sau Mốc 15 (Task 4.6): khung chứa nút gạt "Chung \| Hoạt động" ở đầu panel bình luận không cân, phía trên nút gạt trống nhiều hơn phía dưới; tiêu đề "Ngày 1 · …" của tab "Hoạt động" dính sát vạch dưới khung đó | Khung dính lại khi cuộn (`sticky top-0`) được kéo lên sát đầu thân panel bằng lề âm `-mt-4` để bù 16px đệm trên của thân panel. Nhưng trình duyệt tính chỗ dính **bên trong phần đệm** của khung cuộn, nên ngay khi chưa cuộn khung đã bị đẩy xuống lại 16px: phía trên trống thêm 16px, phía dưới khung đè lên 16px khoảng cách tới danh sách. Chip đầu màn một hoạt động dùng chung kiểu này nên cũng lệch từ Mốc 7; bài `MT-SHAREUI-25` không có bước đo khoảng cách nên không lộ ra | Dính ở `-top-4` (âm đúng bằng phần đệm) thay cho `top-0` (`PANEL_TOP` trong `CommentPanel.tsx`) | Đã sửa (`4a9cb7e`). Chủ dự án kiểm lại ngày 2026-10-19 ở bước cuối của `MT-SHAREUI-32`, đạt |
 
 18 bài thủ công của Task 4.5 đều đạt ở lần chạy đầu. `BUG-UI-011` (Esc trên hộp hỏi lại đóng luôn hộp bên ngoài; đã sửa, chủ dự án kiểm lại ngày 2026-10-18 trong `MT-SHAREUI-11`) thuộc thành phần hộp thoại dùng chung nên ghi ở [06-itinerary-ui.md](06-itinerary-ui.md).

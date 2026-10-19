@@ -2675,7 +2675,7 @@ Mỗi mốc thay một kiểu ô ở mọi chỗ dùng nó; phần còn lại c�
 
 ### Task 4.6 — Giao diện: bình luận
 
-Nhánh: `feat/T4.6-comments-ui` · Test ghi vào `docs/testing/11-sharing-ui.md` (tiếp theo: `TC-SHAREUI-027`, `MT-SHAREUI-19`). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh. Dựng mockup Stitch trước theo prompt ở UI_GUIDE 15.3 (ảnh bỏ vào `trip-planner-screenshots/stitch_smart_trip_planner_4.6/`), chủ dự án duyệt rồi mới code; dừng xem trên trình duyệt sau mỗi mốc. Đọc trước: **design.md 6.2 (dòng Comment), 10.2 "Quy ước Comment API", rule 27; UI_GUIDE 7.6, 7.14, 8.1, 15.3**.
+Nhánh: `feat/T4.6-comments-ui` · Test ghi vào `docs/testing/11-sharing-ui.md` (tiếp theo: `TC-SHAREUI-030`, `MT-SHAREUI-19`; `027`–`029` đã dùng ở Task 4.5 Mốc 17). Điều kiện mỗi commit: `npm run lint` + `npm run build` + `npm run test` xanh. Dựng mockup Stitch trước theo prompt ở UI_GUIDE 15.3 (ảnh bỏ vào `trip-planner-screenshots/stitch_smart_trip_planner_4.6/`), chủ dự án duyệt rồi mới code; dừng xem trên trình duyệt sau mỗi mốc. Đọc trước: **design.md 6.2 (dòng Comment), 10.2 "Quy ước Comment API", rule 27; UI_GUIDE 7.6, 7.14, 8.1, 15.3**.
 
 > **Rà lại bảng commit (2026-10-19, chủ dự án duyệt "theo đề xuất"):** bảng cũ 4 mốc chưa có số file và gộp nhiều chức năng (xem + trả lời lồng + thời gian tương đối + chip; đăng + trả lời; đếm + mở theo hoạt động). Nay 10 commit code theo A.2. Không có thay đổi backend: API bình luận đã đủ từ Task 4.4.
 >
@@ -2749,6 +2749,63 @@ Mốc 10 — feat(frontend): open the activity of a comment                     
         ActivityChip thành nút; CommentPanel (đóng panel, chuyển ngày); stores/mapLinkStore hoặc DayTimeline (tô viền
         thẻ sau khi ngày mới hiện); UI_GUIDE 8.1
 ```
+
+> **Mở rộng sau khi chạy thử (2026-10-19, chủ dự án duyệt):** chủ dự án chạy 10 bài `MT-SHAREUI-19` đến `28`, đều đạt, rồi yêu cầu thêm ba điều. Quyết định:
+> 12. **Ô bình luận cao cố định** 3 dòng (90px), chữ dài thì cuộn bên trong ô; không tự giãn như ô ghi chú (chân panel giãn ra thì phần danh sách bị ép nhỏ). `TextAreaField` thêm tuỳ chọn tắt tự giãn.
+> 13. **Bấm ra vùng tối để đóng panel**, chỉ kiểu panel (hộp thoại có form giữ như cũ: bấm ra ngoài không đóng, tránh mất chữ). Chỉ đóng khi cả lúc nhấn lẫn lúc thả chuột đều ở vùng tối (bôi đen chữ rồi thả ra ngoài không đóng). Đang gửi / đang xoá thì không đóng. **Giữ bản nháp:** chữ đang gõ còn khi mở lại panel trên cùng chuyến; rời trang chuyến đi thì bỏ.
+> 14. **Hiệu ứng:** panel trượt vào từ mép phải (~200ms), nền tối hiện dần; đóng (Esc, "×", bấm ra ngoài) thì trượt ra (~150ms) rồi mới đóng hẳn. Giảm chuyển động của hệ điều hành: tức thì.
+> 15. **Tách bình luận chung khỏi bình luận của hoạt động (cách A, chọn trong 3 cách: hai tab / một danh sách chia nhóm / giữ trộn thêm bộ lọc):** đầu panel có nút gạt "Chung · N | Hoạt động · M". Tab "Chung": chỉ bình luận của cả chuyến, như cuộc trò chuyện (ô nhập ở dưới). Tab "Hoạt động": các hoạt động **có bình luận**, nhóm theo ngày, theo thứ tự lịch trình; mỗi dòng: chấm màu, tên, số bình luận, bình luận mới nhất rút gọn một dòng; bấm thì mở bình luận của hoạt động đó (màn lọc hiện có), chip × quay về tab "Hoạt động". Tab "Hoạt động" không có ô nhập (câu "Chọn một hoạt động để xem và viết bình luận."). Nút đầu trang vẫn đếm tổng; bong bóng trên thẻ vẫn mở thẳng màn lọc.
+> 16. **Hệ quả cho Mốc 10:** tab "Chung" không còn bình luận của hoạt động, màn lọc thì không hiện chip, nên chip trên từng bình luận không còn chỗ hiện. Việc "đưa tới thẻ trong lịch trình" chuyển lên **đầu màn lọc**: cạnh chip "{tên} ×" có nút nhỏ "Xem trong lịch trình" (đóng panel, sang ngày của hoạt động, tô viền thẻ, như Mốc 10). `ActivityChip` dạng nút và `mapLinkStore.revealWhenShown` dùng lại. Thực tế (Mốc 14): để tab "Hoạt động" không trống giữa Mốc 14 và 15, ở Mốc 14 tab này tạm là các bình luận về hoạt động còn chip (không "Trả lời", không ô nhập); chip trên bình luận bỏ hẳn ở Mốc 15 khi tab thành danh sách hoạt động.
+
+```
+Mốc 11 — feat(frontend): keep the comment box at a fixed height                                   (3 file)
+         TextAreaField (tuỳ chọn tắt tự giãn: cao cố định 3 dòng, cuộn bên trong); CommentForm; UI_GUIDE 7.2, 8.1
+
+Mốc 12 — feat(frontend): close the comment panel by clicking outside                              (5 file)
+         Modal (kiểu panel đóng khi nhấn và thả đều ở vùng tối); stores/commentPanelStore (bản nháp theo chuyến, bỏ khi
+         rời trang); CommentForm (đọc / ghi bản nháp); CommentPanel; UI_GUIDE 7.6, 8.1
+
+Mốc 13 — feat(frontend): slide the comment panel in and out                                       (3 file)
+         tokens.css (keyframe trượt vào / ra, nền tối hiện / mờ dần); Modal (đóng sau khi hiệu ứng xong); UI_GUIDE 7.6
+
+Mốc 14 — feat(frontend): keep trip comments apart from activity comments                          (~7 file)
+         stores/commentPanelStore (tab đang xem); CommentPanel (nút gạt "Chung | Hoạt động", tab "Chung" chỉ bình luận
+         của cả chuyến; chip trên bình luận bỏ; đầu màn lọc thêm "Xem trong lịch trình", chip × về tab "Hoạt động");
+         CommentForm (tab "Hoạt động" không có ô nhập); lib/commentTree.ts + test (bình luận chung); UI_GUIDE 8.1
+
+Mốc 15 — feat(frontend): list the activities under discussion                                     (~5 file)
+         lib/commentTree.ts + test (gom theo hoạt động theo thứ tự lịch trình, bình luận mới nhất); CommentPanel (tab
+         "Hoạt động": nhóm theo ngày, mỗi dòng bấm để mở màn lọc); UI_GUIDE 8.1, 15.3 (prompt Stitch)
+```
+
+> **Thực tế khi làm 4.6 (2026-10-19):** 17 commit code trên nhánh: 10 mốc của bảng duyệt đầu, 5 mốc mở rộng sau khi chủ dự án chạy thử (Mốc 11–15), 1 mốc ngoài kế hoạch (Mốc 16, ẩn thanh cuộn) và 1 commit sửa lỗi (`BUG-UI-013`, chủ dự án báo sau Mốc 15). Docs Mốc 0 đã commit trước trên `main` (`76a03d8`). Nhánh được tạo trước khi commit Mốc 0 nên phải `git merge --ff-only main` trước Mốc 1 (để UI_GUIDE trên nhánh có mục cần sửa). Cột "File" đếm cả `UI_GUIDE.md`.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `d3a306a` feat(frontend): open the comment panel from the trip page | 7 (bảng: 8) | `Modal` kiểu panel (bám phải 360px, con trỏ vào thân panel), nút "Bình luận · N", bình luận gốc; `Avatar` không bắt buộc email (tác giả bình luận không có email); `formatDateTimeIn` dời sang Mốc 3, Mốc 1 tạm ghi ngày "12/10" |
+> | `9fe5da0` feat(frontend): show replies under their comment | 5 (bảng: 4) | `lib/commentTree.commentThreads` + test; `Avatar` thêm cỡ 24px; trả lời thụt **44px** thẳng cột với chữ (bảng: 40px) |
+> | `fd9b3e5` feat(frontend): show how long ago a comment was posted | 7 (bảng: 5) | `lib/relativeTime` + test, `hooks/useNow` (một bộ hẹn giờ chung, làm tròn tới phút), `formatTimeIn` / `formatDateTimeIn` + test |
+> | `0602c96` feat(frontend): post a comment on the trip | 9 (bảng: 5) | `CommentForm`, schema; thêm 4 file nền mà mốc này cần đầu tiên: kiểu yêu cầu, chân panel (`Modal footer`), nhãn ẩn (`FieldShell` / `TextAreaField hideLabel`); ô dựng lại bằng `key` sau khi gửi |
+> | `826144f` feat(frontend): reply to a comment | 4 (bảng: 3) | Chip "Trả lời {tên} ×", một ô nhập; cuộn tới đúng bình luận vừa gửi (`scrollIntoView nearest`) thay cho cuộn xuống cuối |
+> | `cb0fa85` feat(frontend): show which activity a comment is about | 6 (bảng: 5) | `ActivityChip`, `activitiesById` + test; `CommentButton` nhận cả `trip` nên sửa `TripDetailPage` |
+> | `f384105` feat(frontend): comment on an activity | 8 (bảng: 7) | `commentPanelStore`, nút bong bóng trên thẻ (mọi vai trò), màn lọc theo hoạt động; chip lọc dính ở đầu thân panel thay vì trong hàng tiêu đề như mockup |
+> | `c50c9ba` feat(frontend): count the comments on each activity card | 6 | Số trên bong bóng, tải lại bình luận sau khi xoá hoạt động / sửa chuyến đi |
+> | `2b6d4ee` feat(frontend): delete a comment | 5 | `commentRules` + test, `ConfirmDialog`; `CommentItem` dựng lại để nền xám khi rê chuột chỉ phủ đúng một bình luận |
+> | `8bd5ec4` feat(frontend): open the activity of a comment | 5 (bảng: 4) | Chip thành nút, `mapLinkStore.revealWhenShown` + `DayTimeline` tô viền thẻ khi ngày của nó lên màn hình |
+> | `085d29d` feat(frontend): keep the comment box at a fixed height | 3 | `TextAreaField autoGrow={false}` |
+> | `ede475a` feat(frontend): close the comment panel by clicking outside | 5 | Chỉ kiểu panel; nhấn và thả đều ở vùng tối; bản nháp theo chuyến trong store (lưu ở `onChange`, không dùng `watch()` vì lint cảnh báo) |
+> | `90414e6` feat(frontend): slide the comment panel in and out | 4 (bảng: 3) | `tokens.css` + `Modal` (trạng thái "đang đóng" đặt lúc dựng giao diện, hẹn giờ dự phòng); quy tắc giảm chuyển động thêm `::backdrop`; `DayTimeline` chờ không còn `dialog[open]` rồi mới tô viền thẻ (lúc đóng hẳn trình duyệt trả con trỏ về nút mở panel) |
+> | `fc63d7e` feat(frontend): keep trip comments apart from activity comments | 5 | Hai tab, `splitComments` + test, "Xem trong lịch trình" ở đầu màn một hoạt động; tab "Hoạt động" **tạm** là bình luận có chip (để không trống tới Mốc 15) |
+> | `d5c3fe3` feat(frontend): list the activities under discussion | 5 | `activitiesUnderDiscussion` + test, `DiscussedActivities`; bỏ chip trên bình luận, **xoá** `ActivityChip.tsx` |
+> | `4a9cb7e` fix(frontend): pin the comment panel tabs flush under its header | 1 | `BUG-UI-013`: khung dính ở đầu thân panel lệch xuống 16px (`sticky top-0` dính bên trong phần đệm của khung cuộn); sửa bằng `-top-4`. Có từ Mốc 7 (chip lọc) |
+> | `9463aa9` feat(frontend): hide the scrollbars of the comment panel | 3 | Mốc 16, yêu cầu sau khi chạy thử: thân panel và ô bình luận không hiện thanh cuộn (`scrollbar-width: none` + `::-webkit-scrollbar`) |
+>
+> Không có thay đổi backend. Giao diện **239 test** tự động trong 23 file (thêm 35 so với 204 của Task 4.9); `11-sharing-ui.md` có thêm `TC-SHAREUI-030` đến `064` và 16 bài thủ công `MT-SHAREUI-19` đến `34`, **chủ dự án chạy cả 16 bài ngày 2026-10-19, đều đạt**, kèm kiểm lại `BUG-UI-013`. 7 bài `MT-COMMENT-01` đến `07` của backend (Task 4.4) vẫn chưa chạy.
+>
+> Ghi chú khi làm:
+> - Mockup Stitch 4 màn (`trip-planner-screenshots/stitch_smart_trip_planner_4.6/`) duyệt ngày 2026-10-19; giữ / bỏ ghi ở UI_GUIDE 15.2. Tab "Hoạt động" (Mốc 15) làm theo phác thảo, không dựng mockup.
+> - Quyết định 2 và 3 bị thay một phần sau khi chạy thử: chip trên bình luận (Mốc 6, 10) bỏ ở Mốc 15; việc "tới thẻ trong lịch trình" chuyển sang nút ở đầu màn một hoạt động (quyết định 16).
+> - Bài học đưa vào CLAUDE.md mục 8: dựng lại `TextAreaField` bằng `key` để làm trống; đổi state theo điều kiện trong effect thì làm trong callback; việc sau khi hộp thoại đóng hẳn chờ không còn `dialog[open]`; giảm chuyển động phải ghi riêng `::backdrop`; phần tử dính trong khung cuộn có đệm (`BUG-UI-013`).
 
 **Nhớ:** cập nhật UI_GUIDE 8.1 trong cùng commit của mỗi mốc; lúc đóng task chuyển prompt Stitch của 4.6 từ 15.3 sang 15.2. Test tự động chỉ cho hàm thuần (`formatDateTimeIn`, `commentTree`, `relativeTime`, `commentRules`); phần còn lại là bài thủ công (test component: Task 8.3). Trước khi đóng task, chủ dự án chạy luôn `MT-COMMENT-01..07` (backend bình luận, còn nợ từ Task 4.4).
 
@@ -3252,7 +3309,7 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.4 Bình luận | ☑ | 2026-10-18 |
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☑ | 2026-10-18 |
 | 4 | 4.9 UI: ô chọn, ngày, giờ, ghi chú kiểu mới (làm trước 4.6) | ☑ | 2026-10-18 |
-| 4 | 4.6 UI: bình luận | ☐ | |
+| 4 | 4.6 UI: bình luận | ☑ | 2026-10-19 |
 | 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
 | 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☐ | |
 | 5 | 5.1 WebSocket setup | ☐ | |

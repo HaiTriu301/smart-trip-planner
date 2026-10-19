@@ -615,7 +615,7 @@ Ai có liên kết đều xem được cho tới khi bạn thu hồi        chip
   - **Liên kết chia sẻ** (chỉ chủ chuyến, **Đã làm**): dưới danh sách thành viên, sau một vạch `tide`. Tiêu đề "Liên kết chia sẻ" và dòng "Ai có liên kết đều xem được chuyến đi, không cần tài khoản.". Mỗi liên kết chưa thu hồi là một khung viền `tide` (mới nhất trước): ô địa chỉ chỉ đọc `{origin}/share/{token}` (chữ đơn cách 13px, nền `gray-50`, bấm vào là chọn hết) và nút phụ cỡ `sm` "Sao chép" (icon `Copy`) → toast "Đã sao chép liên kết"; trình duyệt không cho chép (không phải HTTPS / localhost) → toast đỏ "Không sao chép được. Hãy chọn liên kết và sao chép thủ công.". Dòng dưới 13px: "12 lượt xem · Không hết hạn" / "· Dùng được đến hết ngày 20/10/2026"; liên kết đã hết hạn có huy hiệu `muted` "Hết hạn", "· Hết hạn ngày 10/10/2026", chữ địa chỉ nhạt và nút "Sao chép" bị khoá. Ngày tính theo múi giờ tài khoản. Danh sách chỉ tải khi chủ mở hộp; đang tải là khung xương, lỗi là khung đỏ kèm "Thử lại", chưa có liên kết nào thì ghi "Chưa có liên kết nào.". Thành viên khác không thấy mục này.
   - **Tạo liên kết** (**Đã làm**; chọn nhanh từ Task 4.9): ngay dưới dòng giải thích, trên danh sách: nhóm chip "Hết hạn" (`ChoiceChips`, mục 7.19) **"Không hết hạn"** (mặc định) / **"7 ngày"** / **"30 ngày"** / **"Chọn ngày…"**; dưới chip một dòng 12px `gray-500` nói liên kết dùng được tới khi nào: "Ai có liên kết đều xem được cho tới khi bạn thu hồi", hoặc "Dùng được đến hết ngày 25/10/2026" (7 / 30 ngày tính từ hôm nay: tạo thứ Hai thì "7 ngày" dùng được hết thứ Hai tuần sau; `lib/linkExpiry.expiryDateFor`). "Chọn ngày…" hiện ô "Dùng được đến hết ngày *" rộng 220px (`DatePickerField`, mục 7.18; ngày trước hôm nay bị mờ); bấm chip bằng chuột / ngón tay thì lịch mở luôn, đi bằng phím mũi tên qua chip thì không. Rồi nút **phụ** "Tạo liên kết" (icon `Link2`; nút chính của hộp vẫn là "Mời") ở hàng riêng. Ngày cuối nghĩa là liên kết dùng được **hết ngày đó** theo múi giờ tài khoản (`lib/linkExpiry.expiryInstant`: mili giây cuối của ngày, tính cả ngày đổi giờ mùa hè). Xong: toast "Đã tạo liên kết", về lại "Không hết hạn", liên kết mới ở đầu danh sách. "Chọn ngày…" mà chưa chọn ngày: "Chọn ngày hết hạn trên lịch" dưới ô; ngày trước hôm nay: "Ngày hết hạn phải từ hôm nay trở đi"; máy chủ từ chối (400 ở `expiresAt`) hiện dưới ô ngày, hoặc dưới nhóm chip khi đang chọn nhanh; lỗi khác là khung đỏ trên form. Đang tạo thì Esc / "×" không đóng hộp.
   - **Thu hồi liên kết** (**Đã làm**): cuối dòng lượt xem của mỗi liên kết, căn phải, nút `danger` cỡ `sm` "Thu hồi" (không thêm kiểu nút "ghost-danger" của mockup), có cả trên liên kết đã hết hạn (liên kết hết hạn vẫn giữ nhãn "chia sẻ bằng liên kết" của chuyến cho tới khi thu hồi). Bấm thì mở `ConfirmDialog` kiểu `danger` chồng lên hộp chia sẻ: "Thu hồi liên kết?" — "Ai đang có liên kết này sẽ không mở được chuyến đi nữa. Thao tác này không hoàn tác được; bạn có thể tạo liên kết mới sau." (nút "Huỷ" / "Thu hồi liên kết"). Xong: toast "Đã thu hồi liên kết", liên kết biến khỏi danh sách. Lỗi (đã thu hồi ở tab khác: 404) hiện trong hộp hỏi.
-- **Bình luận** (Task 4.6, **Đã làm**: Mốc 1–15, Mốc 11 trở đi theo yêu cầu sau khi chạy thử; quyết định ở WORKFLOW Task 4.6, chủ dự án duyệt 2026-10-19; mockup Stitch duyệt cùng ngày, mục 15.3):
+- **Bình luận** (Task 4.6, **Đã làm** 2026-10-19: Mốc 1–16, Mốc 11 trở đi theo yêu cầu sau khi chạy thử; quyết định ở WORKFLOW Task 4.6, chủ dự án duyệt 2026-10-19; mockup Stitch duyệt cùng ngày, mục 15.2 J):
   - **Nút "Bình luận"** (**Đã làm**): nút phụ ở cụm góc phải đầu trang, ngay **trước** "Chia sẻ" / "Thành viên"; icon `MessageCircle`, kèm số bình luận của cả chuyến (tính cả trả lời) dạng "Bình luận · 5" khi > 0. Mọi vai trò đều thấy. Danh sách bình luận tải cùng lúc mở trang (số trên nút và trên thẻ cần nó), lỗi tải thì nút không có số.
   - **Hai tab** (**Đã làm** từ Mốc 14, yêu cầu sau khi chạy thử, WORKFLOW Task 4.6 quyết định 15): ở **đầu thân panel, dính lại khi cuộn** (nền trắng, vạch `tide` bên dưới) là nút gạt **"Chung · N | Hoạt động · M"** (số tính cả trả lời, không ghi khi bằng 0): dáng `SegmentedControl` (mục 7.15: rãnh `gray-200`, nút chọn nền trắng `shadow-sm`, cao 32px, 44px trên màn cảm ứng) nhưng là hai nút bật / tắt (`aria-pressed`) như "Lịch trình | Bản đồ", vì nó đổi thứ đang xem chứ không thuộc form nào; nhóm đọc "Loại bình luận". Mở từ nút ở đầu trang: tab **"Chung"**: chỉ bình luận của cả chuyến, như cuộc trò chuyện, có ô nhập và "Trả lời". Tab **"Hoạt động"** (Mốc 15, `DiscussedActivities`; ở Mốc 14 tạm là các bình luận về hoạt động có chip): **các hoạt động đang được bàn**, nhóm theo ngày theo thứ tự lịch trình (`lib/commentTree.activitiesUnderDiscussion`), đọc từ trên xuống (mở tab thì ở đầu danh sách, không cuộn xuống cuối). Mỗi ngày một tiêu đề 12px/600 `gray-500` "Ngày 2 · Thứ sáu, 13/10"; mỗi hoạt động một dòng bấm được (rê chuột nền `gray-50`): chấm 8px màu tuyến, tên 14px/600 `ink` (dài cắt "…"), bên phải số bình luận 12px `gray-500` (tính cả trả lời) và `ChevronRight`; dòng dưới 13px `gray-500` thụt qua chấm: "{tên người}: {bình luận mới nhất trên một dòng, cắt "…"} · 5 phút trước". Nhãn đọc "{tên hoạt động}, N bình luận. Mới nhất của {tên}". Bấm thì mở bình luận của hoạt động đó (như mở từ bong bóng trên thẻ). Không có ô nhập: chân panel ghi "Chọn một hoạt động để xem và viết bình luận.". Bình luận về hoạt động không còn trong lịch trình không có dòng nào. Đổi tab thì chip "Trả lời …" mất, chữ đang gõ giữ nguyên.
   - **Panel** (`Modal` kiểu panel, mục 7.6; **Đã làm**): bám mép phải, rộng 360px, cao hết màn hình; dưới 1024px chiếm toàn màn. Tiêu đề "Bình luận" và "×" ở đầu; dưới tiêu đề, khi đang xem **một hoạt động** (mở từ nút trên thẻ, Mốc 7, hoặc từ một dòng của tab "Hoạt động", Mốc 15), thay cho hai tab là chip "{chấm màu tuyến} {tên hoạt động} ×" (viền `tide`, cao 28px, chữ 13px, tên dài cắt "…"; trình đọc màn hình đọc "Đang xem bình luận về hoạt động: …") và, căn phải, nút chữ `jade-dark` 12px/600 có icon `MapPin` **"Xem trong lịch trình"** (Mốc 14, quyết định 16: đóng panel, sang ngày của hoạt động, tô viền thẻ như Mốc 10; không có khi hoạt động đã bị xoá). Chip nằm ở đầu thân panel, dính lại khi cuộn, thay vì nằm trong hàng tiêu đề như mockup: hàng tiêu đề là phần chung của `Modal`. Bấm × (nhãn "Quay về danh sách bình luận về các hoạt động") thì về tab "Hoạt động" (từ Mốc 14; trước đó về mọi bình luận), chữ đang gõ giữ nguyên. Hoạt động không còn trong lịch trình (vừa bị xoá) vẫn có chip, ghi "Hoạt động không còn trong lịch trình", không có chấm. Trạng thái mở và hoạt động đang lọc nằm trong `stores/commentPanelStore`; rời trang chuyến đi hoặc sang chuyến khác thì panel đóng. Thân cuộn; ô nhập đứng yên ở chân panel. Mở panel thì danh sách tải lại và cuộn sẵn xuống cuối; tải lại ngầm không kéo người đang đọc xuống cuối. Panel mở thì không bấm được "Chia sẻ" (không mở cùng hộp chia sẻ). Đóng bằng Esc, "×" hoặc **bấm ra vùng tối** (Mốc 12, yêu cầu sau khi chạy thử; trước đó bấm ra ngoài không đóng).
@@ -869,7 +869,7 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 3.9 | Bảng màu mới cho toàn web và trang chuyến đi dạng thẻ theo mockup "Teal Voyage" (`trip-planner-screenshots/stitch_action_button_ui_redesign/`); kế hoạch và các quyết định ở `WORKFLOW.md` Task 3.9. Các mục 3, 5, 6, 8.1, 9 của file này được sửa dần theo từng commit của task | Phase 3 |
 | 4.5 | Hộp thoại chia sẻ (mời, vai trò, gỡ, liên kết), huy hiệu vai trò, chế độ chỉ xem, thẻ "Được chia sẻ", trang nhận lời mời, trang công khai | Phase 4 (rà 2026-10-06) |
 | 4.9 | Ô chọn kiểu mới (tiền tệ, ngày đích, vai trò), menu trạng thái và sắp xếp, nút gạt vai trò, ô giờ gõ nhanh, lịch chọn ngày đi – về, chip hạn liên kết, ô ghi chú tự giãn | Phase 4 (làm trước 4.6, 2026-10-18) |
-| 4.6 | Panel bình luận, bình luận trên hoạt động | Phase 4 |
+| 4.6 | Panel bình luận (hai tab "Chung \| Hoạt động", trả lời, xoá, bản nháp, trượt vào / ra), nút bình luận kèm số trên thẻ hoạt động | Đã làm (`feat/T4.6-comments-ui`, 2026-10-19) |
 | 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
 | 7.x | Trang chi phí (biểu đồ), màn gợi ý AI | Phase 7 |
@@ -1123,6 +1123,77 @@ At the bottom, "Ngày 2 ›" as a secondary button.
 A dialog opened from the bottom edge like a sheet, full width, top corners rounded 14px.
 ```
 
+#### J. Panel bình luận — Task 4.6 (chuyển từ 15.3 khi đóng task, 2026-10-19)
+
+**Dữ liệu có thật:** bình luận của chuyến đi hoặc của một hoạt động, trả lời một cấp (`parent_id`), người viết (tên, ảnh: hiện mọi tài khoản đều chưa có ảnh nên là chữ cái đầu), thời điểm đăng, nội dung chữ thuần tối đa 2000 ký tự, xoá bình luận của mình (chủ chuyến xoá được của mọi người; xoá gốc mất luôn trả lời). Ai xem được chuyến đi đều đọc và đăng được, kể cả người chỉ xem. Không sửa bình luận. Panel và hộp thoại chia sẻ không mở cùng lúc; dưới 1024px panel chiếm toàn màn. Chi tiết ở mục 8.1 "Bình luận" (viết lại 2026-10-19 theo quyết định của WORKFLOW Task 4.6).
+**Không được thêm:** sửa bình luận, thả cảm xúc / "thích", nhắc tên bằng @, đính kèm ảnh / tệp, định dạng chữ (đậm, link, markdown), trả lời nhiều cấp, "đã xem", chấm "đang gõ…", số người online, thông báo, ô tìm trong bình luận, sắp xếp mới nhất trước.
+
+Panel trên máy tính (dựng trước, để chốt kiểu chung):
+
+```
+The trip detail page at 1440px, dimmed by a dark overlay, with a white side panel 360px tall as
+the screen sliding in from the right edge, rounded only on its left corners, soft shadow. Header:
+title "Bình luận" and an "×" button. Scrollable list, oldest at the top: each comment has a 32px
+round avatar with initials on a light teal circle, the name in bold 14px and a muted 12px time
+on the same line ("2 giờ trước", "Hôm qua lúc 14:30"), then the text in 14px gray, line breaks
+kept. One comment has a small gray chip between the name and the text: an 8px orange dot and
+"Bún chả cá 109". Under each root comment a small muted text button "Trả lời". One comment has
+one reply indented 40px with a 24px avatar and no "Trả lời". No borders between comments, 16px
+apart. Fixed footer: a textarea "Viết bình luận…" three lines tall and, under it on the right,
+the teal primary button "Gửi bình luận" with a send icon.
+```
+
+Panel đang lọc theo một hoạt động, đang trả lời (biến thể của prompt trên):
+
+```
+The same comment panel opened from an activity card. Under the title a removable chip with a
+blue dot "Chùa Linh Ứng ×". Only two comments about this activity. The pointer hovers the second
+comment, which shows a small ghost trash icon button at the end of its name row. In the footer,
+above the textarea, a small chip "Trả lời Mai Anh ×"; the textarea holds one line of text and is
+focused with a teal ring; a muted counter is not shown.
+```
+
+3a. Nút bình luận trên thẻ hoạt động và ở đầu trang (máy tính):
+
+```
+The trip detail page at 1440px, no dialog open. In the trip header, on the right, the secondary
+button "Bình luận · 5" with a speech bubble icon, placed just before the secondary button
+"Chia sẻ". In the itinerary, two activity cards (white, soft shadow, 12px radius). In the top row
+of each card, at the right edge just before the "⋮" button, a small gray speech bubble icon
+button: the first card shows the count "3" next to the icon, the second card shows only the icon
+because the pointer is hovering that card.
+```
+
+3b. Panel trên điện thoại (đoạn mở đầu đổi `Desktop 1440px wide.` thành `Mobile 390px wide.`):
+
+```
+The comment panel on a 390px phone, full screen, no rounded corners, no overlay visible. Header
+"Bình luận" with an "×" button. The list as on desktop: 32px avatars with initials, name and
+muted time on one line, text under it, one indented reply with a 24px avatar, a small chip with
+an orange dot "Bún chả cá 109" on one comment, a muted "Trả lời" under each root comment. Fixed
+at the bottom: the textarea "Viết bình luận…" and the full-width teal primary button
+"Gửi bình luận" with a send icon.
+```
+
+**Kết quả duyệt mockup (2026-10-19, ảnh ở `trip-planner-screenshots/stitch_smart_trip_planner_4.6/`, chủ dự án đồng ý):** prompt 3 ban đầu ghép thẻ máy tính và panel điện thoại vào một màn (trái mục 15.1 điểm 2) nên tách thành 3a / 3b như trên.
+- **Giữ:** khung panel (mép phải 360px, bo trái, lớp phủ 45%, đầu và chân đứng yên có vạch), một bình luận (ảnh 32px chữ cái đầu, tên đậm + thời gian xám cùng hàng, nội dung thẳng cột với tên, "Trả lời" nhỏ xám, không khung), trả lời thụt vào ảnh 24px, chip hoạt động nền xám có chấm màu tuyến, chip lọc dưới tiêu đề, thùng rác cuối hàng tên khi rê chuột, chip "Trả lời Mai Anh ×" nền xanh nhạt trên ô nhập, nút "Bình luận · 5" trước "Chia sẻ", nút bong bóng + số trước "⋮" trên thẻ, panel toàn màn trên điện thoại.
+- **Giữ thêm (mockup có, mục 8.1 chưa ghi):** đang lọc theo hoạt động thì bình luận không lặp chip; nền `gray-50` khi rê chuột lên một bình luận; nút "Gửi bình luận" rộng hết hàng dưới 640px.
+- **Không theo:** thanh menu trên cùng ("Lịch trình chi tiết · Thời gian biểu · Bản đồ tuyến · Khám phá", nút "Thảo luận", icon người dùng) và chân trang tự bịa; bố cục trang chuyến đi phía sau panel và kiểu thẻ hoạt động của mockup (giữ mục 8.1 và 7.3); nền xanh nhạt của nút bình luận khi rê chuột (dùng `gray-100` như "⋮"); phông có chân trong panel (chỉ Inter); khoảng trống lớn giữa hàng tên và nội dung; ô nhập co còn 1 dòng và vòng focus đặc 2px (giữ `TextAreaField` 3 → 8 dòng, vòng `jade/25` 3px); icon người trước tiêu đề, "Bình Luận" viết hoa và nền đầu panel xanh nhạt trên điện thoại; "Trả lời" đậm đen trên điện thoại.
+
+**Sau khi chạy thử (2026-10-19, Mốc 11–15):** ô nhập cao cố định 3 dòng; bấm ra ngoài để đóng, panel trượt vào / ra; hai tab "Chung | Hoạt động", chip trên từng bình luận bỏ (mục 8.1). Tab "Hoạt động" làm theo phác thảo đã thống nhất, không dựng mockup; prompt để dựng lại khi cần:
+
+```
+The comment panel (white, 360px, right edge of the trip page, dark overlay) with its two-tab switch
+at the top: "Chung · 4" and "Hoạt động · 7", the second one chosen (white on a gray track). Under
+it, a list of the activities that have comments, grouped by day with a small muted heading per day:
+"Ngày 1 · Thứ năm, 12/03", "Ngày 2 · Thứ sáu, 13/03". Each activity is one compact row: an 8px
+colored dot (blue for sightseeing, orange for food), the activity title in 14px semibold, on the
+right a muted count "5" and a chevron; under the title one muted 13px line with the latest comment
+cut with "…": "Mai Anh: Đi sớm tầm 11h30 để có bàn… · 5 phút trước". Rows are separated by 4px,
+hover tints a row light gray. The footer, under a rule, holds only a muted sentence "Chọn một hoạt
+động để xem và viết bình luận." — no textarea, no button.
+```
+
 ---
 
 ### 15.3. Màn hình sắp làm
@@ -1354,77 +1425,6 @@ The "Chia sẻ chuyến đi" dialog. Invite row: email input, then the segmented
 for the role. Section "Liên kết chia sẻ": label "Hết hạn", a row of chips "Không hết hạn"
 (selected, light teal with teal border), "7 ngày", "30 ngày", "Chọn ngày…", and a secondary button
 "Tạo liên kết".
-```
-
-#### Phase 4 — Task 4.6: bình luận
-
-**Dữ liệu có thật:** bình luận của chuyến đi hoặc của một hoạt động, trả lời một cấp (`parent_id`), người viết (tên, ảnh: hiện mọi tài khoản đều chưa có ảnh nên là chữ cái đầu), thời điểm đăng, nội dung chữ thuần tối đa 2000 ký tự, xoá bình luận của mình (chủ chuyến xoá được của mọi người; xoá gốc mất luôn trả lời). Ai xem được chuyến đi đều đọc và đăng được, kể cả người chỉ xem. Không sửa bình luận. Panel và hộp thoại chia sẻ không mở cùng lúc; dưới 1024px panel chiếm toàn màn. Chi tiết ở mục 8.1 "Bình luận" (viết lại 2026-10-19 theo quyết định của WORKFLOW Task 4.6).
-**Không được thêm:** sửa bình luận, thả cảm xúc / "thích", nhắc tên bằng @, đính kèm ảnh / tệp, định dạng chữ (đậm, link, markdown), trả lời nhiều cấp, "đã xem", chấm "đang gõ…", số người online, thông báo, ô tìm trong bình luận, sắp xếp mới nhất trước.
-
-Panel trên máy tính (dựng trước, để chốt kiểu chung):
-
-```
-The trip detail page at 1440px, dimmed by a dark overlay, with a white side panel 360px tall as
-the screen sliding in from the right edge, rounded only on its left corners, soft shadow. Header:
-title "Bình luận" and an "×" button. Scrollable list, oldest at the top: each comment has a 32px
-round avatar with initials on a light teal circle, the name in bold 14px and a muted 12px time
-on the same line ("2 giờ trước", "Hôm qua lúc 14:30"), then the text in 14px gray, line breaks
-kept. One comment has a small gray chip between the name and the text: an 8px orange dot and
-"Bún chả cá 109". Under each root comment a small muted text button "Trả lời". One comment has
-one reply indented 40px with a 24px avatar and no "Trả lời". No borders between comments, 16px
-apart. Fixed footer: a textarea "Viết bình luận…" three lines tall and, under it on the right,
-the teal primary button "Gửi bình luận" with a send icon.
-```
-
-Panel đang lọc theo một hoạt động, đang trả lời (biến thể của prompt trên):
-
-```
-The same comment panel opened from an activity card. Under the title a removable chip with a
-blue dot "Chùa Linh Ứng ×". Only two comments about this activity. The pointer hovers the second
-comment, which shows a small ghost trash icon button at the end of its name row. In the footer,
-above the textarea, a small chip "Trả lời Mai Anh ×"; the textarea holds one line of text and is
-focused with a teal ring; a muted counter is not shown.
-```
-
-3a. Nút bình luận trên thẻ hoạt động và ở đầu trang (máy tính):
-
-```
-The trip detail page at 1440px, no dialog open. In the trip header, on the right, the secondary
-button "Bình luận · 5" with a speech bubble icon, placed just before the secondary button
-"Chia sẻ". In the itinerary, two activity cards (white, soft shadow, 12px radius). In the top row
-of each card, at the right edge just before the "⋮" button, a small gray speech bubble icon
-button: the first card shows the count "3" next to the icon, the second card shows only the icon
-because the pointer is hovering that card.
-```
-
-3b. Panel trên điện thoại (đoạn mở đầu đổi `Desktop 1440px wide.` thành `Mobile 390px wide.`):
-
-```
-The comment panel on a 390px phone, full screen, no rounded corners, no overlay visible. Header
-"Bình luận" with an "×" button. The list as on desktop: 32px avatars with initials, name and
-muted time on one line, text under it, one indented reply with a 24px avatar, a small chip with
-an orange dot "Bún chả cá 109" on one comment, a muted "Trả lời" under each root comment. Fixed
-at the bottom: the textarea "Viết bình luận…" and the full-width teal primary button
-"Gửi bình luận" with a send icon.
-```
-
-**Kết quả duyệt mockup (2026-10-19, ảnh ở `trip-planner-screenshots/stitch_smart_trip_planner_4.6/`, chủ dự án đồng ý):** prompt 3 ban đầu ghép thẻ máy tính và panel điện thoại vào một màn (trái mục 15.1 điểm 2) nên tách thành 3a / 3b như trên.
-- **Giữ:** khung panel (mép phải 360px, bo trái, lớp phủ 45%, đầu và chân đứng yên có vạch), một bình luận (ảnh 32px chữ cái đầu, tên đậm + thời gian xám cùng hàng, nội dung thẳng cột với tên, "Trả lời" nhỏ xám, không khung), trả lời thụt vào ảnh 24px, chip hoạt động nền xám có chấm màu tuyến, chip lọc dưới tiêu đề, thùng rác cuối hàng tên khi rê chuột, chip "Trả lời Mai Anh ×" nền xanh nhạt trên ô nhập, nút "Bình luận · 5" trước "Chia sẻ", nút bong bóng + số trước "⋮" trên thẻ, panel toàn màn trên điện thoại.
-- **Giữ thêm (mockup có, mục 8.1 chưa ghi):** đang lọc theo hoạt động thì bình luận không lặp chip; nền `gray-50` khi rê chuột lên một bình luận; nút "Gửi bình luận" rộng hết hàng dưới 640px.
-- **Không theo:** thanh menu trên cùng ("Lịch trình chi tiết · Thời gian biểu · Bản đồ tuyến · Khám phá", nút "Thảo luận", icon người dùng) và chân trang tự bịa; bố cục trang chuyến đi phía sau panel và kiểu thẻ hoạt động của mockup (giữ mục 8.1 và 7.3); nền xanh nhạt của nút bình luận khi rê chuột (dùng `gray-100` như "⋮"); phông có chân trong panel (chỉ Inter); khoảng trống lớn giữa hàng tên và nội dung; ô nhập co còn 1 dòng và vòng focus đặc 2px (giữ `TextAreaField` 3 → 8 dòng, vòng `jade/25` 3px); icon người trước tiêu đề, "Bình Luận" viết hoa và nền đầu panel xanh nhạt trên điện thoại; "Trả lời" đậm đen trên điện thoại.
-
-**Sau khi chạy thử (2026-10-19, Mốc 11–15):** ô nhập cao cố định 3 dòng; bấm ra ngoài để đóng, panel trượt vào / ra; hai tab "Chung | Hoạt động", chip trên từng bình luận bỏ (mục 8.1). Tab "Hoạt động" làm theo phác thảo đã thống nhất, không dựng mockup; prompt để dựng lại khi cần:
-
-```
-The comment panel (white, 360px, right edge of the trip page, dark overlay) with its two-tab switch
-at the top: "Chung · 4" and "Hoạt động · 7", the second one chosen (white on a gray track). Under
-it, a list of the activities that have comments, grouped by day with a small muted heading per day:
-"Ngày 1 · Thứ năm, 12/03", "Ngày 2 · Thứ sáu, 13/03". Each activity is one compact row: an 8px
-colored dot (blue for sightseeing, orange for food), the activity title in 14px semibold, on the
-right a muted count "5" and a chevron; under the title one muted 13px line with the latest comment
-cut with "…": "Mai Anh: Đi sớm tầm 11h30 để có bàn… · 5 phút trước". Rows are separated by 4px,
-hover tints a row light gray. The footer, under a rule, holds only a muted sentence "Chọn một hoạt
-động để xem và viết bình luận." — no textarea, no button.
 ```
 
 #### Phase 5 — Task 5.3: đồng chỉnh sửa thời gian thực
