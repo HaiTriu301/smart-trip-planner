@@ -431,7 +431,9 @@ function CommentItem({ comment, timeZone, isReply = false, onDelete, action, chi
 
 // The top of the panel body, pinned while the list scrolls, on white so the comments pass under it. -mt-4 / -mx-5
 // cancel the padding of the body, so it sits flush under the panel header
-const PANEL_TOP = 'sticky top-0 z-10 -mx-5 -mt-4 border-b border-tide bg-white px-5 py-3'
+// The pinned offset is -top-4, not top-0: a sticky box sticks inside the padding of its scroll container, so top-0
+// would push it 16px back down, leaving a gap above it and covering the first 16px of the list (BUG-UI-013)
+const PANEL_TOP = 'sticky -top-4 z-10 -mx-5 -mt-4 border-b border-tide bg-white px-5 py-3'
 
 const EMPTY_TEXT: Record<'trip' | 'activities' | 'activity', string> = {
   trip: 'Chưa có bình luận chung nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới.',
