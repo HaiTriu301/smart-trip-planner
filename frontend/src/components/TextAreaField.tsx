@@ -5,6 +5,14 @@ import { controlClass, describedBy } from './fieldStyles'
 
 type TextAreaFieldProps = Omit<ComponentProps<'textarea'>, 'rows'> & {
   label: string
+  /** Label for screen readers only (FieldShell hideLabel) */
+  hideLabel?: boolean
+  /**
+   * false: always 3 lines tall, a long text scrolls inside without a visible scrollbar (wheel, touch and the
+   * caret still scroll it). For a box whose growth would squeeze what is around it, like the comment box fixed at
+   * the bottom of the comment panel (Task 4.6)
+   */
+  autoGrow?: boolean
   hint?: string
   error?: string
 }
@@ -26,6 +34,8 @@ function fitHeight(node: HTMLTextAreaElement) {
  */
 export function TextAreaField({
   label,
+  hideLabel,
+  autoGrow = true,
   hint,
   error,
   required,
@@ -49,14 +59,14 @@ export function TextAreaField({
       else if (ref) ref.current = node
       if (!node) return
       setLength(node.value.length)
-      if (!growsByItself) fitHeight(node)
+      if (autoGrow && !growsByItself) fitHeight(node)
     },
-    [ref],
+    [ref, autoGrow],
   )
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setLength(event.target.value.length)
-    if (!growsByItself) fitHeight(event.target)
+    if (autoGrow && !growsByItself) fitHeight(event.target)
     onChange?.(event)
   }
 
@@ -66,6 +76,7 @@ export function TextAreaField({
     <FieldShell
       id={inputId}
       label={label}
+      hideLabel={hideLabel}
       required={required}
       hint={hint}
       error={error}
@@ -86,7 +97,8 @@ export function TextAreaField({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(inputId, error, hint)}
         onChange={handleChange}
-        className={`field-sizing-content max-h-[210px] min-h-[90px] w-full resize-none overflow-y-auto px-3 py-2 leading-6 ${controlClass(Boolean(error))} ${className ?? ''}`}
+        // Fixed box: no scrollbar drawn in it (Firefox: scrollbar-width, Chrome / Safari / Edge: ::-webkit-scrollbar)
+        className={`${autoGrow ? 'field-sizing-content max-h-[210px] min-h-[90px]' : 'h-[90px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'} w-full resize-none overflow-y-auto px-3 py-2 leading-6 ${controlClass(Boolean(error))} ${className ?? ''}`}
         {...textareaProps}
       />
     </FieldShell>

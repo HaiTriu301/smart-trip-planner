@@ -8,6 +8,7 @@ import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ExpandableText } from '../components/ExpandableText'
 import { Skeleton } from '../components/Skeleton'
+import { CommentButton } from '../features/comments/CommentPanel'
 import { DayTimeline } from '../features/itinerary/DayTimeline'
 import { ShareButton } from '../features/sharing/ShareDialog'
 import { canEditTrip, showsRoleBadge, TRIP_ROLE_LABELS, TRIP_ROLE_TONES } from '../features/sharing/tripRole'
@@ -98,6 +99,7 @@ export function TripDetailPage() {
             {canEdit ? (
               <>
                 <TripStatusSelect trip={trip} />
+                <CommentButton trip={trip} />
                 <ShareButton trip={trip} />
                 <TripActions trip={trip} />
               </>
@@ -107,6 +109,7 @@ export function TripDetailPage() {
                 <span className="sm:pt-1.5">
                   <Badge tone={TRIP_STATUS_TONES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
                 </span>
+                <CommentButton trip={trip} />
                 <ShareButton trip={trip} />
               </>
             )}

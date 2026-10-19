@@ -1,7 +1,7 @@
 // Backend LocalDate values arrive as "YYYY-MM-DD". They are handled as plain strings on purpose:
 // new Date("2026-10-01") parses as UTC midnight and can show the previous day in negative-offset timezones.
 
-import { todayIn } from './today'
+import { DEFAULT_TIME_ZONE, todayIn } from './today'
 
 /** "2026-10-01" → "01/10/2026" */
 export function formatDate(isoDate: string): string {
@@ -16,6 +16,35 @@ export function formatDate(isoDate: string): string {
  */
 export function formatDayMonthIn(instant: string, timeZone: string): string {
   return formatDate(todayIn(timeZone, new Date(instant))).slice(0, 5)
+}
+
+function clockIn(timeZone: string, moment: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(moment)
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('hour')}:${part('minute')}`
+}
+
+/**
+ * "14:30": the clock time of a moment sent by the server, in the account's time zone, always 24-hour. A zone name
+ * the browser does not know falls back to the default zone, like todayIn.
+ */
+export function formatTimeIn(instant: string, timeZone: string): string {
+  const moment = new Date(instant)
+  try {
+    return clockIn(timeZone, moment)
+  } catch {
+    return clockIn(DEFAULT_TIME_ZONE, moment)
+  }
+}
+
+/** "12/10/2026 14:30": the full date and time of a moment in the account's time zone (the hover text of a comment). */
+export function formatDateTimeIn(instant: string, timeZone: string): string {
+  return `${formatDate(todayIn(timeZone, new Date(instant)))} ${formatTimeIn(instant, timeZone)}`
 }
 
 /** "01/10/2026 – 05/10/2026", or a single date for a one-day trip. */

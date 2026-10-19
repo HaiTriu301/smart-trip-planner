@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
+import { commentsKey } from '../../api/comments'
 import { updateTrip } from '../../api/trips'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -83,6 +84,8 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
         queryClient.invalidateQueries({ queryKey: ['trips'] }),
         // The forecast follows the destination and the dates, both editable here
         queryClient.invalidateQueries({ queryKey: ['weather', trip.id] }),
+        // Shortening the trip deletes the activities of the days cut off, and their comments with them (rule 27)
+        queryClient.invalidateQueries({ queryKey: commentsKey(trip.id) }),
       ])
       onClose()
       toast.success('Đã lưu thay đổi')

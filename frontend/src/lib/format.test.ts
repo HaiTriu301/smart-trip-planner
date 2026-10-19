@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDayMonthIn, formatDistance, formatDuration } from './format'
+import { formatDateTimeIn, formatDayMonthIn, formatDistance, formatDuration, formatTimeIn } from './format'
 
 describe('formatDistance', () => {
   it.each([
@@ -51,5 +51,29 @@ describe('formatDayMonthIn', () => {
 
   it('keeps the microseconds the server sends', () => {
     expect(formatDayMonthIn('2026-01-05T09:15:42.123456Z', 'Asia/Ho_Chi_Minh')).toBe('05/01')
+  })
+})
+
+describe('formatTimeIn', () => {
+  it('writes the clock time in the given zone, 24-hour with two digits', () => {
+    expect(formatTimeIn('2026-10-12T07:30:00Z', 'Asia/Ho_Chi_Minh')).toBe('14:30')
+    expect(formatTimeIn('2026-10-12T01:05:00Z', 'Asia/Ho_Chi_Minh')).toBe('08:05')
+    expect(formatTimeIn('2026-10-12T17:00:00Z', 'Asia/Ho_Chi_Minh')).toBe('00:00')
+  })
+
+  it('falls back to Vietnam time for a zone the browser does not know', () => {
+    expect(formatTimeIn('2026-10-12T07:30:00Z', 'Not/AZone')).toBe('14:30')
+  })
+})
+
+describe('formatDateTimeIn', () => {
+  it('writes the full date and the time of a moment in the given zone', () => {
+    expect(formatDateTimeIn('2026-10-12T07:30:00.123456Z', 'Asia/Ho_Chi_Minh')).toBe('12/10/2026 14:30')
+  })
+
+  it('takes date and time from the same zone across midnight', () => {
+    // 17:30 UTC on 12/10 is 00:30 on 13/10 in Vietnam
+    expect(formatDateTimeIn('2026-10-12T17:30:00Z', 'Asia/Ho_Chi_Minh')).toBe('13/10/2026 00:30')
+    expect(formatDateTimeIn('2026-10-12T17:30:00Z', 'UTC')).toBe('12/10/2026 17:30')
   })
 })

@@ -9,6 +9,13 @@ interface MapLinkState {
   /** The activity just reached from its marker: its card shows a ring for a moment; null when none */
   revealedActivityId: number | null
   reveal: (activityId: number) => void
+  /**
+   * An activity to show as soon as its day is on screen: asked for from a comment (Task 4.6), whose activity may be
+   * on another day. The day timeline reveals it once that day is shown, then clears it; null when none
+   */
+  pendingRevealId: number | null
+  revealWhenShown: (activityId: number) => void
+  clearPendingReveal: () => void
 }
 
 /** DOM id of the card of an activity: what a marker scrolls to and focuses. */
@@ -37,6 +44,9 @@ export const useMapLinkStore = create<MapLinkState>()((set, get) => ({
       if (get().revealedActivityId === activityId) set({ revealedActivityId: null })
     }, REVEAL_MS)
   },
+  pendingRevealId: null,
+  revealWhenShown: (activityId) => set({ pendingRevealId: activityId }),
+  clearPendingReveal: () => set({ pendingRevealId: null }),
 }))
 
 /**

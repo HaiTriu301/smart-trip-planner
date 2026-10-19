@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { ExternalLink, MapPin, TriangleAlert } from 'lucide-react'
+import { ExternalLink, MapPin, MessageCircle, TriangleAlert } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
+import { useCommentPanelStore } from '../../stores/commentPanelStore'
 import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Activity, ActivityType } from '../../types/activity'
 import { ActivityMenu } from './ActivityMenu'
@@ -59,6 +60,8 @@ interface ActivityCardProps {
   onEdit?: () => void
   onDelete?: () => void
   onMoveToDay?: () => void
+  /** Comments about this activity, replies included, counted from the comment list of the trip */
+  commentCount?: number
 }
 
 /**
@@ -75,6 +78,7 @@ export function ActivityCard({
   onEdit,
   onDelete,
   onMoveToDay,
+  commentCount = 0,
 }: ActivityCardProps) {
   // Only the two actions are read: the card itself does not redraw when the highlight moves
   const highlight = useMapLinkStore((state) => state.highlight)
@@ -106,6 +110,12 @@ export function ActivityCard({
         <ActivityCardContent activity={activity} overlapping={overlapping} />
       </div>
 
+      {/* Every role, a viewer too: anybody who can see the trip can comment (design.md 6.2). Not on the copy that
+          follows the pointer during a drag */}
+      {isRealCard && (
+        <CommentOnActivityButton activityId={activity.id} title={activity.title} count={commentCount} />
+      )}
+
       {onEdit && onDelete && (
         <ActivityMenu
           title={activity.title}
@@ -116,6 +126,36 @@ export function ActivityCard({
         />
       )}
     </article>
+  )
+}
+
+interface CommentOnActivityButtonProps {
+  activityId: number
+  title: string
+  count: number
+}
+
+/**
+ * Speech bubble at the right of the first row, before "⋮" (UI_GUIDE 7.3): opens the comment panel on the comments
+ * about this activity. With comments it shows their number and stays in view; without, it shows on hover / keyboard
+ * focus like "⋮", and always on touch screens.
+ */
+function CommentOnActivityButton({ activityId, title, count }: CommentOnActivityButtonProps) {
+  const openPanel = useCommentPanelStore((state) => state.openPanel)
+  return (
+    <div className={`shrink-0 self-start ${count > 0 ? '' : REVEAL}`}>
+      <button
+        type="button"
+        onClick={() => openPanel(activityId)}
+        aria-label={count > 0 ? `Bình luận về ${title}, ${count} bình luận` : `Bình luận về ${title}`}
+        // Same height and hover as the "⋮" button next to it: 28px with a mouse, 44px for a finger (UI_GUIDE 12);
+        // wider when it carries a number
+        className="flex h-7 min-w-7 items-center justify-center gap-1 rounded-control px-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
+      >
+        <MessageCircle aria-hidden className="size-4 shrink-0" />
+        {count > 0 && <span className="tabular text-xs leading-4 font-semibold">{count}</span>}
+      </button>
+    </div>
   )
 }
 
