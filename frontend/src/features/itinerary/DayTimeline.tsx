@@ -8,7 +8,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useToday } from '../../hooks/useToday'
 import { formatDate, formatWeekday } from '../../lib/format'
 import { dayStatus } from '../../lib/today'
-import { revealActivity } from '../../stores/mapLinkStore'
+import { revealActivity, useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Coordinates } from '../../types/place'
 import type { TripDayDetail } from '../../types/trip'
 import { WeatherStrip } from '../weather/WeatherStrip'
@@ -82,6 +82,27 @@ export function DayTimeline({
     revealActivity(revealWhenListShown.current)
     revealWhenListShown.current = null
   }, [listShown])
+
+  // A comment asked to show its activity (Task 4.6): once the day of that activity is the one on screen, its card
+  // is revealed like from a map marker. On the map tab of a narrow screen, the list comes back first
+  const pendingRevealId = useMapLinkStore((state) => state.pendingRevealId)
+  const pendingIsHere = pendingRevealId !== null && Boolean(current?.activities.some((a) => a.id === pendingRevealId))
+  useEffect(() => {
+    if (!pendingIsHere || pendingRevealId === null) return
+    // Next frame: the comment panel that asked has closed by then and given the focus back to its button; the card
+    // takes it after that
+    const frame = requestAnimationFrame(() => {
+      useMapLinkStore.getState().clearPendingReveal()
+      if (listShown) {
+        revealActivity(pendingRevealId)
+      } else {
+        // Same path as "Xem trong lịch trình" on the map tab
+        revealWhenListShown.current = pendingRevealId
+        setNarrowView('list')
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [pendingIsHere, pendingRevealId, listShown])
 
   // Coming from "Ngày sau" at the bottom of a long day: bring the start of the new day back into view. When the
   // start of the day is still in sight (a click on the day list near the top), the page stays where it is.

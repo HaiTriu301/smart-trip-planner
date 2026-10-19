@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, Trash2, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { commentsKey, createCommentKey, deleteComment, listComments } from '../../api/comments'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -16,6 +17,7 @@ import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
 import { useCommentPanelStore } from '../../stores/commentPanelStore'
+import { useMapLinkStore } from '../../stores/mapLinkStore'
 import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { Comment } from '../../types/comment'
@@ -47,13 +49,34 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
   const isSending = useIsMutating({ mutationKey: createCommentKey(tripId) }) > 0
   const count = comments?.length ?? 0
 
-  // Leaving the trip page, or going to another trip, closes the panel: the store outlives this page
-  useEffect(() => () => useCommentPanelStore.getState().closePanel(), [tripId])
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Leaving the trip page, or going to another trip, closes the panel: the stores outlive this page. A card asked
+  // for from a comment and never shown (its activity moved meanwhile) is forgotten too
+  useEffect(
+    () => () => {
+      useCommentPanelStore.getState().closePanel()
+      useMapLinkStore.getState().clearPendingReveal()
+    },
+    [tripId],
+  )
 
   function close() {
     if (isSending) return
     closePanel()
     setReplyTo(null)
+  }
+
+  // The chip of a comment: close the panel, go to the day of the activity and show its card there (UI_GUIDE 8.1)
+  function showActivity(activity: Activity) {
+    const day = trip.days.find((d) => d.id === activity.dayId)
+    if (!day || isSending) return
+    close()
+    useMapLinkStore.getState().revealWhenShown(activity.id)
+    const path = `/trips/${tripId}/days/${day.dayIndex}`
+    // Its own day already on screen: no new history entry, the card is just revealed
+    if (location.pathname !== path) navigate(path)
   }
 
   return (
@@ -89,6 +112,7 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
           activityId={activityId}
           sentId={sentId}
           onReply={setReplyTo}
+          onShowActivity={showActivity}
           // The comment being answered is gone: the box goes back to a new comment
           onDeleted={(commentId) => setReplyTo((current) => (current?.id === commentId ? null : current))}
         />
@@ -120,6 +144,7 @@ function CommentList({
   activityId,
   sentId,
   onReply,
+  onShowActivity,
   onDeleted,
 }: {
   tripId: number
@@ -131,6 +156,8 @@ function CommentList({
   activityId: number | null
   sentId: number | null
   onReply: (comment: Comment) => void
+  /** The chip of a comment was pressed: show that activity in the itinerary */
+  onShowActivity: (activity: Activity) => void
   onDeleted: (commentId: number) => void
 }) {
   const queryClient = useQueryClient()
@@ -247,6 +274,7 @@ function CommentList({
               // On the root only: a reply is about the same activity, saying it again adds nothing. None while
               // filtered: the chip at the top already says it
               activity={filtered || comment.activityId === null ? undefined : activities.get(comment.activityId)}
+              onOpenActivity={onShowActivity}
               onDelete={
                 canDeleteComment(comment, userId, myRole) ? () => askToDelete(comment, replies.length) : undefined
               }
@@ -307,6 +335,8 @@ interface CommentItemProps {
   isReply?: boolean
   /** The activity the comment is about, shown as a chip between the name and the text */
   activity?: Activity
+  /** Pressing that chip: show the activity in the itinerary */
+  onOpenActivity?: (activity: Activity) => void
   /** Present when the reader may delete it (author or owner): the trash button at the end of the name row */
   onDelete?: () => void
   /** Under the text, inside the comment: "Trả lời" of a root comment */
@@ -320,7 +350,16 @@ interface CommentItemProps {
  * comment tints it light gray (Stitch mockup), so the trash button that shows up is plainly its own; a reply is
  * tinted alone, not with its root.
  */
-function CommentItem({ comment, timeZone, isReply = false, activity, onDelete, action, children }: CommentItemProps) {
+function CommentItem({
+  comment,
+  timeZone,
+  isReply = false,
+  activity,
+  onOpenActivity,
+  onDelete,
+  action,
+  children,
+}: CommentItemProps) {
   const name = comment.author.fullName
   return (
     <li data-comment-id={comment.id}>
@@ -351,7 +390,7 @@ function CommentItem({ comment, timeZone, isReply = false, activity, onDelete, a
           </div>
           {activity && (
             <div className="mt-1 flex">
-              <ActivityChip activity={activity} />
+              <ActivityChip activity={activity} onOpen={onOpenActivity && (() => onOpenActivity(activity))} />
             </div>
           )}
           <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
