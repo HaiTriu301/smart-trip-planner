@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MessageCircle } from 'lucide-react'
 import { commentsKey, listComments } from '../../api/comments'
@@ -8,6 +8,7 @@ import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
+import { commentThreads } from '../../lib/commentTree'
 import { formatDayMonthIn } from '../../lib/format'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
@@ -95,8 +96,7 @@ function CommentList({ tripId }: { tripId: number }) {
     )
   }
 
-  // Root comments only: replies are not shown yet
-  const roots = comments.filter((comment) => comment.parentId === null)
+  const threads = commentThreads(comments)
   return (
     <div className="space-y-4">
       {/* A reload failed while comments were on screen: keep them (BUG-UI-005) */}
@@ -106,12 +106,20 @@ function CommentList({ tripId }: { tripId: number }) {
           {retry}
         </div>
       )}
-      {roots.length === 0 ? (
+      {threads.length === 0 ? (
         <p className="text-sm text-gray-500">Chưa có bình luận nào.</p>
       ) : (
         <ul className="space-y-4">
-          {roots.map((comment) => (
-            <CommentItem key={comment.id} comment={comment} timeZone={timeZone} />
+          {threads.map(({ comment, replies }) => (
+            <CommentItem key={comment.id} comment={comment} timeZone={timeZone}>
+              {replies.length > 0 && (
+                <ul aria-label={`Trả lời bình luận của ${comment.author.fullName}`} className="mt-3 space-y-3">
+                  {replies.map((reply) => (
+                    <CommentItem key={reply.id} comment={reply} timeZone={timeZone} isReply />
+                  ))}
+                </ul>
+              )}
+            </CommentItem>
           ))}
         </ul>
       )}
@@ -120,11 +128,20 @@ function CommentList({ tripId }: { tripId: number }) {
   )
 }
 
+interface CommentItemProps {
+  comment: Comment
+  timeZone: string
+  /** A reply: smaller picture, and it never has replies of its own (one level, design.md rule 27) */
+  isReply?: boolean
+  /** The replies of a root comment, drawn in its text column so they line up with its text */
+  children?: ReactNode
+}
+
 /** Picture, name and date on one line, then the text: plain, line breaks kept, long words broken. */
-function CommentItem({ comment, timeZone }: { comment: Comment; timeZone: string }) {
+function CommentItem({ comment, timeZone, isReply = false, children }: CommentItemProps) {
   return (
-    <li className="flex gap-3">
-      <Avatar name={comment.author.fullName} url={comment.author.avatarUrl} />
+    <li className={`flex ${isReply ? 'gap-2' : 'gap-3'}`}>
+      <Avatar name={comment.author.fullName} url={comment.author.avatarUrl} size={isReply ? 'sm' : 'md'} />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{comment.author.fullName}</span>
@@ -133,6 +150,7 @@ function CommentItem({ comment, timeZone }: { comment: Comment; timeZone: string
           </time>
         </p>
         <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
+        {children}
       </div>
     </li>
   )
