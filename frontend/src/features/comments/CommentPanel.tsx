@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useIsMutating, useQuery } from '@tanstack/react-query'
-import { MessageCircle, X } from 'lucide-react'
-import { commentsKey, createCommentKey, listComments } from '../../api/comments'
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { MessageCircle, Trash2, X } from 'lucide-react'
+import { commentsKey, createCommentKey, deleteComment, listComments } from '../../api/comments'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/Button'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
 import { useNow } from '../../hooks/useNow'
@@ -15,12 +16,15 @@ import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
 import { useCommentPanelStore } from '../../stores/commentPanelStore'
+import { toast } from '../../stores/toastStore'
 import type { Activity } from '../../types/activity'
 import type { Comment } from '../../types/comment'
+import type { TripRole } from '../../types/member'
 import type { TripDayDetail, TripDetail } from '../../types/trip'
 import { ACTIVITY_ROUTE } from '../itinerary/activityType'
 import { ActivityChip } from './ActivityChip'
 import { CommentForm } from './CommentForm'
+import { canDeleteComment, withoutDeleted } from './commentRules'
 
 /**
  * "Bình luận" in the trip header (UI_GUIDE 8.1, Task 4.6): a secondary button with the number of comments of the
@@ -81,9 +85,12 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
         <CommentList
           tripId={tripId}
           days={trip.days}
+          myRole={trip.myRole}
           activityId={activityId}
           sentId={sentId}
           onReply={setReplyTo}
+          // The comment being answered is gone: the box goes back to a new comment
+          onDeleted={(commentId) => setReplyTo((current) => (current?.id === commentId ? null : current))}
         />
       </Modal>
     </>
@@ -102,22 +109,52 @@ const NEAR_END = 48
  * <p>
  * Opened from an activity card, it shows only the comments about that activity, under a chip "{activity} ×" that
  * goes back to all of them; the comments then carry no chip of their own (they are all about that activity).
+ * <p>
+ * Its author and the owner of the trip can delete a comment, after a confirmation that says when its replies go
+ * with it. The comment leaves the list at once, then the list is reloaded.
  */
 function CommentList({
   tripId,
   days,
+  myRole,
   activityId,
   sentId,
   onReply,
+  onDeleted,
 }: {
   tripId: number
   /** The days of the trip as the page has them: where the activity of a comment is looked up */
   days: TripDayDetail[]
+  /** What the reader is to the trip: the owner may delete every comment */
+  myRole: TripRole
   /** Only the comments about this activity; null for all of them */
   activityId: number | null
   sentId: number | null
   onReply: (comment: Comment) => void
+  onDeleted: (commentId: number) => void
 }) {
+  const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.user?.id ?? null)
+  // The comment waiting for "Xoá bình luận", with how many replies go with it
+  const [deleting, setDeleting] = useState<{ comment: Comment; replyCount: number } | null>(null)
+  const deletion = useMutation({
+    mutationFn: (comment: Comment) => deleteComment(tripId, comment.id),
+    onSuccess: (_, comment) => {
+      queryClient.setQueryData<Comment[]>(commentsKey(tripId), (list) => list && withoutDeleted(list, comment.id))
+      void queryClient.invalidateQueries({ queryKey: commentsKey(tripId) })
+      onDeleted(comment.id)
+      setDeleting(null)
+      toast.success('Đã xoá bình luận')
+    },
+    // Already deleted in another tab (404), or no longer allowed (403): the list as the server has it now
+    onError: () => void queryClient.invalidateQueries({ queryKey: commentsKey(tripId) }),
+  })
+
+  function askToDelete(comment: Comment, replyCount: number) {
+    deletion.reset()
+    setDeleting({ comment, replyCount })
+  }
+
   const timeZone = useAuthStore((state) => state.user?.timezone) ?? DEFAULT_TIME_ZONE
   const activities = useMemo(() => activitiesById(days), [days])
   const { data: comments, error, isPending, isFetching, refetch } = useQuery({
@@ -210,20 +247,32 @@ function CommentList({
               // On the root only: a reply is about the same activity, saying it again adds nothing. None while
               // filtered: the chip at the top already says it
               activity={filtered || comment.activityId === null ? undefined : activities.get(comment.activityId)}
+              onDelete={
+                canDeleteComment(comment, userId, myRole) ? () => askToDelete(comment, replies.length) : undefined
+              }
+              action={
+                <button
+                  type="button"
+                  onClick={() => onReply(comment)}
+                  aria-label={`Trả lời bình luận của ${comment.author.fullName}`}
+                  // 44px tall on touch screens (UI_GUIDE 12)
+                  className="mt-1 inline-flex items-center rounded-control text-xs leading-4 font-semibold text-gray-500 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
+                >
+                  Trả lời
+                </button>
+              }
             >
-              <button
-                type="button"
-                onClick={() => onReply(comment)}
-                aria-label={`Trả lời bình luận của ${comment.author.fullName}`}
-                // 44px tall on touch screens (UI_GUIDE 12)
-                className="mt-1 inline-flex items-center rounded-control text-xs leading-4 font-semibold text-gray-500 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
-              >
-                Trả lời
-              </button>
               {replies.length > 0 && (
-                <ul aria-label={`Trả lời bình luận của ${comment.author.fullName}`} className="mt-3 space-y-3">
+                // Under the text of the root, not under its picture: 32px picture + 12px gap
+                <ul aria-label={`Trả lời bình luận của ${comment.author.fullName}`} className="mt-3 ml-11 space-y-3">
                   {replies.map((reply) => (
-                    <CommentItem key={reply.id} comment={reply} timeZone={timeZone} isReply />
+                    <CommentItem
+                      key={reply.id}
+                      comment={reply}
+                      timeZone={timeZone}
+                      isReply
+                      onDelete={canDeleteComment(reply, userId, myRole) ? () => askToDelete(reply, 0) : undefined}
+                    />
                   ))}
                 </ul>
               )}
@@ -232,6 +281,21 @@ function CommentList({
         </ul>
       )}
       <div ref={end} />
+
+      {/* Over the panel; Esc closes this one only (BUG-UI-011) */}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Xoá bình luận?"
+        confirmLabel="Xoá bình luận"
+        variant="danger"
+        isLoading={deletion.isPending}
+        error={deletion.isError ? getErrorMessage(deletion.error) : undefined}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => deleting && deletion.mutate(deleting.comment)}
+      >
+        <p>Bình luận sẽ bị xoá và không khôi phục được.</p>
+        {deleting && deleting.replyCount > 0 && <p>Các trả lời của bình luận này cũng bị xoá.</p>}
+      </ConfirmDialog>
     </div>
   )
 }
@@ -243,28 +307,58 @@ interface CommentItemProps {
   isReply?: boolean
   /** The activity the comment is about, shown as a chip between the name and the text */
   activity?: Activity
-  /** The replies of a root comment, drawn in its text column so they line up with its text */
+  /** Present when the reader may delete it (author or owner): the trash button at the end of the name row */
+  onDelete?: () => void
+  /** Under the text, inside the comment: "Trả lời" of a root comment */
+  action?: ReactNode
+  /** Under the comment, outside its hover area: the replies of a root comment */
   children?: ReactNode
 }
 
-/** Picture, name and date on one line, then the text: plain, line breaks kept, long words broken. */
-function CommentItem({ comment, timeZone, isReply = false, activity, children }: CommentItemProps) {
+/**
+ * Picture, name and date on one line, then the text: plain, line breaks kept, long words broken. The pointer on a
+ * comment tints it light gray (Stitch mockup), so the trash button that shows up is plainly its own; a reply is
+ * tinted alone, not with its root.
+ */
+function CommentItem({ comment, timeZone, isReply = false, activity, onDelete, action, children }: CommentItemProps) {
+  const name = comment.author.fullName
   return (
-    <li data-comment-id={comment.id} className={`flex ${isReply ? 'gap-2' : 'gap-3'}`}>
-      <Avatar name={comment.author.fullName} url={comment.author.avatarUrl} size={isReply ? 'sm' : 'md'} />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{comment.author.fullName}</span>
-          <CommentTime instant={comment.createdAt} timeZone={timeZone} />
-        </p>
-        {activity && (
-          <div className="mt-1 flex">
-            <ActivityChip activity={activity} />
+    <li data-comment-id={comment.id}>
+      {/* The negative margins let the tint reach past the text without moving anything */}
+      <div
+        className={`group/comment -mx-2 -my-1.5 flex rounded-control px-2 py-1.5 transition-colors hover:bg-gray-50 ${
+          isReply ? 'gap-2' : 'gap-3'
+        }`}
+      >
+        <Avatar name={name} url={comment.author.avatarUrl} size={isReply ? 'sm' : 'md'} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <p className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+              <span className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{name}</span>
+              <CommentTime instant={comment.createdAt} timeZone={timeZone} />
+            </p>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                aria-label={`Xoá bình luận của ${name}`}
+                // Shown with the pointer or the keyboard on the comment, always on touch screens (no hover there)
+                className="-my-1 flex size-7 shrink-0 items-center justify-center rounded-control text-gray-500 opacity-0 transition-opacity group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 hover:bg-gray-100 hover:text-danger focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:size-11 pointer-coarse:opacity-100"
+              >
+                <Trash2 aria-hidden className="size-4" />
+              </button>
+            )}
           </div>
-        )}
-        <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
-        {children}
+          {activity && (
+            <div className="mt-1 flex">
+              <ActivityChip activity={activity} />
+            </div>
+          )}
+          <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
+          {action}
+        </div>
       </div>
+      {children}
     </li>
   )
 }

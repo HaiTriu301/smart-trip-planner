@@ -28,3 +28,11 @@ export async function createComment(tripId: number, body: CreateCommentRequest):
   const { data } = await apiClient.post<ApiResponse<Comment>>(`/trips/${tripId}/comments`, body)
   return data.data
 }
+
+/**
+ * Deletes a comment (soft delete): its author or the owner of the trip, otherwise 403 FORBIDDEN. Deleting a root
+ * comment deletes its replies too. 404 when the comment is not on this trip or already deleted (design.md 10.2).
+ */
+export async function deleteComment(tripId: number, commentId: number): Promise<void> {
+  await apiClient.delete(`/trips/${tripId}/comments/${commentId}`)
+}
