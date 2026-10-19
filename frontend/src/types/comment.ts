@@ -30,4 +30,9 @@ export interface Comment {
  */
 export interface CreateCommentRequest {
   content: string
+  /**
+   * The root comment answered. It must be a live root comment of the trip, otherwise 400 on this field; a reply
+   * takes the activity of its root (design.md 10.2)
+   */
+  parentId?: number
 }

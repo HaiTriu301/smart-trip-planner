@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send } from 'lucide-react'
+import { Send, X } from 'lucide-react'
 import { commentsKey, createComment, createCommentKey } from '../../api/comments'
 import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -19,18 +19,28 @@ const PHONE = '(max-width: 639px)'
 
 interface CommentFormProps {
   tripId: number
-  /** The comment is stored and in the list: the panel scrolls down to it */
-  onSent: () => void
+  /** The root comment being answered ("Trả lời" in the list), or null for a new comment */
+  replyTo: Comment | null
+  /** "×" on the reply chip: back to a new comment, the text typed stays */
+  onCancelReply: () => void
+  /** The comment is stored and in the list: the panel scrolls to it */
+  onSent: (comment: Comment) => void
 }
+
+/** What is sent: the box, plus the root answered when there is one */
+type SendValues = CommentValues & { parentId?: number }
 
 /**
  * The one comment box of the panel, fixed at its bottom (UI_GUIDE 8.1): "Viết bình luận…" and the panel's only
  * primary button "Gửi bình luận". Ctrl+Enter (⌘+Enter) sends, Enter goes to a new line. Checked when sending only,
  * like the invite form (BUG-UI-012): somebody who only came to read must not be told the box is empty. A sent
  * comment joins the list at once; the box starts again empty. A refusal of the server shows under the box (its
- * rule on content) or above it (anything else), and the text typed stays.
+ * rule on content) or above it (anything else, such as a root deleted meanwhile), and the text typed stays.
+ * <p>
+ * Answering does not open a second box (one primary button per screen): "Trả lời {tên} ×" shows above this one and
+ * the cursor moves into it.
  */
-export function CommentForm({ tripId, onSent }: CommentFormProps) {
+export function CommentForm({ tripId, replyTo, onCancelReply, onSent }: CommentFormProps) {
   const queryClient = useQueryClient()
   const onPhone = useMediaQuery(PHONE)
   const form = useRef<HTMLFormElement>(null)
@@ -53,14 +63,14 @@ export function CommentForm({ tripId, onSent }: CommentFormProps) {
 
   const mutation = useMutation({
     mutationKey: createCommentKey(tripId),
-    mutationFn: (values: CommentValues) => createComment(tripId, { content: values.content }),
+    mutationFn: ({ content, parentId }: SendValues) => createComment(tripId, { content, parentId }),
     onSuccess: (created) => {
       // Shown at once from the answer; the reload that follows also brings what others wrote meanwhile
       queryClient.setQueryData<Comment[]>(commentsKey(tripId), (comments) => comments && [...comments, created])
       void queryClient.invalidateQueries({ queryKey: commentsKey(tripId) })
       reset()
       setRound((value) => value + 1)
-      onSent()
+      onSent(created)
     },
     onError: (error) => applyFieldErrors(error, setError, FORM_FIELDS),
   })
@@ -69,6 +79,11 @@ export function CommentForm({ tripId, onSent }: CommentFormProps) {
   useEffect(() => {
     if (round > 0) setFocus('content')
   }, [round, setFocus])
+
+  // "Trả lời" pressed in the list: straight to the box
+  useEffect(() => {
+    if (replyTo) setFocus('content')
+  }, [replyTo, setFocus])
 
   const onContentField = (getApiError(mutation.error)?.details ?? []).some((detail) => detail.field === 'content')
   const bannerError = mutation.isError && !onContentField ? getErrorMessage(mutation.error) : undefined
@@ -90,10 +105,19 @@ export function CommentForm({ tripId, onSent }: CommentFormProps) {
         // Ctrl+Enter pressed again while the first one is on its way
         if (mutation.isPending) return
         mutation.reset()
-        mutation.mutate(values)
+        mutation.mutate({ ...values, parentId: replyTo?.id })
       })}
     >
       {bannerError && <Alert variant="error">{bannerError}</Alert>}
+      {replyTo && (
+        <ReplyChip
+          name={replyTo.author.fullName}
+          onRemove={() => {
+            onCancelReply()
+            setFocus('content')
+          }}
+        />
+      )}
       <TextAreaField
         key={round}
         label="Viết bình luận"
@@ -111,5 +135,26 @@ export function CommentForm({ tripId, onSent }: CommentFormProps) {
         </Button>
       </div>
     </form>
+  )
+}
+
+/** "Trả lời Mai Anh ×" above the box, light teal like a chosen item (Stitch mockup); a long name is cut with "…". */
+function ReplyChip({ name, onRemove }: { name: string; onRemove: () => void }) {
+  return (
+    <div className="flex">
+      <span className="inline-flex min-h-6 max-w-full min-w-0 items-center gap-1 rounded-full bg-jade-light pr-0.5 pl-2.5 text-xs leading-4 text-jade-dark">
+        <span className="truncate">
+          Trả lời <span className="font-semibold">{name}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Bỏ trả lời ${name}`}
+          className="flex size-5 shrink-0 items-center justify-center rounded-full hover:bg-jade/15 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:size-8"
+        >
+          <X aria-hidden className="size-3" />
+        </button>
+      </span>
+    </div>
   )
 }

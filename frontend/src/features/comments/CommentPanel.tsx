@@ -25,12 +25,21 @@ import { CommentForm } from './CommentForm'
  */
 export function CommentButton({ tripId }: { tripId: number }) {
   const [open, setOpen] = useState(false)
-  // How many comments were sent since the page opened: each one asks the list to scroll down to it
-  const [sent, setSent] = useState(0)
+  // The root comment being answered: "Trả lời" under it in the list, the chip above the box in the footer
+  const [replyTo, setReplyTo] = useState<Comment | null>(null)
+  // The comment sent last: the list scrolls to it, wherever it lands (the end, or under its root for a reply)
+  const [sentId, setSentId] = useState<number | null>(null)
   const { data: comments } = useQuery({ queryKey: commentsKey(tripId), queryFn: () => listComments(tripId) })
   // Esc and "×" wait for the server: closing would leave its answer (an error under the box) nowhere (BUG-UI-004)
   const isSending = useIsMutating({ mutationKey: createCommentKey(tripId) }) > 0
   const count = comments?.length ?? 0
+
+  function close() {
+    if (isSending) return
+    setOpen(false)
+    setReplyTo(null)
+  }
+
   return (
     <>
       <Button variant="secondary" fullWidth={false} onClick={() => setOpen(true)}>
@@ -41,12 +50,22 @@ export function CommentButton({ tripId }: { tripId: number }) {
       {/* A panel over the page: the sharing dialog cannot be opened at the same time */}
       <Modal
         open={open}
-        onClose={() => !isSending && setOpen(false)}
+        onClose={close}
         title="Bình luận"
         layout="panel"
-        footer={<CommentForm tripId={tripId} onSent={() => setSent((value) => value + 1)} />}
+        footer={
+          <CommentForm
+            tripId={tripId}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+            onSent={(comment) => {
+              setReplyTo(null)
+              setSentId(comment.id)
+            }}
+          />
+        }
       >
-        <CommentList tripId={tripId} sent={sent} />
+        <CommentList tripId={tripId} sentId={sentId} onReply={setReplyTo} />
       </Modal>
     </>
   )
@@ -59,9 +78,18 @@ const NEAR_END = 48
  * The comments of the trip, oldest at the top like a conversation. Mounted each time the panel opens, which asks
  * for the list again: comments written by others since the page loaded show up (no live updates before Phase 5).
  * The panel opens scrolled to the end, and stays at the end when new comments arrive while the reader is there;
- * someone reading further up is not pulled down, unless they have just sent a comment: then it goes down to it.
+ * someone reading further up is not pulled down. A comment just sent is scrolled to wherever it lands: the end for a
+ * comment, under its root for a reply.
  */
-function CommentList({ tripId, sent }: { tripId: number; sent: number }) {
+function CommentList({
+  tripId,
+  sentId,
+  onReply,
+}: {
+  tripId: number
+  sentId: number | null
+  onReply: (comment: Comment) => void
+}) {
   const timeZone = useAuthStore((state) => state.user?.timezone) ?? DEFAULT_TIME_ZONE
   const { data: comments, error, isPending, isFetching, refetch } = useQuery({
     queryKey: commentsKey(tripId),
@@ -71,7 +99,8 @@ function CommentList({ tripId, sent }: { tripId: number; sent: number }) {
   const end = useRef<HTMLDivElement>(null)
   // Starts true: the panel opens at the end
   const atEnd = useRef(true)
-  const sentBefore = useRef(sent)
+  // A comment sent before this opening of the panel is not scrolled to again
+  const sentBefore = useRef(sentId)
 
   useEffect(() => {
     const body = end.current?.closest<HTMLElement>('[data-modal-body]')
@@ -84,9 +113,7 @@ function CommentList({ tripId, sent }: { tripId: number; sent: number }) {
   }, [])
 
   useEffect(() => {
-    const justSent = sent !== sentBefore.current
-    sentBefore.current = sent
-    if (!comments || !(atEnd.current || justSent)) return
+    if (!comments || !atEnd.current) return
     // The dialog is still closed while this runs on opening (its showModal() comes after the effects of its
     // content) and a closed dialog has no size to scroll: wait for the next frame
     const frame = requestAnimationFrame(() => {
@@ -94,7 +121,20 @@ function CommentList({ tripId, sent }: { tripId: number; sent: number }) {
       if (body) body.scrollTop = body.scrollHeight
     })
     return () => cancelAnimationFrame(frame)
-  }, [comments, sent])
+  }, [comments])
+
+  useEffect(() => {
+    if (sentId === null || sentId === sentBefore.current) return
+    sentBefore.current = sentId
+    // Next frame: the new comment is drawn by then. "nearest" moves the list only as far as needed to show it
+    const frame = requestAnimationFrame(() => {
+      end.current
+        ?.closest('[data-modal-body]')
+        ?.querySelector(`[data-comment-id="${sentId}"]`)
+        ?.scrollIntoView({ block: 'nearest' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [sentId, comments])
 
   const retry = (
     <Button variant="secondary" fullWidth={false} isLoading={isFetching} onClick={() => refetch()}>
@@ -128,6 +168,15 @@ function CommentList({ tripId, sent }: { tripId: number; sent: number }) {
         <ul className="space-y-4">
           {threads.map(({ comment, replies }) => (
             <CommentItem key={comment.id} comment={comment} timeZone={timeZone}>
+              <button
+                type="button"
+                onClick={() => onReply(comment)}
+                aria-label={`Trả lời bình luận của ${comment.author.fullName}`}
+                // 44px tall on touch screens (UI_GUIDE 12)
+                className="mt-1 inline-flex items-center rounded-control text-xs leading-4 font-semibold text-gray-500 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
+              >
+                Trả lời
+              </button>
               {replies.length > 0 && (
                 <ul aria-label={`Trả lời bình luận của ${comment.author.fullName}`} className="mt-3 space-y-3">
                   {replies.map((reply) => (
@@ -156,7 +205,7 @@ interface CommentItemProps {
 /** Picture, name and date on one line, then the text: plain, line breaks kept, long words broken. */
 function CommentItem({ comment, timeZone, isReply = false, children }: CommentItemProps) {
   return (
-    <li className={`flex ${isReply ? 'gap-2' : 'gap-3'}`}>
+    <li data-comment-id={comment.id} className={`flex ${isReply ? 'gap-2' : 'gap-3'}`}>
       <Avatar name={comment.author.fullName} url={comment.author.avatarUrl} size={isReply ? 'sm' : 'md'} />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-2">
