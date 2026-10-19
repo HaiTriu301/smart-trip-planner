@@ -27,6 +27,17 @@ export function commentThreads(comments: Comment[]): CommentThread[] {
 }
 
 /**
+ * The comments of the two tabs of the panel (Task 4.6 decision 15): on the whole trip ("Chung"), and on an activity
+ * ("Hoạt động"), each in the order of the list, replies with their root (a reply carries the activity of its root).
+ */
+export function splitComments(comments: Comment[]): { trip: Comment[]; activities: Comment[] } {
+  return {
+    trip: comments.filter((comment) => comment.activityId === null),
+    activities: comments.filter((comment) => comment.activityId !== null),
+  }
+}
+
+/**
  * The comments about one activity, in the order of the list: its root comments and their replies, which carry the
  * activity of their root (design.md 10.2). Comments on the whole trip and on other activities are left out.
  */

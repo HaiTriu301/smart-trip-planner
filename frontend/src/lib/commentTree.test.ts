@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Activity } from '../types/activity'
 import type { Comment } from '../types/comment'
 import type { TripDayDetail } from '../types/trip'
-import { activitiesById, commentCountsByActivity, commentsAbout, commentThreads } from './commentTree'
+import { activitiesById, commentCountsByActivity, commentsAbout, commentThreads, splitComments } from './commentTree'
 
 function comment(id: number, parentId: number | null = null): Comment {
   return {
@@ -55,6 +55,32 @@ describe('commentsAbout', () => {
 
   it('gives nothing for an activity nobody commented on', () => {
     expect(commentsAbout([about(1, 7), about(2, null)], 9)).toEqual([])
+  })
+})
+
+describe('splitComments', () => {
+  const about = (id: number, activityId: number | null, parentId: number | null = null): Comment => ({
+    ...comment(id, parentId),
+    activityId,
+  })
+
+  it('puts comments on the whole trip in one tab and comments on activities in the other, replies with their root', () => {
+    const { trip, activities } = splitComments([
+      about(1, null),
+      about(2, 7),
+      about(3, null, 1),
+      about(4, 8),
+      about(5, 7, 2),
+      about(6, null),
+    ])
+    expect(trip.map((c) => c.id)).toEqual([1, 3, 6])
+    expect(activities.map((c) => c.id)).toEqual([2, 4, 5])
+  })
+
+  it('leaves a tab empty when nobody wrote there', () => {
+    expect(splitComments([about(1, 7)]).trip).toEqual([])
+    expect(splitComments([about(1, null)]).activities).toEqual([])
+    expect(splitComments([])).toEqual({ trip: [], activities: [] })
   })
 })
 
