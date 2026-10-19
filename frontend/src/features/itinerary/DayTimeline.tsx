@@ -89,9 +89,15 @@ export function DayTimeline({
   const pendingIsHere = pendingRevealId !== null && Boolean(current?.activities.some((a) => a.id === pendingRevealId))
   useEffect(() => {
     if (!pendingIsHere || pendingRevealId === null) return
-    // Next frame: the comment panel that asked has closed by then and given the focus back to its button; the card
-    // takes it after that
-    const frame = requestAnimationFrame(() => {
+    // Wait until no dialog is open: the comment panel that asked slides out first, then closes and gives the focus
+    // back to the button that opened it (the browser may scroll to that button). The card takes the focus and the
+    // scroll after that, not before
+    let frame = 0
+    const attempt = () => {
+      if (document.querySelector('dialog[open]')) {
+        frame = requestAnimationFrame(attempt)
+        return
+      }
       useMapLinkStore.getState().clearPendingReveal()
       if (listShown) {
         revealActivity(pendingRevealId)
@@ -100,7 +106,8 @@ export function DayTimeline({
         revealWhenListShown.current = pendingRevealId
         setNarrowView('list')
       }
-    })
+    }
+    frame = requestAnimationFrame(attempt)
     return () => cancelAnimationFrame(frame)
   }, [pendingIsHere, pendingRevealId, listShown])
 

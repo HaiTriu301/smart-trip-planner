@@ -77,6 +77,33 @@
     from { opacity: 1; transform: scale(1); }
     to { opacity: 0; transform: scale(.96); }
   }
+
+  /* The side panel (comments, Task 4.6): slides in from the right edge while its backdrop fades in, and out the
+     same way, a little faster. Modal closes the dialog once panel-out has ended. Stopped by motion-reduce. */
+  --animate-panel-in: panel-in 200ms cubic-bezier(.2, .8, .2, 1);
+  --animate-panel-out: panel-out 150ms ease-in forwards;
+  --animate-backdrop-in: backdrop-in 200ms ease-out;
+  --animate-backdrop-out: backdrop-out 150ms ease-in forwards;
+
+  @keyframes panel-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes panel-out {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
+  }
+
+  @keyframes backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes backdrop-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
 }
 
 /* Semantic surface variables, ready for a dark theme toggle (not wired yet, UI_GUIDE 3.5) */
@@ -101,9 +128,10 @@
 /* Time figures always line up in columns */
 .tabular { font-variant-numeric: tabular-nums; }
 
-/* Respect the operating system's reduced motion setting */
+/* Respect the operating system's reduced motion setting. ::backdrop too: the dim layer behind a dialog fades
+   (Task 4.6) and is not covered by "*" */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *, *::before, *::after, *::backdrop {
     animation-duration: .01ms !important;
     transition-duration: .01ms !important;
   }

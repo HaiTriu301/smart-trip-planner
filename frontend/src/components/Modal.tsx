@@ -26,6 +26,14 @@ const DIALOG_FRAME = 'mx-auto mb-0 mt-auto max-h-[90vh] w-full max-w-none rounde
 // m-0 + ml-auto against the browser's fixed inset of 0: pinned to the right edge, full height
 const PANEL_FRAME = 'm-0 ml-auto h-dvh max-h-none w-full max-w-none border-0 lg:w-[360px] lg:rounded-l-panel lg:border-l lg:border-tide'
 
+// Slides in from the right edge as it opens, its backdrop fading in; out the same way (tokens.css, Task 4.6). One of
+// the two at a time: "open:" would otherwise keep the arriving animation while the panel leaves. Nothing can be
+// pressed while it leaves
+const PANEL_ARRIVING = 'open:animate-panel-in open:backdrop:animate-backdrop-in'
+const PANEL_LEAVING = 'pointer-events-none animate-panel-out backdrop:animate-backdrop-out'
+/** Length of panel-out in tokens.css */
+const PANEL_OUT_MS = 150
+
 const FOCUSABLE =
   'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href]'
 
@@ -48,6 +56,35 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', fo
   // Where the press of the current click started: a panel closes only when it started on the dim backdrop too
   const pressedOnBackdrop = useRef(false)
 
+  // A panel slides out before it closes (Task 4.6): for that short while it is still open, with its content, while
+  // `open` is already false. Set while rendering when `open` turns false (React's way to follow a prop change), not
+  // in an effect; reopening in the middle cancels it
+  const [wasOpen, setWasOpen] = useState(open)
+  const [closing, setClosing] = useState(false)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setClosing(!open && isPanel)
+  }
+
+  useEffect(() => {
+    if (!closing || !dialog) return
+    const finish = () => {
+      if (dialog.open) dialog.close()
+      setClosing(false)
+    }
+    // The end of the slide, not of the backdrop fade (both are reported on the dialog element)
+    const onAnimationEnd = (event: AnimationEvent) => {
+      if (event.target === dialog && event.animationName === 'panel-out') finish()
+    }
+    dialog.addEventListener('animationend', onAnimationEnd)
+    // In case no animationend ever comes (an animation the browser skipped): close anyway, a little after
+    const timer = window.setTimeout(finish, PANEL_OUT_MS + 100)
+    return () => {
+      dialog.removeEventListener('animationend', onAnimationEnd)
+      window.clearTimeout(timer)
+    }
+  }, [closing, dialog])
+
   useEffect(() => {
     if (!dialog) return
     if (open && !dialog.open) {
@@ -69,8 +106,9 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', fo
         )
         ?.focus()
     }
-    if (!open && dialog.open) dialog.close()
-  }, [open, dialog, isPanel])
+    // A closing panel is closed by the effect above once it has slid out
+    if (!open && !closing && dialog.open) dialog.close()
+  }, [open, closing, dialog, isPanel])
 
   return (
     <dialog
@@ -99,10 +137,10 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', fo
       // A column only while open ("open:"): a display set on the closed dialog would override the browser rule
       // that hides it
       className={`overflow-hidden bg-white p-0 text-ink shadow-lg backdrop:bg-ink/45 open:flex open:flex-col ${
-        isPanel ? PANEL_FRAME : `${DIALOG_FRAME} ${WIDTHS[size]}`
+        isPanel ? `${PANEL_FRAME} ${closing ? PANEL_LEAVING : PANEL_ARRIVING}` : `${DIALOG_FRAME} ${WIDTHS[size]}`
       }`}
     >
-      {open && (
+      {(open || closing) && (
         <OverlayContainerContext.Provider value={dialog}>
           <div
             className={`flex shrink-0 items-start justify-between gap-4 ${
