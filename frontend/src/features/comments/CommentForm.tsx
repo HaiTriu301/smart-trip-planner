@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,6 +9,7 @@ import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { TextAreaField } from '../../components/TextAreaField'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { draftFor, useCommentPanelStore } from '../../stores/commentPanelStore'
 import type { Comment } from '../../types/comment'
 import { COMMENT_MAX_LENGTH, commentSchema, type CommentValues } from './schemas'
 
@@ -60,7 +61,14 @@ export function CommentForm({ tripId, activityId, replyTo, onCancelReply, onSent
     mode: 'onSubmit',
     reValidateMode: 'onChange',
     resolver: zodResolver(commentSchema),
-    defaultValues: { content: '' },
+    // The text left when the panel was closed (Task 4.6 Mốc 12): read once, when the panel opens
+    defaultValues: { content: draftFor(tripId) },
+  })
+
+  // Every keystroke is kept, so closing the panel (a click outside, Esc) loses nothing
+  const contentField = register('content', {
+    onChange: (event: ChangeEvent<HTMLTextAreaElement>) =>
+      useCommentPanelStore.getState().saveDraft(tripId, event.target.value),
   })
 
   const mutation = useMutation({
@@ -71,7 +79,9 @@ export function CommentForm({ tripId, activityId, replyTo, onCancelReply, onSent
       // Shown at once from the answer; the reload that follows also brings what others wrote meanwhile
       queryClient.setQueryData<Comment[]>(commentsKey(tripId), (comments) => comments && [...comments, created])
       void queryClient.invalidateQueries({ queryKey: commentsKey(tripId) })
-      reset()
+      // Empty, not back to the draft the box started with; sent, so no draft any more
+      reset({ content: '' })
+      useCommentPanelStore.getState().clearDraft()
       setRound((value) => value + 1)
       onSent(created)
     },
@@ -134,7 +144,7 @@ export function CommentForm({ tripId, activityId, replyTo, onCancelReply, onSent
         maxLength={COMMENT_MAX_LENGTH}
         error={errors.content?.message}
         onKeyDown={sendOnCtrlEnter}
-        {...register('content')}
+        {...contentField}
       />
       <div className="flex justify-end">
         <Button type="submit" fullWidth={onPhone} isLoading={mutation.isPending}>

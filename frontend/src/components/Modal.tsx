@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { OverlayContainerContext } from './overlayContainer'
 
@@ -45,6 +45,8 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', fo
   const [dialog, setDialog] = useState<HTMLDialogElement | null>(null)
   const titleId = useId()
   const isPanel = layout === 'panel'
+  // Where the press of the current click started: a panel closes only when it started on the dim backdrop too
+  const pressedOnBackdrop = useRef(false)
 
   useEffect(() => {
     if (!dialog) return
@@ -82,6 +84,17 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', fo
         event.preventDefault()
         event.stopPropagation()
         onClose()
+      }}
+      // A panel closes on a click on the dim backdrop (Task 4.6): it is read more than filled, and its draft is kept
+      // by its owner. A dialog with a form does not: a stray click would lose what was typed. The dialog element
+      // itself is only hit on its backdrop (its content fills it), and both the press and the release must land
+      // there: selecting text inside and letting go outside is not a click outside. A dialog opened over the panel
+      // (a confirmation) is its own target, so a click on its backdrop does not close the panel
+      onPointerDown={(event) => {
+        pressedOnBackdrop.current = event.target === event.currentTarget
+      }}
+      onClick={(event) => {
+        if (isPanel && pressedOnBackdrop.current && event.target === event.currentTarget) onClose()
       }}
       // A column only while open ("open:"): a display set on the closed dialog would override the browser rule
       // that hides it

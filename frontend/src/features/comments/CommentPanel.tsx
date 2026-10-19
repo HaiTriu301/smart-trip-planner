@@ -52,11 +52,13 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Leaving the trip page, or going to another trip, closes the panel: the stores outlive this page. A card asked
-  // for from a comment and never shown (its activity moved meanwhile) is forgotten too
+  // Leaving the trip page, or going to another trip, closes the panel: the stores outlive this page. The draft of
+  // the comment box and a card asked for from a comment and never shown (its activity moved meanwhile) go too
   useEffect(
     () => () => {
-      useCommentPanelStore.getState().closePanel()
+      const panel = useCommentPanelStore.getState()
+      panel.closePanel()
+      panel.clearDraft()
       useMapLinkStore.getState().clearPendingReveal()
     },
     [tripId],
