@@ -8,8 +8,10 @@ import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
+import { useNow } from '../../hooks/useNow'
 import { commentThreads } from '../../lib/commentTree'
-import { formatDayMonthIn } from '../../lib/format'
+import { formatDateTimeIn } from '../../lib/format'
+import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
 import type { Comment } from '../../types/comment'
@@ -145,14 +147,29 @@ function CommentItem({ comment, timeZone, isReply = false, children }: CommentIt
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{comment.author.fullName}</span>
-          <time dateTime={comment.createdAt} className="tabular text-xs leading-4 text-gray-500">
-            {formatDayMonthIn(comment.createdAt, timeZone)}
-          </time>
+          <CommentTime instant={comment.createdAt} timeZone={timeZone} />
         </p>
         <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
         {children}
       </div>
     </li>
+  )
+}
+
+/**
+ * "5 phút trước", moving on by itself while the panel stays open; the full date and time on hover. The only part
+ * of a comment that reads the clock, so the list does not redraw every minute.
+ */
+function CommentTime({ instant, timeZone }: { instant: string; timeZone: string }) {
+  const now = useNow()
+  return (
+    <time
+      dateTime={instant}
+      title={formatDateTimeIn(instant, timeZone)}
+      className="tabular text-xs leading-4 text-gray-500"
+    >
+      {relativeTime(instant, now, timeZone)}
+    </time>
   )
 }
 
