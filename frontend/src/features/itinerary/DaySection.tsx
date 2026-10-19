@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Flag, Pencil, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deleteActivity } from '../../api/activities'
+import { commentsKey, listComments } from '../../api/comments'
 import { getDayRoute } from '../../api/routes'
 import { updateTripDay } from '../../api/trips'
 import { applyFieldErrors, getErrorMessage } from '../../api/errors'
@@ -16,6 +17,7 @@ import { ExpandableText } from '../../components/ExpandableText'
 import { FormField } from '../../components/FormField'
 import { TextAreaField } from '../../components/TextAreaField'
 import { useToday } from '../../hooks/useToday'
+import { commentCountsByActivity } from '../../lib/commentTree'
 import { formatDate, formatWeekday } from '../../lib/format'
 import { findOverlaps } from '../../lib/timeOverlap'
 import { dayStatus } from '../../lib/today'
@@ -78,11 +80,17 @@ export function DaySection({ tripId, day, days, tripCurrency, canEdit, onMoveToD
   const legs = legsAfter(day.activities, route?.legs ?? [])
   const titleOf = (activityId: number) => day.activities.find((a) => a.id === activityId)?.title
 
+  // The same list as the "Bình luận" button of the trip header (one request for the page): the number on each card
+  const { data: comments } = useQuery({ queryKey: commentsKey(tripId), queryFn: () => listComments(tripId) })
+  const commentCounts = useMemo(() => commentCountsByActivity(comments ?? []), [comments])
+
   const deletion = useMutation({
     mutationFn: (activity: Activity) => deleteActivity(tripId, activity.id),
     onSuccess: async () => {
       // The two neighbours of the deleted activity now follow each other: a leg the server has not sent yet
       void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
+      // Its comments went with it on the server (design.md rule 27): the count in the header must drop now
+      void queryClient.invalidateQueries({ queryKey: commentsKey(tripId) })
       await queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
       setDeleting(null)
       toast.success('Đã xoá hoạt động')
@@ -204,6 +212,7 @@ export function DaySection({ tripId, day, days, tripCurrency, canEdit, onMoveToD
                     activity={activity}
                     dragHandle={dragHandle}
                     overlapping={overlaps.has(activity.id)}
+                    commentCount={commentCounts.get(activity.id) ?? 0}
                     {...(canEdit && {
                       onEdit: () => setEditing(activity),
                       onDelete: () => {

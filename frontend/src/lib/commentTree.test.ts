@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Activity } from '../types/activity'
 import type { Comment } from '../types/comment'
 import type { TripDayDetail } from '../types/trip'
-import { activitiesById, commentsAbout, commentThreads } from './commentTree'
+import { activitiesById, commentCountsByActivity, commentsAbout, commentThreads } from './commentTree'
 
 function comment(id: number, parentId: number | null = null): Comment {
   return {
@@ -55,6 +55,26 @@ describe('commentsAbout', () => {
 
   it('gives nothing for an activity nobody commented on', () => {
     expect(commentsAbout([about(1, 7), about(2, null)], 9)).toEqual([])
+  })
+})
+
+describe('commentCountsByActivity', () => {
+  const about = (id: number, activityId: number | null, parentId: number | null = null): Comment => ({
+    ...comment(id, parentId),
+    activityId,
+  })
+
+  it('counts the comments of each activity, replies included', () => {
+    const counts = commentCountsByActivity([about(1, 7), about(2, 7, 1), about(3, 8), about(4, 7), about(5, 7, 4)])
+    expect(counts.get(7)).toBe(4)
+    expect(counts.get(8)).toBe(1)
+  })
+
+  it('leaves out comments on the whole trip, and activities without comments', () => {
+    const counts = commentCountsByActivity([about(1, null), about(2, null, 1), about(3, 8)])
+    expect(Array.from(counts.entries())).toEqual([[8, 1]])
+    expect(counts.get(7)).toBeUndefined()
+    expect(commentCountsByActivity([]).size).toBe(0)
   })
 })
 

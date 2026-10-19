@@ -35,6 +35,19 @@ export function commentsAbout(comments: Comment[], activityId: number): Comment[
 }
 
 /**
+ * How many comments each activity has, replies included (they carry the activity of their root): the number on the
+ * button of its card. An activity nobody commented on is not in the map. Counted on the screen from the list, since
+ * ActivityResponse has no commentCount (design.md 10.2).
+ */
+export function commentCountsByActivity(comments: Comment[]): Map<number, number> {
+  const counts = new Map<number, number>()
+  for (const { activityId } of comments) {
+    if (activityId !== null) counts.set(activityId, (counts.get(activityId) ?? 0) + 1)
+  }
+  return counts
+}
+
+/**
  * Every activity of the trip by its id, whatever its day: what a comment's activityId names (its title and type for
  * the chip). An id missing from the map is an activity the trip as loaded does not have (deleted, or added after
  * the page loaded): the comment is shown without a chip rather than hidden.
