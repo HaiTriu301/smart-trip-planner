@@ -23,3 +23,11 @@ export interface Comment {
   /** ISO Instant */
   createdAt: string
 }
+
+/**
+ * Body of POST /trips/{tripId}/comments: content of 1–2000 characters, measured before the server trims it. The
+ * author is the signed-in user, never sent (CLAUDE.md rule 16).
+ */
+export interface CreateCommentRequest {
+  content: string
+}

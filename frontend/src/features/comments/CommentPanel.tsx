@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useIsMutating, useQuery } from '@tanstack/react-query'
 import { MessageCircle } from 'lucide-react'
-import { commentsKey, listComments } from '../../api/comments'
+import { commentsKey, createCommentKey, listComments } from '../../api/comments'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
 import { Avatar } from '../../components/Avatar'
@@ -15,6 +15,7 @@ import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
 import type { Comment } from '../../types/comment'
+import { CommentForm } from './CommentForm'
 
 /**
  * "Bình luận" in the trip header (UI_GUIDE 8.1, Task 4.6): a secondary button with the number of comments of the
@@ -24,7 +25,11 @@ import type { Comment } from '../../types/comment'
  */
 export function CommentButton({ tripId }: { tripId: number }) {
   const [open, setOpen] = useState(false)
+  // How many comments were sent since the page opened: each one asks the list to scroll down to it
+  const [sent, setSent] = useState(0)
   const { data: comments } = useQuery({ queryKey: commentsKey(tripId), queryFn: () => listComments(tripId) })
+  // Esc and "×" wait for the server: closing would leave its answer (an error under the box) nowhere (BUG-UI-004)
+  const isSending = useIsMutating({ mutationKey: createCommentKey(tripId) }) > 0
   const count = comments?.length ?? 0
   return (
     <>
@@ -34,8 +39,14 @@ export function CommentButton({ tripId }: { tripId: number }) {
         {count > 0 && <span className="tabular">· {count}</span>}
       </Button>
       {/* A panel over the page: the sharing dialog cannot be opened at the same time */}
-      <Modal open={open} onClose={() => setOpen(false)} title="Bình luận" layout="panel">
-        <CommentList tripId={tripId} />
+      <Modal
+        open={open}
+        onClose={() => !isSending && setOpen(false)}
+        title="Bình luận"
+        layout="panel"
+        footer={<CommentForm tripId={tripId} onSent={() => setSent((value) => value + 1)} />}
+      >
+        <CommentList tripId={tripId} sent={sent} />
       </Modal>
     </>
   )
@@ -48,9 +59,9 @@ const NEAR_END = 48
  * The comments of the trip, oldest at the top like a conversation. Mounted each time the panel opens, which asks
  * for the list again: comments written by others since the page loaded show up (no live updates before Phase 5).
  * The panel opens scrolled to the end, and stays at the end when new comments arrive while the reader is there;
- * someone reading further up is not pulled down.
+ * someone reading further up is not pulled down, unless they have just sent a comment: then it goes down to it.
  */
-function CommentList({ tripId }: { tripId: number }) {
+function CommentList({ tripId, sent }: { tripId: number; sent: number }) {
   const timeZone = useAuthStore((state) => state.user?.timezone) ?? DEFAULT_TIME_ZONE
   const { data: comments, error, isPending, isFetching, refetch } = useQuery({
     queryKey: commentsKey(tripId),
@@ -60,6 +71,7 @@ function CommentList({ tripId }: { tripId: number }) {
   const end = useRef<HTMLDivElement>(null)
   // Starts true: the panel opens at the end
   const atEnd = useRef(true)
+  const sentBefore = useRef(sent)
 
   useEffect(() => {
     const body = end.current?.closest<HTMLElement>('[data-modal-body]')
@@ -72,7 +84,9 @@ function CommentList({ tripId }: { tripId: number }) {
   }, [])
 
   useEffect(() => {
-    if (!comments || !atEnd.current) return
+    const justSent = sent !== sentBefore.current
+    sentBefore.current = sent
+    if (!comments || !(atEnd.current || justSent)) return
     // The dialog is still closed while this runs on opening (its showModal() comes after the effects of its
     // content) and a closed dialog has no size to scroll: wait for the next frame
     const frame = requestAnimationFrame(() => {
@@ -80,7 +94,7 @@ function CommentList({ tripId }: { tripId: number }) {
       if (body) body.scrollTop = body.scrollHeight
     })
     return () => cancelAnimationFrame(frame)
-  }, [comments])
+  }, [comments, sent])
 
   const retry = (
     <Button variant="secondary" fullWidth={false} isLoading={isFetching} onClick={() => refetch()}>
@@ -109,7 +123,7 @@ function CommentList({ tripId }: { tripId: number }) {
         </div>
       )}
       {threads.length === 0 ? (
-        <p className="text-sm text-gray-500">Chưa có bình luận nào.</p>
+        <p className="text-sm text-gray-500">Chưa có bình luận nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới.</p>
       ) : (
         <ul className="space-y-4">
           {threads.map(({ comment, replies }) => (

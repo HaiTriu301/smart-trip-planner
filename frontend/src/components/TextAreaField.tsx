@@ -5,6 +5,8 @@ import { controlClass, describedBy } from './fieldStyles'
 
 type TextAreaFieldProps = Omit<ComponentProps<'textarea'>, 'rows'> & {
   label: string
+  /** Label for screen readers only (FieldShell hideLabel) */
+  hideLabel?: boolean
   hint?: string
   error?: string
 }
@@ -26,6 +28,7 @@ function fitHeight(node: HTMLTextAreaElement) {
  */
 export function TextAreaField({
   label,
+  hideLabel,
   hint,
   error,
   required,
@@ -66,6 +69,7 @@ export function TextAreaField({
     <FieldShell
       id={inputId}
       label={label}
+      hideLabel={hideLabel}
       required={required}
       hint={hint}
       error={error}

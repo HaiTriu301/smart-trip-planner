@@ -14,6 +14,8 @@ interface ModalProps {
    * (UI_GUIDE 7.6, Task 4.6)
    */
   layout?: 'dialog' | 'panel'
+  /** Panel only: stays at the bottom under a rule while the content scrolls, e.g. the comment box (Task 4.6) */
+  footer?: ReactNode
   children: ReactNode
 }
 
@@ -38,7 +40,7 @@ const FOCUSABLE =
  * the end of <body> where the dialog would cover them (Task 4.9).
  * The panel layout (Task 4.6) is the same dialog along the right edge, for reading more than for filling a form.
  */
-export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', children }: ModalProps) {
+export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', footer, children }: ModalProps) {
   // State rather than a ref: the children need the element itself, through the context, to draw into it
   const [dialog, setDialog] = useState<HTMLDialogElement | null>(null)
   const titleId = useId()
@@ -109,9 +111,12 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', ch
           </div>
           {/* The only part that scrolls. min-h-0 lets it shrink below its content inside the column */}
           {isPanel ? (
-            <div data-modal-body tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-5 py-4 focus:outline-none">
-              {children}
-            </div>
+            <>
+              <div data-modal-body tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-5 py-4 focus:outline-none">
+                {children}
+              </div>
+              {footer && <div className="shrink-0 border-t border-tide px-5 py-4">{footer}</div>}
+            </>
           ) : (
             <div className="min-h-0 space-y-4 overflow-y-auto px-6 pb-6">{children}</div>
           )}

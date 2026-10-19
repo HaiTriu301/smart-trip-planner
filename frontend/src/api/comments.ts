@@ -1,6 +1,6 @@
 import { apiClient } from './client'
 import type { ApiResponse } from '../types/api'
-import type { Comment } from '../types/comment'
+import type { Comment, CreateCommentRequest } from '../types/comment'
 
 /**
  * Cache key of the comments of a trip: the trip page, the header button and the panel all read the same list, so
@@ -14,5 +14,17 @@ export const commentsKey = (tripId: number) => ['comments', tripId]
  */
 export async function listComments(tripId: number): Promise<Comment[]> {
   const { data } = await apiClient.get<ApiResponse<Comment[]>>(`/trips/${tripId}/comments`)
+  return data.data
+}
+
+/** Names the post mutation, so the comment panel stays open until the server has answered (BUG-UI-004). */
+export const createCommentKey = (tripId: number) => ['create-comment', tripId]
+
+/**
+ * Posts a comment (anybody who can see the trip, design.md 6.2) → 201 with the stored comment. 400 VALIDATION_ERROR
+ * on field content when it is blank or longer than 2000 characters; 404 when the trip is gone.
+ */
+export async function createComment(tripId: number, body: CreateCommentRequest): Promise<Comment> {
+  const { data } = await apiClient.post<ApiResponse<Comment>>(`/trips/${tripId}/comments`, body)
   return data.data
 }
