@@ -3,7 +3,8 @@ import { initials } from '../lib/initials'
 interface AvatarProps {
   /** null for an invited email without an account */
   name: string | null
-  email: string
+  /** Only for the initials of an invited email without a name: a comment author has a name and no email */
+  email?: string
   url: string | null
   /** An invitation not accepted yet: amber instead of jade, as in the Stitch mockup (Task 4.5) */
   pending?: boolean
@@ -22,7 +23,7 @@ export function Avatar({ name, email, url, pending = false }: AvatarProps) {
         pending ? 'bg-warning/15 text-gray-800' : 'bg-jade-light text-jade-dark'
       }`}
     >
-      {initials(name, email)}
+      {initials(name, email ?? '')}
     </span>
   )
 }

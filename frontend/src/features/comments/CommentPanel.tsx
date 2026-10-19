@@ -1,0 +1,159 @@
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { MessageCircle } from 'lucide-react'
+import { commentsKey, listComments } from '../../api/comments'
+import { getErrorMessage } from '../../api/errors'
+import { Alert } from '../../components/Alert'
+import { Avatar } from '../../components/Avatar'
+import { Button } from '../../components/Button'
+import { Modal } from '../../components/Modal'
+import { Skeleton } from '../../components/Skeleton'
+import { formatDayMonthIn } from '../../lib/format'
+import { DEFAULT_TIME_ZONE } from '../../lib/today'
+import { useAuthStore } from '../../stores/authStore'
+import type { Comment } from '../../types/comment'
+
+/**
+ * "Bình luận" in the trip header (UI_GUIDE 8.1, Task 4.6): a secondary button with the number of comments of the
+ * trip, replies included, that opens the comment panel. Every role sees it: anybody who can see the trip can read
+ * and write comments (design.md 6.2). The list is asked for with the page, since the count needs it; a failed load
+ * only leaves the count out.
+ */
+export function CommentButton({ tripId }: { tripId: number }) {
+  const [open, setOpen] = useState(false)
+  const { data: comments } = useQuery({ queryKey: commentsKey(tripId), queryFn: () => listComments(tripId) })
+  const count = comments?.length ?? 0
+  return (
+    <>
+      <Button variant="secondary" fullWidth={false} onClick={() => setOpen(true)}>
+        <MessageCircle aria-hidden className="size-4" />
+        Bình luận
+        {count > 0 && <span className="tabular">· {count}</span>}
+      </Button>
+      {/* A panel over the page: the sharing dialog cannot be opened at the same time */}
+      <Modal open={open} onClose={() => setOpen(false)} title="Bình luận" layout="panel">
+        <CommentList tripId={tripId} />
+      </Modal>
+    </>
+  )
+}
+
+/** How close to the end (px) still counts as "reading the latest comments" */
+const NEAR_END = 48
+
+/**
+ * The comments of the trip, oldest at the top like a conversation. Mounted each time the panel opens, which asks
+ * for the list again: comments written by others since the page loaded show up (no live updates before Phase 5).
+ * The panel opens scrolled to the end, and stays at the end when new comments arrive while the reader is there;
+ * someone reading further up is not pulled down.
+ */
+function CommentList({ tripId }: { tripId: number }) {
+  const timeZone = useAuthStore((state) => state.user?.timezone) ?? DEFAULT_TIME_ZONE
+  const { data: comments, error, isPending, isFetching, refetch } = useQuery({
+    queryKey: commentsKey(tripId),
+    queryFn: () => listComments(tripId),
+    refetchOnMount: 'always',
+  })
+  const end = useRef<HTMLDivElement>(null)
+  // Starts true: the panel opens at the end
+  const atEnd = useRef(true)
+
+  useEffect(() => {
+    const body = end.current?.closest<HTMLElement>('[data-modal-body]')
+    if (!body) return
+    const onScroll = () => {
+      atEnd.current = body.scrollHeight - body.scrollTop - body.clientHeight < NEAR_END
+    }
+    body.addEventListener('scroll', onScroll)
+    return () => body.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    if (!comments || !atEnd.current) return
+    // The dialog is still closed while this runs on opening (its showModal() comes after the effects of its
+    // content) and a closed dialog has no size to scroll: wait for the next frame
+    const frame = requestAnimationFrame(() => {
+      const body = end.current?.closest<HTMLElement>('[data-modal-body]')
+      if (body) body.scrollTop = body.scrollHeight
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [comments])
+
+  const retry = (
+    <Button variant="secondary" fullWidth={false} isLoading={isFetching} onClick={() => refetch()}>
+      Thử lại
+    </Button>
+  )
+
+  if (isPending) return <CommentListSkeleton />
+  if (!comments) {
+    return (
+      <div className="space-y-3">
+        <Alert variant="error">{getErrorMessage(error)}</Alert>
+        {retry}
+      </div>
+    )
+  }
+
+  // Root comments only: replies are not shown yet
+  const roots = comments.filter((comment) => comment.parentId === null)
+  return (
+    <div className="space-y-4">
+      {/* A reload failed while comments were on screen: keep them (BUG-UI-005) */}
+      {error && (
+        <div className="space-y-3">
+          <Alert variant="error">{`${getErrorMessage(error)}. Đang hiển thị bình luận đã tải trước đó.`}</Alert>
+          {retry}
+        </div>
+      )}
+      {roots.length === 0 ? (
+        <p className="text-sm text-gray-500">Chưa có bình luận nào.</p>
+      ) : (
+        <ul className="space-y-4">
+          {roots.map((comment) => (
+            <CommentItem key={comment.id} comment={comment} timeZone={timeZone} />
+          ))}
+        </ul>
+      )}
+      <div ref={end} />
+    </div>
+  )
+}
+
+/** Picture, name and date on one line, then the text: plain, line breaks kept, long words broken. */
+function CommentItem({ comment, timeZone }: { comment: Comment; timeZone: string }) {
+  return (
+    <li className="flex gap-3">
+      <Avatar name={comment.author.fullName} url={comment.author.avatarUrl} />
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{comment.author.fullName}</span>
+          <time dateTime={comment.createdAt} className="tabular text-xs leading-4 text-gray-500">
+            {formatDayMonthIn(comment.createdAt, timeZone)}
+          </time>
+        </p>
+        <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
+      </div>
+    </li>
+  )
+}
+
+/** Three comments in outline while the list loads (UI_GUIDE 8.1). */
+function CommentListSkeleton() {
+  return (
+    <div className="space-y-4" role="status" aria-label="Đang tải bình luận">
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="flex gap-3">
+          {/* Round by clipping: a radius class next to the Skeleton's own would have no sure winner (BUG-UI-001) */}
+          <div className="size-8 shrink-0 overflow-hidden rounded-full">
+            <Skeleton className="size-full" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
