@@ -163,7 +163,14 @@ export function Modal({ open, title, onClose, size = 'md', layout = 'dialog', fo
           {/* The only part that scrolls. min-h-0 lets it shrink below its content inside the column */}
           {isPanel ? (
             <>
-              <div data-modal-body tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto px-5 py-4 focus:outline-none">
+              {/* Scrolls without a visible scrollbar (wheel, touch, arrow keys still work; Task 4.6): on a 360px
+                  panel the bar only takes room. Firefox: the scrollbar-width property, Chrome / Safari / Edge: the
+                  ::-webkit-scrollbar pseudo-element */}
+              <div
+                data-modal-body
+                tabIndex={-1}
+                className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] focus:outline-none [&::-webkit-scrollbar]:hidden"
+              >
                 {children}
               </div>
               {footer && <div className="shrink-0 border-t border-tide px-5 py-4">{footer}</div>}

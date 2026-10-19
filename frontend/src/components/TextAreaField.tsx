@@ -8,8 +8,9 @@ type TextAreaFieldProps = Omit<ComponentProps<'textarea'>, 'rows'> & {
   /** Label for screen readers only (FieldShell hideLabel) */
   hideLabel?: boolean
   /**
-   * false: always 3 lines tall, a long text scrolls inside. For a box whose growth would squeeze what is around it,
-   * like the comment box fixed at the bottom of the comment panel (Task 4.6)
+   * false: always 3 lines tall, a long text scrolls inside without a visible scrollbar (wheel, touch and the
+   * caret still scroll it). For a box whose growth would squeeze what is around it, like the comment box fixed at
+   * the bottom of the comment panel (Task 4.6)
    */
   autoGrow?: boolean
   hint?: string
@@ -96,7 +97,8 @@ export function TextAreaField({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(inputId, error, hint)}
         onChange={handleChange}
-        className={`${autoGrow ? 'field-sizing-content max-h-[210px] min-h-[90px]' : 'h-[90px]'} w-full resize-none overflow-y-auto px-3 py-2 leading-6 ${controlClass(Boolean(error))} ${className ?? ''}`}
+        // Fixed box: no scrollbar drawn in it (Firefox: scrollbar-width, Chrome / Safari / Edge: ::-webkit-scrollbar)
+        className={`${autoGrow ? 'field-sizing-content max-h-[210px] min-h-[90px]' : 'h-[90px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'} w-full resize-none overflow-y-auto px-3 py-2 leading-6 ${controlClass(Boolean(error))} ${className ?? ''}`}
         {...textareaProps}
       />
     </FieldShell>
