@@ -58,6 +58,46 @@ export function commentCountsByActivity(comments: Comment[]): Map<number, number
   return counts
 }
 
+/** One row of the "Hoạt động" tab: an activity people are talking about. */
+export interface DiscussedActivity {
+  activity: Activity
+  /** Its comments, replies included */
+  count: number
+  /** The newest of them, a reply or not: the preview line of the row */
+  latest: Comment
+}
+
+/** The activities of one day that have comments, in the order of the day. */
+export interface DiscussedDay {
+  day: TripDayDetail
+  activities: DiscussedActivity[]
+}
+
+/**
+ * The "Hoạt động" tab of the comment panel (Task 4.6 decision 15): the activities that have comments, grouped by
+ * day, in the order of the itinerary (not of the comments), each with how many comments it has and the newest one.
+ * Days without such an activity are left out. A comment on an activity the trip as loaded does not have (deleted
+ * meanwhile) is left out too: there is no row to put it in.
+ */
+export function activitiesUnderDiscussion(comments: Comment[], days: TripDayDetail[]): DiscussedDay[] {
+  const counts = commentCountsByActivity(comments)
+  // The list is oldest first: the last comment seen for an activity is its newest
+  const latest = new Map<number, Comment>()
+  for (const comment of comments) {
+    if (comment.activityId !== null) latest.set(comment.activityId, comment)
+  }
+  return [...days]
+    .sort((a, b) => a.dayIndex - b.dayIndex)
+    .map((day) => ({
+      day,
+      activities: day.activities.flatMap((activity) => {
+        const newest = latest.get(activity.id)
+        return newest ? [{ activity, count: counts.get(activity.id) ?? 0, latest: newest }] : []
+      }),
+    }))
+    .filter((discussed) => discussed.activities.length > 0)
+}
+
 /**
  * Every activity of the trip by its id, whatever its day: what a comment's activityId names (its title and type for
  * the chip). An id missing from the map is an activity the trip as loaded does not have (deleted, or added after

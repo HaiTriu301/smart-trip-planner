@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { Activity } from '../types/activity'
 import type { Comment } from '../types/comment'
 import type { TripDayDetail } from '../types/trip'
-import { activitiesById, commentCountsByActivity, commentsAbout, commentThreads, splitComments } from './commentTree'
+import {
+  activitiesById,
+  activitiesUnderDiscussion,
+  commentCountsByActivity,
+  commentsAbout,
+  commentThreads,
+  splitComments,
+} from './commentTree'
 
 function comment(id: number, parentId: number | null = null): Comment {
   return {
@@ -128,6 +135,52 @@ function activity(id: number, title: string): Activity {
 function day(dayIndex: number, activities: Activity[]): TripDayDetail {
   return { id: dayIndex, dayIndex, date: `2026-10-${10 + dayIndex}`, title: null, note: null, activities }
 }
+
+describe('activitiesUnderDiscussion', () => {
+  const about = (id: number, activityId: number | null, parentId: number | null = null): Comment => ({
+    ...comment(id, parentId),
+    activityId,
+  })
+  const titles = (discussed: ReturnType<typeof activitiesUnderDiscussion>) =>
+    discussed.map(({ day, activities }) => [day.dayIndex, activities.map((a) => a.activity.title)])
+
+  const days = [
+    day(1, [activity(11, 'Chùa Linh Ứng'), activity(12, 'Bún chả cá 109'), activity(13, 'Cầu Rồng')]),
+    day(2, [activity(21, 'Bà Nà Hills')]),
+    day(3, [activity(31, 'Hội An'), activity(32, 'Chợ đêm')]),
+  ]
+
+  it('groups the activities with comments by day, in the order of the itinerary, not of the comments', () => {
+    const comments = [about(1, 32), about(2, 13), about(3, 11), about(4, null), about(5, 31)]
+    expect(titles(activitiesUnderDiscussion(comments, days))).toEqual([
+      [1, ['Chùa Linh Ứng', 'Cầu Rồng']],
+      [3, ['Hội An', 'Chợ đêm']],
+    ])
+  })
+
+  it('counts replies and takes the newest comment, a reply included, for the preview', () => {
+    const comments = [about(1, 12), about(2, 12, 1), about(3, 11), about(4, 12), about(5, 12, 4)]
+    const [{ activities }] = activitiesUnderDiscussion(comments, days)
+    const food = activities.find((a) => a.activity.id === 12)
+    expect(food?.count).toBe(4)
+    expect(food?.latest.id).toBe(5)
+    expect(activities.find((a) => a.activity.id === 11)?.latest.id).toBe(3)
+  })
+
+  it('leaves out days without discussion and comments on an activity the trip no longer has', () => {
+    expect(titles(activitiesUnderDiscussion([about(1, 21), about(2, 99)], days))).toEqual([[2, ['Bà Nà Hills']]])
+    expect(activitiesUnderDiscussion([about(1, null)], days)).toEqual([])
+    expect(activitiesUnderDiscussion([], days)).toEqual([])
+  })
+
+  it('follows the day numbers even when the days come in another order', () => {
+    const comments = [about(1, 31), about(2, 11)]
+    expect(titles(activitiesUnderDiscussion(comments, [days[2], days[0]]))).toEqual([
+      [1, ['Chùa Linh Ứng']],
+      [3, ['Hội An']],
+    ])
+  })
+})
 
 describe('activitiesById', () => {
   it('finds an activity of any day by its id', () => {

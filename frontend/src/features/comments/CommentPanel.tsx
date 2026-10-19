@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MapPin, MessageCircle, Trash2, X } from 'lucide-react'
+import { ChevronRight, MapPin, MessageCircle, Trash2, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { commentsKey, createCommentKey, deleteComment, listComments } from '../../api/comments'
 import { getErrorMessage } from '../../api/errors'
@@ -11,8 +11,15 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
 import { useNow } from '../../hooks/useNow'
-import { activitiesById, commentsAbout, commentThreads, splitComments } from '../../lib/commentTree'
-import { formatDateTimeIn } from '../../lib/format'
+import {
+  activitiesById,
+  activitiesUnderDiscussion,
+  commentsAbout,
+  commentThreads,
+  splitComments,
+  type DiscussedDay,
+} from '../../lib/commentTree'
+import { formatDate, formatDateTimeIn, formatWeekday } from '../../lib/format'
 import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
@@ -24,7 +31,6 @@ import type { Comment } from '../../types/comment'
 import type { TripRole } from '../../types/member'
 import type { TripDayDetail, TripDetail } from '../../types/trip'
 import { ACTIVITY_ROUTE } from '../itinerary/activityType'
-import { ActivityChip } from './ActivityChip'
 import { CommentForm } from './CommentForm'
 import { canDeleteComment, withoutDeleted } from './commentRules'
 
@@ -71,7 +77,7 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
     setReplyTo(null)
   }
 
-  // The chip of a comment: close the panel, go to the day of the activity and show its card there (UI_GUIDE 8.1)
+  // "Xem trong lịch trình": close the panel, go to the day of the activity and show its card there (UI_GUIDE 8.1)
   function showActivity(activity: Activity) {
     const day = trip.days.find((d) => d.id === activity.dayId)
     if (!day || isSending) return
@@ -98,7 +104,7 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
         footer={
           // A comment on an activity is written from that activity: the "Hoạt động" tab only reads
           activityId === null && tab === 'activities' ? (
-            <p className="text-sm text-gray-600">Bấm nút bình luận trên thẻ hoạt động để viết về hoạt động đó.</p>
+            <p className="text-sm text-gray-600">Chọn một hoạt động để xem và viết bình luận.</p>
           ) : (
             <CommentForm
               tripId={tripId}
@@ -126,6 +132,10 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
             setReplyTo(null)
             showTab(next)
           }}
+          onOpenActivity={(id) => {
+            setReplyTo(null)
+            openPanel(id)
+          }}
           onShowActivity={showActivity}
           // The comment being answered is gone: the box goes back to a new comment
           onDeleted={(commentId) => setReplyTo((current) => (current?.id === commentId ? null : current))}
@@ -146,10 +156,9 @@ const NEAR_END = 48
  * comment, under its root for a reply.
  * <p>
  * Two tabs (Task 4.6 decision 15): "Chung", the comments on the whole trip, a conversation with the box below;
- * "Hoạt động", the comments on activities, only read here (each with the chip of its activity, which leads to its
- * card). Opened from an activity card, it shows only the comments about that activity, under a chip "{activity} ×"
- * that goes back to the "Hoạt động" tab and a button to that activity in the itinerary; those comments carry no chip
- * of their own (they are all about that activity).
+ * "Hoạt động", the activities that have comments, by day, each opening its own comments. One activity (from that
+ * list or from its card) shows its comments under a chip "{activity} ×" that goes back to the "Hoạt động" tab and a
+ * button to that activity in the itinerary, with the box below for a comment about it.
  * <p>
  * Its author and the owner of the trip can delete a comment, after a confirmation that says when its replies go
  * with it. The comment leaves the list at once, then the list is reloaded.
@@ -163,6 +172,7 @@ function CommentList({
   sentId,
   onReply,
   onShowTab,
+  onOpenActivity,
   onShowActivity,
   onDeleted,
 }: {
@@ -178,7 +188,9 @@ function CommentList({
   sentId: number | null
   onReply: (comment: Comment) => void
   onShowTab: (tab: CommentTab) => void
-  /** Show that activity in the itinerary: the chip of a comment, or the button at the top of one activity */
+  /** A row of the "Hoạt động" tab: the comments of that activity */
+  onOpenActivity: (activityId: number) => void
+  /** "Xem trong lịch trình" at the top of one activity: its card, on its day */
   onShowActivity: (activity: Activity) => void
   onDeleted: (commentId: number) => void
 }) {
@@ -227,17 +239,19 @@ function CommentList({
     return () => body.removeEventListener('scroll', onScroll)
   }, [])
 
+  // The "Hoạt động" tab is a list of activities read from the top (day 1 first), not a conversation
+  const conversation = !(activityId === null && tab === 'activities')
   useEffect(() => {
-    if (!comments || !atEnd.current) return
+    if (!comments || (conversation && !atEnd.current)) return
     // The dialog is still closed while this runs on opening (its showModal() comes after the effects of its
     // content) and a closed dialog has no size to scroll: wait for the next frame
     const frame = requestAnimationFrame(() => {
       const body = end.current?.closest<HTMLElement>('[data-modal-body]')
-      if (body) body.scrollTop = body.scrollHeight
+      if (body) body.scrollTop = conversation ? body.scrollHeight : 0
     })
     return () => cancelAnimationFrame(frame)
     // tab, activityId: the list changes with them, without a new array from the server
-  }, [comments, tab, activityId])
+  }, [comments, tab, activityId, conversation])
 
   useEffect(() => {
     if (sentId === null || sentId === sentBefore.current) return
@@ -269,14 +283,9 @@ function CommentList({
   }
 
   const { trip: onTrip, activities: onActivities } = splitComments(comments)
-  // What is on screen: one activity (opened from its card), or one of the two tabs
+  // What is on screen: one activity (opened from its card or from the "Hoạt động" tab), or one of the two tabs
   const view = activityId !== null ? 'activity' : tab
-  const shown = activityId !== null ? commentsAbout(comments, activityId) : tab === 'trip' ? onTrip : onActivities
-  const threads = commentThreads(shown)
-  // Only the "Hoạt động" tab mixes activities: there each comment says which one it is about
-  const chipped = view === 'activities'
-  // Replying needs the comment box, which the "Hoạt động" tab does not have
-  const canReply = view !== 'activities'
+  const threads = commentThreads(activityId !== null ? commentsAbout(comments, activityId) : onTrip)
   const openActivity = activityId === null ? undefined : activities.get(activityId)
   return (
     <div className="space-y-4">
@@ -296,7 +305,13 @@ function CommentList({
           {retry}
         </div>
       )}
-      {threads.length === 0 ? (
+      {view === 'activities' ? (
+        <DiscussedActivities
+          discussed={activitiesUnderDiscussion(onActivities, days)}
+          timeZone={timeZone}
+          onOpen={onOpenActivity}
+        />
+      ) : threads.length === 0 ? (
         <p className="text-sm text-gray-500">{EMPTY_TEXT[view]}</p>
       ) : (
         <ul className="space-y-4">
@@ -305,24 +320,19 @@ function CommentList({
               key={comment.id}
               comment={comment}
               timeZone={timeZone}
-              // On the root only: a reply is about the same activity, saying it again adds nothing
-              activity={chipped && comment.activityId !== null ? activities.get(comment.activityId) : undefined}
-              onOpenActivity={onShowActivity}
               onDelete={
                 canDeleteComment(comment, userId, myRole) ? () => askToDelete(comment, replies.length) : undefined
               }
               action={
-                canReply && (
-                  <button
-                    type="button"
-                    onClick={() => onReply(comment)}
-                    aria-label={`Trả lời bình luận của ${comment.author.fullName}`}
-                    // 44px tall on touch screens (UI_GUIDE 12)
-                    className="mt-1 inline-flex items-center rounded-control text-xs leading-4 font-semibold text-gray-500 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
-                  >
-                    Trả lời
-                  </button>
-                )
+                <button
+                  type="button"
+                  onClick={() => onReply(comment)}
+                  aria-label={`Trả lời bình luận của ${comment.author.fullName}`}
+                  // 44px tall on touch screens (UI_GUIDE 12)
+                  className="mt-1 inline-flex items-center rounded-control text-xs leading-4 font-semibold text-gray-500 hover:text-ink focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:min-h-11"
+                >
+                  Trả lời
+                </button>
               }
             >
               {replies.length > 0 && (
@@ -368,10 +378,6 @@ interface CommentItemProps {
   timeZone: string
   /** A reply: smaller picture, and it never has replies of its own (one level, design.md rule 27) */
   isReply?: boolean
-  /** The activity the comment is about, shown as a chip between the name and the text */
-  activity?: Activity
-  /** Pressing that chip: show the activity in the itinerary */
-  onOpenActivity?: (activity: Activity) => void
   /** Present when the reader may delete it (author or owner): the trash button at the end of the name row */
   onDelete?: () => void
   /** Under the text, inside the comment: "Trả lời" of a root comment */
@@ -385,16 +391,7 @@ interface CommentItemProps {
  * comment tints it light gray (Stitch mockup), so the trash button that shows up is plainly its own; a reply is
  * tinted alone, not with its root.
  */
-function CommentItem({
-  comment,
-  timeZone,
-  isReply = false,
-  activity,
-  onOpenActivity,
-  onDelete,
-  action,
-  children,
-}: CommentItemProps) {
+function CommentItem({ comment, timeZone, isReply = false, onDelete, action, children }: CommentItemProps) {
   const name = comment.author.fullName
   return (
     <li data-comment-id={comment.id}>
@@ -423,11 +420,6 @@ function CommentItem({
               </button>
             )}
           </div>
-          {activity && (
-            <div className="mt-1 flex">
-              <ActivityChip activity={activity} onOpen={onOpenActivity && (() => onOpenActivity(activity))} />
-            </div>
-          )}
           <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
           {action}
         </div>
@@ -487,6 +479,66 @@ function CommentTabs({ tab, tripCount, activityCount, onChange }: CommentTabsPro
           )
         })}
       </div>
+    </div>
+  )
+}
+
+interface DiscussedActivitiesProps {
+  discussed: DiscussedDay[]
+  timeZone: string
+  onOpen: (activityId: number) => void
+}
+
+/**
+ * The "Hoạt động" tab (Task 4.6 decision 15): the activities people are talking about, grouped by day in the order
+ * of the itinerary. One compact row each: the dot of its type and its title, how many comments, and the newest one
+ * cut to a line with its time. A row opens the comments of that activity, where they can be answered.
+ */
+function DiscussedActivities({ discussed, timeZone, onOpen }: DiscussedActivitiesProps) {
+  if (discussed.length === 0) return <p className="text-sm text-gray-500">{EMPTY_TEXT.activities}</p>
+  return (
+    <div className="space-y-4">
+      {discussed.map(({ day, activities }) => (
+        <section key={day.id} aria-labelledby={`discussed-day-${day.id}`}>
+          <h3 id={`discussed-day-${day.id}`} className="tabular text-xs leading-4 font-semibold text-gray-500">
+            Ngày {day.dayIndex} · {formatWeekday(day.date)}, {formatDate(day.date).slice(0, 5)}
+          </h3>
+          <ul className="mt-1.5 space-y-1">
+            {activities.map(({ activity, count, latest }) => (
+              <li key={activity.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(activity.id)}
+                  aria-label={`${activity.title}, ${count} bình luận. Mới nhất của ${latest.author.fullName}`}
+                  // The negative margins let the hover tint reach past the text without moving it
+                  className="-mx-2 block w-[calc(100%+1rem)] rounded-control px-2 py-1.5 text-left transition-colors hover:bg-gray-50 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none"
+                >
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden className={`size-2 shrink-0 rounded-full ${ACTIVITY_ROUTE[activity.type].marker}`} />
+                    <span className="min-w-0 flex-1 truncate text-sm leading-5 font-semibold text-ink">
+                      {activity.title}
+                    </span>
+                    <span className="tabular shrink-0 text-xs leading-4 text-gray-500">{count}</span>
+                    <ChevronRight aria-hidden className="size-4 shrink-0 text-gray-400" />
+                  </span>
+                  {/* Under the title, past the dot: who wrote last, what, and when, on one line */}
+                  <span className="mt-0.5 flex items-baseline gap-1 pl-4 text-[13px] leading-5 text-gray-500">
+                    <span className="min-w-0 truncate">
+                      {latest.author.fullName}: {latest.content.replace(/\s+/g, ' ')}
+                    </span>
+                    <span aria-hidden className="shrink-0">
+                      ·
+                    </span>
+                    <span className="shrink-0">
+                      <CommentTime instant={latest.createdAt} timeZone={timeZone} />
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   )
 }
