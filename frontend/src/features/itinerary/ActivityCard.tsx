@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { ExternalLink, MapPin, TriangleAlert } from 'lucide-react'
+import { ExternalLink, MapPin, MessageCircle, TriangleAlert } from 'lucide-react'
 import { ExpandableText } from '../../components/ExpandableText'
 import { formatMoney } from '../../lib/format'
+import { useCommentPanelStore } from '../../stores/commentPanelStore'
 import { activityCardId, useMapLinkStore } from '../../stores/mapLinkStore'
 import type { Activity, ActivityType } from '../../types/activity'
 import { ActivityMenu } from './ActivityMenu'
@@ -106,6 +107,10 @@ export function ActivityCard({
         <ActivityCardContent activity={activity} overlapping={overlapping} />
       </div>
 
+      {/* Every role, a viewer too: anybody who can see the trip can comment (design.md 6.2). Not on the copy that
+          follows the pointer during a drag */}
+      {isRealCard && <CommentOnActivityButton activityId={activity.id} title={activity.title} />}
+
       {onEdit && onDelete && (
         <ActivityMenu
           title={activity.title}
@@ -116,6 +121,27 @@ export function ActivityCard({
         />
       )}
     </article>
+  )
+}
+
+/**
+ * Speech bubble at the right of the first row, before "⋮" (UI_GUIDE 7.3): opens the comment panel on the comments
+ * about this activity. Shown on hover / keyboard focus like "⋮", always on touch screens.
+ */
+function CommentOnActivityButton({ activityId, title }: { activityId: number; title: string }) {
+  const openPanel = useCommentPanelStore((state) => state.openPanel)
+  return (
+    <div className={`shrink-0 self-start ${REVEAL}`}>
+      <button
+        type="button"
+        onClick={() => openPanel(activityId)}
+        aria-label={`Bình luận về ${title}`}
+        // Same size and hover as the "⋮" button next to it: 28px with a mouse, 44px for a finger (UI_GUIDE 12)
+        className="flex size-7 items-center justify-center rounded-control text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:size-11"
+      >
+        <MessageCircle aria-hidden className="size-4" />
+      </button>
+    </div>
   )
 }
 

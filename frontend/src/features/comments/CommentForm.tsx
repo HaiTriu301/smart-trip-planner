@@ -19,6 +19,8 @@ const PHONE = '(max-width: 639px)'
 
 interface CommentFormProps {
   tripId: number
+  /** The activity the panel is showing (opened from its card): a new comment is about it. null for the trip */
+  activityId: number | null
   /** The root comment being answered ("Trả lời" in the list), or null for a new comment */
   replyTo: Comment | null
   /** "×" on the reply chip: back to a new comment, the text typed stays */
@@ -27,8 +29,8 @@ interface CommentFormProps {
   onSent: (comment: Comment) => void
 }
 
-/** What is sent: the box, plus the root answered when there is one */
-type SendValues = CommentValues & { parentId?: number }
+/** What is sent: the box, plus the root answered or the activity the comment is about */
+type SendValues = CommentValues & { parentId?: number; activityId?: number }
 
 /**
  * The one comment box of the panel, fixed at its bottom (UI_GUIDE 8.1): "Viết bình luận…" and the panel's only
@@ -40,7 +42,7 @@ type SendValues = CommentValues & { parentId?: number }
  * Answering does not open a second box (one primary button per screen): "Trả lời {tên} ×" shows above this one and
  * the cursor moves into it.
  */
-export function CommentForm({ tripId, replyTo, onCancelReply, onSent }: CommentFormProps) {
+export function CommentForm({ tripId, activityId, replyTo, onCancelReply, onSent }: CommentFormProps) {
   const queryClient = useQueryClient()
   const onPhone = useMediaQuery(PHONE)
   const form = useRef<HTMLFormElement>(null)
@@ -63,7 +65,8 @@ export function CommentForm({ tripId, replyTo, onCancelReply, onSent }: CommentF
 
   const mutation = useMutation({
     mutationKey: createCommentKey(tripId),
-    mutationFn: ({ content, parentId }: SendValues) => createComment(tripId, { content, parentId }),
+    mutationFn: ({ content, parentId, activityId }: SendValues) =>
+      createComment(tripId, { content, parentId, activityId }),
     onSuccess: (created) => {
       // Shown at once from the answer; the reload that follows also brings what others wrote meanwhile
       queryClient.setQueryData<Comment[]>(commentsKey(tripId), (comments) => comments && [...comments, created])
@@ -105,7 +108,10 @@ export function CommentForm({ tripId, replyTo, onCancelReply, onSent }: CommentF
         // Ctrl+Enter pressed again while the first one is on its way
         if (mutation.isPending) return
         mutation.reset()
-        mutation.mutate({ ...values, parentId: replyTo?.id })
+        // A reply sits on the activity of its root, the server takes it from there: only a new comment names one
+        mutation.mutate(
+          replyTo ? { ...values, parentId: replyTo.id } : { ...values, activityId: activityId ?? undefined },
+        )
       })}
     >
       {bannerError && <Alert variant="error">{bannerError}</Alert>}

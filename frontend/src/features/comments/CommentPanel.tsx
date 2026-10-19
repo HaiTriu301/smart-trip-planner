@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useIsMutating, useQuery } from '@tanstack/react-query'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, X } from 'lucide-react'
 import { commentsKey, createCommentKey, listComments } from '../../api/comments'
 import { getErrorMessage } from '../../api/errors'
 import { Alert } from '../../components/Alert'
@@ -9,14 +9,16 @@ import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
 import { useNow } from '../../hooks/useNow'
-import { activitiesById, commentThreads } from '../../lib/commentTree'
+import { activitiesById, commentsAbout, commentThreads } from '../../lib/commentTree'
 import { formatDateTimeIn } from '../../lib/format'
 import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
+import { useCommentPanelStore } from '../../stores/commentPanelStore'
 import type { Activity } from '../../types/activity'
 import type { Comment } from '../../types/comment'
 import type { TripDayDetail, TripDetail } from '../../types/trip'
+import { ACTIVITY_ROUTE } from '../itinerary/activityType'
 import { ActivityChip } from './ActivityChip'
 import { CommentForm } from './CommentForm'
 
@@ -28,7 +30,10 @@ import { CommentForm } from './CommentForm'
  */
 export function CommentButton({ trip }: { trip: TripDetail }) {
   const tripId = trip.id
-  const [open, setOpen] = useState(false)
+  // Open from here or from the button of an activity card, through the store
+  const open = useCommentPanelStore((state) => state.open)
+  const activityId = useCommentPanelStore((state) => state.activityId)
+  const { openPanel, closePanel } = useCommentPanelStore.getState()
   // The root comment being answered: "Trả lời" under it in the list, the chip above the box in the footer
   const [replyTo, setReplyTo] = useState<Comment | null>(null)
   // The comment sent last: the list scrolls to it, wherever it lands (the end, or under its root for a reply)
@@ -38,15 +43,18 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
   const isSending = useIsMutating({ mutationKey: createCommentKey(tripId) }) > 0
   const count = comments?.length ?? 0
 
+  // Leaving the trip page, or going to another trip, closes the panel: the store outlives this page
+  useEffect(() => () => useCommentPanelStore.getState().closePanel(), [tripId])
+
   function close() {
     if (isSending) return
-    setOpen(false)
+    closePanel()
     setReplyTo(null)
   }
 
   return (
     <>
-      <Button variant="secondary" fullWidth={false} onClick={() => setOpen(true)}>
+      <Button variant="secondary" fullWidth={false} onClick={() => openPanel()}>
         <MessageCircle aria-hidden className="size-4" />
         Bình luận
         {count > 0 && <span className="tabular">· {count}</span>}
@@ -60,6 +68,7 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
         footer={
           <CommentForm
             tripId={tripId}
+            activityId={activityId}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
             onSent={(comment) => {
@@ -69,7 +78,13 @@ export function CommentButton({ trip }: { trip: TripDetail }) {
           />
         }
       >
-        <CommentList tripId={tripId} days={trip.days} sentId={sentId} onReply={setReplyTo} />
+        <CommentList
+          tripId={tripId}
+          days={trip.days}
+          activityId={activityId}
+          sentId={sentId}
+          onReply={setReplyTo}
+        />
       </Modal>
     </>
   )
@@ -84,16 +99,22 @@ const NEAR_END = 48
  * The panel opens scrolled to the end, and stays at the end when new comments arrive while the reader is there;
  * someone reading further up is not pulled down. A comment just sent is scrolled to wherever it lands: the end for a
  * comment, under its root for a reply.
+ * <p>
+ * Opened from an activity card, it shows only the comments about that activity, under a chip "{activity} ×" that
+ * goes back to all of them; the comments then carry no chip of their own (they are all about that activity).
  */
 function CommentList({
   tripId,
   days,
+  activityId,
   sentId,
   onReply,
 }: {
   tripId: number
   /** The days of the trip as the page has them: where the activity of a comment is looked up */
   days: TripDayDetail[]
+  /** Only the comments about this activity; null for all of them */
+  activityId: number | null
   sentId: number | null
   onReply: (comment: Comment) => void
 }) {
@@ -129,7 +150,8 @@ function CommentList({
       if (body) body.scrollTop = body.scrollHeight
     })
     return () => cancelAnimationFrame(frame)
-  }, [comments])
+    // activityId: the list changes when the filter does, without a new array from the server
+  }, [comments, activityId])
 
   useEffect(() => {
     if (sentId === null || sentId === sentBefore.current) return
@@ -160,9 +182,11 @@ function CommentList({
     )
   }
 
-  const threads = commentThreads(comments)
+  const filtered = activityId !== null
+  const threads = commentThreads(filtered ? commentsAbout(comments, activityId) : comments)
   return (
     <div className="space-y-4">
+      {filtered && <ActivityFilter activity={activities.get(activityId)} />}
       {/* A reload failed while comments were on screen: keep them (BUG-UI-005) */}
       {error && (
         <div className="space-y-3">
@@ -171,7 +195,11 @@ function CommentList({
         </div>
       )}
       {threads.length === 0 ? (
-        <p className="text-sm text-gray-500">Chưa có bình luận nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới.</p>
+        <p className="text-sm text-gray-500">
+          {filtered
+            ? 'Chưa có bình luận nào về hoạt động này.'
+            : 'Chưa có bình luận nào. Hỏi hoặc góp ý cho cả nhóm ở ô bên dưới.'}
+        </p>
       ) : (
         <ul className="space-y-4">
           {threads.map(({ comment, replies }) => (
@@ -179,8 +207,9 @@ function CommentList({
               key={comment.id}
               comment={comment}
               timeZone={timeZone}
-              // On the root only: a reply is about the same activity, saying it again adds nothing
-              activity={comment.activityId === null ? undefined : activities.get(comment.activityId)}
+              // On the root only: a reply is about the same activity, saying it again adds nothing. None while
+              // filtered: the chip at the top already says it
+              activity={filtered || comment.activityId === null ? undefined : activities.get(comment.activityId)}
             >
               <button
                 type="button"
@@ -237,6 +266,39 @@ function CommentItem({ comment, timeZone, isReply = false, activity, children }:
         {children}
       </div>
     </li>
+  )
+}
+
+/**
+ * "{activity} ×" at the top of a panel opened from an activity card, staying in view while the list scrolls (Stitch
+ * mockup). "×" shows every comment of the trip again. An activity the trip no longer has (deleted meanwhile) still
+ * gets the chip, without a name.
+ */
+function ActivityFilter({ activity }: { activity: Activity | undefined }) {
+  const showAllComments = useCommentPanelStore((state) => state.showAllComments)
+  const label = activity?.title ?? 'Hoạt động không còn trong lịch trình'
+  return (
+    // Pinned to the top of the scrolling body, on white so the comments pass under it
+    // -mt-4 / -mx-5 cancel the padding of the body, so it sits flush under the panel header
+    <div className="sticky top-0 z-10 -mx-5 -mt-4 border-b border-tide bg-white px-5 py-3">
+      <span className="inline-flex min-h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-tide bg-white pr-1 pl-2.5 text-[13px] leading-5 text-ink">
+        {activity && (
+          <span aria-hidden className={`size-2 shrink-0 rounded-full ${ACTIVITY_ROUTE[activity.type].marker}`} />
+        )}
+        <span className="sr-only">Đang xem bình luận về hoạt động: </span>
+        <span className="truncate" title={label}>
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={showAllComments}
+          aria-label="Xem mọi bình luận của chuyến đi"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-[3px] focus-visible:ring-jade/25 focus-visible:outline-none pointer-coarse:size-9"
+        >
+          <X aria-hidden className="size-3.5" />
+        </button>
+      </span>
+    </div>
   )
 }
 

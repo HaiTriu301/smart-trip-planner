@@ -27,6 +27,14 @@ export function commentThreads(comments: Comment[]): CommentThread[] {
 }
 
 /**
+ * The comments about one activity, in the order of the list: its root comments and their replies, which carry the
+ * activity of their root (design.md 10.2). Comments on the whole trip and on other activities are left out.
+ */
+export function commentsAbout(comments: Comment[], activityId: number): Comment[] {
+  return comments.filter((comment) => comment.activityId === activityId)
+}
+
+/**
  * Every activity of the trip by its id, whatever its day: what a comment's activityId names (its title and type for
  * the chip). An id missing from the map is an activity the trip as loaded does not have (deleted, or added after
  * the page loaded): the comment is shown without a chip rather than hidden.

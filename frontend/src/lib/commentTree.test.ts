@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Activity } from '../types/activity'
 import type { Comment } from '../types/comment'
 import type { TripDayDetail } from '../types/trip'
-import { activitiesById, commentThreads } from './commentTree'
+import { activitiesById, commentsAbout, commentThreads } from './commentTree'
 
 function comment(id: number, parentId: number | null = null): Comment {
   return {
@@ -35,6 +35,26 @@ describe('commentThreads', () => {
 
   it('gives no thread for an empty list', () => {
     expect(commentThreads([])).toEqual([])
+  })
+})
+
+describe('commentsAbout', () => {
+  const about = (id: number, activityId: number | null, parentId: number | null = null): Comment => ({
+    ...comment(id, parentId),
+    activityId,
+  })
+
+  it('keeps the comments of one activity with their replies, in the order of the list', () => {
+    const comments = [about(1, 7), about(2, null), about(3, 8), about(4, 7, 1), about(5, 7), about(6, 8, 3)]
+    expect(commentsAbout(comments, 7).map((c) => c.id)).toEqual([1, 4, 5])
+    expect(ids(commentThreads(commentsAbout(comments, 7)))).toEqual([
+      [1, [4]],
+      [5, []],
+    ])
+  })
+
+  it('gives nothing for an activity nobody commented on', () => {
+    expect(commentsAbout([about(1, 7), about(2, null)], 9)).toEqual([])
   })
 })
 

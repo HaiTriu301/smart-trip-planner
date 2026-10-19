@@ -30,6 +30,8 @@ export interface Comment {
  */
 export interface CreateCommentRequest {
   content: string
+  /** The activity it is about; it must belong to the trip, otherwise 404. Ignored on a reply (design.md 10.2) */
+  activityId?: number
   /**
    * The root comment answered. It must be a live root comment of the trip, otherwise 400 on this field; a reply
    * takes the activity of its root (design.md 10.2)
