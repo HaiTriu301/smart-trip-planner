@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useIsMutating, useQuery } from '@tanstack/react-query'
 import { MessageCircle } from 'lucide-react'
 import { commentsKey, createCommentKey, listComments } from '../../api/comments'
@@ -9,12 +9,15 @@ import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import { Skeleton } from '../../components/Skeleton'
 import { useNow } from '../../hooks/useNow'
-import { commentThreads } from '../../lib/commentTree'
+import { activitiesById, commentThreads } from '../../lib/commentTree'
 import { formatDateTimeIn } from '../../lib/format'
 import { relativeTime } from '../../lib/relativeTime'
 import { DEFAULT_TIME_ZONE } from '../../lib/today'
 import { useAuthStore } from '../../stores/authStore'
+import type { Activity } from '../../types/activity'
 import type { Comment } from '../../types/comment'
+import type { TripDayDetail, TripDetail } from '../../types/trip'
+import { ActivityChip } from './ActivityChip'
 import { CommentForm } from './CommentForm'
 
 /**
@@ -23,7 +26,8 @@ import { CommentForm } from './CommentForm'
  * and write comments (design.md 6.2). The list is asked for with the page, since the count needs it; a failed load
  * only leaves the count out.
  */
-export function CommentButton({ tripId }: { tripId: number }) {
+export function CommentButton({ trip }: { trip: TripDetail }) {
+  const tripId = trip.id
   const [open, setOpen] = useState(false)
   // The root comment being answered: "Trả lời" under it in the list, the chip above the box in the footer
   const [replyTo, setReplyTo] = useState<Comment | null>(null)
@@ -65,7 +69,7 @@ export function CommentButton({ tripId }: { tripId: number }) {
           />
         }
       >
-        <CommentList tripId={tripId} sentId={sentId} onReply={setReplyTo} />
+        <CommentList tripId={tripId} days={trip.days} sentId={sentId} onReply={setReplyTo} />
       </Modal>
     </>
   )
@@ -83,14 +87,18 @@ const NEAR_END = 48
  */
 function CommentList({
   tripId,
+  days,
   sentId,
   onReply,
 }: {
   tripId: number
+  /** The days of the trip as the page has them: where the activity of a comment is looked up */
+  days: TripDayDetail[]
   sentId: number | null
   onReply: (comment: Comment) => void
 }) {
   const timeZone = useAuthStore((state) => state.user?.timezone) ?? DEFAULT_TIME_ZONE
+  const activities = useMemo(() => activitiesById(days), [days])
   const { data: comments, error, isPending, isFetching, refetch } = useQuery({
     queryKey: commentsKey(tripId),
     queryFn: () => listComments(tripId),
@@ -167,7 +175,13 @@ function CommentList({
       ) : (
         <ul className="space-y-4">
           {threads.map(({ comment, replies }) => (
-            <CommentItem key={comment.id} comment={comment} timeZone={timeZone}>
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              timeZone={timeZone}
+              // On the root only: a reply is about the same activity, saying it again adds nothing
+              activity={comment.activityId === null ? undefined : activities.get(comment.activityId)}
+            >
               <button
                 type="button"
                 onClick={() => onReply(comment)}
@@ -198,12 +212,14 @@ interface CommentItemProps {
   timeZone: string
   /** A reply: smaller picture, and it never has replies of its own (one level, design.md rule 27) */
   isReply?: boolean
+  /** The activity the comment is about, shown as a chip between the name and the text */
+  activity?: Activity
   /** The replies of a root comment, drawn in its text column so they line up with its text */
   children?: ReactNode
 }
 
 /** Picture, name and date on one line, then the text: plain, line breaks kept, long words broken. */
-function CommentItem({ comment, timeZone, isReply = false, children }: CommentItemProps) {
+function CommentItem({ comment, timeZone, isReply = false, activity, children }: CommentItemProps) {
   return (
     <li data-comment-id={comment.id} className={`flex ${isReply ? 'gap-2' : 'gap-3'}`}>
       <Avatar name={comment.author.fullName} url={comment.author.avatarUrl} size={isReply ? 'sm' : 'md'} />
@@ -212,6 +228,11 @@ function CommentItem({ comment, timeZone, isReply = false, children }: CommentIt
           <span className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{comment.author.fullName}</span>
           <CommentTime instant={comment.createdAt} timeZone={timeZone} />
         </p>
+        {activity && (
+          <div className="mt-1 flex">
+            <ActivityChip activity={activity} />
+          </div>
+        )}
         <p className="mt-0.5 text-sm leading-5 whitespace-pre-wrap wrap-anywhere text-gray-800">{comment.content}</p>
         {children}
       </div>

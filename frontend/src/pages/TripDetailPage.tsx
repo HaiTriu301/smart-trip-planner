@@ -99,7 +99,7 @@ export function TripDetailPage() {
             {canEdit ? (
               <>
                 <TripStatusSelect trip={trip} />
-                <CommentButton tripId={trip.id} />
+                <CommentButton trip={trip} />
                 <ShareButton trip={trip} />
                 <TripActions trip={trip} />
               </>
@@ -109,7 +109,7 @@ export function TripDetailPage() {
                 <span className="sm:pt-1.5">
                   <Badge tone={TRIP_STATUS_TONES[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</Badge>
                 </span>
-                <CommentButton tripId={trip.id} />
+                <CommentButton trip={trip} />
                 <ShareButton trip={trip} />
               </>
             )}
