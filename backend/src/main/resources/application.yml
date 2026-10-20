@@ -74,6 +74,46 @@ app:
     refresh-ttl: 7d
     issuer: smart-trip-planner
     cookie-secure: false         # prod profile sets true (cookie only over HTTPS)
+  # How often one caller may call an endpoint (design.md 8.2). Counted in Redis under rate:*; a call over the limit
+  # gets 429. When Redis is down the calls go through. A limit of N calls per period gives one call back every
+  # period / N, never more than N at once
+  rate-limit:
+    enabled: true
+    # POST /auth/login, per address and email (design.md 6.3). Every attempt counts, the right password too: the
+    # limit is checked before the password is
+    login:
+      capacity: 5
+      period: 15m
+    register:                  # POST /auth/register, per address
+      capacity: 3
+      period: 1h
+    # The two endpoints that send mail, per address, each with its own count. Against mail spam: the mail service
+    # of the deployment has a daily quota
+    resend-verification:       # POST /auth/resend-verification
+      capacity: 5
+      period: 1h
+    forgot-password:           # POST /auth/forgot-password
+      capacity: 5
+      period: 1h
+    # GET /public/trips/{token}, the page of a share link, per address. Anyone with the link opens it without an
+    # account; unknown tokens count too, so guessing tokens is as slow as reading pages
+    public-trip:
+      capacity: 120
+      period: 1h
+    # GET /places/search, per signed-in user (the FREE level of design.md 8.2; PREMIUM comes with Task 8.1). Every
+    # search counts, an answer from the cache too. The search box waits 300 ms after the last key, so one search
+    # costs about 2 to 4 calls: raise the number if 60 proves tight, do not change how calls are counted
+    place-search:
+      capacity: 60
+      period: 1h
+    # Every call under /api/, on top of the limits above (a call of an endpoint with a limit of its own takes from
+    # both). Not the health check nor Swagger. PREMIUM levels come with Task 8.1
+    global-user:               # signed in, per user
+      capacity: 1000
+      period: 1h
+    global-guest:              # not signed in, per address
+      capacity: 200
+      period: 1h
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:

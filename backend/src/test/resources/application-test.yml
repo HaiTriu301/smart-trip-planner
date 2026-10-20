@@ -9,6 +9,9 @@ spring:
 
 app:
   frontend-url: http://localhost:5173
+  rate-limit:
+    # Older tests register and log in hundreds of times from 127.0.0.1. RateLimitIntegrationTest turns it on
+    enabled: false
   providers:
     mail: mock                      # MockMailProvider keeps sent mail in memory for assertions; no SMTP needed
   jwt:

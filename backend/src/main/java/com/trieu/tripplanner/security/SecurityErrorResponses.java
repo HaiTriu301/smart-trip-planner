@@ -13,14 +13,15 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Writes an {@link ErrorResponse} from inside the security filter chain, where GlobalExceptionHandler
- * cannot help because the request never reached a controller. Keeps 401/403 in the same envelope as every other error.
+ * cannot help because the request never reached a controller. Keeps 401/403/429 in the same envelope as every other
+ * error. Public for RateLimitFilter in the ratelimit package.
  */
-final class SecurityErrorResponses {
+public final class SecurityErrorResponses {
 
     private SecurityErrorResponses() {
     }
 
-    static void write(HttpServletRequest request, HttpServletResponse response, ErrorCode errorCode,
+    public static void write(HttpServletRequest request, HttpServletResponse response, ErrorCode errorCode,
                       ObjectMapper objectMapper, MessageSource messageSource) throws IOException {
         String message = messageSource.getMessage(errorCode.getMessageKey(), null, LocaleContextHolder.getLocale());
         ErrorResponse body = ErrorResponse.of(errorCode, message, request.getRequestURI());
