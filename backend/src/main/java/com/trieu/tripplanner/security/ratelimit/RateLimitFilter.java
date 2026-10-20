@@ -3,6 +3,7 @@ package com.trieu.tripplanner.security.ratelimit;
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.common.util.SecureTokens;
 import com.trieu.tripplanner.config.properties.RateLimitProperties;
+import com.trieu.tripplanner.security.CustomUserDetails;
 import com.trieu.tripplanner.security.SecurityErrorResponses;
 import com.trieu.tripplanner.security.ratelimit.RateLimiter.Decision;
 import jakarta.servlet.FilterChain;
@@ -17,6 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -28,7 +32,8 @@ import tools.jackson.databind.ObjectMapper;
  * Stops a caller who went over the limit of an endpoint before the request reaches a controller (design.md 8.2):
  * a rejected call never touches the database and never sends a mail.
  * <p>
- * Sits in the Spring Security chain right after JwtAuthenticationFilter. Created by SecurityConfig, not a
+ * Sits in the Spring Security chain right after JwtAuthenticationFilter, so the signed-in user is known when a
+ * rule counts per user. Created by SecurityConfig, not a
  * {@code @Component}: a Filter bean would also be registered once more in the plain servlet chain, and every
  * {@code @WebMvcTest} would need Redis.
  * <p>
@@ -54,6 +59,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
     private final List<Rule> rules;
+    private final SecurityContextHolderStrategy contextHolderStrategy = SecurityContextHolder.getContextHolderStrategy();
 
     public RateLimitFilter(RateLimiter rateLimiter, RateLimitProperties properties, ObjectMapper objectMapper,
                            MessageSource messageSource) {
@@ -70,7 +76,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         CountedBy.ADDRESS),
                 // Every token counts, unknown ones too: guessing tokens costs the same allowance as viewing pages
                 new Rule("public-trip", PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/public/trips/*"),
-                        properties.publicTrip(), CountedBy.ADDRESS));
+                        properties.publicTrip(), CountedBy.ADDRESS),
+                // Counted before the cache: a search answered from Redis takes a call all the same (design.md 8.2)
+                new Rule("place-search", PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/places/search"),
+                        properties.placeSearch(), CountedBy.USER));
     }
 
     @Override
@@ -91,6 +100,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
             CachedBodyRequest cached = new CachedBodyRequest(request, MAX_LOGIN_BODY_BYTES);
             passedOn = cached;
             caller = address + ":" + emailPartOf(cached);
+        }
+        else if (rule.countedBy() == CountedBy.USER) {
+            Optional<Long> userId = signedInUserId();
+            if (userId.isEmpty()) {
+                // Nobody to count: the endpoint needs a sign-in, and the authorization step answers 401
+                chain.doFilter(request, response);
+                return;
+            }
+            caller = "u" + userId.get();
         }
 
         Decision decision = rateLimiter.tryConsume(rule.name() + ":" + caller, rule.limit());
@@ -127,6 +145,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
     }
 
+    /** The user JwtAuthenticationFilter signed in for this request, if any. */
+    private Optional<Long> signedInUserId() {
+        Authentication authentication = contextHolderStrategy.getContext().getAuthentication();
+        return authentication != null && authentication.getPrincipal() instanceof CustomUserDetails user
+                ? Optional.of(user.getId())
+                : Optional.empty();
+    }
+
     /** 429 in the usual ErrorResponse envelope, with the wait in seconds in both headers of design.md 8.2. */
     private void reject(HttpServletRequest request, HttpServletResponse response, Decision decision)
             throws IOException {
@@ -146,7 +172,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         /** One bucket per address. */
         ADDRESS,
         /** One bucket per address and email of the body, so guessing at one account does not block the others. */
-        ADDRESS_AND_EMAIL
+        ADDRESS_AND_EMAIL,
+        /** One bucket per signed-in user, wherever they call from: people behind one address do not share it. */
+        USER
     }
 
     /**

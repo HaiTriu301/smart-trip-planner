@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -54,6 +55,8 @@ class RateLimitIntegrationTest {
     private static final long TWELVE_MINUTES = Duration.ofMinutes(12).toSeconds();
     /** application.yml: 120 visits of public trip pages an hour per address. */
     private static final int PUBLIC_VIEWS_AN_HOUR = 120;
+    /** application.yml: 60 place searches an hour per signed-in user. */
+    private static final int SEARCHES_AN_HOUR = 60;
     /** application.yml: 3 registrations an hour per address, so one comes back every 20 minutes. */
     private static final int REGISTRATIONS_AN_HOUR = 3;
     private static final long TWENTY_MINUTES = Duration.ofMinutes(20).toSeconds();
@@ -75,6 +78,9 @@ class RateLimitIntegrationTest {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private StringRedisTemplate redis;
 
     @AfterEach
     void cleanUp() {
@@ -348,6 +354,55 @@ class RateLimitIntegrationTest {
         // One call left for this address, whatever the token
         assertThat(openPublicPage(address, token)).hasStatusOk();
         assertThat(openPublicPage(address, token)).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @Test
+    void placeSearchIsCountedPerUserEvenFromOneAddressAndEvenFromTheCache() {
+        String address = "203.0.113.71";
+        String first = bearerOf("searcher71@example.com");
+        String second = bearerOf("neighbour71@example.com");
+        // The same words every time: after the first call the answer comes from the Redis cache, and still counts
+        for (int call = 1; call <= SEARCHES_AN_HOUR; call++) {
+            assertThat(search(address, first).getResponse().getStatus()).as("call %d", call).isEqualTo(200);
+        }
+        assertThat(redis.keys("place:search::*")).as("the answer sits in the cache").isNotEmpty();
+
+        MvcTestResult rejected = search(address, first);
+
+        assertThat(rejected)
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .hasHeader("X-RateLimit-Remaining", "0")
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RATE_LIMIT_EXCEEDED");
+        // 60 an hour: one comes back every minute
+        assertThat(Long.parseLong(rejected.getResponse().getHeader(HttpHeaders.RETRY_AFTER))).isBetween(1L, 60L);
+
+        // Another user behind the same address (a family, an office) has a count of their own
+        assertThat(search(address, second)).hasStatusOk();
+    }
+
+    @Test
+    void aSearchWithoutSignInIsNotCountedAndStillAnswers401() {
+        assertThat(search("203.0.113.72", null))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+    }
+
+    private String bearerOf(String email) {
+        User user = userRepository.save(User.builder().email(email).passwordHash(passwordEncoder.encode(PASSWORD))
+                .fullName("Người tìm").emailVerified(true).build());
+        return "Bearer " + jwtTokenProvider.generateAccessToken(user).token();
+    }
+
+    private MvcTestResult search(String address, String bearer) {
+        var request = mvc.get().uri("/api/v1/places/search?q={q}", "chợ hàn")
+                .with(servletRequest -> {
+                    servletRequest.setRemoteAddr(address);
+                    return servletRequest;
+                });
+        if (bearer != null) {
+            request = request.header(HttpHeaders.AUTHORIZATION, bearer);
+        }
+        return request.exchange();
     }
 
     /** A trip of a new owner and a share link to it; returns the token of the link. */

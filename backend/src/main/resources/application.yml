@@ -100,6 +100,12 @@ app:
     public-trip:
       capacity: 120
       period: 1h
+    # GET /places/search, per signed-in user (the FREE level of design.md 8.2; PREMIUM comes with Task 8.1). Every
+    # search counts, an answer from the cache too. The search box waits 300 ms after the last key, so one search
+    # costs about 2 to 4 calls: raise the number if 60 proves tight, do not change how calls are counted
+    place-search:
+      capacity: 60
+      period: 1h
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:

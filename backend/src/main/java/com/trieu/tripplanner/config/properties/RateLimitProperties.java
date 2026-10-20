@@ -21,6 +21,7 @@ import org.springframework.validation.annotation.Validated;
  * @param resendVerification {@code POST /auth/resend-verification}, counted per address
  * @param forgotPassword     {@code POST /auth/forgot-password}, counted per address
  * @param publicTrip         {@code GET /public/trips/{token}}, the page of a share link, counted per address
+ * @param placeSearch        {@code GET /places/search}, counted per signed-in user
  */
 @Validated
 @ConfigurationProperties(prefix = "app.rate-limit")
@@ -30,5 +31,6 @@ public record RateLimitProperties(
         @NotNull RateLimit register,
         @NotNull RateLimit resendVerification,
         @NotNull RateLimit forgotPassword,
-        @NotNull RateLimit publicTrip) {
+        @NotNull RateLimit publicTrip,
+        @NotNull RateLimit placeSearch) {
 }
