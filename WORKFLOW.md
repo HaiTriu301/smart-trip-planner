@@ -2897,6 +2897,25 @@ Mốc 8 — feat(security): add the global limits for users and guests          
         có luật riêng trừ cả hai (riêng + toàn cục); /actuator/health không bị đếm
 ```
 
+> **Thực tế khi làm 4.7 (2026-10-20 → 2026-10-21):** 8 commit code trên nhánh, đúng 8 mốc của bảng; docs Mốc 0 trên `main` (`fd404bd`). Không có test đỏ ngoài dự kiến, không có lỗi mới. Cột "File" lớn hơn bảng ở Mốc 4–8 vì mỗi luật mới còn cần một trường trong `RateLimitProperties` (bảng chỉ tính `application.yml`).
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `c249e92` fix(security): stop trusting a client supplied X-Forwarded-For | 2 | `ClientInfo.from` dùng `getRemoteAddr()`; `MT-RATE-01` chủ dự án chạy, đạt |
+> | `1d8c8fd` feat(security): add a redis backed rate limiter | 5 | Bucket4j 8.21.0 chạy với Lettuce 7.5.2: 6 test trên Redis thật xanh ngay lần đầu (quyết định 10). Lượt **hồi đều** (`refillGreedy`): N lượt / T thì cứ T/N có lại một lượt, `Retry-After` là số giây tới lượt kế tiếp. Xô đầy lại được Redis xoá sau 10 giây |
+> | `d348a38` feat(security): limit registration per address | 8 | `RateLimitConfig` lấy địa chỉ từ `DataRedisConnectionDetails` (test tự trỏ sang Testcontainers). Kết nối mở **lúc khởi động**: bật giới hạn thì ứng dụng cần Redis để khởi động; đang chạy mà mất Redis thì cho qua |
+> | `45e5856` feat(security): limit login attempts per address and email | 6 (bảng: 5) | `CachedBodyRequest` đọc trước tối đa 8 KB rồi phát lại phần đã đọc nối tiếp phần còn lại (body dài vẫn tới controller đầy đủ); body không cho ra email → khoá `login:{ip}:-`. `RedisDownIntegrationTest` bật giới hạn cho cả class |
+> | `d8b3ef9` feat(security): limit the mail sending endpoints | 4 (bảng: 2) | Hai luật, mỗi endpoint một xô |
+> | `cf75ac3` feat(sharing): limit the public trip page per address | 5 (bảng: 2) | Mã sai cũng bị đếm; sửa comment ở `SecurityConfig.PUBLIC_PATHS` (còn ghi "Task 8.1") |
+> | `005f00f` feat(place): limit place search per user | 4 (bảng: 3) | `CountedBy.USER`; chưa đăng nhập thì luật riêng không đếm, bước kiểm quyền trả 401 |
+> | `adb29c5` feat(security): add the global limits for users and guests | 4 (bảng: 3) | `doFilterInternal` viết lại thành hai bước; khoá `global-user:u{id}`, `global-guest:{ip}`. `RateLimitIntegrationTest` đặt `global-user.period=24h` (giữ 1000 lượt): ở 1000 / giờ cứ 3,6 giây có lại một lượt, vòng 1000 lần gọi trên máy chậm có thể kịp nhận lượt mới |
+>
+> Backend **1513 lượt test** (thêm 28 so với 1485 trước task); `13-rate-limit.md` có `TC-RATE-001` đến `032` và 5 bài thủ công, `01-platform.md` thêm `TC-PLAT-055`. Lúc đóng task chỉ `MT-RATE-01` đã chạy; **`MT-RATE-02` đến `05` chưa chạy**, trong đó `MT-RATE-03` là bài nghiệm thu (chủ dự án chọn đóng task trước, chạy sau).
+>
+> Ghi chú khi làm:
+> - Log khi chặn chỉ ghi tên luật và IP: không ghi khoá (có bản băm email), không ghi đường dẫn (có mã liên kết). Test kiểm log không chứa email thô hay mã.
+> - Bài học đưa vào CLAUDE.md mục 8: không tin `X-Forwarded-For` do người gọi gửi; filter đọc body thì phải bọc request; test hạn mức lớn phải tính tới lượt hồi trong lúc test chạy. Mục 3 thêm cách thêm một luật giới hạn mới.
+
 **Nghiệm thu:** `./gradlew build` xanh; trên `npm run dev`, đăng nhập sai 6 lần liền → lần 6 form hiện "Bạn gửi quá nhiều yêu cầu, vui lòng thử lại sau"; đăng nhập đúng bằng email khác vẫn được.
 
 **Nhớ:** filter chạy trước controller nên lượt bị từ chối không chạm database. Khoá trong Redis có tiền tố riêng (`rate:`), không trùng tên cache nào trong `CacheNames`. Đừng đếm lượt preflight `OPTIONS` (CORS filter trả lời trước). Filter không phải `@Component` (`@WebMvcTest` tự nạp mọi bean `Filter`, và Spring Boot sẽ đăng ký nó lần thứ hai ngoài chuỗi security). Kịch bản giới hạn mới thêm vào `RateLimitIntegrationTest`, kịch bản Redis tắt thêm vào `RedisDownIntegrationTest`, không tạo class mới.

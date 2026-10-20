@@ -785,6 +785,15 @@ Chốt 2026-10-17, bổ sung 2026-10-20 (Task 4.7 — phần cốt lõi kéo t�
 - **Cấu hình:** `app.rate-limit.enabled` + từng luật (số lượt, khoảng thời gian) trong `application.yml`. Profile `test` tắt hẳn (test cũ đăng nhập hàng trăm lần từ `127.0.0.1`); `RateLimitIntegrationTest` bật lại, mỗi test dùng IP / email riêng để không phụ thuộc thứ tự.
 - **Thư viện:** Bucket4j `com.bucket4j:bucket4j_jdk17-lettuce` 8.21.0. Bản này được build với Lettuce 6.1.8 trong khi Boot 4.1 dùng Lettuce 7.5.2, và tài liệu không ghi hai bản có hợp nhau không: test của bộ đếm trên Redis thật (Task 4.7 Mốc 2) là bằng chứng; đỏ vì lỗi thư viện thì dừng và chọn lại (chốt 2026-10-20).
 
+Chốt khi làm Task 4.7 (2026-10-21):
+- **Bucket4j chạy được với Lettuce 7** (test trên Redis thật xanh ngay lần đầu).
+- **Lượt hồi đều** (`refillGreedy`): N lượt / T thì cứ T/N có lại một lượt, không bao giờ quá N (đăng nhập 5 / 15 phút: một lượt mỗi 3 phút). `Retry-After` = `X-RateLimit-Reset` = số giây tới khi có lại một lượt, làm tròn lên, tối thiểu 1.
+- **Khoá thật trong Redis:** `rate:login:{ip}:{sha256(email)}` (`rate:login:{ip}:-` khi body không cho ra email), `rate:register:{ip}`, `rate:resend-verification:{ip}`, `rate:forgot-password:{ip}`, `rate:public-trip:{ip}` (mã sai cũng tính), `rate:place-search:u{userId}`, `rate:global-user:u{userId}`, `rate:global-guest:{ip}`. Xô đã đầy lại được Redis xoá sau 10 giây.
+- **Body đăng nhập:** filter đọc tối đa 8 KB; body dài hơn không bị đọc email (khoá `-`) nhưng vẫn tới controller đầy đủ.
+- **Luật theo người dùng gặp request chưa đăng nhập:** luật riêng không đếm; luật toàn cục đếm theo IP (khách); bước kiểm quyền trả 401 như cũ.
+- **Redis lúc khởi động:** kết nối của bộ đếm mở khi ứng dụng khởi động, nên với `app.rate-limit.enabled=true` ứng dụng cần Redis để khởi động. Đang chạy mà mất Redis thì cho qua (fail open). Docker Compose ở Task 4.8 khởi động Redis trước backend.
+- **Log:** lượt bị chặn ghi `Rate limit {luật} reached from {ip}, next call in {n}s`; không ghi khoá (có bản băm email) hay đường dẫn (có mã liên kết).
+
 ---
 
 ## 9. Feature Gating: FREE vs PREMIUM
