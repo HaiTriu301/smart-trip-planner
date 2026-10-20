@@ -8,18 +8,18 @@ import org.springframework.http.HttpHeaders;
  * Built in the controller so services never touch HttpServletRequest (design.md 4.1).
  *
  * @param userAgent raw User-Agent header, may be null
- * @param ipAddress first X-Forwarded-For entry when behind nginx, else the socket address
+ * @param ipAddress the caller's address as the servlet container sees it ({@code getRemoteAddr()})
  */
 public record ClientInfo(String userAgent, String ipAddress) {
 
-    private static final String FORWARDED_FOR = "X-Forwarded-For";
-
+    /**
+     * Never reads X-Forwarded-For itself: its first entry is whatever the caller typed, so trusting it would let
+     * anyone pick the address stored with a session or used as a rate limit key (design.md 6.3). Behind the
+     * production proxy, nginx overwrites the header with the real address and
+     * {@code server.forward-headers-strategy: native} makes the container put it in {@code getRemoteAddr()}.
+     */
     public static ClientInfo from(HttpServletRequest request) {
-        String forwarded = request.getHeader(FORWARDED_FOR);
-        String ip = (forwarded != null && !forwarded.isBlank())
-                ? forwarded.split(",")[0].trim()
-                : request.getRemoteAddr();
-        return new ClientInfo(request.getHeader(HttpHeaders.USER_AGENT), ip);
+        return new ClientInfo(request.getHeader(HttpHeaders.USER_AGENT), request.getRemoteAddr());
     }
 
     public static ClientInfo unknown() {

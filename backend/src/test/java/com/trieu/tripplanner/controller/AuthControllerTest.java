@@ -176,18 +176,42 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginPassesUserAgentAndClientIpToService() {
+    void loginPassesUserAgentAndSocketAddressToService() {
         when(authService.login(any(LoginRequest.class), any(ClientInfo.class))).thenReturn(TOKENS);
 
         mvc.post().uri(LOGIN_URL).contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.USER_AGENT, "JUnit/5")
-                .header("X-Forwarded-For", "203.0.113.7, 10.0.0.1")
+                .with(request -> {
+                    request.setRemoteAddr("198.51.100.20");
+                    return request;
+                })
                 .content("""
                         {"email": "an@example.com", "password": "MatKhau123"}
                         """)
                 .exchange();
 
-        verify(authService).login(any(LoginRequest.class), eq(new ClientInfo("JUnit/5", "203.0.113.7")));
+        verify(authService).login(any(LoginRequest.class), eq(new ClientInfo("JUnit/5", "198.51.100.20")));
+    }
+
+    @Test
+    void loginIgnoresAClientSuppliedForwardedForHeader() {
+        when(authService.login(any(LoginRequest.class), any(ClientInfo.class))).thenReturn(TOKENS);
+
+        // The first entry is whatever the caller typed: trusting it would let anyone choose the address stored
+        // with the session, and get a fresh rate limit per made-up address (design.md 6.3)
+        mvc.post().uri(LOGIN_URL).contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.USER_AGENT, "JUnit/5")
+                .header("X-Forwarded-For", "203.0.113.7, 10.0.0.1")
+                .with(request -> {
+                    request.setRemoteAddr("198.51.100.20");
+                    return request;
+                })
+                .content("""
+                        {"email": "an@example.com", "password": "MatKhau123"}
+                        """)
+                .exchange();
+
+        verify(authService).login(any(LoginRequest.class), eq(new ClientInfo("JUnit/5", "198.51.100.20")));
     }
 
     @Test
