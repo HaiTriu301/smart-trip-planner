@@ -51,7 +51,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/**",
             "/api/v1/ping",
-            // The trip page of a share link (rule 14.26); rate limit per IP comes with Task 8.1
+            // The trip page of a share link (rule 14.26); limited per address by RateLimitFilter (Task 4.7)
             "/api/v1/public/**",
             "/actuator/health", "/actuator/health/**", "/actuator/info",
             "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"

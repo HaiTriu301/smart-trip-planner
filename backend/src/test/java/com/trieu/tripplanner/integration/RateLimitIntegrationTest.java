@@ -3,10 +3,12 @@ package com.trieu.tripplanner.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.jayway.jsonpath.JsonPath;
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.provider.mail.MockMailProvider;
 import com.trieu.tripplanner.repository.UserRepository;
+import com.trieu.tripplanner.security.JwtTokenProvider;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
@@ -50,6 +52,8 @@ class RateLimitIntegrationTest {
     /** application.yml: 5 calls an hour per address on each endpoint that sends mail. */
     private static final int MAILS_AN_HOUR = 5;
     private static final long TWELVE_MINUTES = Duration.ofMinutes(12).toSeconds();
+    /** application.yml: 120 visits of public trip pages an hour per address. */
+    private static final int PUBLIC_VIEWS_AN_HOUR = 120;
     /** application.yml: 3 registrations an hour per address, so one comes back every 20 minutes. */
     private static final int REGISTRATIONS_AN_HOUR = 3;
     private static final long TWENTY_MINUTES = Duration.ofMinutes(20).toSeconds();
@@ -69,8 +73,13 @@ class RateLimitIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
     @AfterEach
     void cleanUp() {
+        // Share links and trip days go with their trips (ON DELETE CASCADE)
+        jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM refresh_tokens");
         jdbcTemplate.update("DELETE FROM verification_tokens");
         jdbcTemplate.update("DELETE FROM users");
@@ -301,6 +310,82 @@ class RateLimitIntegrationTest {
                 .hasStatus(HttpStatus.TOO_MANY_REQUESTS);
 
         assertThat(postFrom(address, FORGOT_URL, emailBody("nobody54@example.com"))).hasStatusOk();
+    }
+
+    @Test
+    void thePublicPageIsLimitedPerAddressAndARejectedVisitIsNotCountedAsAView() {
+        String token = shareLinkOfANewTrip("owner61@example.com");
+        String address = "203.0.113.61";
+        for (int call = 1; call <= PUBLIC_VIEWS_AN_HOUR; call++) {
+            assertThat(openPublicPage(address, token).getResponse().getStatus()).as("call %d", call).isEqualTo(200);
+        }
+
+        MvcTestResult rejected = openPublicPage(address, token);
+
+        assertThat(rejected)
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .hasHeader("X-RateLimit-Remaining", "0")
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RATE_LIMIT_EXCEEDED");
+        // 120 an hour: one comes back every 30 seconds
+        assertThat(Long.parseLong(rejected.getResponse().getHeader(HttpHeaders.RETRY_AFTER))).isBetween(1L, 30L);
+        // Stopped before the service: the owner's count of views did not move for the rejected visit
+        assertThat(viewCountOf(token)).isEqualTo(PUBLIC_VIEWS_AN_HOUR);
+
+        // Somebody else, from another address, still sees the trip, and that view is counted
+        assertThat(openPublicPage("203.0.113.62", token)).hasStatusOk();
+        assertThat(viewCountOf(token)).isEqualTo(PUBLIC_VIEWS_AN_HOUR + 1);
+    }
+
+    @Test
+    void guessingTokensSpendsTheSameAllowanceAsOpeningPages() {
+        String token = shareLinkOfANewTrip("owner63@example.com");
+        String address = "203.0.113.63";
+        for (int guess = 1; guess < PUBLIC_VIEWS_AN_HOUR; guess++) {
+            assertThat(openPublicPage(address, "guess" + guess).getResponse().getStatus()).as("guess %d", guess)
+                    .isEqualTo(404);
+        }
+
+        // One call left for this address, whatever the token
+        assertThat(openPublicPage(address, token)).hasStatusOk();
+        assertThat(openPublicPage(address, token)).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    /** A trip of a new owner and a share link to it; returns the token of the link. */
+    private String shareLinkOfANewTrip(String ownerEmail) {
+        User owner = userRepository.save(User.builder().email(ownerEmail).passwordHash(passwordEncoder.encode(PASSWORD))
+                .fullName("Chủ chuyến đi").emailVerified(true).build());
+        String bearer = "Bearer " + jwtTokenProvider.generateAccessToken(owner).token();
+        MvcTestResult trip = mvc.post().uri("/api/v1/trips").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        { "title": "Đà Lạt", "startDate": "2026-10-01", "endDate": "2026-10-03" }
+                        """).exchange();
+        assertThat(trip).hasStatus(HttpStatus.CREATED);
+        Number tripId = JsonPath.read(bodyOf(trip), "$.data.id");
+
+        MvcTestResult link = mvc.post().uri("/api/v1/trips/" + tripId + "/share-links")
+                .header(HttpHeaders.AUTHORIZATION, bearer).exchange();
+        assertThat(link).hasStatus(HttpStatus.CREATED);
+        return JsonPath.read(bodyOf(link), "$.data.token");
+    }
+
+    private MvcTestResult openPublicPage(String address, String token) {
+        return mvc.get().uri("/api/v1/public/trips/" + token)
+                .with(request -> {
+                    request.setRemoteAddr(address);
+                    return request;
+                })
+                .exchange();
+    }
+
+    private int viewCountOf(String token) {
+        Integer views = jdbcTemplate.queryForObject("SELECT view_count FROM share_links WHERE token = ?",
+                Integer.class, token);
+        return views == null ? 0 : views;
+    }
+
+    // Explicit UTF-8: MockHttpServletResponse otherwise decodes as ISO-8859-1
+    private static String bodyOf(MvcTestResult result) {
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
     private void saveUser(String email, boolean verified) {

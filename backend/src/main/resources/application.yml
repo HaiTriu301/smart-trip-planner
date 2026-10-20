@@ -95,6 +95,11 @@ app:
     forgot-password:           # POST /auth/forgot-password
       capacity: 5
       period: 1h
+    # GET /public/trips/{token}, the page of a share link, per address. Anyone with the link opens it without an
+    # account; unknown tokens count too, so guessing tokens is as slow as reading pages
+    public-trip:
+      capacity: 120
+      period: 1h
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:

@@ -67,7 +67,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 new Rule("resend-verification", post("/api/v1/auth/resend-verification"),
                         properties.resendVerification(), CountedBy.ADDRESS),
                 new Rule("forgot-password", post("/api/v1/auth/forgot-password"), properties.forgotPassword(),
-                        CountedBy.ADDRESS));
+                        CountedBy.ADDRESS),
+                // Every token counts, unknown ones too: guessing tokens costs the same allowance as viewing pages
+                new Rule("public-trip", PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/api/v1/public/trips/*"),
+                        properties.publicTrip(), CountedBy.ADDRESS));
     }
 
     @Override
