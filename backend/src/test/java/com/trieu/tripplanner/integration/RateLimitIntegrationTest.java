@@ -7,6 +7,7 @@ import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.model.User;
 import com.trieu.tripplanner.provider.mail.MockMailProvider;
 import com.trieu.tripplanner.repository.UserRepository;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,11 @@ class RateLimitIntegrationTest {
     /** application.yml: 5 logins in 15 minutes per address and email, so one comes back every 3 minutes. */
     private static final int LOGINS_IN_FIFTEEN_MINUTES = 5;
     private static final long THREE_MINUTES = Duration.ofMinutes(3).toSeconds();
+    private static final String RESEND_URL = "/api/v1/auth/resend-verification";
+    private static final String FORGOT_URL = "/api/v1/auth/forgot-password";
+    /** application.yml: 5 calls an hour per address on each endpoint that sends mail. */
+    private static final int MAILS_AN_HOUR = 5;
+    private static final long TWELVE_MINUTES = Duration.ofMinutes(12).toSeconds();
     /** application.yml: 3 registrations an hour per address, so one comes back every 20 minutes. */
     private static final int REGISTRATIONS_AN_HOUR = 3;
     private static final long TWENTY_MINUTES = Duration.ofMinutes(20).toSeconds();
@@ -190,7 +196,7 @@ class RateLimitIntegrationTest {
     @Test
     void everyLoginCountsEvenWithTheRightPassword() {
         String address = "203.0.113.45";
-        saveVerifiedUser("member45@example.com");
+        saveUser("member45@example.com", true);
 
         // The filter read the body to find the email, and the controller still reads all of it
         for (int call = 1; call <= LOGINS_IN_FIFTEEN_MINUTES; call++) {
@@ -223,18 +229,87 @@ class RateLimitIntegrationTest {
 
     @Test
     void aBodyTooLongForTheFilterStillReachesTheControllerInFull() {
-        saveVerifiedUser("member47@example.com");
+        saveUser("member47@example.com", true);
 
         assertThat(login("203.0.113.47", longLoginBody("member47@example.com"))).hasStatusOk();
     }
 
-    private void saveVerifiedUser(String email) {
-        userRepository.save(User.builder().email(email).passwordHash(passwordEncoder.encode(PASSWORD))
-                .fullName("Người thử").emailVerified(true).build());
+    @Test
+    void theSixthVerificationMailRequestFromOneAddressIsTurnedAwayAndSendsNothing() {
+        String address = "203.0.113.51";
+        saveUser("waiting51@example.com", false);
+        for (int call = 1; call <= MAILS_AN_HOUR; call++) {
+            assertThat(postFrom(address, RESEND_URL, emailBody("waiting51@example.com"))).as("call %d", call)
+                    .hasStatusOk();
+        }
+        await().atMost(Duration.ofSeconds(5)).until(() -> mailProvider.sent().size() == MAILS_AN_HOUR);
+
+        MvcTestResult rejected = postFrom(address, RESEND_URL, emailBody("waiting51@example.com"));
+
+        assertThat(rejected)
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .hasHeader("X-RateLimit-Remaining", "0")
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RATE_LIMIT_EXCEEDED");
+        // 5 an hour: one comes back every 12 minutes
+        assertThat(Long.parseLong(rejected.getResponse().getHeader(HttpHeaders.RETRY_AFTER)))
+                .isBetween(TWELVE_MINUTES - 60, TWELVE_MINUTES);
+        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(2))
+                .until(() -> mailProvider.sent().size() == MAILS_AN_HOUR);
     }
 
-    private MvcTestResult login(String address, String body) {
-        return mvc.post().uri(LOGIN_URL)
+    @Test
+    void theSixthPasswordResetRequestFromOneAddressIsTurnedAwayAndSendsNothing() {
+        String address = "203.0.113.52";
+        saveUser("forgetful52@example.com", true);
+        for (int call = 1; call <= MAILS_AN_HOUR; call++) {
+            assertThat(postFrom(address, FORGOT_URL, emailBody("forgetful52@example.com"))).as("call %d", call)
+                    .hasStatusOk();
+        }
+        await().atMost(Duration.ofSeconds(5)).until(() -> mailProvider.sent().size() == MAILS_AN_HOUR);
+
+        assertThat(postFrom(address, FORGOT_URL, emailBody("forgetful52@example.com")))
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RATE_LIMIT_EXCEEDED");
+        await().during(Duration.ofMillis(700)).atMost(Duration.ofSeconds(2))
+                .until(() -> mailProvider.sent().size() == MAILS_AN_HOUR);
+    }
+
+    @Test
+    void aBlockedAddressGetsTheSameAnswerWhetherTheEmailHasAnAccountOrNot() {
+        String address = "203.0.113.53";
+        saveUser("known53@example.com", true);
+        for (int call = 1; call <= MAILS_AN_HOUR; call++) {
+            postFrom(address, FORGOT_URL, emailBody("unknown53@example.com"));
+        }
+
+        MvcTestResult unknown = postFrom(address, FORGOT_URL, emailBody("unknown53@example.com"));
+        MvcTestResult known = postFrom(address, FORGOT_URL, emailBody("known53@example.com"));
+
+        // Nothing in the answer tells the two apart (design.md rule 14.15): same status, same body but the time
+        assertThat(unknown).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(known).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(withoutTimestamp(known)).isEqualTo(withoutTimestamp(unknown));
+    }
+
+    @Test
+    void eachMailEndpointHasItsOwnCount() {
+        String address = "203.0.113.54";
+        for (int call = 1; call <= MAILS_AN_HOUR; call++) {
+            postFrom(address, RESEND_URL, emailBody("nobody54@example.com"));
+        }
+        assertThat(postFrom(address, RESEND_URL, emailBody("nobody54@example.com")))
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+
+        assertThat(postFrom(address, FORGOT_URL, emailBody("nobody54@example.com"))).hasStatusOk();
+    }
+
+    private void saveUser(String email, boolean verified) {
+        userRepository.save(User.builder().email(email).passwordHash(passwordEncoder.encode(PASSWORD))
+                .fullName("Người thử").emailVerified(verified).build());
+    }
+
+    private MvcTestResult postFrom(String address, String url, String body) {
+        return mvc.post().uri(url)
                 .with(request -> {
                     request.setRemoteAddr(address);
                     return request;
@@ -242,6 +317,21 @@ class RateLimitIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .exchange();
+    }
+
+    private static String emailBody(String email) {
+        return """
+                {"email": "%s"}
+                """.formatted(email);
+    }
+
+    private static String withoutTimestamp(MvcTestResult result) {
+        String body = new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+        return body.replaceAll("\"timestamp\":\"[^\"]*\"", "");
+    }
+
+    private MvcTestResult login(String address, String body) {
+        return postFrom(address, LOGIN_URL, body);
     }
 
     private static String loginBody(String email) {

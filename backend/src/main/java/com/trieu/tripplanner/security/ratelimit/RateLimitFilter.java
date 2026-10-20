@@ -62,7 +62,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.messageSource = messageSource;
         this.rules = List.of(
                 new Rule("login", post("/api/v1/auth/login"), properties.login(), CountedBy.ADDRESS_AND_EMAIL),
-                new Rule("register", post("/api/v1/auth/register"), properties.register(), CountedBy.ADDRESS));
+                new Rule("register", post("/api/v1/auth/register"), properties.register(), CountedBy.ADDRESS),
+                // The two endpoints that send mail: each mail costs a share of the daily quota of the mail service
+                new Rule("resend-verification", post("/api/v1/auth/resend-verification"),
+                        properties.resendVerification(), CountedBy.ADDRESS),
+                new Rule("forgot-password", post("/api/v1/auth/forgot-password"), properties.forgotPassword(),
+                        CountedBy.ADDRESS));
     }
 
     @Override

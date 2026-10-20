@@ -13,15 +13,20 @@ import org.springframework.validation.annotation.Validated;
  * A {@link RateLimit} checks its own numbers, so a limit of 0 calls or without a period stops the application at
  * startup instead of locking everyone out.
  *
- * @param enabled  whether the limits apply at all; off in the test profile, where older tests call the same
- *                 endpoints hundreds of times from one address. RateLimitConfig reads the same property
- * @param login    {@code POST /auth/login}, counted per address and email
- * @param register {@code POST /auth/register}, counted per address
+ * @param enabled            whether the limits apply at all; off in the test profile, where older tests call the
+ *                           same endpoints hundreds of times from one address. RateLimitConfig reads the same
+ *                           property
+ * @param login              {@code POST /auth/login}, counted per address and email
+ * @param register           {@code POST /auth/register}, counted per address
+ * @param resendVerification {@code POST /auth/resend-verification}, counted per address
+ * @param forgotPassword     {@code POST /auth/forgot-password}, counted per address
  */
 @Validated
 @ConfigurationProperties(prefix = "app.rate-limit")
 public record RateLimitProperties(
         boolean enabled,
         @NotNull RateLimit login,
-        @NotNull RateLimit register) {
+        @NotNull RateLimit register,
+        @NotNull RateLimit resendVerification,
+        @NotNull RateLimit forgotPassword) {
 }

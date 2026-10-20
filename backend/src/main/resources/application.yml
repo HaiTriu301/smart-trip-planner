@@ -87,6 +87,14 @@ app:
     register:                  # POST /auth/register, per address
       capacity: 3
       period: 1h
+    # The two endpoints that send mail, per address, each with its own count. Against mail spam: the mail service
+    # of the deployment has a daily quota
+    resend-verification:       # POST /auth/resend-verification
+      capacity: 5
+      period: 1h
+    forgot-password:           # POST /auth/forgot-password
+      capacity: 5
+      period: 1h
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:
