@@ -35,6 +35,7 @@ dependencies {
 	implementation libs.springdoc.openapi.webmvc.ui
 	implementation libs.jjwt.api
 	implementation libs.resilience4j.spring.boot4
+	implementation libs.bucket4j.lettuce
 	runtimeOnly libs.jjwt.impl
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'

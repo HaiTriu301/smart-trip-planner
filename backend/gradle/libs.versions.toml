@@ -11,6 +11,7 @@ lombok-mapstruct-binding = "0.2.0"
 springdoc = "3.1.1"
 jjwt = "0.12.6"
 resilience4j = "2.4.0"
+bucket4j = "8.21.0"
 
 [libraries]
 # jjwt-api + jjwt-impl only: jjwt-jackson would pull Jackson 2, the project runs Jackson 3 (design.md 3.1)
@@ -21,6 +22,9 @@ mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.re
 lombok-mapstruct-binding = { module = "org.projectlombok:lombok-mapstruct-binding", version.ref = "lombok-mapstruct-binding" }
 # The Spring Boot 4 module: retry, circuit breaker and rate limiter around the real providers (design.md 7.3)
 resilience4j-spring-boot4 = { module = "io.github.resilience4j:resilience4j-spring-boot4", version.ref = "resilience4j" }
+# Rate limit buckets kept in Redis (design.md 8.2). Built against Lettuce 6 while Boot 4.1 ships Lettuce 7:
+# RateLimiterTest on a real Redis is the proof that the two work together (WORKFLOW.md Task 4.7, decision 10)
+bucket4j-lettuce = { module = "com.bucket4j:bucket4j_jdk17-lettuce", version.ref = "bucket4j" }
 springdoc-openapi-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
 [plugins]
