@@ -27,6 +27,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.context.ActiveProfiles;
@@ -47,8 +48,11 @@ import org.testcontainers.containers.GenericContainer;
  * <p>
  * Since Task 4.3 every request to a trip passes through the permission cache, so this is also the proof that
  * permissions are still checked, from the database, without Redis.
+ * <p>
+ * The rate limits are on here (the test profile turns them off): they keep a Redis connection of their own, and
+ * losing it must let the calls through, not turn them away (design.md 8.2).
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.rate-limit.enabled=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestcontainersConfiguration.class)
@@ -80,6 +84,9 @@ class RedisDownIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private String bearer;
 
     @BeforeEach
@@ -101,6 +108,7 @@ class RedisDownIntegrationTest {
         // Activities go with their trips (ON DELETE CASCADE); places only once no activity points to them
         jdbcTemplate.update("DELETE FROM trips");
         jdbcTemplate.update("DELETE FROM places");
+        jdbcTemplate.update("DELETE FROM refresh_tokens");
         jdbcTemplate.update("DELETE FROM users");
     }
 
@@ -214,6 +222,31 @@ class RedisDownIntegrationTest {
 
         assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
         assertThat(output.getOut()).contains("Cache 'route:legs' failed to get entry");
+    }
+
+    @Test
+    void loginIsNotLimitedButStillAnswersWhileRedisIsOff(CapturedOutput output) {
+        userRepository.save(User.builder().email("login@example.com").passwordHash(passwordEncoder.encode("MatKhau123"))
+                .fullName("Test").emailVerified(true).build());
+
+        Instant start = Instant.now();
+        // One more than the 5 a working limit allows: the count cannot be kept, so every call goes through
+        for (int attempt = 1; attempt <= 6; attempt++) {
+            assertThat(login("login@example.com", "MatKhau123")).as("attempt %d", attempt).hasStatusOk();
+        }
+        // A wrong password is still a wrong password: 401, not 429 and not 500
+        assertThat(login("login@example.com", "SaiMatKhau1"))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("INVALID_CREDENTIALS");
+
+        assertThat(Duration.between(start, Instant.now())).isLessThan(ACCEPTABLE_DELAY);
+        assertThat(output.getOut()).contains("WARN").contains("Rate limit not checked for login:");
+    }
+
+    private MvcTestResult login(String email, String password) {
+        return mvc.post().uri("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
+                {"email": "%s", "password": "%s"}
+                """.formatted(email, password)).exchange();
     }
 
     private MvcTestResult post(String url, String json) {

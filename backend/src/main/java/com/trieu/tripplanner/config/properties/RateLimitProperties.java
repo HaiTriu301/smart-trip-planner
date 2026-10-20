@@ -15,11 +15,13 @@ import org.springframework.validation.annotation.Validated;
  *
  * @param enabled  whether the limits apply at all; off in the test profile, where older tests call the same
  *                 endpoints hundreds of times from one address. RateLimitConfig reads the same property
+ * @param login    {@code POST /auth/login}, counted per address and email
  * @param register {@code POST /auth/register}, counted per address
  */
 @Validated
 @ConfigurationProperties(prefix = "app.rate-limit")
 public record RateLimitProperties(
         boolean enabled,
+        @NotNull RateLimit login,
         @NotNull RateLimit register) {
 }

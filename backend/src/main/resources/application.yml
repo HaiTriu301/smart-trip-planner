@@ -79,6 +79,11 @@ app:
   # period / N, never more than N at once
   rate-limit:
     enabled: true
+    # POST /auth/login, per address and email (design.md 6.3). Every attempt counts, the right password too: the
+    # limit is checked before the password is
+    login:
+      capacity: 5
+      period: 15m
     register:                  # POST /auth/register, per address
       capacity: 3
       period: 1h
