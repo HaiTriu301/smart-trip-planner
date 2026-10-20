@@ -1,15 +1,20 @@
 package com.trieu.tripplanner.config;
 
 import com.trieu.tripplanner.config.properties.JwtProperties;
+import com.trieu.tripplanner.config.properties.RateLimitProperties;
 import com.trieu.tripplanner.security.JwtAuthenticationFilter;
 import com.trieu.tripplanner.security.JwtJsonCodec;
 import com.trieu.tripplanner.security.JwtTokenProvider;
 import com.trieu.tripplanner.security.RefreshTokenCookies;
 import com.trieu.tripplanner.security.RestAccessDeniedHandler;
 import com.trieu.tripplanner.security.RestAuthenticationEntryPoint;
+import com.trieu.tripplanner.security.ratelimit.RateLimitFilter;
+import com.trieu.tripplanner.security.ratelimit.RateLimiter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.Customizer;
@@ -22,10 +27,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Stateless REST security (design.md 6). Everything is locked unless listed in {@link #PUBLIC_PATHS}.
- * {@link JwtAuthenticationFilter} authenticates requests that carry a valid bearer token.
+ * {@link JwtAuthenticationFilter} authenticates requests that carry a valid bearer token, then {@link RateLimitFilter}
+ * turns away callers over their limit (only when the RateLimiter bean exists, see RateLimitConfig).
  * The security helpers are @Import-ed here (not component-scanned) so slice tests get the whole
  * chain by importing this single class. Beans that need the database (UserDetailsService,
  * AuthenticationManager) live in AuthenticationConfig instead.
@@ -33,7 +40,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, RateLimitProperties.class})
 @Import({RestAuthenticationEntryPoint.class, RestAccessDeniedHandler.class, JwtJsonCodec.class, JwtTokenProvider.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -56,6 +63,11 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final JwtTokenProvider jwtTokenProvider;
+    // Absent when app.rate-limit.enabled is false, and in @WebMvcTest slices: no Redis needed there
+    private final ObjectProvider<RateLimiter> rateLimiter;
+    private final RateLimitProperties rateLimitProperties;
+    private final ObjectMapper objectMapper;
+    private final MessageSource messageSource;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -76,8 +88,11 @@ public class SecurityConfig {
                         .requestMatchers(LOGOUT_PATH).authenticated()   // more specific rule first
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .anyRequest().authenticated())
-                // Created here, not as a bean: a Filter bean would also be registered in the plain servlet chain
+                // Created here, not as beans: a Filter bean would also be registered in the plain servlet chain
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
+        // After the JWT filter so later rules can count per user; still before any authorization decision
+        rateLimiter.ifAvailable(limiter -> http.addFilterAfter(
+                new RateLimitFilter(limiter, rateLimitProperties, objectMapper, messageSource), JwtAuthenticationFilter.class));
         return http.build();
     }
 

@@ -74,6 +74,14 @@ app:
     refresh-ttl: 7d
     issuer: smart-trip-planner
     cookie-secure: false         # prod profile sets true (cookie only over HTTPS)
+  # How often one caller may call an endpoint (design.md 8.2). Counted in Redis under rate:*; a call over the limit
+  # gets 429. When Redis is down the calls go through. A limit of N calls per period gives one call back every
+  # period / N, never more than N at once
+  rate-limit:
+    enabled: true
+    register:                  # POST /auth/register, per address
+      capacity: 3
+      period: 1h
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:
