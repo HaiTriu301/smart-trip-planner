@@ -29,8 +29,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Stops a caller who went over the limit of an endpoint before the request reaches a controller (design.md 8.2):
- * a rejected call never touches the database and never sends a mail.
+ * Stops a caller who went over a limit before the request reaches a controller (design.md 8.2): a rejected call
+ * never touches the database and never sends a mail. Some endpoints have a limit of their own ({@link Rule}); every
+ * call under {@code /api/} also counts against a global limit, per user once signed in, per address before.
  * <p>
  * Sits in the Spring Security chain right after JwtAuthenticationFilter, so the signed-in user is known when a
  * rule counts per user. Created by SecurityConfig, not a
@@ -55,10 +56,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Stands for "no email found in the body" in a key; a SHA-256 in hex can never be this. */
     private static final String NO_EMAIL = "-";
 
+    /** What the global limits count (WORKFLOW.md Task 4.7, decision 12). */
+    private static final RequestMatcher API = PathPatternRequestMatcher.pathPattern("/api/**");
+
     private final RateLimiter rateLimiter;
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
     private final List<Rule> rules;
+    private final RateLimit globalUser;
+    private final RateLimit globalGuest;
     private final SecurityContextHolderStrategy contextHolderStrategy = SecurityContextHolder.getContextHolderStrategy();
 
     public RateLimitFilter(RateLimiter rateLimiter, RateLimitProperties properties, ObjectMapper objectMapper,
@@ -66,6 +72,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.rateLimiter = rateLimiter;
         this.objectMapper = objectMapper;
         this.messageSource = messageSource;
+        this.globalUser = properties.globalUser();
+        this.globalGuest = properties.globalGuest();
         this.rules = List.of(
                 new Rule("login", post("/api/v1/auth/login"), properties.login(), CountedBy.ADDRESS_AND_EMAIL),
                 new Rule("register", post("/api/v1/auth/register"), properties.register(), CountedBy.ADDRESS),
@@ -82,44 +90,66 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         properties.placeSearch(), CountedBy.USER));
     }
 
+    /**
+     * The limit of the endpoint first, then the global one (design.md 8.2). A call let through takes from both; a
+     * call the endpoint limit turns away never reaches the global count. One the global limit turns away has already
+     * spent its call of the endpoint limit: Bucket4j cannot take from two buckets in one step.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        Optional<Rule> match = rules.stream().filter(rule -> rule.matcher().matches(request)).findFirst();
-        if (match.isEmpty()) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        Rule rule = match.get();
-        String address = request.getRemoteAddr();
-        // The body can be read only once: from here on the chain gets the wrapper, which replays it
         HttpServletRequest passedOn = request;
-        String caller = address;
-        if (rule.countedBy() == CountedBy.ADDRESS_AND_EMAIL) {
-            CachedBodyRequest cached = new CachedBodyRequest(request, MAX_LOGIN_BODY_BYTES);
-            passedOn = cached;
-            caller = address + ":" + emailPartOf(cached);
-        }
-        else if (rule.countedBy() == CountedBy.USER) {
-            Optional<Long> userId = signedInUserId();
-            if (userId.isEmpty()) {
-                // Nobody to count: the endpoint needs a sign-in, and the authorization step answers 401
-                chain.doFilter(request, response);
+        Optional<Rule> match = rules.stream().filter(rule -> rule.matcher().matches(request)).findFirst();
+        if (match.isPresent()) {
+            Rule rule = match.get();
+            if (rule.countedBy() == CountedBy.ADDRESS_AND_EMAIL) {
+                // The body can be read only once: from here on the chain gets the wrapper, which replays it
+                passedOn = new CachedBodyRequest(request, MAX_LOGIN_BODY_BYTES);
+            }
+            // No caller: a rule per user on a call without sign-in. The authorization step answers it 401
+            Optional<String> caller = callerOf(rule.countedBy(), passedOn);
+            if (caller.isPresent() && !allowed(rule.name(), caller.get(), rule.limit(), request, response)) {
                 return;
             }
-            caller = "u" + userId.get();
         }
 
-        Decision decision = rateLimiter.tryConsume(rule.name() + ":" + caller, rule.limit());
-        if (!decision.allowed()) {
-            // The address only: the key may hold the hash of an email
-            log.info("Rate limit {} reached from {}, next call in {}s", rule.name(), address,
-                    decision.retryAfterSeconds());
-            reject(request, response, decision);
+        // Only the API: the health check (called all the time by Docker and the proxy) and Swagger are not counted
+        if (API.matches(request) && !allowedByTheGlobalLimit(request, response)) {
             return;
         }
         chain.doFilter(passedOn, response);
+    }
+
+    private Optional<String> callerOf(CountedBy countedBy, HttpServletRequest request) {
+        String address = request.getRemoteAddr();
+        return switch (countedBy) {
+            case ADDRESS -> Optional.of(address);
+            case ADDRESS_AND_EMAIL -> Optional.of(address + ":" + emailPartOf((CachedBodyRequest) request));
+            case USER -> signedInUserId().map(id -> "u" + id);
+        };
+    }
+
+    /** A signed-in user is counted wherever they call from, a guest per address. */
+    private boolean allowedByTheGlobalLimit(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        Optional<Long> userId = signedInUserId();
+        return userId.isPresent()
+                ? allowed("global-user", "u" + userId.get(), globalUser, request, response)
+                : allowed("global-guest", request.getRemoteAddr(), globalGuest, request, response);
+    }
+
+    /** Takes one call from the bucket {@code name:caller}; when it is empty, answers 429 and returns false. */
+    private boolean allowed(String name, String caller, RateLimit limit, HttpServletRequest request,
+                            HttpServletResponse response) throws IOException {
+        Decision decision = rateLimiter.tryConsume(name + ":" + caller, limit);
+        if (decision.allowed()) {
+            return true;
+        }
+        // The address only, never the key: the key may hold the hash of an email
+        log.info("Rate limit {} reached from {}, next call in {}s", name, request.getRemoteAddr(),
+                decision.retryAfterSeconds());
+        reject(request, response, decision);
+        return false;
     }
 
     /**

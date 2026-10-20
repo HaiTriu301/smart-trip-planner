@@ -26,6 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /**
  * The rate limits of design.md 8.2 through the whole application: RateLimitFilter in the security chain, buckets
@@ -36,7 +37,12 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  * does not matter. New limit scenarios go here, not in a new class: each class
  * with its own properties is one more application startup.
  */
-@SpringBootTest(properties = "app.rate-limit.enabled=true")
+@SpringBootTest(properties = {
+        "app.rate-limit.enabled=true",
+        // The same 1000 calls, refilled over a day instead of an hour: at 1000 an hour one call comes back every
+        // 3.6 seconds, and on a slow machine the 1000 calls of a test take longer than that
+        "app.rate-limit.global-user.period=24h"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestcontainersConfiguration.class)
@@ -57,6 +63,9 @@ class RateLimitIntegrationTest {
     private static final int PUBLIC_VIEWS_AN_HOUR = 120;
     /** application.yml: 60 place searches an hour per signed-in user. */
     private static final int SEARCHES_AN_HOUR = 60;
+    /** Every call under /api/: 1000 per signed-in user (refilled over a day here, see above), 200 per address. */
+    private static final int USER_CALLS_AN_HOUR = 1000;
+    private static final int GUEST_CALLS_AN_HOUR = 200;
     /** application.yml: 3 registrations an hour per address, so one comes back every 20 minutes. */
     private static final int REGISTRATIONS_AN_HOUR = 3;
     private static final long TWENTY_MINUTES = Duration.ofMinutes(20).toSeconds();
@@ -385,6 +394,78 @@ class RateLimitIntegrationTest {
         assertThat(search("203.0.113.72", null))
                 .hasStatus(HttpStatus.UNAUTHORIZED)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("UNAUTHORIZED");
+    }
+
+    @Test
+    void aGuestOverTheGlobalLimitIsTurnedAwayOnTheWholeApiButNotOnTheHealthCheck() {
+        String address = "203.0.113.81";
+        for (int call = 1; call <= GUEST_CALLS_AN_HOUR; call++) {
+            assertThat(ping(address, null).getResponse().getStatus()).as("call %d", call).isEqualTo(200);
+        }
+
+        MvcTestResult rejected = ping(address, null);
+
+        assertThat(rejected)
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .hasHeader("X-RateLimit-Remaining", "0")
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RATE_LIMIT_EXCEEDED");
+        // 200 an hour: one comes back every 18 seconds
+        assertThat(Long.parseLong(rejected.getResponse().getHeader(HttpHeaders.RETRY_AFTER))).isBetween(1L, 18L);
+        // Any other API path from that address, here one with a limit of its own that is still full
+        assertThat(register(address, "global81@example.com")).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+
+        // Outside /api/: what Docker and the proxy call all the time, and the API documentation
+        assertThat(mvc.get().uri("/actuator/health").with(from(address))).hasStatusOk();
+        assertThat(mvc.get().uri("/v3/api-docs").with(from(address))).hasStatusOk();
+    }
+
+    @Test
+    void aSignedInUserHasAGlobalLimitOfTheirOwn() {
+        String address = "203.0.113.82";
+        String bearer = bearerOf("busy82@example.com");
+        for (int call = 1; call <= USER_CALLS_AN_HOUR; call++) {
+            assertThat(ping(address, bearer).getResponse().getStatus()).as("call %d", call).isEqualTo(200);
+        }
+
+        assertThat(ping(address, bearer))
+                .hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("RATE_LIMIT_EXCEEDED");
+
+        // Counted per user: another user and a guest from the same address still have all their calls
+        assertThat(ping(address, bearerOf("calm82@example.com"))).hasStatusOk();
+        assertThat(ping(address, null)).hasStatusOk();
+    }
+
+    @Test
+    void aCallWithALimitOfItsOwnTakesFromBothButATurnedAwayOneTakesOnlyFromItsOwn() {
+        String address = "203.0.113.83";
+        for (int call = 1; call <= REGISTRATIONS_AN_HOUR; call++) {
+            assertThat(register(address, "both" + call + "@example.com")).hasStatus(HttpStatus.CREATED);
+        }
+        // Turned away by the limit of registration: does not reach the global count
+        assertThat(register(address, "both4@example.com")).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+
+        // The 3 registrations let through took 3 calls of the global 200: 197 are left, not 196
+        int left = GUEST_CALLS_AN_HOUR - REGISTRATIONS_AN_HOUR;
+        for (int call = 1; call <= left; call++) {
+            assertThat(ping(address, null).getResponse().getStatus()).as("call %d", call).isEqualTo(200);
+        }
+        assertThat(ping(address, null)).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    private MvcTestResult ping(String address, String bearer) {
+        var request = mvc.get().uri("/api/v1/ping").with(from(address));
+        if (bearer != null) {
+            request = request.header(HttpHeaders.AUTHORIZATION, bearer);
+        }
+        return request.exchange();
+    }
+
+    private static RequestPostProcessor from(String address) {
+        return request -> {
+            request.setRemoteAddr(address);
+            return request;
+        };
     }
 
     private String bearerOf(String email) {

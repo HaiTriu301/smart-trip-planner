@@ -106,6 +106,14 @@ app:
     place-search:
       capacity: 60
       period: 1h
+    # Every call under /api/, on top of the limits above (a call of an endpoint with a limit of its own takes from
+    # both). Not the health check nor Swagger. PREMIUM levels come with Task 8.1
+    global-user:               # signed in, per user
+      capacity: 1000
+      period: 1h
+    global-guest:              # not signed in, per address
+      capacity: 200
+      period: 1h
   # Third-party implementations, selected by config (design.md 7.1).
   # Every profile defaults to mock so the app runs without any API key.
   providers:
