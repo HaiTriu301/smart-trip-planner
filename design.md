@@ -587,7 +587,8 @@ Kết quả quyền của (userId, tripId) được **cache Redis TTL 5 phút**,
 ### 6.3. Checklist bảo mật
 
 - BCrypt strength 12, không log password/token
-- Rate limit login: 5 lần / 15 phút / IP+email → trả 429
+- Rate limit login: 5 lần / 15 phút / IP+email → trả 429. Đếm **mọi** lượt gọi, kể cả lượt đăng nhập đúng (filter chạy trước controller nên không biết kết quả); email chuẩn hoá như lúc đăng ký (cắt khoảng trắng, chữ thường) rồi băm SHA-256 trong khoá Redis (mục 8.2, Task 4.7)
+- Địa chỉ IP của người gọi lấy từ `request.getRemoteAddr()`, không tự đọc `X-Forwarded-For` (phần tử đầu của header do người gọi tự điền). Sau proxy: nginx ghi đè `X-Forwarded-For` bằng IP thật, backend đặt `server.forward-headers-strategy: native` để Tomcat điền `getRemoteAddr()` (chốt 2026-10-17, Task 4.7 / 4.8)
 - CORS whitelist theo env, không dùng `*` khi có credentials
 - Stripe webhook verify signature bằng `Webhook.constructEvent`
 - Validate mọi input; chống mass assignment bằng cách chỉ dùng request DTO
@@ -759,7 +760,30 @@ Chốt 2026-10-16 (Mốc 0 Task 4.3), cache quyền `trip:permission`:
 | `POST /ai/suggest-itinerary` | 0 (403) | 10 / ngày | — |
 | Toàn cục | 1000 / giờ | 3000 / giờ | 200 / giờ |
 
-Response khi vượt: HTTP 429 + header `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+Response khi vượt: HTTP 429 `RATE_LIMIT_EXCEEDED` + header `X-RateLimit-Remaining` (luôn `0`), `X-RateLimit-Reset` và `Retry-After` (cùng một giá trị: số giây tới khi có lại một lượt), body `ErrorResponse` như mọi lỗi khác.
+
+Chốt 2026-10-17, bổ sung 2026-10-20 (Task 4.7 — phần cốt lõi kéo từ Task 8.1 để deploy sớm ở Task 4.8):
+- **Phạm vi Task 4.7** (chỉ endpoint đã có tới hết Phase 4):
+
+  | Endpoint | Khoá đếm | Hạn mức |
+  |---|---|---|
+  | `POST /auth/login` | IP + email | 5 / 15 phút |
+  | `POST /auth/register` | IP | 3 / giờ |
+  | `POST /auth/resend-verification`, `POST /auth/forgot-password` | IP | 5 / giờ (mỗi endpoint) |
+  | `GET /public/trips/{token}` | IP | 120 / giờ |
+  | `GET /places/search` | userId | 60 / giờ (mức FREE) |
+  | Toàn cục `/api/**`, đã đăng nhập | userId | 1000 / giờ |
+  | Toàn cục `/api/**`, khách | IP | 200 / giờ |
+
+  Login đếm theo IP + email như mục 6.3 (bảng gốc ghi "Guest/IP"); khách đổi email liên tục bị chặn bởi hạn mức toàn cục. Hai endpoint gửi mail và trang công khai là luật mới (chống spam mail, ghi nợ ở Task 4.2). Mức PREMIUM, `/weather/**`, AI và mức khách của `/places/search` (endpoint cần đăng nhập) ở lại Task 8.1.
+- **Vị trí:** một filter trong chuỗi Spring Security, đứng sau `JwtAuthenticationFilter` (cần userId), trước bước kiểm quyền. Lượt bị từ chối không chạm database. Preflight `OPTIONS` không bị đếm (CORS trả lời trước). Luật toàn cục chỉ tính `/api/**`: actuator (healthcheck gọi liên tục) và Swagger không bị đếm.
+- **Thứ tự:** luật riêng của endpoint trước, rồi luật toàn cục; lượt đi qua bị trừ ở cả hai. Luật riêng chặn thì luật toàn cục không bị trừ; luật riêng cho qua mà luật toàn cục chặn thì lượt của luật riêng vẫn mất (Bucket4j không trừ hai bucket trong một lệnh).
+- **Tìm địa điểm đếm trước cache:** mọi lượt gọi đều tính, kể cả trúng cache (trả lời câu hỏi để ngỏ ở Task 3.4). Ô tìm kiếm chờ 300ms sau lần gõ cuối nên một lần tìm tốn khoảng 2–4 lượt; bài kiểm tay thấy 60 / giờ chật thì nâng con số, không đổi cách đếm.
+- **Email của login nằm trong body:** filter đọc body và bọc request để controller đọc lại được. Body không cho ra email (sai JSON, thiếu email, quá lớn) vẫn bị đếm, vào khoá chung của IP đó, nên không lách được luật bằng body lạ; controller trả 400 như cũ.
+- **Khoá Redis:** tiền tố `rate:` (không trùng tên cache nào ở 8.1), ví dụ `rate:register:{ip}`, `rate:login:{ip}:{sha256(email)}`, `rate:place-search:u{userId}`. Email không nằm thô trong Redis hay log. Khoá tự hết hạn khi bucket đầy lại.
+- **Redis lỗi → cho qua** (fail open): ghi log WARN, không 429, không 500, giống cache ở 8.1. Bucket4j dùng một kết nối Lettuce riêng (thư viện không đi qua Spring Data Redis), cùng thời gian chờ 1 giây và cùng cách từ chối lệnh khi mất kết nối như `config/RedisClientConfig`.
+- **Cấu hình:** `app.rate-limit.enabled` + từng luật (số lượt, khoảng thời gian) trong `application.yml`. Profile `test` tắt hẳn (test cũ đăng nhập hàng trăm lần từ `127.0.0.1`); `RateLimitIntegrationTest` bật lại, mỗi test dùng IP / email riêng để không phụ thuộc thứ tự.
+- **Thư viện:** Bucket4j `com.bucket4j:bucket4j_jdk17-lettuce` 8.21.0. Bản này được build với Lettuce 6.1.8 trong khi Boot 4.1 dùng Lettuce 7.5.2, và tài liệu không ghi hai bản có hợp nhau không: test của bộ đếm trên Redis thật (Task 4.7 Mốc 2) là bằng chứng; đỏ vì lỗi thư viện thì dừng và chọn lại (chốt 2026-10-20).
 
 ---
 
@@ -981,7 +1005,7 @@ Public: `GET /api/v1/public/trips/{token}` — không cần auth (`SecurityConfi
 > - **Nhận lời** (`POST /members/accept`): token sai, hết hạn, đã dùng, hoặc không thuộc `{tripId}` → 400 `INVALID_TOKEN` (một mã chung như token verify / reset). Token đúng nhưng chuyến đi đã bị xoá mềm → 404 `RESOURCE_NOT_FOUND` như mọi endpoint của chuyến đã xoá, dòng thành viên giữ `PENDING` (chốt 2026-10-16, Task 4.3; trước đó trả 200 vì chỉ đọc id của chuyến mà không kiểm chuyến còn sống). Email của tài khoản đang đăng nhập khác `invited_email` → 403 `FORBIDDEN` (link mời chuyển tiếp cho người khác không dùng được). Thành công: `user_id`, `status = ACCEPTED`, `accepted_at`, xoá token hash; từ đây evaluator cho vào.
 > - **Đổi vai trò / gỡ**: `memberId` phải thuộc `{tripId}` và không phải `REMOVED`, nếu không 404. Đổi sang đúng vai trò đang có → 200, không ghi. Gỡ xong người đó mất quyền ngay (evaluator đọc DB; từ Task 4.3 evict cache).
 > - **Liên kết** (`POST /share-links`): chỉ quyền xem (`permission = VIEW`, không nhận từ client). `expiresAt` tuỳ chọn, nếu có phải ở tương lai: kiểm ở service bằng bean `Clock`, sai → 400 `VALIDATION_ERROR` ở field `expiresAt`. Body không bắt buộc: không gửi body là tạo liên kết không hạn. Tạo xong `trip.visibility = LINK`; thu hồi liên kết cuối cùng chưa thu hồi → `PRIVATE` (liên kết hết hạn nhưng chưa thu hồi vẫn giữ `LINK`; chấp nhận). Thu hồi lần hai → 404. Không có hạn mức số liên kết. URL đầy đủ do giao diện ghép: `{origin}/share/{token}`. `ShareLinkResponse` = `{id, token, permission, expiresAt, viewCount, createdAt, expired}` (chốt 2026-10-13, bảng commit Task 4.2): `expired` = có `expiresAt` và `expiresAt` không còn ở sau thời điểm hiện tại; **không** có `revokedAt`, vì danh sách chỉ trả liên kết chưa thu hồi và `DELETE` không trả body nên trường đó luôn là `null`. Log chỉ ghi id của liên kết, không ghi token (CLAUDE.md rule 17).
-> - **Trang công khai** (`GET /public/trips/{token}`): token không có, đã thu hồi, hết hạn, hoặc chuyến đã xoá mềm → **cùng một** 404 `RESOURCE_NOT_FOUND`. Token không đúng dạng `[a-z0-9]{32}` cũng 404 và không hỏi database (chốt 2026-10-13): collation `_ci` của MySQL coi chữ hoa và chữ thường là một, nên phải so dạng trước. Mỗi lần gọi thành công tăng `view_count` bằng một câu `UPDATE ... SET view_count = view_count + 1`. `PublicTripResponse` gồm: `title`, `description`, `destinationName` / `destinationLat` / `destinationLng`, `startDate`, `endDate`, `days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note, place{name, address, lat, lng}}]}]`; **không** có email, `ownerId`, tên chủ, thành viên, bình luận, id người dùng. Chưa có thời tiết / quãng đường (cần endpoint công khai riêng). Chốt lại 2026-10-13 (bảng commit Task 4.2): ghi chú của **hoạt động** hiện, ghi chú của **ngày** không trả; chi phí và link đặt chỗ không trả. Lượt xem đếm mọi lần gọi thành công, kể cả chủ tự mở và mỗi lần tải lại, nên giao diện (Task 4.5) không tự tải lại trang này. Trang công khai không đọc `trip.visibility`: dòng liên kết là nguồn sự thật. Mỗi lần mở tốn 4 câu SQL (liên kết kèm chuyến đi, các ngày, các hoạt động kèm địa điểm, câu tăng lượt xem), không tăng theo số hoạt động. Rate limit theo IP: Task 8.1; trước đó không bật bản deploy công khai.
+> - **Trang công khai** (`GET /public/trips/{token}`): token không có, đã thu hồi, hết hạn, hoặc chuyến đã xoá mềm → **cùng một** 404 `RESOURCE_NOT_FOUND`. Token không đúng dạng `[a-z0-9]{32}` cũng 404 và không hỏi database (chốt 2026-10-13): collation `_ci` của MySQL coi chữ hoa và chữ thường là một, nên phải so dạng trước. Mỗi lần gọi thành công tăng `view_count` bằng một câu `UPDATE ... SET view_count = view_count + 1`. `PublicTripResponse` gồm: `title`, `description`, `destinationName` / `destinationLat` / `destinationLng`, `startDate`, `endDate`, `days[{dayIndex, date, title, activities[{title, type, startTime, endTime, note, place{name, address, lat, lng}}]}]`; **không** có email, `ownerId`, tên chủ, thành viên, bình luận, id người dùng. Chưa có thời tiết / quãng đường (cần endpoint công khai riêng). Chốt lại 2026-10-13 (bảng commit Task 4.2): ghi chú của **hoạt động** hiện, ghi chú của **ngày** không trả; chi phí và link đặt chỗ không trả. Lượt xem đếm mọi lần gọi thành công, kể cả chủ tự mở và mỗi lần tải lại, nên giao diện (Task 4.5) không tự tải lại trang này. Trang công khai không đọc `trip.visibility`: dòng liên kết là nguồn sự thật. Mỗi lần mở tốn 4 câu SQL (liên kết kèm chuyến đi, các ngày, các hoạt động kèm địa điểm, câu tăng lượt xem), không tăng theo số hoạt động. Rate limit theo IP: 120 lượt / giờ (Task 4.7, mục 8.2); lượt bị chặn không tới service nên không tăng `view_count`.
 
 **Comment** `/api/v1/trips/{tripId}/comments` (Task 4.4)
 | GET | `?activityId=` | Danh sách phẳng theo `createdAt` tăng dần, có `parentId` để giao diện lồng một cấp; lọc theo activity nếu có. Không phân trang | canView |
@@ -1169,7 +1193,7 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 12. Email chỉ gửi khi `email_verified = true` (trừ mail verify và mail mời).
 13. **Mật khẩu** (chốt Task 1.2): dài 8–72 ký tự, có ít nhất 1 chữ hoa, 1 chữ thường, 1 chữ số; chỉ gồm ký tự ASCII in được (`\x21`–`\x7E`, cho phép ký tự đặc biệt, không khoảng trắng). Giới hạn 72 vì BCrypt chỉ dùng 72 byte đầu; giới hạn ASCII để 72 ký tự luôn ≤ 72 byte. Regex: `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[\x21-\x7E]+$` + `@Size(min=8,max=72)`. Áp dụng cho đăng ký, đổi mật khẩu, đặt lại mật khẩu. Request có mật khẩu mới phải kèm `confirmPassword` bằng đúng `password` (class-level constraint `@PasswordConfirmed`, lỗi báo trên field `confirmPassword`); `confirmPassword` chỉ để kiểm tra, **không** lưu, không hash.
 14. **Email** chuẩn hoá `trim().toLowerCase()` trước khi kiểm tra trùng và lưu (entity `@PrePersist` + service). Trùng email → 409 `EMAIL_ALREADY_EXISTS`; race giữa `existsByEmail` và `INSERT` được UNIQUE index bắt và dịch sang cùng mã lỗi.
-15. **Chống dò email**: các endpoint nhận `{email}` mà không cần đăng nhập (`resend-verification`, `forgot-password`) luôn trả 200 với cùng message dù email có tồn tại hay không, có verify hay chưa, có bị BLOCKED hay không. Lý do thật chỉ ghi log. Rate limit theo IP ở Phase 8.
+15. **Chống dò email**: các endpoint nhận `{email}` mà không cần đăng nhập (`resend-verification`, `forgot-password`) luôn trả 200 với cùng message dù email có tồn tại hay không, có verify hay chưa, có bị BLOCKED hay không. Lý do thật chỉ ghi log. Rate limit theo IP: 5 lần / giờ cho mỗi endpoint (Task 4.7, mục 8.2); 429 trả như nhau dù email có tồn tại hay không.
 16. **Token một lần**: token verify/reset được hash SHA-256 khi lưu, có TTL (24h / 1h), dùng xong đánh dấu `used_at`; phát token mới vô hiệu token cũ cùng loại. Đổi mật khẩu thành công (reset hoặc đổi trong settings) → `revokeAll` refresh token của user (lý do `PASSWORD_RESET`, mục 6.1) để mọi thiết bị khác phải đăng nhập lại.
 17. **Gửi mail không chặn request**: mọi mail đi qua `MailService` (`@Async`), lỗi SMTP được log qua `AsyncUncaughtExceptionHandler`, không làm request thất bại. Đăng ký vẫn 201 dù mail lỗi; người dùng dùng `resend-verification` để nhận lại.
 18. **Địa điểm là bản lưu dùng chung** (chốt 2026-10-01): khi người dùng chọn một kết quả tìm kiếm, ứng dụng chép địa điểm vào bảng `places` và từ đó hiển thị từ bản chép, không hỏi lại dịch vụ ngoài. Thông tin để chép do **server tự tra từ nguồn** theo mã của kết quả; không tin tên hay toạ độ do client gửi, vì một bản chép sai sẽ sai cho mọi người chọn địa điểm đó về sau.
@@ -1296,11 +1320,11 @@ Frontend có file env riêng `frontend/.env` (copy từ `frontend/.env.example`,
 | **1. Auth** | User, JWT, refresh rotation, verify email, reset password | Đăng ký → nhận mail ở MailHog → login → gọi `/users/me` |
 | **2. Trip + Itinerary** | Trip CRUD, TripDay auto-gen, Activity CRUD + reorder + validate giờ | Tạo trip 3 ngày → thêm 5 activity → kéo thả |
 | **3. Place + Weather (mock)** | Provider abstraction, mock data, cache Redis | Search "Đà Nẵng" → marker trên map, forecast hiện ra |
-| **4. Sharing + Permission** | TripMember, ShareLink, PermissionEvaluator, comment | Mời user2 làm VIEWER → user2 sửa → 403 |
+| **4. Sharing + Permission** | TripMember, ShareLink, PermissionEvaluator, comment; rate limit cốt lõi (Task 4.7) và deploy thử lên AWS (Task 4.8), kéo từ Phase 8 (chốt 2026-10-17) | Mời user2 làm VIEWER → user2 sửa → 403; đăng nhập sai 6 lần → 429; URL công khai chạy được |
 | **5. Realtime** | WebSocket STOMP, presence, optimistic locking | Mở 2 tab → sửa ở tab A → tab B tự cập nhật |
 | **6. Premium + Stripe** | Quota, feature gating, checkout, webhook idempotent | Thanh toán test card → plan đổi sang PREMIUM |
 | **7. Expense + AI + Export** | Expense, settlement, AI suggest, PDF/ICS | | 
-| **8. Hoàn thiện** | Rate limit, admin dashboard, test coverage, CI/CD, deploy | URL public chạy được, README có ảnh demo |
+| **8. Hoàn thiện** | Rate limit phần còn lại (PREMIUM, AI, `/weather/**`), admin dashboard, test coverage, CI/CD đầy đủ, deploy bản cuối | README có ảnh demo, link bản deploy |
 
 Ước lượng: mỗi phase 3–6 ngày làm part-time. Tổng khoảng 6–8 tuần.
 

@@ -2844,40 +2844,62 @@ Nhánh: `feat/T4.7-core-rate-limit` · Test ghi vào `docs/testing/13-rate-limit
 > 6. **Vị trí:** một filter trong chuỗi Spring Security, đứng sau `JwtAuthenticationFilter` (cần biết userId). Vượt → 429 `RATE_LIMIT_EXCEEDED` (mã và message đã có) viết qua `SecurityErrorResponses` vì filter không tới được `GlobalExceptionHandler`, kèm header `X-RateLimit-Remaining`, `X-RateLimit-Reset` (design 8.2) và `Retry-After`. 429 trả như nhau dù email có tồn tại hay không (rule 14.15 giữ nguyên). ✔
 > 7. **Thư viện:** Bucket4j trên Redis (design 3.1, 8.2). Mốc 2 kiểm tên artifact và phiên bản hợp với Lettuce của Boot 4 trên tài liệu chính thức trước khi thêm vào `libs.versions.toml`; không hợp thì dừng và báo, không tự đổi sang cách khác. ✔
 > 8. **Không có commit giao diện:** `api/errors.getErrorMessage` đã hiện message của backend và lỗi 4xx không tự gửi lại (`isWorthRetrying`). Chỉ có bài kiểm tay trên form đăng nhập. ✔
+>
+> **Quyết định bổ sung (chủ dự án duyệt 2026-10-20, buổi bảng commit):**
+> 9. **Email của login lấy bằng filter đọc body:** filter đọc body và bọc request (`security/ratelimit/CachedBodyRequest`) để controller đọc lại được. Giữ quyết định 6 (mọi luật ở một filter, lượt bị chặn không chạm DB). Phương án kiểm trong `AuthServiceImpl.login` bị loại vì rate limit sẽ nằm ở hai nơi. Body không cho ra email (sai JSON, thiếu email, quá lớn) vẫn bị đếm vào khoá chung của IP đó. ✔
+> 10. **Bucket4j với Lettuce 7:** bản 8.21.0 (mới nhất, 2026-10-02) được build với Lettuce 6.1.8 (`provided`), dự án chạy Lettuce 7.5.2 của Boot 4.1; tài liệu không ghi có hợp hay không. Mốc 2 chỉ thêm thư viện + bộ đếm + test trên Redis thật: xanh là bằng chứng. Đỏ vì lỗi thư viện (`NoSuchMethodError`...) thì ghi BUG, dừng và báo, không tự đổi cách (giữ quyết định 7). ✔
+> 11. **Chia lại mốc** (bảng dưới thay bảng ngày 2026-10-17): bộ đếm đứng riêng ở Mốc 2; luật đơn giản nhất (register, chỉ IP) đi cùng hạ tầng filter ở Mốc 3; login (phải đọc body) thành mốc riêng. Mốc lớn nhất 8 file thay vì 10–12. ✔
+> 12. **Luật toàn cục chỉ tính `/api/**`:** `/actuator/health` (Docker healthcheck, Cloudflare gọi liên tục) và Swagger UI không bị đếm. ✔
+> 13. Đề xuất của Claude, ghi vào design 6.3 / 8.2: login đếm **mọi** lượt, kể cả đăng nhập đúng (filter không biết kết quả); email băm SHA-256 trong khoá Redis; luật riêng kiểm trước luật toàn cục; `SecurityConfig` gắn filter qua `ObjectProvider` và filter không phải `@Component`, nên 16 class `@WebMvcTest` (đều `@Import(SecurityConfig.class)`) không cần Redis; Bucket4j dùng kết nối Lettuce riêng với thời gian chờ 1 giây và `REJECT_COMMANDS` như `RedisClientConfig`.
 
 ```
-Mốc 0 — docs (main): design.md 6.3 (khoá IP + email), 8.2 (bảng trên, đếm trước cache, Redis lỗi cho qua, phần còn lại ở
-        8.1), 18 (lộ trình: rate limit cốt lõi và deploy sau Phase 4); WORKFLOW.md bảng này
+Mốc 0 — docs (main): design.md 6.3 (khoá IP + email, đếm mọi lượt, IP từ getRemoteAddr), 8.2 (bảng trên và quyết định
+        9–13, phần còn lại ở 8.1), 10.2 (trang công khai), 14.15, 18 (lộ trình: rate limit cốt lõi và deploy sau Phase 4);
+        WORKFLOW.md bảng này
 
-Mốc 1 — fix(security): stop trusting a client supplied X-Forwarded-For                              (~2 file)
+Mốc 1 — fix(security): stop trusting a client supplied X-Forwarded-For                              (2 file)
         ClientInfo.from dùng request.getRemoteAddr(); AuthControllerTest: gửi X-Forwarded-For giả → IP lưu kèm refresh token
         vẫn là địa chỉ socket
 
-Mốc 2 — feat(security): limit login attempts per address and email                                 (~10 file)
-        libs.versions.toml + build.gradle (Bucket4j), config/properties/RateLimitProperties (app.rate-limit.enabled + từng
-        luật), config/RateLimitConfig (kho bucket trên Redis), security/ratelimit/RateLimitFilter, SecurityConfig gắn filter,
-        application.yml (luật login) + application-test.yml (enabled: false); test: RateLimitIntegrationTest (5 lần → lần 6
-        là 429 kèm 3 header; email khác cùng IP vẫn qua; IP khác vẫn qua), RedisDownIntegrationTest (Redis tắt → login vẫn
-        200 / 401, không 429, không 500, log WARN)
-        10 file vì: dependency + cấu hình + filter là tối thiểu để một luật chạy; tách ra thì có code chưa ai dùng
+Mốc 2 — feat(security): add a redis backed rate limiter                                            (5 file)
+        libs.versions.toml + build.gradle (bucket4j_jdk17-lettuce), security/ratelimit/RateLimit (số lượt + khoảng thời gian),
+        security/ratelimit/RateLimiter (trừ một lượt trong bucket của một khoá; Redis lỗi → cho qua + log WARN);
+        test: RateLimiterTest trên Redis thật (Testcontainers, không khởi động ứng dụng): hết lượt → bị từ chối kèm số giây
+        chờ; khoá khác có bucket riêng; Redis dừng → cho qua. Cũng là bằng chứng Bucket4j chạy với Lettuce 7 (quyết định 10)
 
-Mốc 3 — feat(security): limit registration and the mail sending endpoints                          (~2 file)
-        luật register, resend-verification, forgot-password trong application.yml; test: lần thứ 4 / thứ 6 là 429, mail không
-        được gửi thêm (MockMailProvider)
+Mốc 3 — feat(security): limit registration per address                                             (8 file)
+        config/properties/RateLimitProperties (app.rate-limit.enabled + từng luật), config/RateLimitConfig (kết nối Lettuce
+        riêng + kho bucket, chỉ khi bật), security/ratelimit/RateLimitFilter, SecurityErrorResponses (public, dùng từ package
+        con), SecurityConfig (gắn filter qua ObjectProvider), application.yml (luật register) + application-test.yml
+        (enabled: false); test: RateLimitIntegrationTest (lần 4 là 429 kèm 3 header và body ErrorResponse; IP khác vẫn qua;
+        mail xác thực không được gửi thêm)
+        8 file vì: cấu hình + kho bucket + filter + chỗ gắn filter là tối thiểu để một luật chạy
 
-Mốc 4 — feat(sharing): limit the public trip page per address                                      (~2 file)
+Mốc 4 — feat(security): limit login attempts per address and email                                 (5 file)
+        RateLimitFilter (khoá IP + email), security/ratelimit/CachedBodyRequest (đọc body một lần, controller đọc lại),
+        application.yml (luật login); test: RateLimitIntegrationTest (5 lần → lần 6 là 429; email khác cùng IP vẫn qua; IP
+        khác vẫn qua; email viết hoa / có khoảng trắng chung bucket; body không cho ra email vẫn bị đếm),
+        RedisDownIntegrationTest (Redis tắt → login vẫn 200 / 401, không 429, không 500, log WARN)
+
+Mốc 5 — feat(security): limit the mail sending endpoints                                           (2 file)
+        luật resend-verification, forgot-password trong application.yml; test: lần thứ 6 là 429, mail không được gửi thêm
+        (MockMailProvider), 429 như nhau dù email có tồn tại hay không
+
+Mốc 6 — feat(sharing): limit the public trip page per address                                      (2 file)
         luật /public/trips/*; test: vượt hạn mức → 429; view_count không tăng ở lượt bị từ chối
 
-Mốc 5 — feat(place): limit place search per user                                                   (~2 file)
-        luật /places/search theo userId; test: hai người dùng cùng IP có hạn mức riêng; lượt trúng cache vẫn tính
+Mốc 7 — feat(place): limit place search per user                                                   (3 file)
+        RateLimitFilter (khoá userId), luật /places/search; test: hai người dùng cùng IP có hạn mức riêng; lượt trúng cache
+        vẫn tính
 
-Mốc 6 — feat(security): add the global limits for users and guests                                 (~2 file)
-        luật toàn cục; test: người dùng và khách vượt toàn cục → 429; endpoint có luật riêng trừ cả hai (riêng + toàn cục)
+Mốc 8 — feat(security): add the global limits for users and guests                                 (3 file)
+        RateLimitFilter (luật toàn cục, chỉ /api/**), luật toàn cục; test: người dùng và khách vượt toàn cục → 429; endpoint
+        có luật riêng trừ cả hai (riêng + toàn cục); /actuator/health không bị đếm
 ```
 
 **Nghiệm thu:** `./gradlew build` xanh; trên `npm run dev`, đăng nhập sai 6 lần liền → lần 6 form hiện "Bạn gửi quá nhiều yêu cầu, vui lòng thử lại sau"; đăng nhập đúng bằng email khác vẫn được.
 
-**Nhớ:** filter chạy trước controller nên lượt bị từ chối không chạm database. Khoá trong Redis có tiền tố riêng (`rate:`), không trùng tên cache nào trong `CacheNames`. Đừng đếm lượt preflight `OPTIONS` (CORS filter trả lời trước).
+**Nhớ:** filter chạy trước controller nên lượt bị từ chối không chạm database. Khoá trong Redis có tiền tố riêng (`rate:`), không trùng tên cache nào trong `CacheNames`. Đừng đếm lượt preflight `OPTIONS` (CORS filter trả lời trước). Filter không phải `@Component` (`@WebMvcTest` tự nạp mọi bean `Filter`, và Spring Boot sẽ đăng ký nó lần thứ hai ngoài chuỗi security). Kịch bản giới hạn mới thêm vào `RateLimitIntegrationTest`, kịch bản Redis tắt thêm vào `RedisDownIntegrationTest`, không tạo class mới.
 
 ---
 
