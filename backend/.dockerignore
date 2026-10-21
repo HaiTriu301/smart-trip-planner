@@ -1,0 +1,10 @@
+# The image is built from build.gradle, settings.gradle, gradle/libs.versions.toml and src/ only.
+# Everything else stays out of the build context: smaller upload to Docker, and no local files baked in.
+build/
+.gradle/
+bin/
+out/
+.idea/
+.claude/
+*.iml
+HELP.md

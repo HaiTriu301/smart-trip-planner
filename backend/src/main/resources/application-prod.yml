@@ -1,0 +1,53 @@
+# Production profile, turned on by SPRING_PROFILES_ACTIVE=prod in docker-compose.prod.yml (design.md 17.3, 17.4).
+# Values that differ per deployment or are secret come from environment variables, which Docker hands to the
+# container from the .env file on the server (the full list is .env.prod.example). No .env import here.
+# ProdProfileConfigTest guards the security-related values below.
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  mail:
+    # Brevo SMTP relay (design.md 3.3): smtp-relay.brevo.com, port 587
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            # Never fall back to clear text: the SMTP key would cross the network unencrypted
+            required: true
+          # JavaMail waits forever by default; a mail service that hangs must not hold a thread forever
+          connectiontimeout: 5000
+          timeout: 10000
+          writetimeout: 10000
+
+server:
+  # Behind nginx. Tomcat takes the caller's address from X-Forwarded-For and https from X-Forwarded-Proto, which
+  # nginx overwrites (design.md 6.3); it trusts them only when the request comes from a private address, here the
+  # Docker network. RateLimitFilter and ClientInfo keep reading request.getRemoteAddr()
+  forward-headers-strategy: native
+
+management:
+  health:
+    mail:
+      # Mail goes out in the background and a failure is logged. A slow mail service must not turn
+      # /actuator/health DOWN: Docker would see the backend as unhealthy and the deploy would fail
+      enabled: false
+
+app:
+  frontend-url: ${APP_FRONTEND_URL}       # https://<domain>, no trailing slash: CORS and links in mail
+  mail-from: ${APP_MAIL_FROM}             # a sender verified on Brevo, no-reply@<domain>
+  jwt:
+    cookie-secure: true                   # the refresh cookie only travels over HTTPS
+  providers:
+    # Real data for visitors (WORKFLOW Task 4.8, decision 7); searches are limited per user since Task 4.7.
+    # payment, ai and storage keep the defaults of application.yml until their phase
+    map: osm
+    weather: open-meteo
+    mail: smtp
