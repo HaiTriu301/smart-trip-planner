@@ -151,13 +151,13 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 
 | Thành phần | Lựa chọn |
 |---|---|
-| Container | Docker + docker-compose (mysql, redis, backend, frontend-nginx, mailhog) |
-| CI | GitHub Actions: build → test → jacoco report → build image → push GHCR |
-| CD | Deploy VPS qua SSH + docker compose pull/up (hoặc Railway/Render nếu không có VPS) |
-| Reverse proxy | Nginx (serve static frontend + proxy `/api` sang backend) |
-| TLS | Let's Encrypt qua Certbot / Cloudflare |
+| Container | Docker + docker-compose. Dev: `docker-compose.yml` (mysql, redis, mailhog). Prod: `docker-compose.prod.yml` (nginx, backend, mysql, redis), mục 17.4 |
+| CI | GitHub Actions: mỗi PR chạy build + test backend, lint + build + test frontend (`ci.yml`); push lên `main` có đổi code → build 2 image → push GHCR (`images.yml`). Báo cáo / ngưỡng JaCoCo: Task 8.3 / 8.4 |
+| CD | AWS EC2 qua SSH: job deploy **chờ chủ dự án duyệt** (GitHub Environment `production`) rồi chạy `deploy/deploy.sh` (sao lưu → pull → up -d → chờ health). Mục 17.4 (chốt Task 4.8) |
+| Reverse proxy | Nginx (serve static frontend + proxy `/api`, Swagger sang backend; IP thật lấy từ Cloudflare) |
+| TLS | Cloudflare (SSL **Full (strict)**) + Cloudflare Origin Certificate trên nginx; không dùng Certbot |
 | Mail (dev) | MailHog — xem mail tại `localhost:8025` |
-| Mail (prod) | Brevo / Resend SMTP free tier |
+| Mail (prod) | Brevo SMTP free tier (cổng 587, STARTTLS bắt buộc); tên miền xác thực bằng SPF / DKIM |
 
 ---
 
@@ -1277,33 +1277,36 @@ services:
   mysql     :3306   volume mysql_data          ← có từ Task 0.2
   redis     :6379                              ← có từ Task 0.2
   mailhog   :1025 / :8025                      ← có từ Task 0.2
-  backend   :8080   depends_on mysql, redis    ← Phase 8 (Dockerfile). Trước đó chạy bằng ./gradlew bootRun
-  frontend  nginx :80 (prod)                   ← Phase 8. Dev chạy bằng npm run dev ở :5173, không qua Docker
 ```
+
+Backend và frontend **không** nằm trong compose dev: dev chạy `./gradlew bootRun` và `npm run dev` (:5173). Image Docker của hai phần có từ Task 4.8 và chỉ chạy trong `docker-compose.prod.yml` (mục 17.4); muốn chạy bản prod trên máy mình thì build hai image rồi dùng file đó với chứng chỉ tự ký.
 
 Port của 3 service hạ tầng bind vào `127.0.0.1` để không lộ ra mạng LAN.
 
-Backend Dockerfile: multi-stage (`gradle:9-jdk21` build → `eclipse-temurin:21-jre-alpine` run), chạy bằng user non-root, có `HEALTHCHECK` gọi `/actuator/health`. Ở stage build, copy `build.gradle`, `settings.gradle`, `gradle/` trước rồi chạy `gradle dependencies` để tận dụng layer cache, sau đó mới copy `src/`.
+Backend Dockerfile: multi-stage (`gradle:9.7.1-jdk21` build, cùng phiên bản với Gradle wrapper → `eclipse-temurin:21-jre-alpine` run), chạy bằng user non-root, có `HEALTHCHECK` gọi `/actuator/health`. Ở stage build, copy `build.gradle`, `settings.gradle`, `gradle/` trước rồi tải dependency để tận dụng layer cache, sau đó mới copy `src/` và chạy `bootJar` (không chạy test: CI đã chạy). Jar được tách thành các lớp (`-Djarmode=tools extract --layers`) để mỗi lần deploy chỉ đẩy lớp code. JVM: heap tối đa 60% giới hạn RAM của container (`-XX:MaxRAMPercentage=60`), `-XX:+ExitOnOutOfMemoryError` để Docker khởi động lại.
+
+Frontend Dockerfile: multi-stage (`node:24-alpine`: `npm ci` + `npm run build`, `VITE_API_URL` là build arg mặc định `/api/v1` → `nginx` stable alpine với `frontend/nginx.conf`).
 
 ### 17.2. GitHub Actions
 
 ```
-on: push (main, develop), pull_request
+ci.yml       on: pull_request                         (Task 4.8)
+  job backend:
+    - setup java 21 (temurin), setup-gradle (cache dependency + build cache)
+    - ./gradlew build (bao gồm test + Testcontainers; runner Ubuntu có sẵn Docker)
+    - test đỏ → tải báo cáo test lên làm artifact
+    - (Task 8.3 / 8.4) jacocoTestReport + jacocoTestCoverageVerification, fail nếu coverage service < 70%
+  job frontend:
+    - setup node 24, npm ci, npm run lint, npm run build, npm run test
 
-job build-backend:
-  - setup java 21 (temurin)
-  - setup-gradle action (cache dependency + build cache)
-  - ./gradlew build (bao gồm test + Testcontainers)
-  - ./gradlew jacocoTestReport jacocoTestCoverageVerification
-  - upload jacoco report
-  - fail nếu coverage service < 70%
-job build-frontend:
-  - npm ci, npm run lint, npm run build, vitest run
-job docker (chỉ main):
-  - build & push image lên ghcr.io
-job deploy (chỉ main):
-  - ssh vào VPS: docker compose pull && docker compose up -d
+images.yml   on: push main, chỉ khi backend/, frontend/, docker-compose.prod.yml, deploy/ hoặc workflow đổi (Task 4.8)
+  job images:
+    - build 2 image, tag <7 ký tự đầu mã commit> + latest, push ghcr.io (GITHUB_TOKEN, packages: write)
+  job deploy (needs images, environment: production → chờ chủ dự án bấm duyệt):
+    - ssh deploy@máy chủ → authorized_keys ép chạy deploy/deploy.sh
 ```
+
+Commit chỉ đổi tài liệu không build image, không deploy. Nhiều lần merge liên tiếp: chỉ lượt deploy mới nhất còn chờ duyệt (`concurrency`).
 
 ### 17.3. Cấu hình theo môi trường
 
@@ -1311,13 +1314,40 @@ job deploy (chỉ main):
 |---|---|---|---|
 | `local` | MySQL docker | tất cả `mock`, riêng `mail: smtp` → MailHog (mục 7.1) | Không cần API key nào |
 | `test` | Testcontainers | tất cả `mock` | |
-| `prod` | MySQL managed | osm / open-meteo / stripe / claude | Secret qua env |
+| `prod` | MySQL 8.0 trong Docker, cùng máy (mục 17.4) | `map: osm`, `weather: open-meteo`, `mail: smtp` → Brevo; `payment`, `ai` để `mock` tới Phase 6 / 7 | Secret chỉ trong file `.env` trên máy chủ. Cookie `Secure`, `server.forward-headers-strategy: native`, health của mail tắt |
 
-Biến môi trường chính: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `MAIL_HOST`, `MAIL_PORT`, `APP_FRONTEND_URL`. Chỉ docker-compose dùng: `MYSQL_ROOT_PASSWORD`.
+Biến môi trường chính: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` (prod), `APP_FRONTEND_URL`, `APP_MAIL_FROM` (prod). Chỉ docker-compose dùng: `MYSQL_ROOT_PASSWORD`, `IMAGE_TAG` (prod). Ở prod, `DB_URL` và `REDIS_HOST` ghi cố định trong `docker-compose.prod.yml` (tên service), không nằm trong `.env`; danh sách đầy đủ ở `.env.prod.example`.
 
 Ở profile `local`, Spring đọc các biến này từ file `.env` ở gốc repo (`spring.config.import: optional:file:../.env[.properties]`); biến môi trường thật của hệ điều hành luôn được ưu tiên hơn `.env`.
 
 Frontend có file env riêng `frontend/.env` (copy từ `frontend/.env.example`, git-ignored). Vite chỉ nhúng vào bundle các biến có tiền tố `VITE_`; hiện có `VITE_API_URL=/api/v1`. Đây là biến **build-time**, đổi giá trị phải build lại.
+
+### 17.4. Deploy trên AWS (Task 4.8, chốt 2026-10-17 và 2026-10-21)
+
+```
+Trình duyệt ─HTTPS─► Cloudflare (proxy, Full strict) ─HTTPS, origin cert─► EC2 t3.small, Elastic IP
+                                                        │  Security Group: 443 chỉ từ dải IP Cloudflare; 22 chỉ bằng khoá
+                                                        └─ docker-compose.prod.yml (name: tripplanner-prod)
+                                                             ├─ nginx    :443  SPA + /api, Swagger → backend
+                                                             ├─ backend  :8080 (chỉ trong mạng Docker)
+                                                             ├─ mysql    8.0, volume
+                                                             └─ redis    7, chỉ bộ nhớ
+
+GitHub: PR → ci.yml │ merge vào main → images.yml build 2 image → GHCR → chờ duyệt → SSH → deploy.sh
+Mail:   backend → Brevo SMTP 587 (STARTTLS) → hộp thư người dùng
+```
+
+| Chủ đề | Quyết định |
+|---|---|
+| Máy | EC2 `t3.small` (2 vCPU, 2 GB), `ap-southeast-1`, Ubuntu LTS, EBS gp3 30 GB, Elastic IP, VPC mặc định, CPU credit **Standard**, AWS Budgets báo động. Không dùng RDS, ElastiCache, Load Balancer, ECS |
+| RAM | Trần mỗi container: backend 1 GB (heap tối đa 60% ≈ 600 MB), MySQL 512 MB (`innodb_buffer_pool_size=128M`, `performance_schema=OFF`), Redis 128 MB (`maxmemory 64mb`, `allkeys-lru`, không lưu xuống đĩa), nginx 64 MB; máy có 2 GB swap. Đo lại bằng `docker stats` sau lần deploy đầu |
+| Compose prod | Chỉ nginx mở cổng (443; không mở 80, Cloudflare tự chuyển HTTP → HTTPS). Image lấy từ `ghcr.io`, tag đọc từ `IMAGE_TAG` (mặc định `latest`, đổi sang mã commit để quay lại bản cũ). Backend chỉ khởi động khi mysql và redis `healthy` (rate limiter mở kết nối Redis lúc khởi động). Container backend không nhận mật khẩu root của MySQL. Mọi container: `restart: unless-stopped`, healthcheck, log giới hạn 3 file × 10 MB. Tên dự án `tripplanner-prod` để không lẫn với compose dev |
+| nginx | IP thật: `set_real_ip_from` dải IP Cloudflare (lấy từ trang chính thức) + `real_ip_header CF-Connecting-IP`, rồi **ghi đè** `X-Forwarded-For` bằng `$remote_addr` (mục 6.3). Địa chỉ backend tra qua DNS của Docker (`resolver 127.0.0.11` + biến) để không giữ IP cũ sau khi backend được tạo lại. `/assets/` cache dài (`immutable`), `index.html` không cache, đường dẫn lạ trả `index.html`. `/actuator` không đi qua nginx. `Referrer-Policy: strict-origin-when-cross-origin` (máy chủ ô bản đồ của OpenStreetMap đòi header `Referer`) |
+| Deploy | Merge vào `main` có đổi code → build image tự động; job deploy **chờ chủ dự án bấm duyệt** (GitHub Environment `production`, secret `DEPLOY_*` nằm trong environment này) rồi SSH bằng user `deploy`; `authorized_keys` ép khoá đó chỉ chạy được `deploy.sh` (`command=`). `deploy.sh`: `backup.sh` → `docker compose pull` → `up -d` → chờ backend `healthy` tối đa 3 phút, không lên thì thoát mã lỗi (workflow đỏ). Lúc deploy, backend khởi động lại: trang lỗi khoảng 30–60 giây |
+| Dữ liệu | Tài khoản demo tạo bằng cách đăng ký trên bản thật, không có migration dữ liệu mẫu. `deploy/backup.sh`: `mysqldump` hằng ngày (cron) và trước mỗi lần deploy, giữ 7 ngày. Máy hỏng thì mất dữ liệu demo: chấp nhận cho bản thử |
+| Chưa làm | Đường `/ws` trong nginx (Phase 5), webhook Stripe (Phase 6), ngưỡng coverage và dọn `refresh_tokens` (Task 8.4), README cuối (Task 8.5). MySQL 8.0 đã hết hỗ trợ (4/2026): giữ cho giống dev / test, nâng lên 8.4 LTS ở một task riêng |
+
+Hướng dẫn từng bước (tạo tài khoản, Security Group, Cloudflare, Brevo, sự cố thường gặp) nằm ở `docs/deploy/aws.md`, **chỉ có trên máy của chủ dự án** (git-ignored vì chứa tên miền, IP, tài khoản thật).
 
 ---
 
