@@ -29,6 +29,9 @@ replay_pid*
 /frontend/dist/
 /frontend/coverage/
 
+# ===== Database copies made by deploy/backup.sh when it is tried on a dev machine (Task 4.8) =====
+/backups/
+
 # ===== Uploads =====
 /uploads/
 /backend/uploads/
