@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -45,19 +47,25 @@ public final class StubHttpServer implements AutoCloseable {
      *
      * @param status HTTP status, or 0: take the call and never answer it
      * @param body   sent as JSON
+     * @param delay  how long the server waits before it answers
      */
-    public record Answer(int status, String body) {
+    public record Answer(int status, String body, Duration delay) {
 
         public static Answer ok(String body) {
-            return new Answer(200, body);
+            return new Answer(200, body, Duration.ZERO);
         }
 
         public static Answer status(int status) {
-            return new Answer(status, "{\"message\":\"scripted\"}");
+            return new Answer(status, "{\"message\":\"scripted\"}", Duration.ZERO);
         }
 
         public static Answer silence() {
-            return new Answer(0, "");
+            return new Answer(0, "", Duration.ZERO);
+        }
+
+        /** 200 with {@code body}, sent only after {@code delay}: a service that is slow but does answer. */
+        public static Answer late(Duration delay, String body) {
+            return new Answer(200, body, delay);
         }
     }
 
@@ -128,6 +136,18 @@ public final class StubHttpServer implements AutoCloseable {
         Answer answer = nextAnswer(exchange.getRequestURI().getPath());
         if (answer.status() == 0) {
             keepWaiting(exchange);
+            return;
+        }
+        try {
+            if (answer.delay().isPositive() && closed.await(answer.delay().toMillis(), TimeUnit.MILLISECONDS)) {
+                // Closed while waiting: the test is over, there is nobody left to answer
+                exchange.close();
+                return;
+            }
+        }
+        catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            exchange.close();
             return;
         }
         byte[] body = answer.body().getBytes(StandardCharsets.UTF_8);

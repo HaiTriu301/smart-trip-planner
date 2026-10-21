@@ -24,7 +24,10 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
+import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
@@ -84,19 +87,43 @@ public class OsmMapProvider implements MapProvider {
     private final RestClient osrm;
 
     /**
+     * Photon gets an HTTP client of its own: the same settings as the others ({@code spring.http.clients.*}) but
+     * a longer wait for the answer, {@code app.providers.osm.photon-read-timeout} (design.md 7.3). The public
+     * server often takes 3 to 6 seconds to answer a search (measured 2026-10-21), more than the 3 seconds that
+     * suit the other services.
+     *
+     * @param builder           the application's builder: it carries the time limits of
+     *                          {@code spring.http.clients.*}
+     * @param requestFactories  the application's way of making HTTP clients, the one behind {@code builder}
+     * @param httpClientSettings the settings of {@code spring.http.clients.*}
+     */
+    @Autowired
+    public OsmMapProvider(RestClient.Builder builder, ClientHttpRequestFactoryBuilder<?> requestFactories,
+            HttpClientSettings httpClientSettings, ProviderProperties properties) {
+        this(builder, builder.clone().requestFactory(requestFactories.build(
+                httpClientSettings.withReadTimeout(properties.osm().photonReadTimeout()))), properties);
+    }
+
+    /**
      * Every call asks for gzip only (BUG-PLACE-005). Left alone, the HTTP client of the JDK asks for "gzip" and
      * "deflate" on two separate Accept-Encoding lines; the public OSRM server reads only the last line and
      * answers gzip bytes labelled deflate, which cannot be unpacked. A single gzip line gets a correct answer
      * from all three services, and the client still unpacks it.
      *
-     * @param builder the application's builder: it carries the time limits of {@code spring.http.clients.*}
+     * @param builder       for Nominatim and OSRM
+     * @param photonBuilder for Photon. Tests pass the same builder twice, bound to a mock server
      */
-    public OsmMapProvider(RestClient.Builder builder, ProviderProperties properties) {
-        RestClient.Builder identified = builder.defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent())
+    OsmMapProvider(RestClient.Builder builder, RestClient.Builder photonBuilder, ProviderProperties properties) {
+        this.photon = identified(photonBuilder, properties).baseUrl(properties.osm().photonBaseUrl()).build();
+        this.nominatim = identified(builder, properties).baseUrl(properties.osm().nominatimBaseUrl()).build();
+        this.osrm = identified(builder, properties).baseUrl(properties.osm().osrmBaseUrl()).build();
+    }
+
+    /** A copy of {@code builder} that says who is calling and asks for gzip only; the builder itself is untouched. */
+    private static RestClient.Builder identified(RestClient.Builder builder, ProviderProperties properties) {
+        return builder.clone()
+                .defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent())
                 .defaultHeader(HttpHeaders.ACCEPT_ENCODING, "gzip");
-        this.photon = identified.clone().baseUrl(properties.osm().photonBaseUrl()).build();
-        this.nominatim = identified.clone().baseUrl(properties.osm().nominatimBaseUrl()).build();
-        this.osrm = identified.clone().baseUrl(properties.osm().osrmBaseUrl()).build();
     }
 
     @Override

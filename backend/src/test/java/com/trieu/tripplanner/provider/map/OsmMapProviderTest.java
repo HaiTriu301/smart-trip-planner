@@ -10,6 +10,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
+import com.trieu.tripplanner.config.properties.ProviderProperties;
 import com.trieu.tripplanner.exception.ProviderUnavailableException;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.provider.map.dto.Coordinate;
@@ -78,7 +79,7 @@ class OsmMapProviderTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        provider = new OsmMapProvider(builder, TestProviders.osmAt(USER_AGENT, PHOTON_URL, NOMINATIM_URL, OSRM_URL));
+        provider = providerOn(builder, TestProviders.osmAt(USER_AGENT, PHOTON_URL, NOMINATIM_URL, OSRM_URL));
     }
 
     @Test
@@ -431,7 +432,7 @@ class OsmMapProviderTest {
         // MockRestServiceServer above never compresses, so only a real socket shows how the answer is unpacked
         try (StubHttpServer osrm = StubHttpServer.compressingLikeOsrm(
                 ROUTE_SAMPLE.getContentAsString(StandardCharsets.UTF_8))) {
-            provider = new OsmMapProvider(RestClient.builder().requestFactory(new JdkClientHttpRequestFactory()),
+            provider = providerOn(RestClient.builder().requestFactory(new JdkClientHttpRequestFactory()),
                     TestProviders.osmAt(USER_AGENT, PHOTON_URL, NOMINATIM_URL, osrm.baseUrl()));
 
             assertThat(provider.route(List.of(CHO_HAN, CAU_RONG, MY_KHE)))
@@ -446,7 +447,7 @@ class OsmMapProviderTest {
         try (StubHttpServer silent = StubHttpServer.neverAnswering()) {
             JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
             requestFactory.setReadTimeout(Duration.ofMillis(200));
-            provider = new OsmMapProvider(RestClient.builder().requestFactory(requestFactory),
+            provider = providerOn(RestClient.builder().requestFactory(requestFactory),
                     TestProviders.osmAt(USER_AGENT, silent.baseUrl(), silent.baseUrl(), silent.baseUrl()));
 
             assertUnavailable("photon", () -> provider.search("chợ hàn", 8, null));
@@ -461,7 +462,7 @@ class OsmMapProviderTest {
         try (StubHttpServer stopped = StubHttpServer.neverAnswering()) {
             addressNobodyListensOn = stopped.baseUrl();
         }
-        provider = new OsmMapProvider(RestClient.builder(),
+        provider = providerOn(RestClient.builder(),
                 TestProviders.osmAt(USER_AGENT, addressNobodyListensOn, addressNobodyListensOn,
                         addressNobodyListensOn));
 
@@ -471,6 +472,14 @@ class OsmMapProviderTest {
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
+
+    /**
+     * Photon on the same HTTP client as the two other services. Its longer time limit comes from the beans of a
+     * running application and is proven in RealProvidersResilienceIntegrationTest.
+     */
+    private static OsmMapProvider providerOn(RestClient.Builder builder, ProviderProperties properties) {
+        return new OsmMapProvider(builder, builder, properties);
+    }
 
     private static void assertUnavailable(String source, ThrowingCallable call) {
         assertThatThrownBy(call).isInstanceOfSatisfying(ProviderUnavailableException.class, ex -> {
