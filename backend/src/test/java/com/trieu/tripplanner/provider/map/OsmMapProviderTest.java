@@ -17,6 +17,7 @@ import com.trieu.tripplanner.provider.map.dto.PlaceResult;
 import com.trieu.tripplanner.provider.map.dto.RouteLeg;
 import com.trieu.tripplanner.support.StubHttpServer;
 import com.trieu.tripplanner.support.TestProviders;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -422,6 +423,20 @@ class OsmMapProviderTest {
                 .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
 
         assertUnavailable("osrm", () -> provider.route(List.of(CHO_HAN, MY_KHE)));
+    }
+
+    @Test
+    void routeIsReadWhenTheServiceCompressesItsAnswerLikeThePublicOsrmServer() throws IOException {
+        // BUG-PLACE-005: through the real HTTP client of the JDK, which asks for compressed answers by itself.
+        // MockRestServiceServer above never compresses, so only a real socket shows how the answer is unpacked
+        try (StubHttpServer osrm = StubHttpServer.compressingLikeOsrm(
+                ROUTE_SAMPLE.getContentAsString(StandardCharsets.UTF_8))) {
+            provider = new OsmMapProvider(RestClient.builder().requestFactory(new JdkClientHttpRequestFactory()),
+                    TestProviders.osmAt(USER_AGENT, PHOTON_URL, NOMINATIM_URL, osrm.baseUrl()));
+
+            assertThat(provider.route(List.of(CHO_HAN, CAU_RONG, MY_KHE)))
+                    .containsExactly(new RouteLeg(1325, 105), new RouteLeg(3288, 247));
+        }
     }
 
     // ---- all services: no answer ---------------------------------------------------------------------------------

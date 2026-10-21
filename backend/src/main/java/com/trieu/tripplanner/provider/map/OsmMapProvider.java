@@ -84,10 +84,16 @@ public class OsmMapProvider implements MapProvider {
     private final RestClient osrm;
 
     /**
+     * Every call asks for gzip only (BUG-PLACE-005). Left alone, the HTTP client of the JDK asks for "gzip" and
+     * "deflate" on two separate Accept-Encoding lines; the public OSRM server reads only the last line and
+     * answers gzip bytes labelled deflate, which cannot be unpacked. A single gzip line gets a correct answer
+     * from all three services, and the client still unpacks it.
+     *
      * @param builder the application's builder: it carries the time limits of {@code spring.http.clients.*}
      */
     public OsmMapProvider(RestClient.Builder builder, ProviderProperties properties) {
-        RestClient.Builder identified = builder.defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent());
+        RestClient.Builder identified = builder.defaultHeader(HttpHeaders.USER_AGENT, properties.userAgent())
+                .defaultHeader(HttpHeaders.ACCEPT_ENCODING, "gzip");
         this.photon = identified.clone().baseUrl(properties.osm().photonBaseUrl()).build();
         this.nominatim = identified.clone().baseUrl(properties.osm().nominatimBaseUrl()).build();
         this.osrm = identified.clone().baseUrl(properties.osm().osrmBaseUrl()).build();
