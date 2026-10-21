@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# TLS certificate + private key for nginx: a self-signed pair to try the stack locally (Task 4.8)
+/certs/
 
 # ===== Backend (Gradle / Java) =====
 /backend/build/
