@@ -1,0 +1,71 @@
+# Builds the two images of the deployed site and pushes them to the GitHub Container Registry (design.md 17.2;
+# WORKFLOW Task 4.8, decisions 4, 10, 14). Runs after a merge into main, only when something that goes into an image
+# or onto the server changed: a commit of documents alone builds nothing.
+# Action versions: the latest major release of each, checked on 2026-10-21 on its GitHub releases page.
+name: Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.prod.yml'
+      - 'deploy/**'
+      - '.github/workflows/images.yml'
+
+# Read the code and publish packages of this repository, nothing else
+permissions:
+  contents: read
+  packages: write
+
+# Two merges close together: the second run waits for the first instead of racing it, so "latest" always ends on the
+# newest commit
+concurrency:
+  group: images
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: Image ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      # One image failing does not stop the other
+      fail-fast: false
+      matrix:
+        app: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+
+      # Buildx is the builder that can keep the layers in the cache of GitHub Actions between runs
+      - uses: docker/setup-buildx-action@v4
+
+      # GITHUB_TOKEN is made by GitHub for this run only; packages: write above lets it push
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags: the first 7 characters of the commit (to go back to an exact version with IMAGE_TAG) and latest (what the
+      # server pulls by default). The name must be lower case and match docker-compose.prod.yml. The default labels
+      # include org.opencontainers.image.source, which links the package to this repository on GitHub
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/haitriu301/smart-trip-planner-${{ matrix.app }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      # Same Dockerfile as on a developer machine (backend/Dockerfile, frontend/Dockerfile). mode=max also keeps the
+      # layers of the build stage (npm ci, the base images), one cache per image
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.app }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
