@@ -3,6 +3,7 @@ package com.trieu.tripplanner.config.properties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
 import org.hibernate.validator.constraints.URL;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -31,16 +32,19 @@ public record ProviderProperties(
     }
 
     /**
-     * Scheme and host of each service, without a path.
+     * Scheme and host of each service, without a path, and how long a search waits for Photon.
      *
-     * @param photonBaseUrl    search while typing
-     * @param nominatimBaseUrl one place by its OpenStreetMap id
-     * @param osrmBaseUrl      travel by road between the stops of a day
+     * @param photonBaseUrl     search while typing
+     * @param nominatimBaseUrl  one place by its OpenStreetMap id
+     * @param osrmBaseUrl       travel by road between the stops of a day
+     * @param photonReadTimeout how long a search waits for the answer of Photon, in place of
+     *                          {@code spring.http.clients.read-timeout} (design.md 7.3)
      */
     public record Osm(
             @NotBlank @URL String photonBaseUrl,
             @NotBlank @URL String nominatimBaseUrl,
-            @NotBlank @URL String osrmBaseUrl) {
+            @NotBlank @URL String osrmBaseUrl,
+            @NotNull Duration photonReadTimeout) {
     }
 
 }

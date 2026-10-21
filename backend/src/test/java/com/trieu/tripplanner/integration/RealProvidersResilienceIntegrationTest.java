@@ -53,9 +53,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
  * the real context can show them. The four outside services are one stand-in server on this machine, told apart
  * by the path each provider calls; no test leaves the machine (CLAUDE.md rule 24).
  * <p>
- * Two values differ from application.yml, to keep the tests short: a call gives up after 0.3 s instead of 3 s,
- * and a retry waits 20 ms instead of 500 ms. The limits that are being proven (three attempts, ten calls, one
- * lookup a second) are the real ones.
+ * Three values differ from application.yml, to keep the tests short: a call gives up after 0.3 s instead of 3 s,
+ * a call to Photon after 1 s instead of 8 s, and a retry waits 20 ms instead of 500 ms. The limits that are being
+ * proven (three attempts, a single one for Photon, ten calls, one lookup a second) are the real ones.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -92,6 +92,7 @@ class RealProvidersResilienceIntegrationTest {
         registry.add("app.providers.osm.osrm-base-url", SERVICES::baseUrl);
         registry.add("app.providers.open-meteo.base-url", SERVICES::baseUrl);
         registry.add("spring.http.clients.read-timeout", () -> "300ms");
+        registry.add("app.providers.osm.photon-read-timeout", () -> "1s");
         registry.add("resilience4j.retry.configs.default.wait-duration", () -> "20ms");
     }
 
@@ -139,13 +140,38 @@ class RealProvidersResilienceIntegrationTest {
     // ---- retry ---------------------------------------------------------------------------------------------------
 
     @Test
-    void searchThatFailsTwiceWithA5xxSucceedsOnTheThirdAttempt() {
-        SERVICES.script(PHOTON, Answer.status(503), Answer.status(500), Answer.ok(PLACES));
+    void routeThatFailsTwiceWithA5xxSucceedsOnTheThirdAttempt() {
+        SERVICES.script(OSRM, Answer.status(503), Answer.status(500), Answer.ok(ROUTE));
 
-        List<PlaceResult> places = mapProvider.search("chợ hàn", 8, null);
+        assertThat(mapProvider.route(THREE_STOPS)).hasSize(2);
 
-        assertThat(places).extracting(PlaceResult::name).contains("Chợ Hàn");
-        assertThat(SERVICES.calls(PHOTON)).isEqualTo(3);
+        assertThat(SERVICES.calls(OSRM)).isEqualTo(3);
+    }
+
+    @Test
+    void searchIsNotTriedAgainSoTheBrowserGetsTheFailureBeforeItGivesUp() {
+        // One attempt may take the whole 8 s of Photon; a second one would end after the 10 s of the browser
+        SERVICES.script(PHOTON, Answer.status(503), Answer.ok(PLACES));
+
+        assertUnavailable("photon", () -> mapProvider.search("chợ hàn", 8, null));
+
+        assertThat(SERVICES.calls(PHOTON)).isEqualTo(1);
+    }
+
+    // ---- time limits ---------------------------------------------------------------------------------------------
+
+    @Test
+    void searchWaitsLongerForPhotonThanTheOtherServicesWaitForTheirAnswer() {
+        // The same answer time, 0.6 s: inside the 1 s of Photon, past the 0.3 s of the others
+        Duration slow = Duration.ofMillis(600);
+        SERVICES.script(PHOTON, Answer.late(slow, PLACES));
+        SERVICES.script(OSRM, Answer.late(slow, ROUTE));
+
+        assertThat(mapProvider.search("chợ hàn", 8, null)).extracting(PlaceResult::name).contains("Chợ Hàn");
+        assertUnavailable("osrm", () -> mapProvider.route(THREE_STOPS));
+
+        assertThat(SERVICES.calls(PHOTON)).isEqualTo(1);
+        assertThat(SERVICES.calls(OSRM)).isEqualTo(3);
     }
 
     @Test
@@ -192,8 +218,8 @@ class RealProvidersResilienceIntegrationTest {
     void serviceThatIsDownStopsBeingCalledAndTheOthersGoOn() {
         SERVICES.script(PHOTON, Answer.status(500));
 
-        // Every search fails, each after up to three calls, until the circuit has seen enough
-        for (int search = 1; search <= 6; search++) {
+        // Every search fails after its single call to Photon, until the circuit has seen enough
+        for (int search = 1; search <= 12; search++) {
             assertUnavailable("photon", () -> mapProvider.search("chợ hàn", 8, null));
         }
 

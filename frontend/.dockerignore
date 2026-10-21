@@ -1,0 +1,11 @@
+# Only the sources and the package files go into the build. node_modules is installed fresh inside the image
+# (npm ci), dist is built there, and .env stays on your machine: the API address comes from the VITE_API_URL
+# build argument of the Dockerfile.
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+*.local
+.vscode/
+.idea/

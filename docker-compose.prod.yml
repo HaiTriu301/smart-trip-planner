@@ -1,0 +1,120 @@
+# The deployed application (design.md 17.4): nginx, backend, MySQL and Redis on one server.
+# On the server it lives in /opt/trip-planner next to its .env file (copied from .env.prod.example) and the
+# certs/ folder:  docker compose -f docker-compose.prod.yml up -d
+# The images are built by GitHub Actions and pulled from GHCR; nothing is built here.
+# Only nginx is reachable from outside, on 443. Backend, MySQL and Redis talk over the network Docker makes for
+# this project and have no port on the host.
+
+# Not the folder name: this file sits next to the dev docker-compose.yml, and the two must not share containers,
+# volumes or networks
+name: tripplanner-prod
+
+# Shared by every service: start again after a crash or a reboot (not after "docker compose stop"), and keep
+# at most 3 log files of 10 MB each per container, so logs cannot fill the disk
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  nginx:
+    <<: *common
+    # Built from frontend/: the React app and frontend/nginx.conf. IMAGE_TAG is the short commit hash of a build;
+    # set it in .env to go back to an older version (latest by default)
+    image: ghcr.io/haitriu301/smart-trip-planner-frontend:${IMAGE_TAG:-latest}
+    ports:
+      - "443:443"
+    volumes:
+      # Cloudflare Origin Certificate: origin.pem and origin.key (docs/deploy/aws.md 10.5). Read-only
+      - ./certs:/etc/nginx/certs:ro
+    # No depends_on: nginx finds the backend at request time (resolver in nginx.conf), so the site and its
+    # pages are up even while the backend restarts; only /api answers 502 meanwhile
+    mem_limit: 64m
+    # Health check: the HEALTHCHECK of the image (home page over HTTPS)
+
+  backend:
+    <<: *common
+    image: ghcr.io/haitriu301/smart-trip-planner-backend:${IMAGE_TAG:-latest}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # Service names of this file, the same on every server: not in .env
+      DB_URL: jdbc:mysql://mysql:3306/tripplanner?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      # From .env. ":?" stops "docker compose up" with this message when a value is missing, instead of a
+      # backend that fails later. The root password of MySQL is not handed to the backend
+      DB_USER: ${DB_USER:?DB_USER is not set in .env}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set in .env}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is not set in .env}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:?APP_FRONTEND_URL is not set in .env}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:?APP_MAIL_FROM is not set in .env}
+      MAIL_HOST: ${MAIL_HOST:?MAIL_HOST is not set in .env}
+      MAIL_PORT: ${MAIL_PORT:?MAIL_PORT is not set in .env}
+      MAIL_USERNAME: ${MAIL_USERNAME:?MAIL_USERNAME is not set in .env}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?MAIL_PASSWORD is not set in .env}
+    depends_on:
+      # Flyway needs the database at start, and the rate limiter opens its Redis connection at start
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # The image gives Java 60% of this as heap, about 600 MB (WORKFLOW Task 4.8, decision 11)
+    mem_limit: 1g
+    # Health check: the HEALTHCHECK of the image (/actuator/health, up to 2 minutes to start)
+
+  mysql:
+    <<: *common
+    # 8.0 like dev and Testcontainers (WORKFLOW Task 4.8, decision 15)
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: tripplanner
+      MYSQL_USER: ${DB_USER:?DB_USER is not set in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is not set in .env}
+      TZ: UTC
+    command:
+      # The same character set, collation and time zone as dev (docker-compose.yml)
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+00:00
+      # Fit in 512 MB: a small buffer pool for a small database, and no performance_schema (about 100 MB)
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+    volumes:
+      # The data survives "docker compose down" and a new image; only "down -v" deletes it
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 512m
+
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    # Only copies that can be made again live here (caches, rate limit counters; design.md 8.1): kept in memory
+    # only, and when 64 MB is full the least recently used keys go
+    command:
+      - redis-server
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    mem_limit: 128m
+
+volumes:
+  mysql_data:

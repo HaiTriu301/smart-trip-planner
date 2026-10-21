@@ -1,12 +1,15 @@
 package com.trieu.tripplanner.support;
 
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -14,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * A stand-in for an outside service that listens on a real socket of this machine, for the failures a mocked
@@ -24,6 +29,9 @@ import java.util.concurrent.Executors;
  * {@link #scripted()} gives a server whose answers a test decides per path, one after the other, and which
  * counts the calls it got: for tests of the whole application, where the HTTP layer is the real one and what
  * matters is how many times a service was called.
+ * <p>
+ * {@link #compressingLikeOsrm(String)} gives a server that compresses its answer the way the public OSRM server
+ * does, which only shows with the real HTTP client of the JDK: MockRestServiceServer skips the decompression.
  */
 public final class StubHttpServer implements AutoCloseable {
 
@@ -39,48 +47,48 @@ public final class StubHttpServer implements AutoCloseable {
      *
      * @param status HTTP status, or 0: take the call and never answer it
      * @param body   sent as JSON
+     * @param delay  how long the server waits before it answers
      */
-    public record Answer(int status, String body) {
+    public record Answer(int status, String body, Duration delay) {
 
         public static Answer ok(String body) {
-            return new Answer(200, body);
+            return new Answer(200, body, Duration.ZERO);
         }
 
         public static Answer status(int status) {
-            return new Answer(status, "{\"message\":\"scripted\"}");
+            return new Answer(status, "{\"message\":\"scripted\"}", Duration.ZERO);
         }
 
         public static Answer silence() {
-            return new Answer(0, "");
+            return new Answer(0, "", Duration.ZERO);
+        }
+
+        /** 200 with {@code body}, sent only after {@code delay}: a service that is slow but does answer. */
+        public static Answer late(Duration delay, String body) {
+            return new Answer(200, body, delay);
         }
     }
 
-    private StubHttpServer(boolean scripted) {
+    private StubHttpServer() {
         try {
             server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         }
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
-        server.createContext("/", exchange -> {
-            Answer answer = scripted ? nextAnswer(exchange.getRequestURI().getPath()) : Answer.silence();
-            if (answer.status() == 0) {
-                keepWaiting(exchange);
-                return;
-            }
-            byte[] body = answer.body().getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(answer.status(), body.length);
-            exchange.getResponseBody().write(body);
-            exchange.close();
-        });
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    private StubHttpServer start(HttpHandler handler) {
+        server.createContext("/", handler);
         server.start();
+        return this;
     }
 
     /** A service that takes every call and never answers it. Close it at the end of the test. */
     public static StubHttpServer neverAnswering() {
-        return new StubHttpServer(false);
+        StubHttpServer stub = new StubHttpServer();
+        return stub.start(stub::keepWaiting);
     }
 
     /**
@@ -88,7 +96,65 @@ public final class StubHttpServer implements AutoCloseable {
      * the tests.
      */
     public static StubHttpServer scripted() {
-        return new StubHttpServer(true);
+        StubHttpServer stub = new StubHttpServer();
+        return stub.start(stub::answerFromScript);
+    }
+
+    /**
+     * A service that answers every call with {@code json}, compressed the way the public OSRM server does
+     * (seen on 2026-10-21): when the call sends Accept-Encoding on several lines, it reads only the last line,
+     * names that encoding in Content-Encoding, and still sends gzip bytes. So "gzip" then "deflate" gets gzip
+     * bytes said to be deflate. A call with a single "gzip" line gets a correct gzip answer. Close it at the end
+     * of the test.
+     */
+    public static StubHttpServer compressingLikeOsrm(String json) {
+        byte[] gzipped = gzip(json.getBytes(StandardCharsets.UTF_8));
+        StubHttpServer stub = new StubHttpServer();
+        return stub.start(exchange -> {
+            List<String> lines = exchange.getRequestHeaders().getOrDefault("Accept-Encoding", List.of());
+            String lastLine = lines.isEmpty() ? "gzip" : lines.getLast().split(",")[0].trim();
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.getResponseHeaders().add("Content-Encoding", lastLine);
+            exchange.sendResponseHeaders(200, gzipped.length);
+            exchange.getResponseBody().write(gzipped);
+            exchange.close();
+        });
+    }
+
+    private static byte[] gzip(byte[] content) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (GZIPOutputStream out = new GZIPOutputStream(bytes)) {
+            out.write(content);
+        }
+        catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        return bytes.toByteArray();
+    }
+
+    private void answerFromScript(HttpExchange exchange) throws IOException {
+        Answer answer = nextAnswer(exchange.getRequestURI().getPath());
+        if (answer.status() == 0) {
+            keepWaiting(exchange);
+            return;
+        }
+        try {
+            if (answer.delay().isPositive() && closed.await(answer.delay().toMillis(), TimeUnit.MILLISECONDS)) {
+                // Closed while waiting: the test is over, there is nobody left to answer
+                exchange.close();
+                return;
+            }
+        }
+        catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            exchange.close();
+            return;
+        }
+        byte[] body = answer.body().getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(answer.status(), body.length);
+        exchange.getResponseBody().write(body);
+        exchange.close();
     }
 
     /**

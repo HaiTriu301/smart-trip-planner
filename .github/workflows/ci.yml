@@ -1,0 +1,78 @@
+# Checks of every pull request (design.md 17.2; WORKFLOW Task 4.8, decision 5): the same commands as on a
+# developer machine, on a clean Linux machine of GitHub. A red check means the change is not ready to merge.
+# Images are built by images.yml after the merge, not here.
+# Action versions: the latest major release of each, checked on 2026-10-21 on its GitHub releases page.
+name: CI
+
+on:
+  pull_request:
+
+# Read the code, nothing else: this workflow publishes nothing
+permissions:
+  contents: read
+
+# A new push to the same pull request cancels the run that is still going for the older commit
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (./gradlew build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      # Java 21 like the Dockerfile. cache: gradle keeps the downloaded libraries and the Gradle distribution
+      # between runs (plain actions/cache, MIT). The key is a hash of the build files of backend/: the defaults
+      # look for gradle/*.versions.toml at the root of the repository and would miss the version catalog
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            backend/*.gradle
+            backend/gradle/libs.versions.toml
+            backend/gradle/wrapper/gradle-wrapper.properties
+
+      # Compiles, runs every test and packages the jar. The repository and integration tests start MySQL and
+      # Redis with Testcontainers: the Docker of the GitHub machine is there for that
+      - run: ./gradlew build
+
+      # Gradle prints only the red tests; the report shows each one with its output
+      - name: Upload the test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-report
+          path: backend/build/reports/tests/test/
+          retention-days: 7
+
+  frontend:
+    name: Frontend (lint, build, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node 24 like the Dockerfile; cache: npm keeps the npm download cache, keyed by the lock file
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The three checks required before every frontend commit (CLAUDE.md rule 35). npm ci installs exactly
+      # what package-lock.json says, and fails if the two files disagree
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test

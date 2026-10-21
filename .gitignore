@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
+# TLS certificate + private key for nginx: a self-signed pair to try the stack locally (Task 4.8)
+/certs/
 
 # ===== Backend (Gradle / Java) =====
 /backend/build/
@@ -25,6 +28,9 @@ replay_pid*
 /frontend/node_modules/
 /frontend/dist/
 /frontend/coverage/
+
+# ===== Database copies made by deploy/backup.sh when it is tried on a dev machine (Task 4.8) =====
+/backups/
 
 # ===== Uploads =====
 /uploads/
