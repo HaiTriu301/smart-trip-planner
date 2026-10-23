@@ -1,6 +1,7 @@
-# Builds the two images of the deployed site and pushes them to the GitHub Container Registry (design.md 17.2;
-# WORKFLOW Task 4.8, decisions 4, 10, 14). Runs after a merge into main, only when something that goes into an image
-# or onto the server changed: a commit of documents alone builds nothing.
+# Builds the two images of the deployed site and pushes them to the GitHub Container Registry, then puts them on the
+# server once the owner approves (design.md 17.2; WORKFLOW Task 4.8, decisions 4, 10, 14, 17). Runs after a merge
+# into main, only when something that goes into an image or onto the server changed: a commit of documents alone
+# builds nothing and deploys nothing.
 # Action versions: the latest major release of each, checked on 2026-10-21 on its GitHub releases page.
 name: Images
 
@@ -19,17 +20,17 @@ permissions:
   contents: read
   packages: write
 
-# Two merges close together: the second run waits for the first instead of racing it, so "latest" always ends on the
-# newest commit
-concurrency:
-  group: images
-  cancel-in-progress: false
-
 jobs:
   images:
     name: Image ${{ matrix.app }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Two merges close together: the second build of an image waits for the first instead of racing it, so "latest"
+    # always ends on the newest commit. Set per job, not for the whole workflow: a run whose deploy waits days for
+    # approval must not hold back the builds of the next merges
+    concurrency:
+      group: images-${{ matrix.app }}
+      cancel-in-progress: false
     strategy:
       # One image failing does not stop the other
       fail-fast: false
@@ -69,3 +70,45 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  # Runs deploy/deploy.sh on the server over SSH (decision 4). The production environment has the owner as required
+  # reviewer, so the job waits on the Actions tab until "Approve and deploy" (decision 17), and only an approved job
+  # can read the DEPLOY_* secrets of that environment. Both images must have been built first
+  deploy:
+    name: Deploy
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    # One deploy at a time, never cancelled halfway. Merges close together: GitHub keeps only the newest run
+    # waiting in this group; the images are tagged latest, so approving it puts the newest build on the server
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    # Needs nothing from the repository: the server already has the compose file, and the images come from GHCR
+    permissions: {}
+    steps:
+      # The key may only run deploy.sh on the server (command= in authorized_keys), so no command is sent: the
+      # output of the script is the log of this step and its exit code the result. StrictHostKeyChecking with the
+      # stored host key: the job never talks to a machine that is not ours
+      - name: Run deploy.sh on the server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          key="$RUNNER_TEMP/deploy_key"
+          known_hosts="$RUNNER_TEMP/known_hosts"
+          trap 'rm -f "$key" "$known_hosts"' EXIT
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$known_hosts"
+          ssh -i "$key" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=30 \
+            "$DEPLOY_USER@$DEPLOY_HOST"
