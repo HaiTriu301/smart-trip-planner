@@ -3048,7 +3048,7 @@ Mốc 9 — docs (main): README (link bản chạy thật, link Swagger, dòng "
 > - Sự cố: SMTP key của Brevo bị dán vào chat → xoá key, tạo key mới; lệnh gửi mail thử thêm `--hide-send`.
 > - RAM 5 phút sau khi chạy: máy 1,1 / 1,9 GiB, swap 28 KiB; backend 419 MiB / 1 GiB, MySQL 158 / 512 MiB. Giữ nguyên quyết định 11.
 >
-> Bài thủ công `MT-DEPLOY-01` đến `43`: đạt hết trừ `24` (tuỳ chọn: lấy thêm tín dụng) và `21` (commit chỉ có tài liệu không build image: chạy sau khi push commit đóng task). `44` (tạm dừng và bật lại máy) thêm lúc đóng task, chưa chạy. Không có lỗi mới ngoài `BUG-PLACE-005`.
+> Bài thủ công `MT-DEPLOY-01` đến `43`: đạt hết trừ `24` (tuỳ chọn: lấy thêm tín dụng); `21` (commit chỉ có tài liệu không build image) chạy sau khi push commit đóng task `ccd96df`, đạt. `44` (tạm dừng và bật lại máy) thêm lúc đóng task, chưa chạy. Không có lỗi mới ngoài `BUG-PLACE-005`.
 >
 > Ghi chú khi làm:
 > - Ghi nợ mục 10 của Task 8.3: tải lại trang trong 30–60 giây deploy thì bị đưa về trang đăng nhập (`refreshAccessToken` gặp 502 thì xoá phiên).
