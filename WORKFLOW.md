@@ -2929,7 +2929,7 @@ Nhánh: `chore/T4.8-aws-deploy` (Mốc 1–6, PR 1) và `chore/T4.8-auto-deploy`
 **Điều kiện bắt đầu:** Task 4.4–4.7 đã merge. **Chỉ mở tài khoản AWS khi bắt đầu task này**: 6 tháng tín dụng tính từ ngày mở tài khoản.
 
 > **Quyết định (chủ dự án duyệt 2026-10-17):**
-> 1. **Nơi chạy:** AWS **EC2 `t3.small`** (2 vCPU, 2 GB RAM), vùng Singapore `ap-southeast-1` (gần Việt Nam), Ubuntu LTS, ổ EBS gp3 30 GB, một **Elastic IP**, VPC mặc định. Chủ dự án chọn EC2 thay vì Lightsail (2026-10-17) để học các khái niệm AWS cốt lõi (VPC, Security Group, EBS, Elastic IP, IAM) và có tên EC2 trên CV, chấp nhận chi phí khoảng gấp đôi. ✔
+> 1. **Nơi chạy:** AWS **EC2 `t3.small`** (2 vCPU, 2 GB RAM), vùng Singapore `ap-southeast-1` (gần Việt Nam), Ubuntu LTS, ổ EBS gp3 30 GB, một **Elastic IP**, VPC mặc định. Chủ dự án chọn EC2 thay vì Lightsail (2026-10-17) để học các khái niệm AWS cốt lõi (VPC, Security Group, EBS, Elastic IP, IAM) và có tên EC2 trên CV, chấp nhận chi phí khoảng gấp đôi. ✔ *(Vùng đổi sang Sydney `ap-southeast-2` ngày 2026-10-22, quyết định 19.)*
 >    - **Chi phí ước tính** (chưa kiểm lại giá lúc làm): máy khoảng 19 USD + ổ đĩa khoảng 3 USD + IPv4 khoảng 3,6 USD ≈ **25–26 USD / tháng** khi chạy 24/7; băng thông nằm trong 100 GB miễn phí mỗi tháng.
 >    - **Free plan:** 100 USD tín dụng khi đăng ký + tối đa 100 USD khi làm các hoạt động AWS gợi ý (trong đó có tạo AWS Budgets), dùng trong 6 tháng, không trừ tiền thẻ. 6 tháng EC2 tốn khoảng 150 USD, nên **phải kiếm đủ phần 100 USD thứ hai** trong tháng đầu; hết tín dụng trước 6 tháng thì Free plan kết thúc sớm và phải nâng lên gói trả phí để máy chạy tiếp. Lúc tạo máy kiểm lại `t3.small` có trong danh sách loại máy của Free plan.
 >    - **Tránh khoản phát sinh:** đổi chế độ CPU của máy `t3` từ **Unlimited** (mặc định, CPU cao kéo dài thì tính thêm tiền) sang **Standard**; bật **AWS Budgets** (báo động ở 5 USD và ở mức dự báo vượt tín dụng) ngay sau khi tạo tài khoản.
@@ -2939,7 +2939,7 @@ Nhánh: `chore/T4.8-aws-deploy` (Mốc 1–6, PR 1) và `chore/T4.8-auto-deploy`
 > 4. **Tự deploy mỗi khi merge vào `main`:** GitHub Actions build image, đẩy lên GHCR, rồi SSH vào máy chạy `deploy/deploy.sh` (sao lưu database → `docker compose pull` → `docker compose up -d` → chờ `/actuator/health` UP; không UP thì workflow đỏ). Không build trên máy 2 GB: Gradle chậm và dễ hết RAM. SSH dùng user riêng `deploy`, khoá riêng lưu trong GitHub Secrets, `authorized_keys` ép chỉ chạy được đúng script đó (`command=`), tắt đăng nhập bằng mật khẩu. Lần deploy đầu làm bằng tay (Mốc 6), tự động bật ở Mốc 7. ✔ *(Đổi ngày 2026-10-21, quyết định 17: image vẫn tự build, còn job deploy chờ chủ dự án bấm duyệt. Số mốc theo bảng mới: deploy tay ở Mốc 7, job deploy ở Mốc 8.)*
 > 5. **CI có từ task này:** mỗi PR chạy `./gradlew build` (có Testcontainers) và `npm run lint` + `npm run build` + `npm run test`. Ngưỡng JaCoCo vẫn ở Task 8.3 / 8.4. ✔
 > 6. **Tên miền và HTTPS:** chủ dự án thuê một tên miền; DNS đặt ở **Cloudflare** (miễn phí), bản ghi `A` trỏ về Elastic IP của máy và bật proxy. SSL chế độ **Full (strict)**, nginx dùng **Cloudflare Origin Certificate** (miễn phí, hạn dài, không phải cài Certbot). **Security Group:** 80 / 443 chỉ mở cho dải IP của Cloudflare (nếu số luật không đủ chứa hết dải IP thì chặn thêm ở nginx: chỉ nhận request từ IP Cloudflare), người ngoài không gọi thẳng IP máy được; cổng 22 phải mở cho mọi nơi vì máy chạy GitHub Actions không có IP cố định, bù lại chỉ đăng nhập được bằng khoá (quyết định 4). nginx lấy IP thật từ header của Cloudflare (`real_ip_header CF-Connecting-IP` + `set_real_ip_from` dải IP Cloudflare) rồi ghi đè `X-Forwarded-For` (quyết định 4 của Task 4.7). ✔
-> 7. **Profile `prod`:** bản đồ và thời tiết dùng **nguồn thật** (`osm`, `open-meteo`, đã có rate limit từ 4.7) để người xem thấy dữ liệu thật; `payment`, `ai` để `mock` (chưa làm); mail `smtp` qua **Brevo** (xác thực tên miền bằng bản ghi SPF / DKIM để mail không vào thư rác; `app.mail-from` là địa chỉ thuộc tên miền); `app.jwt.cookie-secure: true`; `server.forward-headers-strategy: native`. Swagger vẫn mở (README có link Swagger, design 19). Secret chỉ nằm trong file `.env` trên máy chủ, không vào Git. ✔
+> 7. **Profile `prod`:** bản đồ và thời tiết dùng **nguồn thật** (`osm`, `open-meteo`, đã có rate limit từ 4.7) để người xem thấy dữ liệu thật; `payment`, `ai` để `mock` (chưa làm); mail `smtp` qua **Brevo** (xác thực tên miền bằng bản ghi DKIM + DMARC để mail không vào thư rác; Brevo gửi từ IP dùng chung nên không cần SPF, sửa lúc làm Mốc 7; `app.mail-from` là địa chỉ thuộc tên miền); `app.jwt.cookie-secure: true`; `server.forward-headers-strategy: native`. Swagger vẫn mở (README có link Swagger, design 19). Secret chỉ nằm trong file `.env` trên máy chủ, không vào Git. ✔
 > 8. **Dữ liệu:** tài khoản demo tạo bằng cách đăng ký trên bản thật, không viết migration dữ liệu mẫu. Sao lưu: cron `mysqldump` hằng ngày trên máy, giữ 7 bản. Máy hỏng thì mất dữ liệu demo: chấp nhận cho bản thử. ✔
 > 9. **Không làm ở task này:** đường `/ws` trong nginx (Phase 5 thêm khi có WebSocket, không để cấu hình chưa ai dùng); webhook Stripe (Phase 6); ngưỡng coverage, scheduler dọn `refresh_tokens` (Task 8.4); README cuối + GIF + tài khoản demo có chuyến mẫu (Task 8.5). ✔
 
@@ -2953,6 +2953,10 @@ Nhánh: `chore/T4.8-aws-deploy` (Mốc 1–6, PR 1) và `chore/T4.8-auto-deploy`
 > 16. **`ProdProfileConfigTest`** (Mốc 1): đọc `application-prod.yml`, không khởi động ứng dụng; kiểm các giá trị liên quan bảo mật (cookie `Secure`, `forward-headers-strategy: native`, STARTTLS bắt buộc, health của mail tắt, `payment` / `ai` vẫn `mock`). Có người lỡ sửa thì CI đỏ. ✔
 > 17. **Deploy chờ duyệt** (thay một phần quyết định 4): merge vào `main` → image tự build; job deploy gắn GitHub Environment `production` có **Required reviewers** là chủ dự án nên dừng chờ, chủ dự án bấm **Approve and deploy** trên tab Actions khi muốn lên bản thật (hoặc Reject). Nhiều lần merge liên tiếp: chỉ lượt mới nhất còn chờ (`concurrency`). Secret `DEPLOY_*` đặt trong environment đó, chỉ job đã được duyệt đọc được. Lý do: chủ dự án chọn giờ deploy (mỗi lần deploy trang lỗi 30–60 giây, từ Phase 5 có migration mới). ✔
 > 18. **Phát hiện khi đối chiếu kế hoạch với code** (Claude tự xử lý trong mốc tương ứng): file test là `14-deploy.md`; `backend/gradlew` lưu trong Git với quyền `100644` nên CI trên Linux không chạy được (Mốc 5: `git update-index --chmod=+x`); máy của chủ dự án đặt `core.autocrlf=true` nên script `.sh` cần `.gitattributes` `eol=lf` (Mốc 4); đặt `spring.mail.host` thì Spring Boot kiểm SMTP trong `/actuator/health`, Brevo chậm là deploy đỏ → tắt health của mail ở `prod`; `app.mail-from` đang ghi cứng → `prod` đọc `APP_MAIL_FROM`; nginx tra IP của backend một lần lúc khởi động, backend tạo lại có IP mới → 502 → dùng `resolver 127.0.0.11` + biến; compose prod cùng thư mục với compose dev → `name: tripplanner-prod`; log Docker không giới hạn → 3 file × 10 MB; ô bản đồ OSM đòi `Referer` → `Referrer-Policy: strict-origin-when-cross-origin`; README dòng "đừng bật dữ liệu thật trên bản deploy công khai" trái quyết định 7 → sửa ở Mốc 9. Dải IP Cloudflare và phiên bản các GitHub Action lấy từ trang chính thức lúc code; bước SSH dùng lệnh `ssh` thường, không dùng action của bên thứ ba. ✔
+
+> **Quyết định bổ sung (chủ dự án chọn 2026-10-22, Mốc 7):**
+> 19. **Tài khoản AWS kiểu đăng ký mới, vùng Sydney:** chủ dự án mở tài khoản bằng "Sign up for AWS (new)" (đăng nhập bằng GitHub). Kiểu này gom tài nguyên vào một **project** (tên mặc định "Proof of concept"), chủ sở hữu là **AWS Builder ID** thay cho root user, không có IAM user đăng nhập console, và **AWS tự gán region theo quốc gia trong địa chỉ liên hệ: Việt Nam → Sydney `ap-southeast-2`**, không đổi được. EC2, EBS, VPC, Elastic IP, Budgets đều có trong Free plan của kiểu này; tín dụng như cũ (100 USD + tối đa 100 USD từ 5 hoạt động, 6 tháng hoặc tới khi hết tín dụng, không trừ tiền thẻ trước khi nâng cấp). Muốn Singapore phải nâng lên Paid plan và bật "advanced features", cả hai không đảo ngược được và bỏ chức năng giới hạn chi tiêu; chủ dự án chọn **giữ tài khoản, dùng Sydney**: mỗi lời gọi API từ Việt Nam chậm thêm khoảng 0,1 giây so với Singapore, file tĩnh vẫn đi qua Cloudflare. Bảo vệ tài khoản bằng 2FA của GitHub và MFA của AWS Builder ID (thay cho "MFA root + IAM user" trong `aws.md` cũ). Khi Free plan hết: Paid plan của kiểu này có **spend limit** theo project (tối thiểu 20 USD / tháng, chạm mức thì AWS tạm dừng project thay vì tính thêm tiền). ✔
+> 20. **Chỉ dùng Free plan, không bao giờ trừ tiền thẻ** (thay phần "phải kiếm đủ phần 100 USD thứ hai" và "nâng lên gói trả phí" của quyết định 1): chủ dự án chỉ dùng tín dụng miễn phí và **không bấm Upgrade** (Free plan không trừ tiền thẻ trước khi chủ tài khoản tự nâng cấp; hết tín dụng hoặc hết 6 tháng thì máy dừng). 100 USD đủ khoảng 4 tháng; 5 hoạt động lấy thêm tối đa 100 USD là **tuỳ chọn** (tín dụng miễn phí, không đụng thẻ). Budgets đổi cho đúng mục tiêu: `credit-usage` (kỳ Custom tới ngày Free plan hết hạn, bằng tổng tín dụng, báo 50 / 80 / 95% Actual) theo dõi tín dụng đã tiêu, `daily-spike` (2 USD / ngày, ngày thường khoảng 0,85 USD) bắt tài nguyên lạ; bỏ `monthly-limit` 30 USD và `early-warning` 5 USD vì tháng nào cũng báo. Trước khi tín dụng cạn: tải bản sao lưu database về máy. ✔
 
 ```
 Mốc 0 — docs (main): design.md 3.3 (CI, CD, TLS, mail prod), 17.1 (backend / frontend không thuộc compose dev, Dockerfile
@@ -3001,7 +3005,7 @@ Mốc 6 — chore(ci): publish docker images to ghcr from main                  
 
 Mốc 7 — vận hành, không có commit code (theo docs/deploy/aws.md, chủ dự án tự làm, Claude hướng dẫn từng bước):
         tạo tài khoản Free plan (chỉ mở ở mốc này) → Budgets → kiếm phần tín dụng thứ hai → máy EC2 (CPU Standard) +
-        Elastic IP + Security Group → swap + Docker → tên miền + Cloudflare + origin certificate → Brevo + SPF / DKIM →
+        Elastic IP + Security Group → swap + Docker → tên miền + Cloudflare + origin certificate → Brevo + DKIM / DMARC →
         file .env trên máy → docker compose pull && up -d (lần đầu, bằng tay) → tạo tài khoản demo → cron backup.sh;
         ghi kết quả từng bước vào docs/testing/14-deploy.md
 
@@ -3018,6 +3022,37 @@ Mốc 9 — docs (main): README (link bản chạy thật, link Swagger, dòng "
         (lệnh Docker của bản prod), mục 7 (tick Phase 4), mục 8 (bài học nếu có); WORKFLOW "Thực tế khi làm 4.8";
         docs/testing/14-deploy.md + README.md
 ```
+
+> **Thực tế khi làm 4.8 (2026-10-21 → 2026-10-25):** 9 commit code trên hai nhánh, docs Mốc 0 trên `main` (`fda0a0a`). PR 1 (#34, `chore/T4.8-aws-deploy`, merge `46f4038`): Mốc 1–6 và 2 commit sửa lỗi ngoài kế hoạch chen sau Mốc 2. PR 2 (#35, `chore/T4.8-auto-deploy`, merge `19a2f98`): Mốc 8. Mốc 7 không có commit: chủ dự án làm trên AWS, Cloudflare, Brevo và máy chủ theo `docs/deploy/aws.md`, Claude hướng dẫn từng chặng.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `82a1aca` chore(backend): containerize the backend with a production profile | 4 | Bỏ bước tải dependency riêng trong Dockerfile: `gradle dependencies` chỉ tải mô tả thư viện, không tải jar; build đo 72,5 giây có bước đó, 72,0 giây không có (design 17.1 sửa theo). `ProdProfileConfigTest`; 1528 lượt test |
+> | `13ee6d2` chore(frontend): serve the built frontend with nginx | 4 | `MT-DEPLOY-05` (chạy qua nginx với nguồn bản đồ thật) bắt được `BUG-PLACE-005` và cho thấy Photon trả lời chậm |
+> | `a685bce` fix(place): ask osm services for gzip only | 3 | `BUG-PLACE-005`, có từ Task 3.8: OSRM ghi `deflate` nhưng gửi gzip, quãng đường thật luôn lỗi. Test mới đi qua bộ gọi HTTP thật (`StubHttpServer`); 1529 lượt test |
+> | `03b8926` fix(place): wait longer for photon and do not retry it | 7 | Photon công cộng mất 2,7–6,5 giây mỗi lần tìm: chờ 8 giây, không thử lại (design 7.3); 1531 lượt test |
+> | `016ff5f` chore(deploy): add the production compose file | 3 | Chạy thử cả hệ thống trên máy mình với mail trỏ sang MailHog: mail bị từ chối vì MailHog không có STARTTLS, đúng ý `prod` bắt buộc STARTTLS |
+> | `faab5e6` chore(deploy): add the database backup script | 3 (bảng: 2) | Thêm `/backups/` vào `.gitignore` (chạy thử trên máy mình ghi bản sao lưu vào thư mục repo) |
+> | `07cb6af` chore(ci): run the backend and frontend checks on every pull request | 2 | Cache bằng `setup-java` (`cache: gradle`), không dùng `gradle/actions/setup-gradle`: từ v6 phần cache là mã đóng theo Terms of Use của Gradle (chủ dự án chọn, design 17.2) |
+> | `e2a0707` chore(ci): publish docker images to ghcr from main | 1 | Merge PR 1 → 2 image trên GHCR, chuyển sang Public |
+> | `4ec5be2` chore(ci): deploy to the server after the images are published | 2 | `concurrency` chuyển từ cả workflow xuống từng job (`images-<app>` cho build, `deploy` cho deploy): đặt cho cả workflow thì một lượt chờ duyệt nhiều ngày giữ lại build của các lần merge sau. Merge PR 2 là bài thử deploy: Deploy xanh sau khi duyệt, 54 giây |
+>
+> Mốc 7 (2026-10-22 → 2026-10-25), lệch so với kế hoạch:
+> - **Tài khoản AWS kiểu đăng ký mới, vùng Sydney** thay cho Singapore (quyết định 19); **chỉ dùng Free plan** (quyết định 20). Tín dụng 120 USD (100 + 20 của hoạt động "chạy máy EC2"). Chi phí đo được khoảng 0,035 USD / giờ máy chạy (máy 0,0264, IPv4 0,005, ổ đĩa 0,004), khớp ước tính; số trên trang Billing trễ 8–24 giờ.
+> - **Tên miền `.me` miễn phí năm đầu** qua GitHub Student Developer Pack (Namecheap), DNS chuyển sang Cloudflare bằng nameserver, tắt tự gia hạn.
+> - **Brevo xác thực bằng DKIM + DMARC, không SPF** (Brevo gửi từ IP dùng chung); Brevo đòi thêm tên miền con riêng cho việc gửi. Quyết định 7 và design 3.3 sửa theo. Mail đầu tiên tới Gmail ở tab Quảng cáo, DKIM và DMARC đều PASS.
+> - `adduser --disabled-password` không tạo được user `deploy` → `useradd --create-home --shell /bin/bash deploy`.
+> - `ssh-keyscan` của OpenSSH trên Windows không hiểu kiểu trao khoá máy chủ đưa ra (`choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com`) → lấy dấu vân tay bằng `ssh-keyscan` chạy trên chính máy chủ, so mã SHA256 với lần `ssh` đầu tiên.
+> - Khoá công khai dán từ chat vào `authorized_keys` bị ngắt dòng → chép file `.pub` lên bằng `scp` rồi ghép dòng `command=` bằng `printf`.
+> - IP nhà mạng đổi làm `ssh` hết giờ chờ khi luật SSH chỉ mở cho một IP; từ Mốc 8 cổng 22 mở cho mọi nơi (quyết định 6), chỉ nhận khoá.
+> - Sự cố: SMTP key của Brevo bị dán vào chat → xoá key, tạo key mới; lệnh gửi mail thử thêm `--hide-send`.
+> - RAM 5 phút sau khi chạy: máy 1,1 / 1,9 GiB, swap 28 KiB; backend 419 MiB / 1 GiB, MySQL 158 / 512 MiB. Giữ nguyên quyết định 11.
+>
+> Bài thủ công `MT-DEPLOY-01` đến `43`: đạt hết trừ `24` (tuỳ chọn: lấy thêm tín dụng) và `21` (commit chỉ có tài liệu không build image: chạy sau khi push commit đóng task). `44` (tạm dừng và bật lại máy) thêm lúc đóng task, chưa chạy. Không có lỗi mới ngoài `BUG-PLACE-005`.
+>
+> Ghi chú khi làm:
+> - Ghi nợ mục 10 của Task 8.3: tải lại trang trong 30–60 giây deploy thì bị đưa về trang đăng nhập (`refreshAccessToken` gặp 502 thì xoá phiên).
+> - Bài học đưa vào CLAUDE.md mục 8: bộ giả lập HTTP không thử phần nén; thời gian chờ provider phải dưới của trình duyệt; nginx tra IP backend lúc khởi động; health indicator của dịch vụ ngoài; script `.sh` với CRLF và quyền thực thi. Mục 2 thêm lệnh của bản chạy thật.
 
 **Nghiệm thu** (trên điện thoại dùng 4G, không qua mạng nhà): mở `https://<tên miền>` → đăng ký → nhận mail thật → xác thực → đăng nhập → tải lại trang vẫn còn đăng nhập (cookie `Secure` qua HTTPS) → tạo chuyến, tìm "Chợ Hàn" ra kết quả thật, thời tiết thật → tạo liên kết chia sẻ, mở bằng trình duyệt ẩn danh được; gọi thẳng `http://<Elastic IP>` không vào được; đăng nhập sai 6 lần → 429; merge một thay đổi nhỏ → job deploy chờ duyệt, bấm duyệt → bản thật cập nhật, tab Actions xanh; trang Billing của AWS cho thấy chi phí dự báo nằm trong tín dụng.
 
@@ -3283,6 +3318,11 @@ Nhánh: `chore/T8.3-test-coverage`
 8. ~~Frontend — màu chủ đạo (từ 2.5): khai báo `@theme`~~ — **đã làm ở Task 2.6** (`src/styles/tokens.css`, xem UI_GUIDE.md)
 9. (ghi nợ Task 2.7) danh sách chuyến đi: thêm `id` làm khoá sắp xếp phụ để phân trang ổn định khi sắp theo cột
    có giá trị trùng; `?page=` vượt quá số trang → đưa về trang cuối thay vì hiện "Chưa có chuyến đi nào"
+10. (ghi nợ Task 4.8, `MT-DEPLOY-11`, chủ dự án chọn hoãn 2026-10-21) Frontend — giữ phiên khi máy chủ đang khởi động
+   lại: lúc tải trang, `refreshAccessToken()` lỗi vì mạng / 5xx (502 của nginx lúc deploy) thì hiện "Máy chủ đang khởi
+   động lại" và tự thử lại, không `clearSession()` rồi đưa về /login. Chỉ 401 mới là "chưa đăng nhập". Hiện tại: tải lại
+   trong 30–60 giây deploy là thấy trang đăng nhập dù cookie vẫn dùng được; tải lại sau đó thì vào lại được. Sửa cả
+   comment trong `main.tsx` và design.md 6.1, thêm test cho hàm phân loại lỗi
 ```
 
 **Commit:** `chore(test): add jacoco coverage gate` + `perf(trip): fix n+1 query on trip detail`
@@ -3382,8 +3422,8 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.5 UI: chia sẻ, thành viên, vai trò, trang công khai | ☑ | 2026-10-18 |
 | 4 | 4.9 UI: ô chọn, ngày, giờ, ghi chú kiểu mới (làm trước 4.6) | ☑ | 2026-10-18 |
 | 4 | 4.6 UI: bình luận | ☑ | 2026-10-19 |
-| 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☐ | |
-| 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☐ | |
+| 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☑ | 2026-10-21 |
+| 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☑ | 2026-10-25 |
 | 5 | 5.1 WebSocket setup | ☐ | |
 | 5 | 5.2 Broadcast events | ☐ | |
 | 5 | 5.3 Presence + locking | ☐ | |

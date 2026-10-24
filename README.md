@@ -2,6 +2,10 @@
 
 Web app lên kế hoạch du lịch: tạo lịch trình theo ngày, gắn địa điểm lên bản đồ, xem thời tiết, chia sẻ & đồng chỉnh sửa real-time, theo dõi chi phí, nâng cấp Premium qua Stripe.
 
+**Bản chạy thật:** https://trip-planner.me · **Tài liệu API (Swagger):** https://trip-planner.me/swagger-ui.html
+
+Đăng ký bằng email thật để dùng thử (mail xác thực gửi qua Brevo). Đây là máy chủ thử chạy bằng tín dụng miễn phí của AWS, có thể tạm dừng vào một số thời điểm.
+
 ## Tính năng đã có
 
 **Phase 1 — Xác thực (hoàn thành 2026-09-25)**
@@ -30,7 +34,16 @@ Web app lên kế hoạch du lịch: tạo lịch trình theo ngày, gắn đị
 - Hai bộ nguồn dữ liệu, đổi bằng cấu hình: **dữ liệu có sẵn** (mặc định, không cần mạng) và **dữ liệu thật** từ OpenStreetMap (Photon, Nominatim, OSRM) và Open-Meteo, không cần API key
 - Khi nguồn thật lỗi: tự thử lại, ngắt mạch khi dịch vụ sập (Resilience4j), trang chuyến đi vẫn dùng được
 
-Lộ trình các phase tiếp theo (chia sẻ, realtime, Stripe, chi phí, AI gợi ý...): [WORKFLOW.md](WORKFLOW.md). Kịch bản test và tình trạng từng kịch bản: [docs/testing/README.md](docs/testing/README.md).
+**Phase 4 — Chia sẻ, phân quyền, deploy (hoàn thành 2026-10-25)**
+
+- Mời bạn đồng hành vào chuyến đi qua email với hai vai trò **người sửa** và **người xem**; chủ chuyến đổi vai trò hoặc xoá thành viên
+- Liên kết chia sẻ chỉ xem: ai có link cũng xem được lịch trình mà không cần đăng nhập; chủ chuyến thu hồi link bất cứ lúc nào
+- Kiểm quyền tập trung một chỗ (`TripPermissionEvaluator` + `@PreAuthorize`), kết quả giữ tạm trong Redis; một test quét mọi endpoint của chuyến đi với từng vai trò
+- Bình luận cho cả chuyến hoặc cho từng hoạt động
+- Giới hạn số lần gọi (Bucket4j + Redis) cho đăng ký, đăng nhập, gửi mail, trang công khai, tìm địa điểm và toàn bộ API
+- Bản chạy thật trên AWS: mỗi lần merge vào `main`, GitHub Actions build image Docker; bản thật chỉ cập nhật sau khi chủ dự án bấm duyệt (xem [Bản chạy thật](#bản-chạy-thật))
+
+Lộ trình các phase tiếp theo (realtime, Stripe, chi phí, AI gợi ý...): [WORKFLOW.md](WORKFLOW.md). Kịch bản test và tình trạng từng kịch bản: [docs/testing/README.md](docs/testing/README.md).
 
 ## Tech stack
 
@@ -40,9 +53,12 @@ Lộ trình các phase tiếp theo (chia sẻ, realtime, Stripe, chi phí, AI g�
 | Database | MySQL 8 + Flyway (`ddl-auto: validate` ở mọi profile) |
 | Cache | Redis 7 |
 | Mail (dev) | MailHog |
+| Mail (prod) | Brevo SMTP, tên miền xác thực bằng DKIM + DMARC |
+| Rate limit | Bucket4j + Redis |
 | Frontend | React 19 + Vite 8 + TypeScript + Tailwind v4 |
 | Frontend state | TanStack Query v5 (server state), Zustand (auth), React Router v7, react-hook-form + zod |
-| Test | JUnit 5, Mockito, Testcontainers (MySQL thật trong Docker) |
+| Test | JUnit 5, Mockito, Testcontainers (MySQL thật trong Docker), Vitest |
+| Deploy | AWS EC2 · Docker Compose · Nginx · Cloudflare · GitHub Actions CI/CD |
 
 ## Cấu trúc repo
 
@@ -53,6 +69,9 @@ smart-trip-planner/
 ├── CLAUDE.md            # Quy ước code
 ├── .env.example         # Mẫu biến môi trường
 ├── docker-compose.yml   # mysql, redis, mailhog
+├── docker-compose.prod.yml  # bản chạy thật: nginx, backend, mysql, redis
+├── deploy/             # backup.sh, deploy.sh (chạy trên máy chủ)
+├── .github/workflows/  # ci.yml (mỗi pull request), images.yml (build image, deploy chờ duyệt)
 ├── backend/             # Spring Boot
 └── frontend/            # React + Vite (proxy /api → backend khi dev)
 ```
@@ -106,11 +125,25 @@ Mặc định ứng dụng chạy bằng dữ liệu có sẵn: 56 địa điể
 | `app.providers.map` | `mock` (mặc định) \| `osm` | Photon (tìm địa điểm), Nominatim (lưu địa điểm đã chọn), OSRM (quãng đường, tính cho ô tô) |
 | `app.providers.weather` | `mock` (mặc định) \| `open-meteo` | Open-Meteo |
 
-Đây là các máy chủ công cộng miễn phí dùng chung, có điều khoản "dùng hợp lý" (Nominatim: tối đa 1 lần gọi mỗi giây; ứng dụng tự giữ giới hạn này). Chỉ nên bật khi chạy trên máy mình; **đừng bật trên bản deploy công khai** cho tới khi có hạn mức theo người dùng (Task 8.1). Test tự động không bao giờ gọi ra ngoài.
+Đây là các máy chủ công cộng miễn phí dùng chung, có điều khoản "dùng hợp lý" (Nominatim: tối đa 1 lần gọi mỗi giây; ứng dụng tự giữ giới hạn này). Bản chạy thật bật sẵn cả hai nguồn thật; mỗi người dùng tìm địa điểm tối đa 60 lần mỗi giờ (Task 4.7) để không dồn tải lên các máy chủ này. Test tự động không bao giờ gọi ra ngoài.
 
 > - `./gradlew bootRun` đứng ở `80% EXECUTING` là bình thường (app đang chạy). Dừng bằng Ctrl+C.
 > - Chạy/debug backend bằng IntelliJ: Run configuration Spring Boot, profile `local`, **Working directory = `backend/`** — sai thư mục thì không đọc được `../.env` (lỗi `Could not resolve placeholder 'MAIL_HOST'`).
 > - macOS/Linux báo `permission denied` khi chạy `./gradlew`: `chmod +x gradlew && git update-index --chmod=+x gradlew`
+
+## Bản chạy thật
+
+| Phần | Cách làm |
+|---|---|
+| Máy chủ | Một máy AWS EC2 `t3.small` (vùng Sydney) chạy 4 container bằng Docker Compose: nginx (trang web + chuyển `/api` sang backend), backend, MySQL, Redis |
+| HTTPS, tên miền | Cloudflare đứng trước (SSL Full (strict), chứng chỉ Origin trên nginx); tường lửa chỉ nhận cổng 443 từ dải IP của Cloudflare |
+| Mail | Brevo SMTP (cổng 587, STARTTLS bắt buộc) |
+| CI | Mỗi pull request: `./gradlew build` (có Testcontainers), `npm run lint`, `npm run build`, `npm run test` |
+| CD | Merge vào `main` → build 2 image, đẩy lên GitHub Container Registry → job Deploy chờ chủ dự án bấm duyệt → SSH chạy `deploy/deploy.sh` (sao lưu database, tải image, chờ backend khoẻ, báo đỏ nếu không lên) |
+| Sao lưu | `mysqldump` mỗi đêm và trước mỗi lần deploy, giữ 7 ngày |
+| Bí mật | Chỉ nằm trong file `.env` trên máy chủ và secret của GitHub, không bao giờ vào Git |
+
+Thiết kế: [design.md](design.md) mục 17. Kịch bản kiểm thử: [docs/testing/14-deploy.md](docs/testing/14-deploy.md).
 
 ## Tài liệu
 

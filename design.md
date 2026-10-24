@@ -157,7 +157,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Reverse proxy | Nginx (serve static frontend + proxy `/api`, Swagger sang backend; IP thật lấy từ Cloudflare) |
 | TLS | Cloudflare (SSL **Full (strict)**) + Cloudflare Origin Certificate trên nginx; không dùng Certbot |
 | Mail (dev) | MailHog — xem mail tại `localhost:8025` |
-| Mail (prod) | Brevo SMTP free tier (cổng 587, STARTTLS bắt buộc); tên miền xác thực bằng SPF / DKIM |
+| Mail (prod) | Brevo SMTP free tier (cổng 587, STARTTLS bắt buộc); tên miền xác thực bằng DKIM (2 bản ghi CNAME) + DMARC; SPF chỉ cần khi thuê IP riêng của Brevo |
 
 ---
 
@@ -671,8 +671,8 @@ public class MockWeatherProvider implements WeatherProvider { ... }
 
 | Cơ chế | Giá trị | Đặt ở đâu | Để làm gì |
 |---|---|---|---|
-| Giới hạn thời gian | kết nối 2 giây, chờ trả lời 3 giây | Bộ gọi HTTP (`RestClient`) | Dịch vụ không trả lời thì bỏ cuộc, người dùng không nhìn trang quay mãi |
-| Thử lại | 2 lần sau lần đầu, cách 500ms; chỉ với 5xx, quá thời gian, mất kết nối | Resilience4j `@Retry` | Qua được lỗi thoáng qua. Lỗi 4xx là do ta gửi sai, gọi lại không đổi kết quả |
+| Giới hạn thời gian | kết nối 2 giây, chờ trả lời 3 giây; **riêng Photon chờ trả lời 8 giây** (`app.providers.osm.photon-read-timeout`, từ 2026-10-21) | Bộ gọi HTTP (`RestClient`); Photon có bộ gọi riêng, cùng mọi thiết lập khác | Dịch vụ không trả lời thì bỏ cuộc, người dùng không nhìn trang quay mãi |
+| Thử lại | 2 lần sau lần đầu, cách 500ms; chỉ với 5xx, quá thời gian, mất kết nối. **Photon không thử lại** (từ 2026-10-21) | Resilience4j `@Retry` | Qua được lỗi thoáng qua. Lỗi 4xx là do ta gửi sai, gọi lại không đổi kết quả |
 | Ngắt mạch | mở khi đã có từ 10 lần gọi và một nửa trong 20 lần gọi gần nhất lỗi; sau 30 giây cho 2 lần gọi đi thử, được thì đóng lại | Resilience4j `@CircuitBreaker`, mỗi dịch vụ một mạch | Dịch vụ đang sập thì báo lỗi ngay, không bắt mỗi người dùng chờ 3 giây × 3 lần |
 | Giới hạn tần suất | 1 lần / giây, chỉ Nominatim; một lần tra chờ lượt tối đa 2 giây, hàng chờ dài hơn thì lỗi ngay | Resilience4j `@RateLimiter` | Điều khoản của Nominatim |
 
@@ -691,7 +691,12 @@ Chốt khi làm Task 3.8 (2026-10-05):
 - Mạch mở và hết lượt được đổi thành `ProviderUnavailableException` ngay trong provider (hàm dự phòng của Resilience4j), nên service và `GlobalExceptionHandler` không biết tới thư viện. **Hàm dự phòng phải `public`:** thư viện gọi hàm `private` không an toàn khi có hai lần gọi cùng lúc (BUG-PLAT-004).
 - Không cần thêm starter AOP: annotation của Resilience4j chạy được với những gì dự án đã có.
 - Cấu hình nằm ở `application.yml` khối `resilience4j`, mỗi dịch vụ một tên: `photon`, `nominatim`, `osrm`, `open-meteo`.
-- Tệ nhất một yêu cầu chờ khoảng 10 giây (3 lần × 3 giây + 2 × 0,5 giây) trước khi báo lỗi; sau 10 lần gọi lỗi mạch mở và lỗi về ngay.
+- Tệ nhất một yêu cầu chờ khoảng 10 giây (3 lần × 3 giây + 2 × 0,5 giây) trước khi báo lỗi; sau 10 lần gọi lỗi mạch mở và lỗi về ngay. Riêng tìm địa điểm: tệ nhất 8 giây, một lần gọi.
+
+Đổi ngày 2026-10-21 (Task 4.8, phát hiện ở bài `MT-DEPLOY-05`):
+- **Photon chờ 8 giây, không thử lại.** Máy chủ Photon công cộng mất 2,7–6,5 giây cho mỗi lần tìm, đo liên tục hơn nửa tiếng, cả từ máy chạy thử lẫn từ trong Docker. Thời gian đó là máy chủ của họ tự xử lý (kết nối chỉ khoảng 0,25 giây), nên chạy trên AWS cũng không nhanh hơn. Với 3 giây, mọi lần tìm đều quá giờ, mạch mở, và ô tìm địa điểm không dùng được.
+- **Vì sao không thử lại:** trình duyệt bỏ cuộc sau 10 giây (`timeout` của `api/client.ts`) rồi tự gửi lại, vì quá thời gian là lỗi đáng thử lại (`api/errors.isWorthRetrying`). Hai lần × 8 giây sẽ hết hạn của trình duyệt trước, và mỗi lần trình duyệt gửi lại lại thêm lần gọi Photon. Một lần 8 giây luôn xong trước 10 giây. Lỗi 5xx thoáng qua của Photon vì vậy không được gọi lại ở backend; người dùng gõ thêm một chữ là có lần tìm mới.
+- Nominatim, OSRM, Open-Meteo giữ 3 giây và 3 lần thử: gọi thử cùng ngày (3 lần mỗi dịch vụ) Nominatim mất 0,1–0,5 giây, OSRM 0,5–0,6 giây, Open-Meteo 0,9–1,1 giây; một lần OSRM mất 4,9 giây, nhưng quãng đường chỉ là dữ liệu tải kèm.
 - Giới hạn 1 lần / giây tính trong **một** bản ứng dụng đang chạy. Chạy nhiều bản thì phải chuyển bộ đếm sang Redis (chưa làm).
 
 ---
@@ -1283,7 +1288,7 @@ Backend và frontend **không** nằm trong compose dev: dev chạy `./gradlew b
 
 Port của 3 service hạ tầng bind vào `127.0.0.1` để không lộ ra mạng LAN.
 
-Backend Dockerfile: multi-stage (`gradle:9.7.1-jdk21` build, cùng phiên bản với Gradle wrapper → `eclipse-temurin:21-jre-alpine` run), chạy bằng user non-root, có `HEALTHCHECK` gọi `/actuator/health`. Ở stage build, copy `build.gradle`, `settings.gradle`, `gradle/` trước rồi tải dependency để tận dụng layer cache, sau đó mới copy `src/` và chạy `bootJar` (không chạy test: CI đã chạy). Jar được tách thành các lớp (`-Djarmode=tools extract --layers`) để mỗi lần deploy chỉ đẩy lớp code. JVM: heap tối đa 60% giới hạn RAM của container (`-XX:MaxRAMPercentage=60`), `-XX:+ExitOnOutOfMemoryError` để Docker khởi động lại.
+Backend Dockerfile: multi-stage (`gradle:9.7.1-jdk21` build, cùng phiên bản với Gradle wrapper → `eclipse-temurin:21-jre-alpine` run), chạy bằng user non-root, có `HEALTHCHECK` gọi `/actuator/health`. Ở stage build, copy `build.gradle`, `settings.gradle`, `gradle/libs.versions.toml` và `src/` rồi chạy `bootJar` (không chạy test: CI đã chạy). Không có bước tải dependency riêng: `gradle dependencies` chỉ tải mô tả thư viện chứ không tải jar, build đo 72,5 giây có bước đó và 72,0 giây không có (Task 4.8, 2026-10-21). Jar được tách thành các lớp (`-Djarmode=tools extract --layers`) để mỗi lần deploy chỉ đẩy lớp code. JVM: heap tối đa 60% giới hạn RAM của container (`-XX:MaxRAMPercentage=60`), `-XX:+ExitOnOutOfMemoryError` để Docker khởi động lại.
 
 Frontend Dockerfile: multi-stage (`node:24-alpine`: `npm ci` + `npm run build`, `VITE_API_URL` là build arg mặc định `/api/v1` → `nginx` stable alpine với `frontend/nginx.conf`).
 
@@ -1292,12 +1297,15 @@ Frontend Dockerfile: multi-stage (`node:24-alpine`: `npm ci` + `npm run build`, 
 ```
 ci.yml       on: pull_request                         (Task 4.8)
   job backend:
-    - setup java 21 (temurin), setup-gradle (cache dependency + build cache)
+    - setup-java 21 (temurin) với cache: gradle (thư viện + bản Gradle, khoá theo file build của backend/).
+      Không dùng gradle/actions/setup-gradle: từ v6 phần cache là mã đóng theo Terms of Use của Gradle
+      (chủ dự án chọn 2026-10-21, Task 4.8 Mốc 5)
     - ./gradlew build (bao gồm test + Testcontainers; runner Ubuntu có sẵn Docker)
     - test đỏ → tải báo cáo test lên làm artifact
     - (Task 8.3 / 8.4) jacocoTestReport + jacocoTestCoverageVerification, fail nếu coverage service < 70%
   job frontend:
-    - setup node 24, npm ci, npm run lint, npm run build, npm run test
+    - setup node 24 (cache: npm), npm ci, npm run lint, npm run build, npm run test
+  huỷ lượt cũ khi cùng PR có commit mới (concurrency); quyền chỉ đọc code
 
 images.yml   on: push main, chỉ khi backend/, frontend/, docker-compose.prod.yml, deploy/ hoặc workflow đổi (Task 4.8)
   job images:
@@ -1339,7 +1347,7 @@ Mail:   backend → Brevo SMTP 587 (STARTTLS) → hộp thư người dùng
 
 | Chủ đề | Quyết định |
 |---|---|
-| Máy | EC2 `t3.small` (2 vCPU, 2 GB), `ap-southeast-1`, Ubuntu LTS, EBS gp3 30 GB, Elastic IP, VPC mặc định, CPU credit **Standard**, AWS Budgets báo động. Không dùng RDS, ElastiCache, Load Balancer, ECS |
+| Máy | EC2 `t3.small` (2 vCPU, 2 GB), Sydney `ap-southeast-2` (tài khoản AWS kiểu đăng ký mới: region gán theo quốc gia, WORKFLOW Task 4.8 quyết định 19), Ubuntu LTS, EBS gp3 30 GB, Elastic IP, VPC mặc định, CPU credit **Standard**, AWS Budgets báo động. Không dùng RDS, ElastiCache, Load Balancer, ECS |
 | RAM | Trần mỗi container: backend 1 GB (heap tối đa 60% ≈ 600 MB), MySQL 512 MB (`innodb_buffer_pool_size=128M`, `performance_schema=OFF`), Redis 128 MB (`maxmemory 64mb`, `allkeys-lru`, không lưu xuống đĩa), nginx 64 MB; máy có 2 GB swap. Đo lại bằng `docker stats` sau lần deploy đầu |
 | Compose prod | Chỉ nginx mở cổng (443; không mở 80, Cloudflare tự chuyển HTTP → HTTPS). Image lấy từ `ghcr.io`, tag đọc từ `IMAGE_TAG` (mặc định `latest`, đổi sang mã commit để quay lại bản cũ). Backend chỉ khởi động khi mysql và redis `healthy` (rate limiter mở kết nối Redis lúc khởi động). Container backend không nhận mật khẩu root của MySQL. Mọi container: `restart: unless-stopped`, healthcheck, log giới hạn 3 file × 10 MB. Tên dự án `tripplanner-prod` để không lẫn với compose dev |
 | nginx | IP thật: `set_real_ip_from` dải IP Cloudflare (lấy từ trang chính thức) + `real_ip_header CF-Connecting-IP`, rồi **ghi đè** `X-Forwarded-For` bằng `$remote_addr` (mục 6.3). Địa chỉ backend tra qua DNS của Docker (`resolver 127.0.0.11` + biến) để không giữ IP cũ sau khi backend được tạo lại. `/assets/` cache dài (`immutable`), `index.html` không cache, đường dẫn lạ trả `index.html`. `/actuator` không đi qua nginx. `Referrer-Policy: strict-origin-when-cross-origin` (máy chủ ô bản đồ của OpenStreetMap đòi header `Referer`) |

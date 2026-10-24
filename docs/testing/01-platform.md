@@ -1,6 +1,6 @@
 # 01 · Nền tảng
 
-> Cập nhật: 2026-10-20 · Task 4.7 xong: Mốc 4 (đăng nhập khi Redis tắt và giới hạn số lần gọi đang bật) thêm `TC-PLAT-055`, tại `45e5856` (1502 lượt test) · 2026-10-17 · Task 4.3 Mốc 3 (bộ nhớ tạm cho quyền): `TC-PLAT-053` đạt, tại `8e5cdb0` (1368 lượt test) · commit sửa `BUG-PLAT-005` (lệnh Redis không còn chờ khi mất kết nối, thêm `TC-PLAT-054`) tại `1687773` · 2026-10-05 · Task 3.8 Commit 8 (phần H: thử lại, ngắt mạch, giới hạn tần suất quanh các dịch vụ thật; `BUG-PLAT-004` đã sửa): tại `3f49f60`, build xanh, 955 lượt test; `MT-PLAT-07` chưa chạy · Commit 7 (thêm `TC-PLAT-040`: quãng đường khi Redis tắt) tại `9e20586`, 930 lượt test · trước đó build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-21 · Task 4.8 (nhánh `chore/T4.8-aws-deploy`, chưa commit): riêng Photon chờ 8 giây và không thử lại; `TC-PLAT-043`, `048` viết lại, thêm `TC-PLAT-056`, `057`, build xanh 1531 lượt test · 2026-10-20 · Task 4.7 xong: Mốc 4 (đăng nhập khi Redis tắt và giới hạn số lần gọi đang bật) thêm `TC-PLAT-055`, tại `45e5856` (1502 lượt test) · 2026-10-17 · Task 4.3 Mốc 3 (bộ nhớ tạm cho quyền): `TC-PLAT-053` đạt, tại `8e5cdb0` (1368 lượt test) · commit sửa `BUG-PLAT-005` (lệnh Redis không còn chờ khi mất kết nối, thêm `TC-PLAT-054`) tại `1687773` · 2026-10-05 · Task 3.8 Commit 8 (phần H: thử lại, ngắt mạch, giới hạn tần suất quanh các dịch vụ thật; `BUG-PLAT-004` đã sửa): tại `3f49f60`, build xanh, 955 lượt test; `MT-PLAT-07` chưa chạy · Commit 7 (thêm `TC-PLAT-040`: quãng đường khi Redis tắt) tại `9e20586`, 930 lượt test · trước đó build xanh tại commit `957550e` (Task 3.4, 742 lượt test) · [Về trang chính](README.md)
 
 Nền tảng là phần mọi tính năng khác dựa vào: khung của phản hồi, cách báo lỗi, ai được gọi gì, và cấu hình.
 
@@ -124,7 +124,8 @@ Từ Task 4.3 (`BUG-PLAT-005`) cả lớp test dừng Redis **sau khi** ứng d�
 
 Thêm ở Task 3.8 Commit 8. Áp dụng cho bốn dịch vụ thật (Photon, Nominatim, OSRM, Open-Meteo), mỗi dịch vụ một bộ riêng:
 
-- **Thử lại:** lần gọi lỗi thoáng qua được gọi lại, tối đa 3 lần gọi cho một yêu cầu, cách nhau 0,5 giây.
+- **Giới hạn thời gian:** chờ trả lời 3 giây; riêng Photon (tìm địa điểm) chờ 8 giây, vì máy chủ công cộng của nó thường mất 3–6 giây (từ Task 4.8, 2026-10-21; design.md 7.3).
+- **Thử lại:** lần gọi lỗi thoáng qua được gọi lại, tối đa 3 lần gọi cho một yêu cầu, cách nhau 0,5 giây. Riêng Photon **không thử lại** (từ Task 4.8): một lần đã có thể mất 8 giây, lần thứ hai sẽ kết thúc sau khi trình duyệt bỏ cuộc ở giây thứ 10 và tự gửi lại.
 - **Ngắt mạch:** dịch vụ đang sập thì ứng dụng thôi gọi nó và báo lỗi ngay. Mạch mở khi từ 10 lần gọi trở lên, trong 20 lần gần nhất có một nửa lỗi. Sau 30 giây ứng dụng cho 2 lần gọi đi thử; được thì đóng mạch lại.
 - **Giới hạn tần suất:** Nominatim chỉ được gọi 1 lần mỗi giây cho cả ứng dụng (điều khoản của máy chủ công cộng). Lần tra phải chờ lượt tối đa 2 giây; hàng chờ dài hơn thì báo lỗi ngay.
 
@@ -137,26 +138,30 @@ Lỗi nào được thử lại, lỗi nào được tính vào việc mở mạ
 | TC-PLAT-041 | Chín loại lỗi của một dịch vụ: mã 500, 503, không trả lời kịp; mã 400, 403, 404; mã 429 (dịch vụ báo bị gọi quá nhiều); trả lời không đọc được; trả lời đọc được nhưng thiếu nội dung | **Thử lại:** chỉ 500, 503 và không trả lời kịp. **Tính vào mở mạch:** ba loại đó, thêm 429 và trả lời không đọc được. Mã 400 / 403 / 404 không tính: dịch vụ vẫn khoẻ, câu hỏi sai | Đúng | Đạt |
 | TC-PLAT-042 | Một lỗi không phải của dịch vụ bên ngoài (lỗi trong code của ứng dụng) | Không thử lại, không tính vào mở mạch: lỗi của ta không được giấu sau ba lần gọi | Biên | Đạt |
 
-Cả ứng dụng chạy thật với hai nguồn thật được bật; bốn dịch vụ là một máy chủ giả trên máy chạy test, đếm được số lần bị gọi (`RealProvidersResilienceIntegrationTest`). Để test ngắn, hai con số khác cấu hình thật: một lần gọi bỏ cuộc sau 0,3 giây (thật: 3 giây), hai lần thử cách nhau 0,02 giây (thật: 0,5 giây). Các giới hạn được chứng minh (3 lần gọi, 10 lần gọi, 1 lần tra mỗi giây) là giá trị thật.
+Cả ứng dụng chạy thật với hai nguồn thật được bật; bốn dịch vụ là một máy chủ giả trên máy chạy test, đếm được số lần bị gọi (`RealProvidersResilienceIntegrationTest`). Để test ngắn, ba con số khác cấu hình thật: một lần gọi bỏ cuộc sau 0,3 giây (thật: 3 giây), riêng Photon sau 1 giây (thật: 8 giây), hai lần thử cách nhau 0,02 giây (thật: 0,5 giây). Các giới hạn được chứng minh (3 lần gọi, 1 lần gọi với Photon, 10 lần gọi, 1 lần tra mỗi giây) là giá trị thật.
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
-| TC-PLAT-043 | Tìm địa điểm; Photon trả 503, rồi 500, rồi trả lời đúng | Người dùng nhận kết quả như bình thường. Photon bị gọi đúng 3 lần | Đúng | Đạt |
+| TC-PLAT-043 | Hỏi quãng đường; OSRM trả 503, rồi 500, rồi trả lời đúng | Người dùng nhận quãng đường như bình thường. OSRM bị gọi đúng 3 lần | Đúng | Đạt |
 | TC-PLAT-044 | Hỏi quãng đường; OSRM trả 502 mãi | Báo `PROVIDER_UNAVAILABLE` sau đúng 3 lần gọi, không gọi mãi | Sai | Đạt |
 | TC-PLAT-045 | Hỏi dự báo; Open-Meteo im lặng hai lần rồi trả lời | Có dự báo. Bị gọi 3 lần: không trả lời kịp cũng được thử lại | Biên | Đạt |
 | TC-PLAT-046 | Hỏi quãng đường; OSRM trả 400 (cách nó nói "không có đường giữa các điểm này") | Báo lỗi sau **1** lần gọi: hỏi lại không đổi kết quả | Sai | Đạt |
 | TC-PLAT-047 | Tìm địa điểm; Photon trả 200 nhưng nội dung không phải JSON | Báo lỗi sau **1** lần gọi | Sai | Đạt |
-| TC-PLAT-048 | Photon trả 500 mãi; tìm địa điểm 6 lần liên tiếp, rồi lần thứ 7 | Photon chỉ bị gọi **10** lần (không phải 18): mạch mở, các lần sau báo lỗi ngay (dưới 0,2 giây) mà không gọi nữa. Quãng đường và dự báo vẫn chạy bình thường: mỗi dịch vụ một mạch | Đúng | Đạt |
+| TC-PLAT-048 | Photon trả 500 mãi; tìm địa điểm 12 lần liên tiếp, rồi lần thứ 13 | Photon chỉ bị gọi **10** lần (không phải 13): mạch mở, các lần sau báo lỗi ngay (dưới 0,2 giây) mà không gọi nữa. Quãng đường và dự báo vẫn chạy bình thường: mỗi dịch vụ một mạch | Đúng | Đạt |
 | TC-PLAT-049 | Tra 3 địa điểm liên tiếp qua Nominatim; rồi 40 lần tra cùng một lúc | Ba lần đầu mất ít nhất 1 giây (mỗi giây một lượt), cả ba thành công. Trong 40 lần cùng lúc chỉ 1 đến 4 lần được phục vụ, số còn lại nhận `PROVIDER_UNAVAILABLE` có ghi `nominatim` và **không tới Nominatim** (số lần máy chủ giả bị gọi bằng đúng số lần được phục vụ) | Biên | Đạt · từng lỗi BUG-PLAT-004 |
 | TC-PLAT-050 | OSRM trả 400 cho 25 lần hỏi quãng đường liên tiếp | Cả 25 lần đều tới OSRM, mạch vẫn đóng: vài ngày có địa điểm không nối được bằng đường bộ không được cắt quãng đường của mọi người khác | Biên | Đạt |
 | TC-PLAT-051 | Qua API, có đăng nhập: `GET /places/search` khi Photon chạy; rồi mở mạch của Photon và tìm một từ khoá khác | Lần đầu 200, kết quả mang nguồn `OSM` (lần đầu tiên một test chạy cả ứng dụng với nguồn bản đồ thật qua mọi tầng). Lần sau **503** `PROVIDER_UNAVAILABLE`, Photon không bị gọi thêm | Sai | Đạt |
 | TC-PLAT-052 | Mở cả bốn mạch, rồi 300 lần gọi cùng một lúc (tìm địa điểm, quãng đường, dự báo) | Cả 300 lần nhận đúng `PROVIDER_UNAVAILABLE`, không dịch vụ nào bị gọi. Thêm khi sửa BUG-PLAT-004 để ép lỗi "hai lần gọi cùng lúc" lộ ra chắc chắn | Biên | Đạt · từng lỗi BUG-PLAT-004 |
+| TC-PLAT-056 | (Task 4.8) Tìm địa điểm; Photon trả 503, rồi lẽ ra trả lời đúng | Báo `PROVIDER_UNAVAILABLE` sau **1** lần gọi: Photon không được thử lại, để trình duyệt nhận lỗi trước khi nó tự bỏ cuộc ở giây thứ 10 | Sai | Đạt |
+| TC-PLAT-057 | (Task 4.8) Photon và OSRM cùng trả lời đúng nhưng chậm 0,6 giây (trong 1 giây của Photon, quá 0,3 giây của các dịch vụ khác) | Tìm địa điểm có kết quả sau 1 lần gọi; quãng đường báo `PROVIDER_UNAVAILABLE` sau 3 lần gọi. Thời gian chờ riêng của Photon đi qua đúng các bean của ứng dụng đang chạy (`spring.http.clients.*` vẫn áp dụng, chỉ thời gian chờ trả lời khác) | Biên | Đạt |
 
 Kiểm chứng ngược (2026-10-05): đổi hai hàm dự phòng trở lại `private` thì `TC-PLAT-052` đỏ; trả lại thì xanh. Sau khi sửa, chạy riêng class này 3 lần liên tiếp và một lần cả bộ đều xanh.
 
+Kiểm chứng ngược (2026-10-21): hạ thời gian chờ của Photon trong test xuống 0,3 giây (bằng các dịch vụ khác) thì `TC-PLAT-057` đỏ; trả lại 1 giây thì xanh. Trước Task 4.8, `TC-PLAT-043` là "Photon trả 503, rồi 500, rồi trả lời đúng: gọi 3 lần" và `TC-PLAT-048` tìm 6 lần (mỗi lần tới 3 lần gọi); hành vi đó của Photon không còn nên hai kịch bản được viết lại.
+
 Điều test tự động **chưa chứng minh**:
 - **Mạch tự đóng lại** sau 30 giây khi dịch vụ sống lại: không test nào chờ 30 giây. Xem bằng tay ở `MT-PLAT-07`.
-- Hai con số thật 3 giây và 0,5 giây (test dùng số nhỏ hơn). Tệ nhất một yêu cầu chờ khoảng 3 × 3 + 2 × 0,5 = 10 giây trước khi báo lỗi, khi dịch vụ nhận kết nối rồi im lặng.
+- Ba con số thật 3 giây, 8 giây và 0,5 giây (test dùng số nhỏ hơn). Tệ nhất một yêu cầu chờ khoảng 3 × 3 + 2 × 0,5 = 10 giây trước khi báo lỗi, khi dịch vụ nhận kết nối rồi im lặng; tìm địa điểm tệ nhất 8 giây. Tìm địa điểm với Photon thật: bài `MT-DEPLOY-05` ([14-deploy.md](14-deploy.md)).
 - `TC-PLAT-049` phụ thuộc đồng hồ: "1 đến 4 lần được phục vụ" là khoảng cho phép, không phải con số chính xác.
 - Giới hạn 1 lần mỗi giây là của **một** bản ứng dụng đang chạy. Chạy hai bản cùng lúc thì mỗi bản có lượt riêng (hiện dự án chỉ chạy một bản).
 

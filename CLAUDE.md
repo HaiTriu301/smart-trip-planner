@@ -51,11 +51,15 @@ npm run test       # vitest run: test hàm thuần (lib/, features/*/, stores/),
 #   Test component (Testing Library) CHƯA CÓ, thêm ở Task 8.3. Chạy 1 file: npx vitest run src/lib/today.test.ts
 npm run gen:api    # sinh type TS từ OpenAPI schema của backend — CHƯA CÓ, thêm ở task frontend sau
 
-# Toàn hệ thống — CHƯA CÓ: compose hiện chỉ có mysql/redis/mailhog; service backend + frontend (Dockerfile) thêm ở Phase 8
-docker compose up --build
+# Bản chạy thật (Task 4.8): image do GitHub Actions build, máy chủ chỉ tải về. Hướng dẫn: docs/deploy/aws.md (chỉ có trên máy chủ dự án)
+docker compose -f docker-compose.prod.yml --env-file .env.prod.example config -q   # kiểm file compose; luôn kèm -q (thiếu -q thì in cả giá trị bí mật)
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d               # chạy thử trên máy mình: image tag local (IMAGE_TAG=local) + certs/ tự ký, xem docs/testing/14-deploy.md MT-DEPLOY-09
+# Trên máy chủ: ssh trip → sudo -iu deploy; dc = docker compose -f /opt/trip-planner/docker-compose.prod.yml
+#   dc ps · dc logs --tail 100 backend · /opt/trip-planner/deploy.sh · /opt/trip-planner/backup.sh · cat /opt/trip-planner/backups/backup.log
+# Deploy bình thường: merge vào main → tab Actions → Review deployments → Approve and deploy
 ```
 
-Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:8025`
+Swagger: `http://localhost:8080/swagger-ui.html` — MailHog: `http://localhost:8025` — Bản chạy thật: `https://trip-planner.me` (Swagger: `/swagger-ui.html`)
 
 > **Test API bằng dòng lệnh trên Windows:** trong PowerShell 5.1, `curl` là bí danh của `Invoke-WebRequest` và **ném exception với mọi mã 4xx/5xx** nên không xem được body `ErrorResponse`. Dùng `curl.exe -s -i <url>` để gọi curl thật. Body JSON **ghi ra file rồi gửi bằng `-d "@file"`** (ví dụ `'{"email":"a@b.c"}' | Set-Content -Encoding ascii body.json`): PowerShell 5.1 làm hỏng dấu ngoặc kép khi viết JSON thẳng trong `-d`, và cả Git Bash lẫn PowerShell làm hỏng UTF-8 → backend trả 400 "không đúng định dạng JSON" dù code đúng (BUG-AUTH-005). File chỉ chứa ASCII; cần tiếng Việt thì test qua Swagger UI.
 > Từ Task 1.2, mọi URL ngoài `SecurityConfig.PUBLIC_PATHS` trả **401** khi chưa đăng nhập, kể cả URL không tồn tại (404 chỉ khi đã đăng nhập). Log `Using generated security password` khi khởi động là bình thường cho tới Task 1.3.
@@ -224,11 +228,11 @@ Cập nhật mục này sau mỗi phase hoàn thành.
 - [x] Phase 1 — Auth: JWT + refresh rotation, verify email, reset password, auth UI (2026-09-25)
 - [x] Phase 2 — Trip + Itinerary: CRUD, auto-gen TripDay, Activity + reorder, itinerary UI (2026-09-30); làm lại giao diện theo UI_GUIDE — Task 2.6 (2026-10-01); sửa 9 lỗi sau rà soát Phase 1–2 — Task 2.7 (2026-10-01)
 - [x] Phase 3 — Place + Weather: tìm và gắn địa điểm, bản đồ, quãng đường, thời tiết, Redis cache, giao diện "Teal Voyage" (Task 3.9), provider thật OpenStreetMap + Open-Meteo với Resilience4j (Task 3.8) (2026-10-05)
-- [ ] Phase 4 — Sharing + Permission (member, share link, PermissionEvaluator)
+- [x] Phase 4 — Sharing + Permission: thành viên + vai trò, liên kết chia sẻ, `TripPermissionEvaluator` + cache quyền + ma trận test, bình luận, giao diện (Task 4.1–4.6, 4.9); kéo lên từ Phase 8: rate limit cốt lõi (Task 4.7), CI/CD và deploy lên AWS EC2 (Task 4.8) (2026-10-25)
 - [ ] Phase 5 — Realtime WebSocket + optimistic locking
 - [ ] Phase 6 — Premium + Stripe (quota, checkout, webhook idempotent)
 - [ ] Phase 7 — Expense + AI suggest + Export PDF/ICS
-- [ ] Phase 8 — Rate limit, Admin, coverage, CI/CD, deploy
+- [ ] Phase 8 — Rate limit (mức PREMIUM), Admin, coverage, ngưỡng JaCoCo trong CI, deploy bản cuối (rate limit cốt lõi, CI/CD và máy chủ đã có từ Task 4.7–4.8)
 
 ---
 
@@ -305,6 +309,11 @@ Khi review code, kiểm tra lại các điểm này:
 - Đọc địa chỉ IP từ header `X-Forwarded-For` mà người gọi tự gửi: đổi header là thành "người khác", hạn mức theo IP vô dụng và IP lưu kèm phiên là giả. Chỉ dùng `request.getRemoteAddr()`; sau proxy thì để Tomcat điền nó (`server.forward-headers-strategy: native`, proxy ghi đè header) — Task 4.7
 - Filter đọc body của request mà không bọc request: body chỉ đọc được một lần, controller nhận body rỗng và trả 400. Bọc bằng `security/ratelimit/CachedBodyRequest` (đọc trước có giới hạn, phát lại phần đã đọc nối tiếp phần còn lại) và cho chuỗi filter đi tiếp với **bản đã bọc** — Task 4.7
 - Test giới hạn tần suất với hạn mức lớn (1000 / giờ = một lượt mỗi 3,6 giây): vòng gọi chạy lâu hơn khoảng hồi một lượt thì lượt "phải bị chặn" lại được qua, test lúc xanh lúc đỏ trên máy chậm. Kéo dài `period` trong class test, giữ `capacity` — Task 4.7
+- Tin bộ giả lập HTTP (`MockRestServiceServer`) cho phần nén / giải nén: nó bỏ qua bước đó. Từ Spring Framework 7 bộ gọi HTTP của Java tự xin câu trả lời nén và gửi `Accept-Encoding` thành hai dòng; OSRM công cộng chỉ đọc dòng cuối, ghi `deflate` nhưng gửi gzip → `ZipException: incorrect header check`. Ba dịch vụ OpenStreetMap gửi đúng một dòng `Accept-Encoding: gzip`; test cần đi qua mạng thật dùng `support/StubHttpServer` với bộ gọi thật — BUG-PLACE-005, Task 4.8
+- Đặt thời gian chờ provider mà không so với thời gian chờ của trình duyệt (10 giây, `api/client.ts`, quá giờ thì tự gửi lại): backend chờ lâu hơn thì trình duyệt bỏ cuộc trước rồi gửi lại, số lần gọi ra ngoài nhân lên. Tổng thời gian chờ tệ nhất của một lần gọi (kể cả các lần thử lại) phải dưới 10 giây; Photon công cộng mất 2,7–6,5 giây nên chờ 8 giây, không thử lại — Task 4.8
+- nginx trỏ tới backend bằng tên cố định trong `proxy_pass`: nginx tra IP một lần lúc khởi động, backend được tạo lại khi deploy có IP mới → 502 tới khi nginx khởi động lại. `frontend/nginx.conf` dùng `resolver 127.0.0.11` + biến; đừng gỡ — Task 4.8
+- Thêm cấu hình Spring cho một dịch vụ ngoài (`spring.mail.host`...) mà không xem health indicator đi kèm: `/actuator/health` gọi luôn dịch vụ đó, dịch vụ chậm là container `unhealthy` và deploy đỏ. Profile `prod` tắt health của mail (`ProdProfileConfigTest` kiểm) — Task 4.8
+- Script `.sh` commit từ máy Windows (`core.autocrlf=true`) thành CRLF thì chạy trên Linux lỗi; file lưu trong Git với mode `100644` thì CI không chạy được. `.gitattributes` đã đặt `*.sh text eol=lf`; script mới phải `git update-index --chmod=+x` — Task 4.8
 
 ---
 
