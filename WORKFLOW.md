@@ -843,7 +843,7 @@ Mốc 9 — test(activity): add activity flow integration test
 > - V7 **không có cột `place_id`** (bảng `places` chưa tồn tại); Task 3.2 thêm cột + FK bằng migration riêng.
 > - `PATCH` activity: `null` giữ nguyên, `""` xoá field văn bản (`note`, `bookingUrl`); chưa xoá trắng được giờ và chi phí.
 > - Activity xoá cứng; FK `trip_day_id` `ON DELETE CASCADE` nên `deleteOutsideRange` của Task 2.2 không phải sửa câu lệnh, chỉ thêm bước kiểm tra trước khi xoá.
-> - Quota 10 activity / ngày hoãn sang Task 6.1. `version` có trong response, kiểm `STALE_VERSION` ở Task 5.3.
+> - Quota 10 activity / ngày hoãn sang Task 6.1. `version` có trong response, kiểm `STALE_VERSION` ở Task 5.1 (đánh số lại khi rà Phase 5, 2026-10-27).
 >
 > **Thực tế khi làm 2.3 (2026-09-29):** 9 commit theo lát cắt dọc đúng thứ tự bảng đã duyệt, thêm commit docs Mốc 0 trên `main`. 113 method test mới, toàn dự án 383 method / 411 lượt chạy.
 > - Endpoint mới: `POST` / `GET /trips/{tripId}/days/{dayId}/activities`, `PATCH` / `DELETE /trips/{tripId}/activities/{activityId}`. Endpoint đổi: `PATCH /trips/{id}?force=`, `GET /trips/{id}` kèm `activities`.
@@ -895,7 +895,7 @@ Mốc 4 — test(activity): add reorder flow integration test
 > - `Activity.moveTo(day, index)` là cách duy nhất đổi vị trí; `tripDay` và `orderIndex` không có setter.
 > - Normalize chỉ đo những ngày **nhận** activity; ngày chỉ mất activity không bị đánh lại. Khoảng cách tính cả từ 0.
 > - **Việc cho Task 2.5:** giao diện gọi reorder với đúng những activity bị kéo; thay các ngày trong state bằng `data` trả về (đã có orderIndex normalize); 409 `ACTIVITY_TIME_CONFLICT` với `details[i].field = items[<i>].dayId` → hỏi lại → `allowOverlap=true`.
-> - **Việc cho Task 5.3:** `version` không đổi khi reorder là cố ý (design.md 11.3); realtime chỉ cần phát `ACTIVITY_REORDERED` với các ngày trả về.
+> - **Việc cho Task 5.3:** `version` không đổi khi reorder là cố ý (design.md 11.5, đánh số lại khi rà Phase 5); realtime chỉ cần phát `ACTIVITY_REORDERED` với các ngày trả về.
 >
 > **Bẫy đã gặp khi làm 2.4:** không có bẫy mới. Hai bẫy múi giờ của 2.3 vẫn áp dụng: `findTimedByTripDayIdIn` chỉ đọc giờ, so sánh trong Java.
 >
@@ -1075,7 +1075,7 @@ Mốc 9 — fix(frontend): clear cached data when the session is dropped
 
 > **Ghi nợ từ lần rà soát, không sửa ở task này:**
 > - Hai lần refresh đúng cùng lúc đều thành công (rotation chưa nguyên tử; frontend đã chặn bằng khoá, chỉ kẻ tấn công mới gặp) → Task 8.1.
-> - Hai lần sửa cùng lúc trả 500 thay vì 409 `STALE_VERSION` → Task 5.3, làm cho **cả Trip lẫn Activity** (dòng mốc của 5.3 hiện chỉ ghi Activity).
+> - Hai lần sửa cùng lúc trả 500 thay vì 409 `STALE_VERSION` → Task 5.1 (rà Phase 5, 2026-10-27), làm cho **cả Trip lẫn Activity**.
 > - Danh sách chuyến đi sắp theo cột có giá trị trùng (`startDate`, `title`) phân trang không ổn định: thêm `id` làm khoá phụ; `?page=` vượt quá số trang hiện "Chưa có chuyến đi nào" → Task 8.3.
 > - `PATCH /trips/{id}` gửi `description: ""` lưu chuỗi rỗng thay vì `NULL` (design 10.2 ghi "chưa hỗ trợ xoá trắng") → chốt cùng quy ước xoá field ở Task 3.2 (`clearPlace`).
 > - Vùng chạm dưới 44px trên điện thoại (nút "⋮" 28px, chip ngày 36px) → Task 3.6 khi sửa trang chi tiết. **Đã trả** ở Task 3.6 (`2977345`).
@@ -3064,54 +3064,193 @@ Mốc 9 — docs (main): README (link bản chạy thật, link Swagger, dòng "
 
 ## PHASE 5 — Realtime WebSocket
 
-> ⏳ **Chưa rà theo quy ước A.2 "Chia commit"** — rà lại đầu phase trước khi làm; mốc / `Commit:` bên dưới là kiểu cũ, chỉ để tham khảo.
+> **Đã rà theo quy ước A.2 "Chia commit" (2026-10-27):** 3 task kiểu cũ → 5 task: chống ghi đè làm trước, rồi hạ tầng WebSocket, phát sự kiện, người đang xem, giao diện. Mốc dưới đây là dự kiến; bảng file chi tiết (kèm số file mỗi commit) Claude đưa ra đầu từng task để duyệt.
+> **Tài liệu đã khớp (2026-10-27, commit docs đầu Phase 5):** `design.md` 2.1, 2.2, 3.2, 4.2, 5.2 (`trips.version`, `share_links`), 6.2, 8.2, 10.2 (Trip, Activity, Reorder), 10.3, 11 (viết lại), rule 14.29–14.30, 16, 17.4, 18; `UI_GUIDE.md` 10, 14, 15 "Phase 5".
 
-Đọc trước: **design.md mục 11**
+Đọc trước: **design.md mục 11 (viết lại khi rà), 10.2 "Quy ước Trip API" + "Quy ước Activity API" (dòng `version`), rule 14.29–14.30, 6.2**; task giao diện đọc thêm **UI_GUIDE.md 7.3 (dòng "Phase 5" của thẻ hoạt động), 10 (dòng `STALE_VERSION`), 15 "Phase 5"**.
 
-### Task 5.1 — Hạ tầng WebSocket
+> **Vì sao đổi (so với bản cũ):**
+> - **Chống ghi đè lên đầu (Task 5.1):** không cần WebSocket, và sửa một lỗi đang có trên bản thật. Body của `PATCH` chưa có `version`, nên người lưu sau ghi đè người lưu trước mà không ai biết; hai lần lưu rơi vào cùng lúc trả 500 (ghi nợ từ rà soát Task 2.7). Mã `STALE_VERSION` và câu thông báo đã có sẵn, chưa ai dùng.
+> - Task 5.2 cũ (sự kiện) có cả "kiểm quyền trước khi subscribe": nay kiểm quyền lúc đăng ký nghe thuộc hạ tầng (Task 5.2), kiểm lúc giao từng tin đi cùng sự kiện (Task 5.3).
+> - Task 5.3 cũ gộp presence + khoá lạc quan + giao diện: nay tách thành 5.1 (khoá), 5.4 (presence, backend) và 5.5 (giao diện), như Phase 3 và 4 tách task giao diện.
+> - **Không có migration:** `trips.version` và `activities.version` có từ Phase 2, response đã trả `version`. Deploy của Phase 5 không đổi database.
+>
+> **Quyết định (chủ dự án chốt cả 15 điểm ngày 2026-10-27):**
+> 1. **`version` bắt buộc** (`@NotNull`) trong body `PATCH /trips/{id}` và `PATCH /activities/{activityId}`. Service so với bản đang lưu; lệch → 409 `STALE_VERSION`, không ghi gì. Hai lần lưu cùng qua bước so rồi cùng ghi (Hibernate báo lỗi khoá lạc quan) → cũng 409, không còn 500. ✔
+> 2. **Những thứ không khoá:** `PATCH /trips/{id}/status` không gửi `version` và **không làm tăng** `version`; `Trip.status` và `Trip.visibility` thêm `@OptimisticLock(excluded = true)` như `orderIndex`, để đổi trạng thái hay tạo / thu hồi liên kết chia sẻ không làm form "Sửa chuyến đi" của người khác bị 409. Tiêu đề / ghi chú ngày (`TripDay`, không `@Version`, design 5.2), kéo thả (Task 2.4) và xoá hoạt động: ai làm sau thắng. ✔
+> 3. **Form gặp 409:** form vẫn mở, giữ chữ đang gõ, hiện dòng báo "Hoạt động này vừa được người khác sửa. Bấm Lưu lần nữa để ghi đè bằng nội dung của bạn, hoặc Huỷ để xem bản mới."; chuyến đi tải lại ngầm và form nhận `version` mới, nên lần Lưu thứ hai là ghi đè có chủ ý. Hoạt động vừa bị xoá (404) → báo "Hoạt động này vừa bị xoá" và đóng form. ✔
+> 4. **WebSocket thuần, bỏ SockJS:** `@stomp/stompjs`, endpoint `/ws`. Mọi trình duyệt đều có WebSocket; `sockjs-client` gần như không còn được bảo trì và phải vá `global` mới chạy với Vite; Cloudflare chuyển tiếp WebSocket. ✔
+> 5. **Xác thực:** access token trong header `Authorization` của khung CONNECT (STOMP). Bước bắt tay `/ws` nằm trong `PUBLIC_PATHS` vì trình duyệt không gửi được header khi bắt tay; chỉ nhận `Origin` = `app.frontend-url`. Token sai / hết hạn → khung ERROR, client lấy token mới qua `refreshAccessToken()` (CLAUDE.md rule 36) rồi kết nối lại. Token hết hạn **sau khi** đã kết nối: không ngắt, vì quyền được kiểm lại ở từng tin (điểm 6). ✔
+> 6. **Kiểm quyền hai lớp:** lúc SUBSCRIBE (chuyến phải tồn tại và người đó xem được) và **trước khi giao từng tin** cho từng người (`TripPermissionEvaluator.canView`, đọc cache `trip:permission`). Người bị gỡ thôi nhận tin ngay, không đợi họ tắt tab. Ở Phase 5 client không gửi được tin nào (SEND bị từ chối). ✔
+> 7. **Sự kiện mỏng:** `TripEvent { type, tripId, entityId, dayIds, version, actorId, originId, occurredAt }` chỉ báo "cái gì vừa đổi", không mang dữ liệu; giao diện cho TanStack Query tải lại đúng phần bị ảnh hưởng. Không lộ dữ liệu, không bao giờ lệch với `GET`; đổi lại mỗi thay đổi tốn một lần tải lại (`GET /trips/{id}` 5 câu SQL). ✔
+> 8. **Loại sự kiện:** 8 loại cũ (`ACTIVITY_CREATED`, `ACTIVITY_UPDATED`, `ACTIVITY_DELETED`, `ACTIVITY_REORDERED`, `DAY_UPDATED`, `TRIP_UPDATED`, `MEMBER_JOINED`, `COMMENT_ADDED`) + `TRIP_DELETED`, `MEMBER_ROLE_CHANGED`, `MEMBER_REMOVED`, `COMMENT_DELETED`. Không phát: lời mời đang chờ, liên kết chia sẻ (chỉ chủ chuyến thấy), lượt xem trang công khai. ✔
+> 9. **Không gửi lại cho người vừa sửa:** mỗi tab tự sinh một mã (UUID), `apiClient` gửi kèm mọi request trong header `X-Client-Id`; sự kiện mang lại mã đó (`originId`); tab trùng mã bỏ qua. Cùng một người mở hai tab thì tab kia vẫn được cập nhật. Không có header hoặc sai định dạng → `originId = null`. ✔
+> 10. **Kênh cá nhân `/user/queue/notifications`** chỉ để báo "bạn không còn xem được chuyến này" khi bị gỡ: lớp kiểm thứ hai (điểm 6) đã chặn người này trên kênh của chuyến. ✔
+> 11. **Người đang xem lưu trong bộ nhớ backend**, không dùng Redis SET + TTL 30 giây: cập nhật theo SUBSCRIBE / UNSUBSCRIBE / mất kết nối; nhịp tim STOMP (10 giây) phát hiện kết nối chết nên client không cần nhịp tim riêng. Cùng lý do với broker trong bộ nhớ (một máy, design 11.1); Redis SET không đặt được TTL cho từng phần tử. Chạy nhiều máy thì chuyển cả broker lẫn danh sách này sang Redis. Một người mở hai tab = một. ✔
+> 12. **Hoãn "vị trí con trỏ / ai đang sửa hoạt động nào"** (`/app/trips/{id}/cursor`), ghi vào design 2.2: chống ghi đè + cập nhật tức thời đã đủ để không mất dữ liệu. ✔
+> 13. **Bỏ hẳn liên kết chia sẻ có quyền sửa** (design 2.2): người ghi dữ liệu phải có tài khoản (`created_by NOT NULL`, hạn mức theo người dùng); mời thành viên `EDITOR` đáp ứng nhu cầu. Trang công khai không có cập nhật tức thời. `share_links.permission` giữ `ENUM('VIEW')`. ✔
+> 14. **Giới hạn:** bước bắt tay `/ws` 30 lần / phút mỗi IP (một `Rule` mới của `RateLimitFilter`, CLAUDE.md rule 15); mỗi khung STOMP tối đa 8 KB. ✔
+> 15. **Test:** một class `@SpringBootTest(webEnvironment = RANDOM_PORT)` với client STOMP thật cho cả phase, các task sau thêm kịch bản vào đó (mỗi class như vậy tốn một lần khởi động ứng dụng). Frontend test hàm thuần ("sự kiện → query cần tải lại", mã của tab) bằng Vitest. Test thủ công ở `docs/testing/15-realtime.md` (file mới cho cả phase). ✔
+>
+> **Phụ thuộc:** backend `spring-boot-starter-websocket` (nằm trong BOM, không ghi version, CLAUDE.md rule 28); frontend `@stomp/stompjs` (Task 5.5, bản mới nhất lúc cài). Không migration, không biến môi trường mới.
+> **Máy chủ:** `frontend/nginx.conf` nằm trong image frontend nên đường `/ws` lên theo deploy, **không sửa tay trên máy**. Kiểm một lần trên Cloudflare: **Network → WebSockets** đang bật (mặc định bật), ghi ở nghiệm thu Task 5.2. Mỗi lần deploy mọi kết nối bị ngắt 30–60 giây; client tự kết nối lại và tải lại chuyến đang mở (Task 5.5).
 
-Nhánh: `feat/T5.1-websocket-setup`
+### Task 5.1 — Chống ghi đè (backend + giao diện)
+
+Nhánh: `feat/T5.1-stale-version` · Test ghi vào `docs/testing/15-realtime.md` (file mới: chống ghi đè, kết nối, sự kiện, người đang xem, giao diện realtime).
 
 ```
-1. dependency spring-boot-starter-websocket
-2. config/WebSocketConfig.java              STOMP endpoint /ws, broker /topic, /queue
-3. websocket/WebSocketAuthInterceptor.java  đọc JWT từ CONNECT frame
-4. test: kết nối không token → bị từ chối
+Mốc 0 — docs (main): rà Phase 5, design.md + UI_GUIDE.md theo 15 quyết định (2026-10-27)
+
+Mốc 1 — refactor(trip): leave status and visibility out of the optimistic lock
+        Trip.status, Trip.visibility thêm @OptimisticLock(excluded = true); test: đổi trạng thái, tạo / thu hồi liên kết
+        → version giữ nguyên; sửa tên → version tăng (quyết định 2)
+
+Mốc 2 — fix(error): answer 409 when two saves of the same row overlap
+        GlobalExceptionHandler bắt ObjectOptimisticLockingFailureException → 409 STALE_VERSION (log WARN kèm tên entity, không
+        stacktrace); test: hai transaction đọc cùng một version rồi cùng ghi → lần sau 409, không 500
+
+Mốc 3 — feat(itinerary): send the version and handle a stale save in the activity form
+        types/activity.ts, api/activities.ts, ActivityFormDialog: gửi version đang hiển thị; 409 STALE_VERSION → dòng báo
+        (quyết định 3), tải lại trip, nhận version mới, giữ chữ đang gõ; 404 → báo đã xoá, đóng form; logic thuần + *.test.ts.
+        Backend lúc này bỏ qua trường lạ, nên commit đứng được một mình (kiểm lại cấu hình Jackson 3 ở đầu task)
+
+Mốc 4 — feat(trips): send the version and handle a stale save in the trip form
+        types/trip.ts, api/trips.ts, EditTripDialog: như Mốc 3; 409 TRIP_DAY_HAS_ACTIVITIES vẫn hỏi lại như cũ, lần gửi lại
+        kèm force=true mang cùng version
+
+Mốc 5 — feat(activity): reject an activity update made on an old version
+        UpdateActivityRequest.version @NotNull, exception/StaleVersionException, ActivityServiceImpl.update so version trước mọi
+        quy tắc khác; test: lệch → 409 không ghi gì, thiếu → 400 ở field version, đúng → 200 và version + 1 (test bắt buộc
+        design 16 "Hai client sửa cùng activity → client sau nhận 409"); body JSON của các test PATCH cũ thêm version
+
+Mốc 6 — feat(trip): reject a trip update made on an old version
+        UpdateTripRequest.version @NotNull, TripServiceImpl.update; test như Mốc 5, cả trường hợp force=true với version cũ
 ```
 
-**Commit:** `feat(realtime): add websocket stomp configuration with jwt auth`
+**Nghiệm thu:** hai trình duyệt, hai tài khoản (chủ + `EDITOR`), cùng mở "Sửa" một hoạt động → A lưu → B lưu → B thấy dòng báo, chữ vẫn còn → B bấm Lưu lần nữa → nội dung của B được lưu. A đổi trạng thái chuyến hoặc tạo liên kết chia sẻ trong lúc B mở "Sửa chuyến đi" → B lưu được ngay, không 409.
+
+**Nhớ:** frontend gửi `version` (Mốc 3–4) **trước** khi backend bắt buộc (Mốc 5–6), để mọi commit đều chạy được. Dòng `STALE_VERSION` của UI_GUIDE mục 10 và trạng thái "Đã làm" cập nhật trong commit giao diện (CLAUDE.md rule 38).
 
 ---
 
-### Task 5.2 — Broadcast sự kiện
+### Task 5.2 — Hạ tầng WebSocket
 
-Nhánh: `feat/T5.2-trip-events`
+Nhánh: `feat/T5.2-websocket-setup` · Test ghi vào `docs/testing/15-realtime.md`.
 
 ```
-1. websocket/event/TripEvent.java (+ các subtype)
-2. service phát Spring ApplicationEvent khi tạo/sửa/xoá activity
-3. websocket/TripEventListener.java   @TransactionalEventListener(phase = AFTER_COMMIT)
-4. Kiểm tra quyền trước khi subscribe /topic/trips/{id}
-5. test: rollback transaction → KHÔNG có event nào được gửi
+Mốc 1 — feat(realtime): open the websocket endpoint with jwt on connect
+        dependency spring-boot-starter-websocket, config/WebSocketConfig (/ws, broker /topic + /queue, tiền tố /app và /user,
+        nhịp tim 10 giây kèm TaskScheduler, khung ≤ 8 KB, Origin = app.frontend-url), websocket/WebSocketAuthInterceptor
+        (CONNECT: Bearer → JwtTokenProvider.parse → Principal là userId; sai → ERROR UNAUTHORIZED, hết hạn → TOKEN_EXPIRED),
+        SecurityConfig.PUBLIC_PATHS thêm /ws; test class RANDOM_PORT với client STOMP thật: token đúng → CONNECTED; thiếu / sai /
+        hết hạn → ERROR đúng mã; Origin lạ → bắt tay bị từ chối
+
+Mốc 2 — feat(realtime): let only trip viewers subscribe to a trip
+        SUBSCRIBE /topic/trips/{id} và /topic/trips/{id}/presence → chuyến tồn tại + canView, không thì ERROR FORBIDDEN;
+        /user/queue/notifications luôn được; đích khác và mọi SEND → ERROR; test: chủ, EDITOR, VIEWER được; người lạ,
+        PENDING, REMOVED, chuyến không tồn tại / đã xoá bị từ chối
+
+Mốc 3 — feat(ratelimit): limit websocket handshakes per address
+        RateLimitFilter thêm Rule cho GET /ws (khoá rate:ws-handshake:{ip}), RateLimitProperties, application.yml,
+        kịch bản trong RateLimitIntegrationTest (không tạo class mới)
+
+Mốc 4 — chore(deploy): forward websocket connections through nginx
+        frontend/nginx.conf: location = /ws (proxy_http_version 1.1, Upgrade, Connection "upgrade", proxy_read_timeout dài
+        hơn nhịp tim, cùng resolver + biến $backend); kiểm bằng docker compose bản chạy thật trên máy (MT-DEPLOY-09)
 ```
 
-**Commit:** `feat(realtime): broadcast activity changes after commit`
+**Nghiệm thu:** sau deploy, Cloudflare **Network → WebSockets** bật; mở `https://<tên miền>`, trong DevTools chạy `new WebSocket('wss://<tên miền>/ws')` → tab Network thấy `101 Switching Protocols`; mở từ một origin khác → bị từ chối.
 
 ---
 
-### Task 5.3 — Presence + chống ghi đè
+### Task 5.3 — Phát sự kiện sau commit
 
-Nhánh: `feat/T5.3-presence-locking`
+Nhánh: `feat/T5.3-trip-events` · Test ghi vào `docs/testing/15-realtime.md`.
 
 ```
-1. Presence tracking bằng Redis SET, TTL 30s, heartbeat từ client
-2. @Version trên Trip và Activity → xử lý OptimisticLockException → 409 STALE_VERSION
-   (rà soát 2026-10-01: hiện hai lần sửa cùng lúc trả 500, cả ở PATCH /trips/{id})
-3. Frontend: stores/tripCollabStore.ts, hooks/useTripSocket.ts, AvatarStack.tsx
-4. test thủ công: mở 2 trình duyệt, sửa ở A → B cập nhật trong < 1s
+Mốc 1 — feat(realtime): broadcast activity changes after commit
+        websocket/event (TripChangedEvent, TripEventType, TripEventMessage), ActivityServiceImpl create / update / delete phát
+        ApplicationEvent, websocket/TripEventBroadcaster (@TransactionalEventListener(AFTER_COMMIT) → SimpMessagingTemplate,
+        gửi lỗi → log WARN, request không thất bại); test: người đang nghe nhận ACTIVITY_CREATED / UPDATED / DELETED với
+        version mới; service chạy trong TransactionTemplate rồi setRollbackOnly → không có tin nào (bằng chứng CLAUDE.md rule 21)
+
+Mốc 2 — feat(realtime): tag each event with the tab that caused it
+        filter đọc X-Client-Id (UUID, sai định dạng → bỏ qua) vào chỗ giữ theo request, nơi tạo sự kiện đọc ra originId;
+        service không nhận thêm tham số; test: có / không có / sai định dạng header
+
+Mốc 3 — feat(realtime): broadcast reorder, day and trip changes
+        ACTIVITY_REORDERED (dayIds = các ngày bị ảnh hưởng), DAY_UPDATED, TRIP_UPDATED (kể cả đổi trạng thái và đổi ngày),
+        TRIP_DELETED; test từng loại
+
+Mốc 4 — feat(realtime): broadcast comment changes
+        CommentService create / delete → COMMENT_ADDED, COMMENT_DELETED; test
+
+Mốc 5 — feat(realtime): broadcast member changes
+        SharingServiceImpl accept / changeRole / remove → MEMBER_JOINED, MEMBER_ROLE_CHANGED, MEMBER_REMOVED; mời (PENDING) và
+        liên kết không phát; test
+
+Mốc 6 — feat(realtime): stop delivering trip events to people who lost access
+        ChannelInterceptor trên kênh ra (TripMessageGuard): mỗi tin của /topic/trips/{id}/** kiểm canView của phiên nhận,
+        không còn quyền → bỏ tin; test: gỡ thành viên → không nhận tin sau đó; đổi vai trò vẫn nhận; chuyến bị xoá →
+        mọi người đang nghe nhận TRIP_DELETED
+
+Mốc 7 — feat(realtime): tell a removed member they lost access
+        /user/queue/notifications { type: TRIP_ACCESS_REVOKED, tripId } gửi sau commit cho người bị gỡ; test
 ```
 
-**Commit:** `feat(realtime): add presence tracking and optimistic locking`
+**Nhớ:** sự kiện tạo từ id / version đã có trong transaction, không đọc entity lười sau commit. Số câu SQL của các test đếm (CLAUDE.md mục 8) không được tăng: sự kiện không nạp thêm gì (tên người sửa do giao diện tự tra trong `members`).
+
+---
+
+### Task 5.4 — Người đang xem
+
+Nhánh: `feat/T5.4-presence` · Test ghi vào `docs/testing/15-realtime.md`.
+
+```
+Mốc 1 — feat(realtime): track who is viewing a trip
+        websocket/PresenceRegistry (phiên → chuyến + người, đếm theo người), lắng nghe SessionSubscribeEvent /
+        SessionUnsubscribeEvent / SessionDisconnectEvent; tên + ảnh nạp một lần lúc CONNECT (một câu SQL), giữ trong phiên;
+        mỗi lần đổi phát cả danh sách [{userId, fullName, avatarUrl}] tới /topic/trips/{id}/presence; test: hai người vào →
+        cả hai thấy 2; một người hai tab → 1; một tab ngắt → còn 1; người mới vào nhận ngay danh sách hiện tại
+
+Mốc 2 — feat(realtime): drop a removed member from the viewer list
+        gỡ thành viên → bỏ khỏi danh sách và phát lại; test
+```
+
+---
+
+### Task 5.5 — Giao diện: đồng chỉnh sửa thời gian thực
+
+Nhánh: `feat/T5.5-realtime-ui` · Test ghi vào `docs/testing/15-realtime.md`. Prompt Stitch: UI_GUIDE 15 "Phase 5".
+
+```
+Mốc 1 — feat(realtime): connect to the trip channel with the access token
+        package.json @stomp/stompjs, vite.config.ts proxy /ws (ws: true), lib/ (client STOMP: beforeConnect lấy token qua
+        api/client, kết nối lại tự động), hooks/useTripSocket, stores/tripCollabStore (trạng thái kết nối); kết nối lại →
+        tải lại mọi query của chuyến đang mở
+
+Mốc 2 — feat(realtime): refresh what another tab changed
+        lib/clientId (mã của tab) + api/client gửi X-Client-Id; lib/tripEvents (sự kiện → query cần tải lại; đổi địa điểm /
+        thứ tự làm quãng đường sai thì resetQueries, CLAUDE.md mục 8) + *.test.ts; useTripSocket bỏ qua sự kiện của chính tab
+
+Mốc 3 — feat(realtime): show who just changed an activity
+        thẻ hoạt động: viền nhấp nháy jade + chip "{tên} vừa sửa" (UI_GUIDE 7.3), tên tra trong members theo actorId;
+        xét thêm: form đang mở của hoạt động vừa bị sửa hiện sẵn dòng báo của Task 5.1
+
+Mốc 4 — feat(realtime): show who is viewing the trip
+        components/AvatarStack ở đầu trang chi tiết (UI_GUIDE 8.1), dùng Avatar có sẵn; không tính chính mình
+
+Mốc 5 — feat(realtime): leave the trip when access ends
+        TRIP_DELETED / TRIP_ACCESS_REVOKED → toast + về /trips; MEMBER_ROLE_CHANGED của chính mình → trip tải lại, nút ghi
+        ẩn / hiện theo myRole
+```
+
+**Nghiệm thu** (bản thật, máy tính + điện thoại dùng 4G, hai tài khoản): A thêm / sửa / kéo thả / xoá hoạt động, sửa ngày, bình luận → B thấy trong dưới 1 giây, không tải lại trang; B hiện trong hàng ảnh của A, B đóng tab → biến mất trong khoảng 30 giây; A đổi B thành "Chỉ xem" → nút ghi của B ẩn ngay; A gỡ B → B được đưa về `/trips`; điện thoại tắt mạng 30 giây rồi bật lại → tự kết nối lại và thấy thay đổi đã lỡ.
+
+**Nhớ:** cập nhật UI_GUIDE 7.3, 8.1 và bảng mục 14 trong cùng commit (CLAUDE.md rule 38); trang công khai không kết nối WebSocket.
+
+> ✅ Hết Phase 5 khi 5 task merge, bản thật đã deploy, nghiệm thu Task 5.5 đạt và `CLAUDE.md` mục 7 tick Phase 5. Trước khi sang Phase 6: rà Phase 6 theo quy ước A.2, ghi rõ bước đổi cấu hình máy chủ (webhook Stripe, secret mới trong `.env` trên máy).
 
 ---
 
@@ -3424,9 +3563,11 @@ Nhánh: `docs/T8.5-final-readme`
 | 4 | 4.6 UI: bình luận | ☑ | 2026-10-19 |
 | 4 | 4.7 Rate limit cốt lõi (kéo từ 8.1) | ☑ | 2026-10-21 |
 | 4 | 4.8 Deploy thử lên AWS (kéo từ 8.4, 8.5) | ☑ | 2026-10-25 |
-| 5 | 5.1 WebSocket setup | ☐ | |
-| 5 | 5.2 Broadcast events | ☐ | |
-| 5 | 5.3 Presence + locking | ☐ | |
+| 5 | 5.1 Chống ghi đè (version + 409, backend + UI) | ☐ | |
+| 5 | 5.2 Hạ tầng WebSocket | ☐ | |
+| 5 | 5.3 Phát sự kiện sau commit | ☐ | |
+| 5 | 5.4 Người đang xem | ☐ | |
+| 5 | 5.5 UI: đồng chỉnh sửa thời gian thực | ☐ | |
 | 6 | 6.1 Quota service | ☐ | |
 | 6 | 6.2 Payment mock | ☐ | |
 | 6 | 6.3 Stripe + webhook | ☐ | |

@@ -771,7 +771,7 @@ Thanh chọn "Trạng thái 1 / 2 / 3" trong mockup Stitch là công cụ xem tr
 | `FORBIDDEN` | "Bạn không có quyền thực hiện thao tác này" | "Bạn chỉ có quyền xem chuyến đi này." (khi đã có vai trò chỉ xem, Phase 4) |
 | `QUOTA_EXCEEDED` | — (Phase 6) | "Gói miễn phí cho phép tối đa 3 chuyến đi. Nâng cấp để tạo thêm." |
 | `PREMIUM_REQUIRED` | — (Phase 6) | "Tính năng này dành cho gói Premium." |
-| `STALE_VERSION` | — (Phase 5) | "Người khác vừa sửa hoạt động này. Tải lại để xem bản mới nhất." |
+| `STALE_VERSION` | — (Task 5.1) | Dòng báo trong form, form **không đóng** và giữ chữ đang gõ: "Hoạt động này vừa được người khác sửa. Bấm Lưu lần nữa để ghi đè bằng nội dung của bạn, hoặc Huỷ để xem bản mới." (form sửa chuyến đi: "Chuyến đi này vừa được người khác sửa…"). Chốt 2026-10-27 khi rà Phase 5, thay hộp "Tải lại" của bản trước |
 | `RATE_LIMIT_EXCEEDED` | — (Phase 8) | "Bạn thao tác hơi nhanh. Thử lại sau một phút." |
 
 ---
@@ -870,7 +870,8 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 4.5 | Hộp thoại chia sẻ (mời, vai trò, gỡ, liên kết), huy hiệu vai trò, chế độ chỉ xem, thẻ "Được chia sẻ", trang nhận lời mời, trang công khai | Phase 4 (rà 2026-10-06) |
 | 4.9 | Ô chọn kiểu mới (tiền tệ, ngày đích, vai trò), menu trạng thái và sắp xếp, nút gạt vai trò, ô giờ gõ nhanh, lịch chọn ngày đi – về, chip hạn liên kết, ô ghi chú tự giãn | Phase 4 (làm trước 4.6, 2026-10-18) |
 | 4.6 | Panel bình luận (hai tab "Chung \| Hoạt động", trả lời, xoá, bản nháp, trượt vào / ra), nút bình luận kèm số trên thẻ hoạt động | Đã làm (`feat/T4.6-comments-ui`, 2026-10-19) |
-| 5.3 | Ảnh người đang xem, hiệu ứng khi người khác sửa | Phase 5 |
+| 5.1 | Dòng báo "vừa được người khác sửa" trong form hoạt động và form sửa chuyến đi | Phase 5 (rà 2026-10-27) |
+| 5.5 | Ảnh người đang xem, hiệu ứng khi người khác sửa, rời trang khi mất quyền | Phase 5 (rà 2026-10-27) |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
 | 7.x | Trang chi phí (biểu đồ), màn gợi ý AI | Phase 7 |
 | 8.2 | Dashboard admin | Phase 8 |
@@ -1427,16 +1428,19 @@ for the role. Section "Liên kết chia sẻ": label "Hết hạn", a row of chi
 "Tạo liên kết".
 ```
 
-#### Phase 5 — Task 5.3: đồng chỉnh sửa thời gian thực
+#### Phase 5 — Task 5.1 và 5.5: chống ghi đè, đồng chỉnh sửa thời gian thực
 
-**Dữ liệu có thật (dự kiến):** người đang xem chuyến đi (tên, ảnh); sự kiện "người khác vừa sửa / thêm / sắp xếp".
+**Dữ liệu có thật (dự kiến):** người đang xem chuyến đi (tên, ảnh); sự kiện "người khác vừa sửa / thêm / sắp xếp" kèm người sửa; dòng báo 409 trong form (Task 5.1).
+**Không được thêm:** con trỏ / vị trí đang gõ của người khác (hoãn, design 2.2), hộp thoại chặn "Tải lại" thay cho dòng báo trong form.
 
 ```
 The trip detail header with, next to the action buttons, three overlapping 28px avatars
 with white rings and "+2". One activity card has a jade outer glow (the "just edited"
 moment) and a small jade chip at its top-right "Trieu vừa sửa".
-A 480px dialog "Người khác vừa sửa hoạt động này" with the text "Tải lại để xem bản mới
-nhất." and buttons "Huỷ" and jade "Tải lại".
+Separately (Task 5.1): the activity edit dialog, still open, with the user's typed text kept,
+and above the form fields a soft amber notice (warning 10% background, 1px warning border)
+"Hoạt động này vừa được người khác sửa. Bấm Lưu lần nữa để ghi đè bằng nội dung của bạn,
+hoặc Huỷ để xem bản mới." Footer buttons unchanged: "Huỷ" and jade "Lưu".
 ```
 
 #### Phase 6 — Task 6.4: nâng cấp, chạm hạn mức, kết quả thanh toán

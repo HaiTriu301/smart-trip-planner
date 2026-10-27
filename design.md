@@ -43,7 +43,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 - Địa điểm: search (mock → OSM), lưu snapshot, hiển thị bản đồ, tính khoảng cách giữa các điểm
 - Thời tiết: forecast theo ngày của trip, cache Redis, cảnh báo hoạt động ngoài trời (cảnh báo: hoãn ngày 2026-10-02, rule 14.21)
 - Chia sẻ: mời theo email với role EDITOR/VIEWER, public share link có thể thu hồi
-- Real-time: đồng chỉnh sửa activity qua WebSocket, presence (ai đang xem trip)
+- Real-time: đồng chỉnh sửa lịch trình qua WebSocket (cập nhật tức thời + chống ghi đè), presence (ai đang xem trip) — Phase 5, mục 11
 - Chi phí: ghi nhận expense, tổng hợp theo ngày/trip, chia tiền giữa thành viên
 - Premium: Stripe Checkout, webhook, Customer Portal, feature gating
 - AI: gợi ý lịch trình cho một điểm đến + số ngày (chỉ Premium)
@@ -57,6 +57,8 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 - Mobile app native
 - Dịch đa ngôn ngữ toàn bộ UI (chỉ chuẩn bị sẵn cấu trúc i18n cho message backend)
 - Offline mode
+- Liên kết chia sẻ có quyền **sửa** (bỏ 2026-10-27, rà Phase 5): người ghi dữ liệu phải có tài khoản; cần sửa thì mời làm thành viên `EDITOR`
+- Hiện vị trí con trỏ / "ai đang sửa hoạt động nào" (hoãn 2026-10-27, rà Phase 5): chống ghi đè + cập nhật tức thời đã đủ để không mất dữ liệu; xét lại sau Phase 8
 
 ---
 
@@ -133,7 +135,7 @@ Smart Trip Planner là web app giúp người dùng lên kế hoạch cho một 
 | Routing | React Router v7 (package `react-router-dom`) |
 | Form | react-hook-form + zod |
 | Map | Leaflet 1.9 + react-leaflet 5 (Task 3.6), tải lười cùng trang chi tiết chuyến đi. **Hình nền mặc định là tile chuẩn của OpenStreetMap** (`tile.openstreetmap.org`): không cần API key, nên bản đồ chạy được ngay trên một bản clone mới (CLAUDE.md rule 20); điều khoản yêu cầu ghi "© OpenStreetMap contributors" ở góc bản đồ và cấm tải hàng loạt. Nền giữ màu gốc của nguồn (bản đầu làm nhạt bằng CSS, bỏ ngày 2026-10-04 vì trang bị xám; `UI_GUIDE.md` mục 9). Trình duyệt tự tải tile, không đi qua backend. **Đổi ngày 2026-10-04:** bản trước chọn CartoDB Positron và ghi "không cần API key"; kiểm lại điều khoản ngày 2026-10-04 thì CARTO đã bắt buộc API key (tile không kèm key bị thay bằng ô chữ "API KEY REQUIRED"; key miễn phí cho dự án phi thương mại, tối đa 5 triệu lượt tải mỗi tháng). **Chốt 2026-10-05 (Mốc 0 Task 3.8): không làm tuỳ chọn CARTO.** Nền OpenStreetMap đã được chủ dự án xem và giữ; key của CARTO phải đặt trong biến `VITE_*`, tức nằm trong bundle công khai. Muốn đổi nền sau này chỉ sửa `lib/mapTiles.ts` |
-| Realtime | @stomp/stompjs + sockjs-client |
+| Realtime | @stomp/stompjs trên WebSocket thuần (Task 5.5). **Không** dùng sockjs-client (bỏ khi rà Phase 5, 2026-10-27: mọi trình duyệt đều có WebSocket, thư viện gần như không còn bảo trì và phải vá `global` mới chạy với Vite) |
 | HTTP | axios + interceptor tự refresh token |
 | Drag & drop | dnd-kit (core 6.3, sortable 10.0, utilities 3.2) |
 | Chart | recharts (trang expense + admin dashboard) |
@@ -257,10 +259,12 @@ com.trieu.tripplanner
 │   └── mail/    MailProvider, MockMailProvider, SmtpMailProvider   // MailService (service/) render Thymeleaf rồi gọi port này
 ├── controller
 │   └── admin/
-├── websocket
-│   ├── TripCollabController.java     // @MessageMapping
-│   ├── WebSocketAuthInterceptor.java
-│   └── event/                        // ActivityChangedEvent, PresenceEvent
+├── websocket                         // Phase 5, mục 11 (tên lớp chốt ở bảng commit của từng task)
+│   ├── WebSocketAuthInterceptor.java // CONNECT: JWT; SUBSCRIBE: quyền xem; chặn SEND
+│   ├── TripMessageGuard.java         // trước khi giao từng tin: người nhận còn xem được chuyến
+│   ├── TripEventBroadcaster.java     // @TransactionalEventListener(AFTER_COMMIT) → SimpMessagingTemplate
+│   ├── PresenceRegistry.java         // ai đang xem, trong bộ nhớ
+│   └── event/                        // TripChangedEvent, TripEventType, TripEventMessage
 └── scheduler
     ├── TripReminderScheduler.java
     └── SubscriptionSyncScheduler.java
@@ -382,7 +386,7 @@ Quy tắc: phát token mới cho cùng `(user, type)` → đánh dấu `used_at`
 | currency | CHAR(3) | default `VND` |
 | status | ENUM | `DRAFT`, `PLANNED`, `ONGOING`, `COMPLETED`, `ARCHIVED`; mặc định `DRAFT` |
 | visibility | ENUM | `PRIVATE`, `LINK`, `PUBLIC`; mặc định `PRIVATE`. Do hệ thống đặt theo liên kết chia sẻ, client không gửi được (chốt 2026-10-13, Task 4.2; rule 14.26) |
-| version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking khi nhiều người cùng sửa (mục 11.3, chốt 2026-09-26) |
+| version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking khi nhiều người cùng sửa (mục 11.5, chốt 2026-09-26). `status` và `visibility` không làm tăng `version` (`@OptimisticLock(excluded = true)`, chốt 2026-10-27, rà Phase 5) |
 | created_at / updated_at / deleted_at | | |
 
 Index: `idx_trips_owner_status(owner_id, status)`, `idx_trips_slug(slug)` (hiện thực bằng `UNIQUE uk_trips_slug`).
@@ -422,7 +426,7 @@ Quy tắc (chốt 2026-09-27):
 | currency | CHAR(3) | nullable; có `cost_amount` mà không gửi `currency` → lấy `currency` của trip |
 | booking_url | VARCHAR(512) | nullable |
 | created_by | BIGINT FK → users.id | NOT NULL, **không** `ON DELETE CASCADE` (cùng lý do với `trips.owner_id`); phục vụ realtime & audit |
-| version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking (mục 11.3, CLAUDE.md rule 22) |
+| version | BIGINT NOT NULL DEFAULT 0 | `@Version` — optimistic locking (mục 11.5, CLAUDE.md rule 22) |
 | created_at / updated_at | DATETIME(6) | từ BaseEntity |
 
 Index: `idx_activities_day_order(trip_day_id, order_index)`
@@ -467,7 +471,7 @@ UNIQUE `(trip_id, user_id)`, UNIQUE `(trip_id, invited_email)`. Gỡ thành viê
 #### `share_links`
 `id, trip_id FK (ON DELETE CASCADE), token CHAR(32) UNIQUE, permission ENUM(VIEW), expires_at nullable, revoked_at nullable, view_count INT NOT NULL DEFAULT 0, created_by FK users, created_at, updated_at`
 
-Chốt 2026-10-06 (rà Phase 4): Phase 4 chỉ có liên kết **xem**; `EDIT` thêm sau bằng ALTER khi làm liên kết sửa (xét ở Phase 5). `token` lưu **thô** (32 ký tự `[a-z0-9]` từ `SecureRandom`), không băm: liên kết sinh ra để đưa cho người khác, chỉ cho xem, và phải liệt kê / sao chép lại được; token mời (`trip_members`) thì băm vì nó cấp quyền trên tài khoản. Thu hồi = `revoked_at`, không có `deleted_at`. `updated_at` có vì mọi entity kế thừa `BaseEntity` (chốt 2026-10-13, bảng commit Task 4.2); lượt xem tăng bằng một câu `UPDATE` trực tiếp nên không làm đổi `updated_at`. Migration `V12` (Task 4.2).
+Chốt 2026-10-06 (rà Phase 4): Phase 4 chỉ có liên kết **xem**; liên kết sửa **bỏ** khi rà Phase 5 (chốt 2026-10-27, mục 2.2), `permission` giữ `ENUM('VIEW')`. `token` lưu **thô** (32 ký tự `[a-z0-9]` từ `SecureRandom`), không băm: liên kết sinh ra để đưa cho người khác, chỉ cho xem, và phải liệt kê / sao chép lại được; token mời (`trip_members`) thì băm vì nó cấp quyền trên tài khoản. Thu hồi = `revoked_at`, không có `deleted_at`. `updated_at` có vì mọi entity kế thừa `BaseEntity` (chốt 2026-10-13, bảng commit Task 4.2); lượt xem tăng bằng một câu `UPDATE` trực tiếp nên không làm đổi `updated_at`. Migration `V12` (Task 4.2).
 
 #### `comments`
 | Cột | Kiểu | Ghi chú |
@@ -551,23 +555,24 @@ Mọi lần refresh bị từ chối vì token (401, bước 1–4), response k�
 
 ### 6.2. Ma trận quyền trên Trip
 
-| Hành động | OWNER | EDITOR | VIEWER | Link VIEW | Link EDIT (hoãn) | Guest |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|
-| Xem trip | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Sửa thông tin trip | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Đổi trạng thái trip | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Xoá trip | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| CRUD activity, reorder | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| Xem route / weather của trip | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Comment (đăng, xem) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Xoá comment | của mọi người | của mình | của mình | ❌ | ❌ | ❌ |
-| Xem danh sách thành viên | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Mời / đổi vai trò / gỡ thành viên | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Tạo / xem / thu hồi share link | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Quản lý expense | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Export PDF | ✅(Premium) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Hành động | OWNER | EDITOR | VIEWER | Link VIEW | Guest |
+|---|:--:|:--:|:--:|:--:|:--:|
+| Xem trip | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Nhận cập nhật tức thời, thấy ai đang xem (WebSocket, mục 11) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Sửa thông tin trip | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Đổi trạng thái trip | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Xoá trip | ✅ | ❌ | ❌ | ❌ | ❌ |
+| CRUD activity, reorder | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Xem route / weather của trip | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Comment (đăng, xem) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Xoá comment | của mọi người | của mình | của mình | ❌ | ❌ |
+| Xem danh sách thành viên | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Mời / đổi vai trò / gỡ thành viên | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Tạo / xem / thu hồi share link | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Quản lý expense | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Export PDF | ✅(Premium) | ❌ | ❌ | ❌ | ❌ |
 
-Thành viên `PENDING` (chưa nhận lời) và `REMOVED` (đã bị gỡ) là **người lạ**: cột Guest nếu chưa đăng nhập, không có quyền gì nếu đã đăng nhập. "Link VIEW" là khách mở `GET /public/trips/{token}`, không đi qua evaluator. **Link EDIT hoãn** (chốt 2026-10-06, rà Phase 4): chưa có cách để người cầm liên kết ghi dữ liệu mà không có tài khoản; xét lại ở Phase 5 cùng realtime.
+Thành viên `PENDING` (chưa nhận lời) và `REMOVED` (đã bị gỡ) là **người lạ**: cột Guest nếu chưa đăng nhập, không có quyền gì nếu đã đăng nhập. "Link VIEW" là khách mở `GET /public/trips/{token}`, không đi qua evaluator. **Link EDIT bỏ** (hoãn 2026-10-06 khi rà Phase 4, bỏ hẳn 2026-10-27 khi rà Phase 5): người ghi dữ liệu phải có tài khoản; cần sửa thì mời làm thành viên `EDITOR` (mục 2.2). Cột của nó đã bỏ khỏi bảng.
 
 Implement bằng `TripPermissionEvaluator` + annotation tuỳ biến:
 
@@ -799,6 +804,10 @@ Chốt khi làm Task 4.7 (2026-10-21):
 - **Redis lúc khởi động:** kết nối của bộ đếm mở khi ứng dụng khởi động, nên với `app.rate-limit.enabled=true` ứng dụng cần Redis để khởi động. Đang chạy mà mất Redis thì cho qua (fail open). Docker Compose ở Task 4.8 khởi động Redis trước backend.
 - **Log:** lượt bị chặn ghi `Rate limit {luật} reached from {ip}, next call in {n}s`; không ghi khoá (có bản băm email) hay đường dẫn (có mã liên kết).
 
+Thêm khi rà Phase 5 (chốt 2026-10-27, làm ở Task 5.2):
+- **Bắt tay WebSocket** `GET /ws`: 30 / phút mỗi IP, khoá `rate:ws-handshake:{ip}`. `/ws` nằm ngoài `/api/**` nên không tính vào luật toàn cục.
+- Tin STOMP sau khi đã kết nối không phải request HTTP nên không qua filter; ở Phase 5 client không gửi được tin nào (mục 11.2), mỗi khung tối đa 8 KB.
+
 ---
 
 ## 9. Feature Gating: FREE vs PREMIUM
@@ -907,11 +916,11 @@ Lỗi (`ErrorResponse`):
 > **Quy ước Trip API** (chốt 2026-09-26, áp dụng từ Task 2.1):
 > - `PATCH /{id}` là cập nhật **từng phần**: field `null` = giữ nguyên. Chưa hỗ trợ xoá trắng field tuỳ chọn (ví dụ bỏ ngân sách).
 > - `status`: tạo mới mặc định `DRAFT`; `PATCH /{id}` **không** đổi được `status` (chỉ qua `PATCH /{id}/status`).
-> - `PATCH /{id}/status` (chốt 2026-09-30, Task 2.5): body `{ "status": ... }`, bắt buộc (thiếu → 400 ở field `status`, giá trị lạ → 400). Chuyển **tự do** giữa 5 trạng thái, kể cả quay về `DRAFT`; hệ thống **không tự đổi** theo ngày; giao diện hỏi xác nhận hoàn thành khi chuyến đi đã qua ngày cuối (rule 14.22). Gửi lại đúng trạng thái đang có → 200, không ghi gì, `version` không tăng. Quyền `canEdit`.
+> - `PATCH /{id}/status` (chốt 2026-09-30, Task 2.5): body `{ "status": ... }`, bắt buộc (thiếu → 400 ở field `status`, giá trị lạ → 400). Chuyển **tự do** giữa 5 trạng thái, kể cả quay về `DRAFT`; hệ thống **không tự đổi** theo ngày; giao diện hỏi xác nhận hoàn thành khi chuyến đi đã qua ngày cuối (rule 14.22). Gửi lại đúng trạng thái đang có → 200, không ghi gì, `version` không tăng. Từ Task 5.1 đổi trạng thái **không bao giờ** làm tăng `version` và body không có `version` (mục 11.5, chốt 2026-10-27). Quyền `canEdit`.
 > - `visibility`: mặc định `PRIVATE`. **Client không gửi được** (chốt 2026-10-13, Task 4.2): `POST` và `PATCH /{id}` không có trường này, gửi kèm thì bị bỏ qua. Hệ thống tự đặt theo liên kết chia sẻ (rule 14.26): `LINK` khi còn liên kết chưa thu hồi, `PRIVATE` khi không còn. Đây là nhãn để giao diện biết chuyến đi đang được chia sẻ, không tham gia kiểm quyền. Trước Task 4.2 client đổi được qua `PATCH /{id}`, khi đó nhãn có thể nói sai (ghi `PRIVATE` trong lúc liên kết còn sống). `PUBLIC` (mở theo `slug`) chưa làm; khi làm sẽ có endpoint riêng.
 > - **Chuyến đi được chia sẻ trong danh sách** (chốt 2026-10-06, Task 4.1): `GET ''` và `GET /status-counts` gồm cả chuyến mà người gọi là thành viên `ACCEPTED`, chung một danh sách với chuyến của mình, không có bộ lọc riêng; `TripSummaryResponse` thêm `ownerId`, `ownerName` để thẻ hiện "Được chia sẻ · của {ownerName}". Lời mời `PENDING` và thành viên `REMOVED` không thấy chuyến.
 > - **`GET /{id}` trả thêm `members`** (như `GET /members`, chủ đứng đầu) **và `myRole`** (`OWNER` / `EDITOR` / `VIEWER`) để giao diện ẩn nút ghi với người chỉ xem. Số câu SQL 4 → **5** (một câu lấy thành viên kèm user, không tăng theo số thành viên); `ActivityPlaceFlowIntegrationTest` cập nhật theo.
-> - `version`: `TripResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
+> - `version` (chốt 2026-10-27 khi rà Phase 5, làm ở Task 5.1): `TripResponse` / `TripDetailResponse` trả về; body `PATCH /{id}` **bắt buộc** có `version` (thiếu → 400 `VALIDATION_ERROR` ở field `version`); khác bản đang lưu → 409 `STALE_VERSION`, không ghi gì, kể cả khi gửi kèm `force=true`. `status` và `visibility` không làm tăng `version` (mục 11.5).
 > - Lọc danh sách: `status`; `q` = `LIKE` trên `title` hoặc `destination_name` (không phân biệt hoa thường nhờ collation `_ci`); `from`/`to` lấy trip có khoảng ngày **giao** với khoảng lọc (`start_date <= to` và `end_date >= from`).
 > - Phân trang mặc định `page=0`, `size=20` (tối đa 100, `spring.data.web.pageable.max-page-size`), `sort=createdAt,desc`. Chỉ cho `sort` theo `createdAt`, `updatedAt`, `startDate`, `title`; cột khác → 400 `VALIDATION_ERROR` ở field `sort` (tránh 500 với cột không tồn tại và dò dữ liệu qua thứ tự kết quả).
 > - Validate: `title` bắt buộc, ≤ 160 ký tự, được trim khi lưu; `description` ≤ 1000 ký tự (5000 trước Task 2.5); `coverImageUrl` ≤ 512 ký tự, bắt đầu bằng `http://` hoặc `https://`; `destinationName` ≤ 200 ký tự, được để trống; `currency` 3 chữ in hoa, mặc định `VND`; `budgetAmount >= 0`, vừa `DECIMAL(15,2)`; `destinationLat` ∈ [−90, 90], `destinationLng` ∈ [−180, 180], **có đủ cả hai hoặc bỏ cả hai**; cho phép ngày trong quá khứ (ghi lại chuyến đã đi).
@@ -944,7 +953,7 @@ Lỗi (`ErrorResponse`):
 > - `PATCH` là cập nhật **từng phần**: field không gửi hoặc `null` → giữ nguyên. Field văn bản tuỳ chọn (`note`, `bookingUrl`) gửi `""` → xoá, lưu `NULL` (giống "Quy ước sửa ngày"). **Chưa hỗ trợ xoá trắng** `startTime`, `endTime`, `costAmount`, `currency` đã đặt (giống PATCH của trip).
 > - Rule về giờ kiểm ở service trên dữ liệu **đã gộp** (PATCH chỉ gửi `endTime` vẫn phải so với `startTime` đang lưu): có `endTime` mà không có `startTime` → 400 `VALIDATION_ERROR`, `details` ở field `startTime`; `endTime <= startTime` → 400, `details` ở field `endTime`.
 > - **Trùng giờ** (rule 14.4): `?allowOverlap=true` là **query param** của `POST` và `PATCH` (mặc định `false`). Trùng → 409 `ACTIVITY_TIME_CONFLICT`, `details` ở field `startTime` nêu tên và giờ của activity bị trùng, không ghi gì. `PATCH` không so activity với chính nó, và **chỉ kiểm trùng khi khoảng giờ thật sự đổi** (giờ sau khi gộp khác giờ đang lưu): đổi tên hay ghi chú của một activity đã được lưu với `allowOverlap=true` không bị từ chối (chốt Task 2.3 mốc 5). Ngược lại, khoảng giờ đã đổi thì được kiểm với **mọi** activity khác, kể cả activity mà nó vốn đang trùng: một lần `allowOverlap=true` trước đó không miễn kiểm cho lần đổi giờ sau (chốt Task 2.3 mốc 9).
-> - `version`: `ActivityResponse` trả về; bắt client gửi lại và trả 409 `STALE_VERSION` thêm ở Task 5.3.
+> - `version` (chốt 2026-10-27 khi rà Phase 5, làm ở Task 5.1): `ActivityResponse` trả về; body `PATCH` **bắt buộc** có `version` (thiếu → 400 `VALIDATION_ERROR` ở field `version`); khác bản đang lưu → 409 `STALE_VERSION`, không ghi gì. Kiểm **trước** mọi quy tắc khác (địa điểm, giờ, trùng giờ): gửi lại với `allowOverlap=true` sau một 409 trùng giờ vẫn cần `version` đúng. `DELETE` và reorder không gửi `version`.
 > - `DELETE` xoá cứng, trả `data: null`.
 >
 > **Quy ước Reorder** (chốt 2026-09-29, Task 2.4) — `PUT /activities/reorder`:
@@ -954,9 +963,9 @@ Lỗi (`ErrorResponse`):
 > - Mọi `activityId` và `dayId` phải thuộc `tripId` trên URL → nếu không, 404 `RESOURCE_NOT_FOUND` cho cả lô.
 > - **Trùng giờ khi chuyển ngày** (rule 14.4): activity có đủ giờ bắt đầu và kết thúc được chuyển sang ngày khác thì được kiểm trùng với các activity của **ngày đích**, kể cả những activity cùng được chuyển tới trong lô đó. Activity **rời khỏi** ngày đích trong cùng lô thì không được tính, nên hai activity trùng giờ đổi ngày cho nhau được trong một lần gọi. Trùng → 409 `ACTIVITY_TIME_CONFLICT`, `details` có một phần tử cho **mỗi** activity bị trùng, ở field `items[<vị trí>].dayId`, nêu tên hai activity và giờ (chốt Task 2.4 mốc 2); `?allowOverlap=true` (query param, mặc định `false`) bỏ qua. Đổi thứ tự **trong cùng ngày** không bao giờ bị kiểm, vì giờ không đổi.
 > - **Normalize** (rule 14.5): sau khi áp dụng cả lô, mỗi ngày bị ảnh hưởng được đo khoảng cách giữa các `orderIndex` liền kề, tính cả khoảng từ 0 tới activity đầu tiên. Có khoảng nào < 10 → đánh lại cả ngày 1000, 2000, 3000... theo thứ tự hiện tại (`orderIndex`, rồi `id`).
-> - **Không tăng `version`**: `orderIndex` và `tripDay` bị loại khỏi optimistic lock (`@OptimisticLock(excluded = true)`). Kéo thả, kể cả normalize, không làm `STALE_VERSION` cho người đang sửa nội dung activity (mục 11.3).
+> - **Không tăng `version`**: `orderIndex` và `tripDay` bị loại khỏi optimistic lock (`@OptimisticLock(excluded = true)`). Kéo thả, kể cả normalize, không làm `STALE_VERSION` cho người đang sửa nội dung activity (mục 11.5).
 > - Response: `data` là danh sách **các ngày bị ảnh hưởng** (ngày nguồn và ngày đích), mỗi phần tử là `TripDayDetailResponse` kèm `activities` theo thứ tự mới, để client nhận được cả `orderIndex` đã normalize.
-> - Hai người kéo thả cùng lúc: người ghi sau thắng; xử lý xung đột ở Task 5.3.
+> - Hai người kéo thả cùng lúc: người ghi sau thắng, giữ nguyên ở Phase 5 (chốt 2026-10-27): reorder không mang `version`; người kia thấy thứ tự mới qua sự kiện `ACTIVITY_REORDERED` (mục 11.4).
 
 **Place** `/api/v1/places`
 | GET | `/search?q=&lat=&lng=&limit=` | Tìm địa điểm theo tên / địa chỉ (Task 3.1; cache ở Task 3.4) | Auth |
@@ -1026,7 +1035,7 @@ Public: `GET /api/v1/public/trips/{token}` — không cần auth (`SecurityConfi
 | POST | `` | `{content (1–2000 ký tự sau trim), activityId?, parentId?}` → 201 `CommentResponse` | canView |
 | DELETE | `/{id}` | Xoá mềm; bình luận gốc kéo theo các trả lời → 200 `data: null` | canView + (tác giả hoặc chủ chuyến, nếu không 403) |
 
-> **Quy ước Comment API** (chốt 2026-10-06): `activityId` phải thuộc `{tripId}` (không thì 404). `parentId` phải là bình luận gốc của cùng trip (không thì 400 `VALIDATION_ERROR` ở field `parentId`); trả lời lấy `activityId` của bình luận cha, bỏ qua `activityId` gửi lên. `CommentResponse` = `{id, activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}`. Không sửa bình luận. Kiểm "tác giả hoặc chủ" nằm ở `CommentService` (quy tắc trên một bình luận, không phải quyền trên trip). Sự kiện realtime `COMMENT_ADDED` phát ở Phase 5.
+> **Quy ước Comment API** (chốt 2026-10-06): `activityId` phải thuộc `{tripId}` (không thì 404). `parentId` phải là bình luận gốc của cùng trip (không thì 400 `VALIDATION_ERROR` ở field `parentId`); trả lời lấy `activityId` của bình luận cha, bỏ qua `activityId` gửi lên. `CommentResponse` = `{id, activityId, parentId, author{id, fullName, avatarUrl}, content, createdAt}`. Không sửa bình luận. Kiểm "tác giả hoặc chủ" nằm ở `CommentService` (quy tắc trên một bình luận, không phải quyền trên trip). Sự kiện realtime `COMMENT_ADDED` / `COMMENT_DELETED` phát ở Task 5.3 (mục 11.4).
 > - Chi tiết chốt khi duyệt bảng commit Task 4.4 (2026-10-17):
 >   - **Đăng**: chuyến đã xoá mềm → 404. Nội dung lưu bản đã trim, giữ nguyên xuống dòng; độ dài đo trước khi trim như `title` của activity (`@NotBlank` + `@Size(max = 2000)`). Nội dung là chữ thuần: không HTML, không markdown; giao diện hiện dạng chữ. Tác giả lấy từ `SecurityContext` (CLAUDE.md rule 16). Trả lời bình luận gốc đã xoá → 400 ở `parentId`, như cha không tồn tại.
 >   - **Xem**: xếp theo `createdAt`, cùng thời điểm thì theo `id`. `activityId` không thuộc `{tripId}` → 404, như khi đăng. Lọc theo hoạt động trả cả các trả lời (chúng mang `activityId` của cha). **Không phân trang**: chuyến đi của một nhóm nhỏ hiếm khi quá vài trăm bình luận; hạn chế đã biết, thêm khi cần. Số câu SQL không tăng theo số bình luận: kiểm chuyến, kiểm hoạt động (chỉ khi lọc), một câu lấy danh sách kèm tác giả (`join fetch`); quyền đọc từ cache `trip:permission`.
@@ -1082,7 +1091,7 @@ Public: `GET /api/v1/public/trips/{token}` — không cần auth (`SecurityConfi
 | `MEMBER_ALREADY_EXISTS` | 409 | Mời email đã là thành viên `ACCEPTED` của chuyến đi (Task 4.1) |
 | `ACTIVITY_TIME_CONFLICT` | 409 | Trùng giờ trong cùng ngày. Client hỏi lại người dùng rồi gửi lại kèm `allowOverlap=true` |
 | `TRIP_DAY_HAS_ACTIVITIES` | 409 | Đổi ngày của trip làm cắt ngày đang có activity (rule 14.3). Client hỏi lại người dùng rồi gửi lại kèm `force=true` |
-| `STALE_VERSION` | 409 | Optimistic lock: dữ liệu đã bị người khác sửa (mục 11.3) |
+| `STALE_VERSION` | 409 | Optimistic lock: dữ liệu đã bị người khác sửa — `version` gửi lên khác bản đang lưu, hoặc hai lần lưu cùng một dòng chồng nhau (mục 11.5, Task 5.1) |
 | `QUOTA_EXCEEDED` | 402 | Vượt hạn mức gói FREE |
 | `PREMIUM_REQUIRED` | 402 | Tính năng chỉ dành cho Premium |
 | `RATE_LIMIT_EXCEEDED` | 429 | |
@@ -1105,6 +1114,7 @@ Public: `GET /api/v1/public/trips/{token}` — không cần auth (`SecurityConfi
 | `HttpMediaTypeNotSupportedException` (sai `Content-Type`) | `UNSUPPORTED_MEDIA_TYPE` | 415 |
 | `HttpMediaTypeNotAcceptableException` (`Accept` không nhận JSON) | `NOT_ACCEPTABLE` | 406 |
 | `MissingServletRequestParameterException` (thiếu `@RequestParam` bắt buộc) | `VALIDATION_ERROR` + `details` ở tên tham số | 400 |
+| `ObjectOptimisticLockingFailureException` (hai lần lưu cùng một dòng chồng nhau — Task 5.1) | `STALE_VERSION` | 409 |
 | `AccessDeniedException` (Spring Security — thêm khi bật Security ở Task 1.2) | `FORBIDDEN` | 403 |
 | `Exception` | `INTERNAL_ERROR` | 500 |
 
@@ -1114,30 +1124,69 @@ Mọi `ErrorResponse` được ghi với `Content-Type: application/json` **đ�
 
 ## 11. WebSocket — Đồng chỉnh sửa
 
-### 11.1. Cấu hình
+> Viết lại khi rà Phase 5 (chốt 2026-10-27, `WORKFLOW.md` Phase 5 quyết định 1–15). Bản cũ dùng SockJS, sự kiện mang dữ liệu đầy đủ, so `sessionId` ở server, danh sách người đang xem bằng Redis SET + TTL 30 giây và có kênh con trỏ. Làm ở Task 5.1 (mục 11.5), 5.2 (11.1–11.3), 5.3 (11.4), 5.4 (11.6), 5.5 (giao diện).
 
-- Endpoint: `/ws` (SockJS fallback)
-- Auth: JWT truyền qua header `Authorization` trong CONNECT frame, xác thực ở `WebSocketAuthInterceptor`
-- Broker: simple in-memory broker (đủ cho 1 instance). Nếu scale nhiều instance → chuyển sang Redis pub/sub relay.
+### 11.1. Kết nối
+
+- Endpoint `/ws`, **WebSocket thuần** + STOMP (`@stomp/stompjs`), không SockJS. Bản chạy thật: nginx chuyển `/ws` tới backend (header `Upgrade`, `frontend/nginx.conf`), Cloudflare chuyển tiếp WebSocket. Dev: proxy `/ws` của Vite.
+- Bước bắt tay `/ws` không cần đăng nhập (`SecurityConfig.PUBLIC_PATHS`, vì trình duyệt không gửi được header `Authorization` khi bắt tay): chỉ nhận `Origin` = `app.frontend-url`; 30 lần / phút mỗi IP (mục 8.2).
+- Xác thực ở khung **CONNECT**: header `Authorization: Bearer <access token>`, kiểm ở `WebSocketAuthInterceptor` bằng `JwtTokenProvider` như REST. Thiếu / sai → khung ERROR `UNAUTHORIZED`, hết hạn → `TOKEN_EXPIRED` (cùng quy ước mục 6.1). Client lấy token mới qua `refreshAccessToken()` (CLAUDE.md rule 36) rồi kết nối lại. Token hết hạn **sau khi** đã kết nối không làm ngắt: quyền được kiểm lại ở từng tin (11.3).
+- Broker trong bộ nhớ (simple broker), đủ cho một máy. Nhịp tim STOMP 10 giây hai chiều: giữ kết nối qua nginx và Cloudflare (Cloudflare cắt kết nối im lặng quá 100 giây) và phát hiện kết nối chết. Mỗi khung tối đa 8 KB. Chạy nhiều máy → chuyển broker và danh sách người đang xem (11.6) sang Redis cùng lúc.
 
 ### 11.2. Kênh
 
-| Destination | Chiều | Payload |
-|---|---|---|
-| `/topic/trips/{tripId}` | server → client | `TripEvent{ type, actor, payload, version }` |
-| `/topic/trips/{tripId}/presence` | server → client | Danh sách user đang xem |
-| `/app/trips/{tripId}/cursor` | client → server | Vị trí con trỏ / activity đang focus |
-| `/user/queue/notifications` | server → user | Notification cá nhân |
+| Destination | Chiều | Ai đăng ký được | Nội dung |
+|---|---|---|---|
+| `/topic/trips/{tripId}` | server → client | người xem được chuyến (`canView`) | `TripEvent` (11.4) |
+| `/topic/trips/{tripId}/presence` | server → client | như trên | danh sách người đang xem (11.6) |
+| `/user/queue/notifications` | server → một người | chính người đó | `{ type: "TRIP_ACCESS_REVOKED", tripId }` khi người đó bị gỡ khỏi chuyến |
 
-`TripEvent.type`: `ACTIVITY_CREATED`, `ACTIVITY_UPDATED`, `ACTIVITY_DELETED`, `ACTIVITY_REORDERED`, `DAY_UPDATED`, `TRIP_UPDATED`, `MEMBER_JOINED`, `COMMENT_ADDED`.
+Ở Phase 5 client **không gửi được tin nào** (SEND bị từ chối); mọi thay đổi vẫn đi qua REST. Kênh con trỏ `/app/trips/{tripId}/cursor` của bản cũ hoãn (mục 2.2).
 
-### 11.3. Chống ghi đè
+### 11.3. Quyền
 
-- Mỗi Activity có cột `version` (`@Version` — optimistic locking).
-- `version` chỉ bảo vệ **nội dung** của activity (tên, giờ, ghi chú, chi phí...). Vị trí (`order_index`, `trip_day_id`) đổi qua reorder **không** tăng `version` (chốt Task 2.4): kéo thả của người này không làm hỏng form đang sửa của người kia.
-- Client gửi kèm `version`; nếu lệch → 409 `STALE_VERSION`, client refetch.
-- Event broadcast **sau khi transaction commit** (dùng `@TransactionalEventListener(AFTER_COMMIT)`), tránh phát event cho dữ liệu bị rollback.
-- Không broadcast lại cho chính người gây thay đổi (so `sessionId`).
+- **Lúc SUBSCRIBE:** chuyến phải tồn tại (chưa xoá) và người đăng ký `canView`; không thì khung ERROR `FORBIDDEN`, chung cho "không tồn tại" và "không có quyền" (không có giao diện nào cần phân biệt, và không dò được mã chuyến). Đích ngoài ba kênh ở 11.2 bị từ chối.
+- **Trước khi giao từng tin** của `/topic/trips/{tripId}/**` cho từng phiên: `TripPermissionEvaluator.canView` (cache `trip:permission`, bản nhớ từ chối đọc lại DB, mục 8.1). Không còn quyền → bỏ tin đó. Người bị gỡ thôi nhận ngay và được báo qua kênh cá nhân. Chuyến đã xoá: evaluator cho qua như với REST (CLAUDE.md rule 15), nên `TRIP_DELETED` tới mọi người đang nghe.
+- Trang công khai của liên kết chia sẻ không có cập nhật tức thời.
+
+### 11.4. Sự kiện
+
+`TripEvent = { type, tripId, entityId, dayIds, version, actorId, originId, occurredAt }`
+
+- **Sự kiện mỏng:** chỉ báo "cái gì vừa đổi", không mang dữ liệu. Client tải lại phần bị ảnh hưởng qua REST (cùng quyền, cùng dạng dữ liệu với `GET`). Tên người sửa: giao diện tra `actorId` trong `members` của `GET /trips/{id}`, nên phát sự kiện không tốn thêm câu SQL.
+
+| `type` | Khi nào | `entityId` | Giao diện tải lại (gợi ý, chốt ở Task 5.5) |
+|---|---|---|---|
+| `ACTIVITY_CREATED` | thêm hoạt động | activityId | chuyến đi, quãng đường của ngày |
+| `ACTIVITY_UPDATED` | sửa hoạt động (cả địa điểm); `version` mới | activityId | chuyến đi, quãng đường của ngày |
+| `ACTIVITY_DELETED` | xoá hoạt động | activityId | chuyến đi, bình luận, quãng đường của ngày |
+| `ACTIVITY_REORDERED` | kéo thả; `dayIds` = các ngày bị ảnh hưởng | — | chuyến đi, quãng đường các ngày đó |
+| `DAY_UPDATED` | sửa tiêu đề / ghi chú ngày | dayId | chuyến đi |
+| `TRIP_UPDATED` | sửa chuyến (cả đổi ngày, đổi trạng thái); `version` mới | tripId | chuyến đi, thời tiết, quãng đường, bình luận (đổi ngày có thể xoá hoạt động) |
+| `TRIP_DELETED` | xoá chuyến | tripId | rời trang |
+| `MEMBER_JOINED` | nhận lời mời | userId | chuyến đi (`members`) |
+| `MEMBER_ROLE_CHANGED` | đổi vai trò | userId | chuyến đi (`myRole` của người được đổi) |
+| `MEMBER_REMOVED` | gỡ thành viên | userId | chuyến đi (`members`) |
+| `COMMENT_ADDED`, `COMMENT_DELETED` | đăng / xoá bình luận | commentId | bình luận |
+
+  Không phát: lời mời đang chờ, liên kết chia sẻ (chỉ chủ chuyến thấy), lượt xem trang công khai.
+- **Phát sau commit:** service gọi `ApplicationEventPublisher.publishEvent(...)` trong transaction; `TripEventBroadcaster` nhận bằng `@TransactionalEventListener(phase = AFTER_COMMIT)` rồi gửi qua `SimpMessagingTemplate`. Rollback → không phát gì (CLAUDE.md rule 21). Gửi lỗi → log WARN, request không thất bại (dữ liệu đã lưu). Sự kiện dựng từ id / version có sẵn trong transaction, không đọc entity lười sau commit.
+- **Không gửi lại cho tab vừa sửa:** mỗi tab tự sinh một mã (UUID), `apiClient` gửi kèm mọi request trong header `X-Client-Id`; sự kiện mang lại mã đó trong `originId`, tab có cùng mã bỏ qua. Cùng một người mở hai tab thì tab kia vẫn được cập nhật. Không có header hoặc sai định dạng → `originId = null`. Service không nhận thêm tham số: một filter đặt mã vào chỗ giữ theo request, nơi tạo sự kiện đọc từ đó.
+- **Kết nối lại** (mất mạng, deploy): client tải lại mọi query của chuyến đang mở, vì sự kiện phát trong lúc mất kết nối không được gửi lại.
+
+### 11.5. Chống ghi đè
+
+- `Trip` và `Activity` có `@Version` (CLAUDE.md rule 22). Client **bắt buộc** gửi `version` trong `PATCH /trips/{id}` và `PATCH /activities/{activityId}`; khác bản đang lưu → 409 `STALE_VERSION`, không ghi gì. Hai lần lưu cùng qua bước so rồi cùng ghi (Hibernate ném `ObjectOptimisticLockingFailureException`) → cũng 409, không phải 500.
+- **Không khoá** (không gửi `version`, không làm tăng `version`): vị trí hoạt động (`order_index`, `trip_day_id`, qua reorder — chốt Task 2.4), `trips.status`, `trips.visibility` (`@OptimisticLock(excluded = true)`). Kéo thả của người này, việc đổi trạng thái hay tạo liên kết chia sẻ không làm hỏng form đang sửa của người kia. Tiêu đề / ghi chú ngày (`TripDay` không có `@Version`, mục 5.2) và xoá hoạt động: ai làm sau thắng.
+- **Giao diện gặp 409:** form giữ chữ đang gõ, báo có người vừa sửa và ngầm nhận `version` mới; bấm Lưu lần nữa là ghi đè có chủ ý, bấm Huỷ để xem bản mới (UI_GUIDE mục 10). Hoạt động vừa bị xoá (404) → báo đã xoá, đóng form.
+- `TripEvent.version` cho biết bản mới nhất; Task 5.5 xét dùng nó để báo sớm trong form đang mở, trước khi người dùng bấm Lưu.
+
+### 11.6. Người đang xem (presence)
+
+- Lưu trong **bộ nhớ backend** (một máy, cùng lý do với broker ở 11.1), không dùng Redis: thêm khi một phiên SUBSCRIBE `/topic/trips/{tripId}`, bớt khi UNSUBSCRIBE hoặc mất kết nối (nhịp tim STOMP phát hiện trong khoảng 30 giây). Client không cần nhịp tim riêng. Backend khởi động lại thì mọi kết nối mất và client kết nối lại, nên không còn dữ liệu cũ.
+- **Đếm theo người:** một người mở hai tab = một. Mỗi phần tử `{ userId, fullName, avatarUrl }`; tên và ảnh nạp một lần lúc CONNECT.
+- Mỗi lần danh sách đổi, server phát **cả danh sách** tới `/topic/trips/{tripId}/presence`. Người mới vào nhận ngay danh sách hiện tại (client đăng ký kênh presence trước kênh chính).
+- Bị gỡ khỏi chuyến → bị bỏ khỏi danh sách ngay.
 
 ---
 
@@ -1227,6 +1276,8 @@ Nếu AI trả JSON hỏng → retry 1 lần với prompt nhắc định dạng;
 26. **Liên kết chia sẻ** (chốt 2026-10-06, Task 4.2): chỉ chủ chuyến tạo / xem / thu hồi; Phase 4 chỉ có quyền **xem**; hết hạn tuỳ chọn; thu hồi không hoàn tác. Trang công khai mở bằng token không cần đăng nhập, không lộ thông tin người dùng. `visibility` của chuyến đi theo liên kết: `LINK` khi còn liên kết chưa thu hồi, `PRIVATE` khi không còn. Client không đặt được `visibility` (chốt 2026-10-13); nó là nhãn, không tham gia kiểm quyền: trang công khai chỉ đọc dòng liên kết.
 27. **Bình luận** (chốt 2026-10-06, Task 4.4): ai xem được chuyến đi thì đọc và đăng được; gắn vào chuyến đi hoặc một hoạt động; trả lời **một cấp**; tối đa 2000 ký tự; không sửa; xoá bởi tác giả hoặc chủ chuyến; xoá bình luận gốc xoá luôn trả lời; hoạt động bị xoá kéo bình luận của nó theo.
 28. **Không giới hạn số thành viên và số liên kết** ở mọi gói (chốt 2026-10-06, sửa mục 9). Hạn mức khác của mục 9 giữ nguyên.
+29. **Chống ghi đè** (chốt 2026-10-27, rà Phase 5): hai người sửa cùng một hoạt động, hoặc cùng thông tin chuyến đi, thì người lưu sau nhận 409 `STALE_VERSION` và không ai mất dữ liệu: chữ người đó đang gõ vẫn còn, họ chọn ghi đè (bấm Lưu lần nữa) hoặc huỷ để xem bản mới. Không khoá: thứ tự và ngày của hoạt động (kéo thả), trạng thái chuyến, liên kết chia sẻ, tiêu đề / ghi chú ngày, xoá hoạt động — ai làm sau thắng (mục 11.5).
+30. **Cập nhật tức thời** (chốt 2026-10-27, rà Phase 5): người đang mở một chuyến đi mà họ xem được thấy thay đổi của người khác trong vòng 1 giây, không phải tải lại trang, và thấy ai đang cùng xem. Bị gỡ khỏi chuyến → thôi nhận ngay và được đưa ra khỏi trang. Mất kết nối → tự kết nối lại và tải lại chuyến. Trang công khai của liên kết chia sẻ không cập nhật tức thời (mục 11).
 
 ---
 
@@ -1270,6 +1321,8 @@ Test case bắt buộc phải có (thường được hỏi khi phỏng vấn):
 - Webhook gửi trùng → chỉ 1 subscription được tạo
 - Refresh token đã revoke → revoke toàn bộ session
 - Hai client sửa cùng activity → client sau nhận 409
+- Transaction rollback → không phát sự kiện WebSocket nào (Task 5.3)
+- Thành viên bị gỡ → thôi nhận sự kiện của chuyến ngay (Task 5.3)
 
 ---
 
@@ -1353,7 +1406,7 @@ Mail:   backend → Brevo SMTP 587 (STARTTLS) → hộp thư người dùng
 | nginx | IP thật: `set_real_ip_from` dải IP Cloudflare (lấy từ trang chính thức) + `real_ip_header CF-Connecting-IP`, rồi **ghi đè** `X-Forwarded-For` bằng `$remote_addr` (mục 6.3). Địa chỉ backend tra qua DNS của Docker (`resolver 127.0.0.11` + biến) để không giữ IP cũ sau khi backend được tạo lại. `/assets/` cache dài (`immutable`), `index.html` không cache, đường dẫn lạ trả `index.html`. `/actuator` không đi qua nginx. `Referrer-Policy: strict-origin-when-cross-origin` (máy chủ ô bản đồ của OpenStreetMap đòi header `Referer`) |
 | Deploy | Merge vào `main` có đổi code → build image tự động; job deploy **chờ chủ dự án bấm duyệt** (GitHub Environment `production`, secret `DEPLOY_*` nằm trong environment này) rồi SSH bằng user `deploy`; `authorized_keys` ép khoá đó chỉ chạy được `deploy.sh` (`command=`). `deploy.sh`: `backup.sh` → `docker compose pull` → `up -d` → chờ backend `healthy` tối đa 3 phút, không lên thì thoát mã lỗi (workflow đỏ). Lúc deploy, backend khởi động lại: trang lỗi khoảng 30–60 giây |
 | Dữ liệu | Tài khoản demo tạo bằng cách đăng ký trên bản thật, không có migration dữ liệu mẫu. `deploy/backup.sh`: `mysqldump` hằng ngày (cron) và trước mỗi lần deploy, giữ 7 ngày. Máy hỏng thì mất dữ liệu demo: chấp nhận cho bản thử |
-| Chưa làm | Đường `/ws` trong nginx (Phase 5), webhook Stripe (Phase 6), ngưỡng coverage và dọn `refresh_tokens` (Task 8.4), README cuối (Task 8.5). MySQL 8.0 đã hết hỗ trợ (4/2026): giữ cho giống dev / test, nâng lên 8.4 LTS ở một task riêng |
+| Chưa làm | Đường `/ws` trong nginx (Task 5.2: nằm trong `frontend/nginx.conf` nên lên theo image, không sửa tay trên máy), webhook Stripe (Phase 6), ngưỡng coverage và dọn `refresh_tokens` (Task 8.4), README cuối (Task 8.5). MySQL 8.0 đã hết hỗ trợ (4/2026): giữ cho giống dev / test, nâng lên 8.4 LTS ở một task riêng |
 
 Hướng dẫn từng bước (tạo tài khoản, Security Group, Cloudflare, Brevo, sự cố thường gặp) nằm ở `docs/deploy/aws.md`, **chỉ có trên máy của chủ dự án** (git-ignored vì chứa tên miền, IP, tài khoản thật).
 
@@ -1368,7 +1421,7 @@ Hướng dẫn từng bước (tạo tài khoản, Security Group, Cloudflare, B
 | **2. Trip + Itinerary** | Trip CRUD, TripDay auto-gen, Activity CRUD + reorder + validate giờ | Tạo trip 3 ngày → thêm 5 activity → kéo thả |
 | **3. Place + Weather (mock)** | Provider abstraction, mock data, cache Redis | Search "Đà Nẵng" → marker trên map, forecast hiện ra |
 | **4. Sharing + Permission** | TripMember, ShareLink, PermissionEvaluator, comment; rate limit cốt lõi (Task 4.7) và deploy thử lên AWS (Task 4.8), kéo từ Phase 8 (chốt 2026-10-17) | Mời user2 làm VIEWER → user2 sửa → 403; đăng nhập sai 6 lần → 429; URL công khai chạy được |
-| **5. Realtime** | WebSocket STOMP, presence, optimistic locking | Mở 2 tab → sửa ở tab A → tab B tự cập nhật |
+| **5. Realtime** | Chống ghi đè (`version` + 409), WebSocket STOMP, sự kiện sau commit, người đang xem, giao diện realtime (rà 2026-10-27: 5 task) | Hai người sửa cùng một hoạt động → người sau nhận 409, chữ vẫn còn; mở 2 trình duyệt → sửa ở A → B tự cập nhật trong dưới 1 giây; B hiện trong hàng ảnh của A |
 | **6. Premium + Stripe** | Quota, feature gating, checkout, webhook idempotent | Thanh toán test card → plan đổi sang PREMIUM |
 | **7. Expense + AI + Export** | Expense, settlement, AI suggest, PDF/ICS | | 
 | **8. Hoàn thiện** | Rate limit phần còn lại (PREMIUM, AI, `/weather/**`), admin dashboard, test coverage, CI/CD đầy đủ, deploy bản cuối | README có ảnh demo, link bản deploy |
