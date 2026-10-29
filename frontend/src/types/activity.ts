@@ -41,8 +41,15 @@ export interface CreateActivityRequest {
 }
 
 /**
- * Body of PATCH /trips/{tripId}/activities/{activityId}: undefined keeps the value. note and bookingUrl
- * accept "" to clear; times, cost and currency cannot be cleared yet (design.md 10.2 "Quy ước Activity API").
- * The place is a number and has no "": clearPlace true removes it. Sending it together with placeId is refused.
+ * The edited fields of PATCH /trips/{tripId}/activities/{activityId}: undefined keeps the value. note and
+ * bookingUrl accept "" to clear; times, cost and currency cannot be cleared yet (design.md 10.2 "Quy ước Activity
+ * API"). The place is a number and has no "": clearPlace true removes it. Sending it together with placeId is
+ * refused. Kept apart from the version so "nothing changed" is simply an empty object.
  */
-export type UpdateActivityRequest = Partial<CreateActivityRequest> & { clearPlace?: boolean }
+export type ActivityChanges = Partial<CreateActivityRequest> & { clearPlace?: boolean }
+
+/**
+ * Body of PATCH /trips/{tripId}/activities/{activityId}: the changes plus the version of the activity the user
+ * was looking at. Somebody saved it since → 409 STALE_VERSION, nothing written (design.md 11.5, Task 5.1).
+ */
+export type UpdateActivityRequest = ActivityChanges & { version: number }

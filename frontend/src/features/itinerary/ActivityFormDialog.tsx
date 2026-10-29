@@ -19,7 +19,7 @@ import {
   findClearedActivityFields,
   toActivityValues,
   toCreateActivityRequest,
-  toUpdateActivityRequest,
+  toActivityChanges,
   type ActivityValues,
 } from './schemas'
 
@@ -140,11 +140,13 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       for (const field of cleared) setError(field, { type: 'manual', message: CANNOT_CLEAR_MESSAGE })
       return
     }
-    const body = toUpdateActivityRequest(activity, values)
-    if (Object.keys(body).length === 0) {
+    const changes = toActivityChanges(activity, values)
+    if (Object.keys(changes).length === 0) {
       onClose()
       return
     }
+    // The version of the activity the form opened with: somebody saved it since → 409 STALE_VERSION (Task 5.1)
+    const body = { ...changes, version: activity.version }
     mutation.mutate({ request: { kind: 'update', activityId: activity.id, body }, allowOverlap: false })
   }
 
