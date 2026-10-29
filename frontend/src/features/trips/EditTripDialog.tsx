@@ -13,7 +13,7 @@ import { classifyDateChange, type DateChange } from '../../lib/tripDates'
 import { CANNOT_CLEAR_MESSAGE } from '../../lib/validation'
 import { toast } from '../../stores/toastStore'
 import type { TripResponse, UpdateTripRequest } from '../../types/trip'
-import { findClearedFields, toTripValues, toUpdateTripRequest, tripSchema, type TripValues } from './schemas'
+import { findClearedFields, toTripChanges, toTripValues, tripSchema, type TripValues } from './schemas'
 import { TripDateFields, TripDestinationFields, TripInfoFields } from './TripFormFields'
 
 const FORM_FIELDS = [
@@ -64,14 +64,21 @@ type PendingConfirm =
 /**
  * Sends only changed fields. Date edits follow design.md rule 14.3: a mixed shift + resize asks first,
  * and 409 TRIP_DAY_HAS_ACTIVITIES asks again before resending with force=true.
+ *
+ * Every comparison is made with the trip as the form opened it, and that trip's version goes with the save.
+ * The trip prop is live: it follows the cache, which reloads quietly (window focus, another dialog saving).
+ * Compared with the reloaded copy, the fields the user left alone would differ from what somebody else just
+ * saved, be sent back and overwrite it, and the new version would turn the save into an overwrite nobody
+ * chose (design.md 11.5, Task 5.1).
  */
 function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => void }) {
   const queryClient = useQueryClient()
   const [pending, setPending] = useState<PendingConfirm | null>(null)
+  const [base] = useState(trip)
   const form = useForm<TripValues>({
     mode: 'onTouched',
     resolver: zodResolver(tripSchema),
-    defaultValues: toTripValues(trip),
+    defaultValues: toTripValues(base),
   })
   const { handleSubmit, setError, control } = form
 
@@ -103,19 +110,20 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
   })
 
   function onSubmit(values: TripValues) {
-    const cleared = findClearedFields(trip, values)
+    const cleared = findClearedFields(base, values)
     if (cleared.length > 0) {
       for (const field of cleared) {
         setError(field, { type: 'manual', message: CANNOT_CLEAR_MESSAGE })
       }
       return
     }
-    const body = toUpdateTripRequest(trip, values)
-    if (Object.keys(body).length === 0) {
+    const changes = toTripChanges(base, values)
+    if (Object.keys(changes).length === 0) {
       onClose()
       return
     }
-    if (classifyDateChange(trip.startDate, trip.endDate, values.startDate, values.endDate) === 'shift-and-resize') {
+    const body = { ...changes, version: base.version }
+    if (classifyDateChange(base.startDate, base.endDate, values.startDate, values.endDate) === 'shift-and-resize') {
       setPending({ kind: 'shift-and-resize', body })
       return
     }
@@ -124,7 +132,7 @@ function EditTripForm({ trip, onClose }: { trip: TripResponse; onClose: () => vo
 
   const [startDate, endDate] = useWatch({ control, name: ['startDate', 'endDate'] })
   const datesValid = Boolean(startDate && endDate && endDate >= startDate)
-  const dateChange = datesValid ? classifyDateChange(trip.startDate, trip.endDate, startDate, endDate) : 'none'
+  const dateChange = datesValid ? classifyDateChange(base.startDate, base.endDate, startDate, endDate) : 'none'
   const isConflict = getApiError(mutation.error)?.errorCode === 'TRIP_DAY_HAS_ACTIVITIES'
 
   return (

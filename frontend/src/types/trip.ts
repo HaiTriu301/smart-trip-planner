@@ -97,10 +97,17 @@ export interface CreateTripRequest {
 }
 
 /**
- * Body of PATCH /trips/{id}: undefined keeps the stored value. Optional fields cannot be cleared yet
- * (design.md 10.2 "Quy ước Trip API"); status has its own endpoint.
+ * The edited fields of PATCH /trips/{id}: undefined keeps the stored value. Optional fields cannot be cleared yet
+ * (design.md 10.2 "Quy ước Trip API"); status has its own endpoint. Kept apart from the version so "nothing
+ * changed" is simply an empty object.
  */
-export type UpdateTripRequest = Partial<CreateTripRequest>
+export type TripChanges = Partial<CreateTripRequest>
+
+/**
+ * Body of PATCH /trips/{id}: the changes plus the version of the trip the user was looking at. Somebody saved it
+ * since → 409 STALE_VERSION, nothing written, even with force=true (design.md 10.2, 11.5, Task 5.1).
+ */
+export type UpdateTripRequest = TripChanges & { version: number }
 
 /** GET /trips/status-counts: trips per status for the chips; every status is present, 0 when empty. */
 export interface TripStatusCounts {

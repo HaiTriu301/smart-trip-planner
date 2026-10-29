@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { countDays } from '../../lib/format'
 import { currencyCode, moneyText, urlText } from '../../lib/validation'
-import type { CreateTripRequest, TripResponse, UpdateTripRequest } from '../../types/trip'
+import type { CreateTripRequest, TripChanges, TripResponse } from '../../types/trip'
 
 // Mirrors CreateTripRequest + TripServiceImpl rules (design.md 10.2 "Quy ước Trip API", rule 14.1).
 // The backend stays authoritative; these only give instant feedback with the same Vietnamese messages.
@@ -92,10 +92,13 @@ export function findClearedFields(trip: TripResponse, values: TripValues): (type
   return CLEARABLE_FIELDS.filter((field) => before[field].trim() !== '' && values[field].trim() === '')
 }
 
-/** Only the fields that differ from the stored trip; an empty object means nothing to save. */
-export function toUpdateTripRequest(trip: TripResponse, values: TripValues): UpdateTripRequest {
+/**
+ * Only the fields that differ from the given trip; an empty object means nothing to save. The version is added
+ * by the form.
+ */
+export function toTripChanges(trip: TripResponse, values: TripValues): TripChanges {
   const next = toCreateTripRequest(values)
-  const body: UpdateTripRequest = {}
+  const body: TripChanges = {}
   if (next.title !== trip.title) body.title = next.title
   if (next.description !== undefined && next.description !== trip.description) body.description = next.description
   if (next.coverImageUrl !== undefined && next.coverImageUrl !== trip.coverImageUrl) body.coverImageUrl = next.coverImageUrl
