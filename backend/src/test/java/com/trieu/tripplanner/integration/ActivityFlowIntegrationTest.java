@@ -408,9 +408,9 @@ class ActivityFlowIntegrationTest {
         Map<String, Object> before = tripRow();
 
         // blocked: nothing at all may change, not even the title sent in the same request
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "title": "Tên không được lưu", "endDate": "2026-10-02" }
-                """))
+                """)))
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": false, "errorCode": "TRIP_DAY_HAS_ACTIVITIES",
@@ -424,24 +424,24 @@ class ActivityFlowIntegrationTest {
                 "2026-10-01=Ăn sáng", "2026-10-03=Chợ đêm", "2026-10-03=Ăn tối");
 
         // a day without activities can be added and cut again without force
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "endDate": "2026-10-04" }
-                """)).hasStatusOk();
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+                """))).hasStatusOk();
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "endDate": "2026-10-03" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
 
         // shifting the whole trip cuts nothing: not blocked, the activities follow their day
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "startDate": "2026-10-08", "endDate": "2026-10-10" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(activitiesByDate()).containsExactly(
                 "2026-10-08=Ăn sáng", "2026-10-10=Chợ đêm", "2026-10-10=Ăn tối");
 
         // confirmed by the user: the day goes, and its activities with it
-        assertThat(send("PATCH", tripUrl + "?force=true", ownerBearer, """
+        assertThat(send("PATCH", tripUrl + "?force=true", ownerBearer, withTripVersion(tripId, """
                 { "title": "Đà Lạt 2 ngày", "endDate": "2026-10-09" }
-                """))
+                """)))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Đà Lạt 2 ngày", "startDate": "2026-10-08", "endDate": "2026-10-09" } }
@@ -495,6 +495,15 @@ class ActivityFlowIntegrationTest {
 
     private String activityUrl(long activityId) {
         return TRIPS_URL + "/" + tripId + "/activities/" + activityId;
+    }
+
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
     }
 
     private long createTrip(String title, String start, String end, String currency) {

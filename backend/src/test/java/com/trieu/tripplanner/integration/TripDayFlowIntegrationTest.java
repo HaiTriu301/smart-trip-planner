@@ -228,10 +228,19 @@ class TripDayFlowIntegrationTest {
                 .hasStatus(HttpStatus.CREATED);
     }
 
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
+    }
+
     private MvcTestResult patchTrip(long tripId, String json) {
         return mvc.patch().uri(TRIPS_URL + "/" + tripId).header(HttpHeaders.AUTHORIZATION, ownerBearer)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json)
+                .content(withTripVersion(tripId, json))
                 .exchange();
     }
 

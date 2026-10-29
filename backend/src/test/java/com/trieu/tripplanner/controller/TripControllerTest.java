@@ -338,7 +338,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Da Lat moi" }
+                        { "version": 0, "title": "Da Lat moi" }
                         """))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.data.id").isEqualTo(5);
@@ -358,7 +358,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Da Lat moi", "visibility": "PUBLIC" }
+                        { "version": 0, "title": "Da Lat moi", "visibility": "PUBLIC" }
                         """))
                 .hasStatusOk();
 
@@ -374,7 +374,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Hack" }
+                        { "version": 0, "title": "Hack" }
                         """))
                 .hasStatus(HttpStatus.FORBIDDEN);
         verify(tripService, never()).update(any(), any(), anyBoolean());
@@ -387,7 +387,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "   " }
+                        { "version": 0, "title": "   " }
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().isLenientlyEqualTo("""
@@ -408,7 +408,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "endDate": "2026-10-02" }
+                        { "version": 0, "endDate": "2026-10-02" }
                         """))
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().isLenientlyEqualTo("""
@@ -427,7 +427,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL + "?force=true").header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "endDate": "2026-10-02" }
+                        { "version": 0, "endDate": "2026-10-02" }
                         """))
                 .hasStatusOk();
         verify(tripService).update(eq(TRIP_ID), any(), eq(true));
@@ -440,7 +440,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL + "?force=yes-please").header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "endDate": "2026-10-02" }
+                        { "version": 0, "endDate": "2026-10-02" }
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
@@ -543,7 +543,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "description": "%s" }
+                        { "version": 0, "description": "%s" }
                         """.formatted("a".repeat(1001))))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[0].field").isEqualTo("description");

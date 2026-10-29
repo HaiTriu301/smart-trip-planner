@@ -130,7 +130,7 @@ class TripPermissionMatrixIntegrationTest {
                     HttpStatus.OK, null),
             // Edit: owner and accepted editors
             new Action("Sửa chuyến đi", HttpMethod.PATCH, TRIP, Level.EDIT, HttpStatus.OK, """
-                    { "title": "Đà Lạt mùa hoa" }"""),
+                    { "version": 0, "title": "Đà Lạt mùa hoa" }"""),
             new Action("Đổi trạng thái", HttpMethod.PATCH, TRIP + "/status", Level.EDIT, HttpStatus.OK, """
                     { "status": "PLANNED" }"""),
             new Action("Sửa ngày", HttpMethod.PATCH, TRIP_OF + "/days/{dayId}", Level.EDIT, HttpStatus.OK, """

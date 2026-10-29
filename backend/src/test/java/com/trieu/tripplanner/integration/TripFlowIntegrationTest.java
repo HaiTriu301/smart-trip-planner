@@ -253,8 +253,18 @@ class TripFlowIntegrationTest {
                 .exchange();
     }
 
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
+    }
+
+    /** PATCH /trips/{id} as the edit form sends it: with the version the trip has now. */
     private MvcTestResult patch(String bearer, long id, String json) {
-        return patch(bearer, id, "", json);
+        return patch(bearer, id, "", withTripVersion(id, json));
     }
 
     private MvcTestResult patch(String bearer, long id, String subPath, String json) {

@@ -174,9 +174,9 @@ class TripWeatherFlowIntegrationTest {
         List<Map<String, Object>> daysBefore = JsonPath.read(body(before), "$.data.days");
         assertThat(daysBefore).hasSize(3).allSatisfy(day -> assertThat(day.get("forecast")).isNull());
 
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, ownerBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, ownerBearer, withTripVersion(tripId, """
                 { "destinationName": "Đà Nẵng", "destinationLat": 16.0678, "destinationLng": 108.2208 }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
 
         String after = body(get(weatherUrl(tripId), ownerBearer));
         assertThat(JsonPath.<String>read(after, "$.data.status")).isEqualTo("OK");
@@ -209,9 +209,9 @@ class TripWeatherFlowIntegrationTest {
     @Test
     void tripStillGetsAnAnswerWhileTheWeatherSourceIsDownAndAForecastOnceItIsBack(CapturedOutput output) {
         long tripId = createTrip(ownerBearer, TODAY, TODAY.plusDays(2), false);
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, ownerBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, ownerBearer, withTripVersion(tripId, """
                 { "destinationName": "Huế", "destinationLat": 16.4637, "destinationLng": 107.5909 }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         // Down for the first question, back for every question after it
         doThrow(new ProviderUnavailableException("open-meteo", "read timed out"))
                 .doCallRealMethod()
@@ -300,6 +300,15 @@ class TripWeatherFlowIntegrationTest {
 
     private MvcTestResult get(String url, String bearer) {
         return send("GET", url, bearer, null);
+    }
+
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
     }
 
     private MvcTestResult send(String method, String url, String bearer, String json) {
