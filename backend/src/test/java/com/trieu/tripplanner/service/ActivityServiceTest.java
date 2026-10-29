@@ -24,6 +24,7 @@ import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.exception.StaleVersionException;
 import com.trieu.tripplanner.mapper.ActivityMapperImpl;
 import com.trieu.tripplanner.mapper.PlaceMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
@@ -691,6 +692,57 @@ class ActivityServiceTest {
                     .hasMessageContaining("Activity");
             verify(activityRepository, never()).saveAndFlush(any());
             assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+        }
+
+        // ---- optimistic lock (design.md 11.5) -------------------------------------------------------------------
+
+        @Test
+        void anOldVersionIsRefusedWith409AndNothingChanges() {
+            // Somebody saved the activity three times since this client loaded it
+            ReflectionTestUtils.setField(stored, "version", 3L);
+
+            assertThatThrownBy(() -> update(TestActivities.withVersion(titled("Ăn sáng muộn"), 2L)))
+                    .isInstanceOfSatisfying(StaleVersionException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.STALE_VERSION);
+                        assertThat(ex.getMessage())
+                                .isEqualTo("Activity 31: client sent version 2, stored version is 3");
+                    });
+
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng");
+            verify(activityRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void theVersionIsCheckedBeforeThePlaceAndTheTimes() {
+            ReflectionTestUtils.setField(stored, "version", 1L);
+            // Overlapping times and a place to check: the user hears about the stale version, not about those
+            UpdateActivityRequest request = TestActivities.withPlace(
+                    TestActivities.withVersion(times(LocalTime.of(9, 30), TEN_THIRTY), 0L), 71L);
+
+            assertThatThrownBy(() -> update(request)).isInstanceOf(StaleVersionException.class);
+
+            verifyNoInteractions(placeService);
+            verify(activityRepository, never()).findTimedByTripDayId(anyLong());
+        }
+
+        @Test
+        void aRetryWithAllowOverlapStillNeedsTheCurrentVersion() {
+            ReflectionTestUtils.setField(stored, "version", 1L);
+
+            assertThatThrownBy(() -> activityService.update(TRIP_ID, ACTIVITY_ID, USER_ID,
+                    TestActivities.withVersion(times(LocalTime.of(9, 30), TEN_THIRTY), 0L), true))
+                    .isInstanceOf(StaleVersionException.class);
+            assertThat(stored.getStartTime()).isEqualTo(NINE);
+        }
+
+        @Test
+        void theStoredVersionIsAccepted() {
+            ReflectionTestUtils.setField(stored, "version", 4L);
+
+            update(TestActivities.withVersion(titled("Ăn sáng muộn"), 4L));
+
+            assertThat(stored.getTitle()).isEqualTo("Ăn sáng muộn");
+            verify(activityRepository).saveAndFlush(stored);
         }
 
         @Test
@@ -1443,6 +1495,8 @@ class ActivityServiceTest {
             Activity activity = Activity.builder().tripDay(day).title("Hoạt động " + id).orderIndex(orderIndex)
                     .createdBy(creator).build();
             ReflectionTestUtils.setField(activity, "id", id);
+            // A stored activity: the edited one is updated on the version its request was made on
+            ReflectionTestUtils.setField(activity, "version", 0L);
             return activity;
         }
 

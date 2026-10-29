@@ -346,6 +346,40 @@ class ActivityFlowIntegrationTest {
     }
 
     @Test
+    void ofTwoSavesMadeOnTheSameVersionTheSecondIsRefusedAndWritesNothing() {
+        long activity = id(send("POST", dayUrl(0), ownerBearer, timed("Ăn sáng", "09:00", "10:00")));
+
+        // Two clients opened the edit form while the activity was at version 0 (design.md 16, rule 14.29)
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+                { "version": 0, "note": "Từ tab A" }
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+        Map<String, Object> afterTheFirstSave = row(activity);
+
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+                { "version": 0, "title": "Từ tab B", "startTime": "09:30" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "STALE_VERSION",
+                          "message": "Dữ liệu đã bị người khác thay đổi, vui lòng tải lại" }
+                        """);
+        assertThat(row(activity)).isEqualTo(afterTheFirstSave);
+
+        // The second client reloads, takes version 1 and saves again on purpose: what it sends wins, the note of
+        // the first client stays because the second one did not send it
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+                { "version": 1, "title": "Từ tab B", "startTime": "09:30" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "title": "Từ tab B", "note": "Từ tab A", "startTime": "09:30", "endTime": "10:00",
+                                    "version": 2 } }
+                        """);
+    }
+
+    @Test
     void activitiesOfADeletedTripAreUnreachableButStillStored() {
         long activity = id(send("POST", dayUrl(0), ownerBearer, timed("Ăn sáng", "09:00", "10:00")));
         assertThat(send("DELETE", TRIPS_URL + "/" + tripId, ownerBearer, null)).hasStatusOk();

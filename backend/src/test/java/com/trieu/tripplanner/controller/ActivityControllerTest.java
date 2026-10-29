@@ -19,6 +19,7 @@ import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.exception.StaleVersionException;
 import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.PlaceProvider;
 import com.trieu.tripplanner.security.JwtTokenProvider;
@@ -581,6 +582,39 @@ class ActivityControllerTest {
                 .asArray()
                 .containsExactlyInAnyOrder("title", "costAmount", "currency", "bookingUrl");
         verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void updateWithoutVersionReturns400OnTheVersionFieldAndNeverReachesService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        // A client that does not say which version it saw could overwrite anything (design.md 10.2)
+        assertThat(patch(ACTIVITY_URL, """
+                { "title": "Ăn sáng ở chợ" }
+                """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "version",
+                                         "message": "Thiếu số phiên bản của dữ liệu, hãy tải lại trang rồi thử lại" } ] }
+                        """);
+        verifyNoInteractions(activityService);
+    }
+
+    @Test
+    void updateReturns409WhenTheVersionIsNoLongerTheStoredOne() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false)))
+                .thenThrow(new StaleVersionException("Activity", ACTIVITY_ID, 2L, 3L));
+
+        assertThat(patch(ACTIVITY_URL, """
+                { "version": 2, "title": "Ăn sáng ở chợ" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "STALE_VERSION",
+                          "message": "Dữ liệu đã bị người khác thay đổi, vui lòng tải lại" }
+                        """);
     }
 
     @Test

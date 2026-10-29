@@ -9,6 +9,7 @@ import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.exception.StaleVersionException;
 import com.trieu.tripplanner.mapper.ActivityMapper;
 import com.trieu.tripplanner.mapper.TripDayMapper;
 import com.trieu.tripplanner.model.Activity;
@@ -120,6 +121,11 @@ public class ActivityServiceImpl implements ActivityService {
                                    boolean allowOverlap) {
         Trip trip = findLiveTrip(tripId);
         Activity activity = findActivityOfTrip(activityId, tripId);
+        // Before every other rule (design.md 10.2): the user must not be asked about an overlap or a place on a
+        // version somebody else has already replaced, and a retry with allowOverlap needs the current version too
+        if (!activity.getVersion().equals(request.version())) {
+            throw new StaleVersionException("Activity", activityId, request.version(), activity.getVersion());
+        }
 
         // Merged state first, entity untouched: a rejected request must leave nothing to flush
         LocalTime startTime = request.startTime() != null ? toMinutes(request.startTime()) : activity.getStartTime();
