@@ -35,6 +35,16 @@ export function isWorthRetrying(error: unknown): boolean {
   return getApiError(error)?.errorCode !== PROVIDER_UNAVAILABLE
 }
 
+/** 409 STALE_VERSION: somebody saved the same trip or activity after the form loaded it (design.md 11.5). */
+export function isStaleVersion(error: unknown): boolean {
+  return getApiError(error)?.errorCode === 'STALE_VERSION'
+}
+
+/** 404 RESOURCE_NOT_FOUND: what the request is about does not exist, or no longer does. */
+export function isNotFound(error: unknown): boolean {
+  return getApiError(error)?.errorCode === 'RESOURCE_NOT_FOUND'
+}
+
 /** Vietnamese message from the backend (messages.properties), or a generic fallback. */
 export function getErrorMessage(error: unknown): string {
   return getApiError(error)?.message ?? NETWORK_ERROR_MESSAGE

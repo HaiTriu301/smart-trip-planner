@@ -390,6 +390,8 @@ Tông: `neutral`, `muted`, `brand`, `info`, `success`, `warning` (mục 3.5). D�
 - Toast có thể kèm **một link** dẫn tới kết quả không nằm trên màn hình: `Đã chuyển "…" sang Ngày 3` + "Mở Ngày 3".
 - Lỗi của thao tác không có form (kéo thả, đổi trạng thái) báo bằng toast đỏ, không báo bằng khung đỏ nằm xa chỗ thao tác.
 - **Không có nút "Hoàn tác"** cho tới khi API hỗ trợ khôi phục: hoạt động bị xoá cứng ngay.
+- Toast đỏ "Hoạt động này vừa bị xoá" (Task 5.1, **Đã làm**): lưu form "Sửa hoạt động" của một hoạt động người khác vừa xoá; form đóng.
+- **Dòng báo trong form — `Alert`** (`components/Alert.tsx`): khung bo `card`, viền 1px, icon bên trái, nằm trên các ô của form. `error` (`danger`, `CircleAlert`), `success` (`success`, `CircleCheck`), `info` (`info`, `Info`), `warning` (Task 5.1, **Đã làm**: nền `warning` 10%, viền `warning` đậm, chữ `gray-800` vì chữ vàng không đủ tương phản, icon `TriangleAlert`). `error` và `warning` có `role="alert"`, hai loại kia `role="status"`.
 
 ### 7.8. Khung xương — `Skeleton`
 
@@ -771,7 +773,7 @@ Thanh chọn "Trạng thái 1 / 2 / 3" trong mockup Stitch là công cụ xem tr
 | `FORBIDDEN` | "Bạn không có quyền thực hiện thao tác này" | "Bạn chỉ có quyền xem chuyến đi này." (khi đã có vai trò chỉ xem, Phase 4) |
 | `QUOTA_EXCEEDED` | — (Phase 6) | "Gói miễn phí cho phép tối đa 3 chuyến đi. Nâng cấp để tạo thêm." |
 | `PREMIUM_REQUIRED` | — (Phase 6) | "Tính năng này dành cho gói Premium." |
-| `STALE_VERSION` | — (Task 5.1) | Dòng báo trong form, form **không đóng** và giữ chữ đang gõ: "Hoạt động này vừa được người khác sửa. Bấm Lưu lần nữa để ghi đè bằng nội dung của bạn, hoặc Huỷ để xem bản mới." (form sửa chuyến đi: "Chuyến đi này vừa được người khác sửa…"). Chốt 2026-10-27 khi rà Phase 5, thay hộp "Tải lại" của bản trước |
+| `STALE_VERSION` | "Dữ liệu đã bị người khác thay đổi, vui lòng tải lại" (giao diện không hiện câu này) | **Đã làm** ở form hoạt động (Task 5.1 Mốc 4), form chuyến đi ở Mốc 6. `Alert` `warning` trong form, form **không đóng** và giữ chữ đang gõ: "Hoạt động này vừa được người khác sửa. Bấm Lưu lần nữa để ghi đè bằng nội dung của bạn, hoặc Huỷ để xem bản mới." (form sửa chuyến đi: "Chuyến đi này vừa được người khác sửa…"). Chốt 2026-10-27 khi rà Phase 5, thay hộp "Tải lại" của bản trước |
 | `RATE_LIMIT_EXCEEDED` | — (Phase 8) | "Bạn thao tác hơi nhanh. Thử lại sau một phút." |
 
 ---
@@ -870,7 +872,7 @@ Sau khi Stitch trả kết quả, kiểm và sửa ngay bốn lỗi hay gặp: t
 | 4.5 | Hộp thoại chia sẻ (mời, vai trò, gỡ, liên kết), huy hiệu vai trò, chế độ chỉ xem, thẻ "Được chia sẻ", trang nhận lời mời, trang công khai | Phase 4 (rà 2026-10-06) |
 | 4.9 | Ô chọn kiểu mới (tiền tệ, ngày đích, vai trò), menu trạng thái và sắp xếp, nút gạt vai trò, ô giờ gõ nhanh, lịch chọn ngày đi – về, chip hạn liên kết, ô ghi chú tự giãn | Phase 4 (làm trước 4.6, 2026-10-18) |
 | 4.6 | Panel bình luận (hai tab "Chung \| Hoạt động", trả lời, xoá, bản nháp, trượt vào / ra), nút bình luận kèm số trên thẻ hoạt động | Đã làm (`feat/T4.6-comments-ui`, 2026-10-19) |
-| 5.1 | Dòng báo "vừa được người khác sửa" trong form hoạt động và form sửa chuyến đi | Phase 5 (rà 2026-10-27) |
+| 5.1 | Dòng báo "vừa được người khác sửa" trong form hoạt động và form sửa chuyến đi | Đang làm (`feat/T5.1-stale-version`): form hoạt động đã làm, form chuyến đi ở Mốc 6 |
 | 5.5 | Ảnh người đang xem, hiệu ứng khi người khác sửa, rời trang khi mất quyền | Phase 5 (rà 2026-10-27) |
 | 6.4 | Trang nâng cấp, hộp báo chạm hạn mức, trang kết quả thanh toán | Phase 6 |
 | 7.x | Trang chi phí (biểu đồ), màn gợi ý AI | Phase 7 |
