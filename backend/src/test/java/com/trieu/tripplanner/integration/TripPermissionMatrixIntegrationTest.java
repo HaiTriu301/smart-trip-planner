@@ -140,7 +140,7 @@ class TripPermissionMatrixIntegrationTest {
                     { "title": "Ăn trưa" }"""),
             new Action("Sửa hoạt động", HttpMethod.PATCH, TRIP_OF + "/activities/{activityId}", Level.EDIT,
                     HttpStatus.OK, """
-                    { "title": "Ăn sáng ở chợ" }"""),
+                    { "version": 0, "title": "Ăn sáng ở chợ" }"""),
             new Action("Sắp xếp lại hoạt động", HttpMethod.PUT, TRIP_OF + "/activities/reorder", Level.EDIT,
                     HttpStatus.OK, """
                     { "items": [ { "activityId": {activityId}, "dayId": {dayId}, "orderIndex": 500 } ] }"""),

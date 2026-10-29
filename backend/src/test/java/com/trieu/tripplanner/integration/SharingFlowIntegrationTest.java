@@ -299,7 +299,7 @@ class SharingFlowIntegrationTest {
                 """);
         assertThat(activity).hasStatus(HttpStatus.CREATED);
         assertThat(send("PATCH", TRIPS_URL + "/" + tripId + "/activities/" + id(activity), editorBearer, """
-                { "title": "Ăn sáng ở chợ" }
+                { "version": 0, "title": "Ăn sáng ở chợ" }
                 """)).hasStatusOk();
 
         assertThat(send("DELETE", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);

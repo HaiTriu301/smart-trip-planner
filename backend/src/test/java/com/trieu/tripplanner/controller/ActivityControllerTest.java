@@ -334,7 +334,7 @@ class ActivityControllerTest {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
 
         assertThat(patch(ACTIVITY_URL, """
-                { "note": "%s" }
+                { "version": 0, "note": "%s" }
                 """.formatted("a".repeat(256))))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[0].field").isEqualTo("note");
@@ -466,7 +466,7 @@ class ActivityControllerTest {
 
         // userId in the body is ignored: the place is checked against the user inside the token (id 7)
         assertThat(patch(ACTIVITY_URL, """
-                { "placeId": 72, "userId": 99 }
+                { "version": 0, "placeId": 72, "userId": 99 }
                 """))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
@@ -485,7 +485,7 @@ class ActivityControllerTest {
                 .thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL, """
-                { "clearPlace": true }
+                { "version": 0, "clearPlace": true }
                 """))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
@@ -506,7 +506,7 @@ class ActivityControllerTest {
                         "Activity 21 update asks to change and to clear the place at once"));
 
         assertThat(patch(ACTIVITY_URL, """
-                { "placeId": 72, "clearPlace": true }
+                { "version": 0, "placeId": 72, "clearPlace": true }
                 """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().isLenientlyEqualTo("""
@@ -522,7 +522,7 @@ class ActivityControllerTest {
         when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL, """
-                { "title": "An trua", "endTime": "13:00", "note": "", "bookingUrl": "" }
+                { "version": 0, "title": "An trua", "endTime": "13:00", "note": "", "bookingUrl": "" }
                 """))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
@@ -539,11 +539,13 @@ class ActivityControllerTest {
     }
 
     @Test
-    void updateWithEmptyBodyObjectIsAcceptedAsNoChange() {
+    void updateWithOnlyTheVersionIsAcceptedAsNoChange() {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
         when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(false))).thenReturn(sampleActivity());
 
-        assertThat(patch(ACTIVITY_URL, "{}")).hasStatusOk();
+        assertThat(patch(ACTIVITY_URL, """
+                { "version": 0 }
+                """)).hasStatusOk();
     }
 
     @Test
@@ -559,7 +561,7 @@ class ActivityControllerTest {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(false);
 
         assertThat(patch(ACTIVITY_URL, """
-                { "title": "Sua trom" }
+                { "version": 0, "title": "Sua trom" }
                 """))
                 .hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("FORBIDDEN");
@@ -571,7 +573,7 @@ class ActivityControllerTest {
         when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
 
         assertThat(patch(ACTIVITY_URL, """
-                { "title": "   ", "costAmount": -1, "currency": "vnd", "bookingUrl": "ftp://example.com" }
+                { "version": 0, "title": "   ", "costAmount": -1, "currency": "vnd", "bookingUrl": "ftp://example.com" }
                 """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson()
@@ -591,7 +593,7 @@ class ActivityControllerTest {
                                 "Cà phê", "10:00", "11:00"))));
 
         assertThat(patch(ACTIVITY_URL, """
-                { "startTime": "09:30", "endTime": "10:30" }
+                { "version": 0, "startTime": "09:30", "endTime": "10:30" }
                 """))
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().isLenientlyEqualTo("""
@@ -606,7 +608,7 @@ class ActivityControllerTest {
         when(activityService.update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(true))).thenReturn(sampleActivity());
 
         assertThat(patch(ACTIVITY_URL + "?allowOverlap=true", """
-                { "startTime": "09:30", "endTime": "10:30" }
+                { "version": 0, "startTime": "09:30", "endTime": "10:30" }
                 """))
                 .hasStatusOk();
         verify(activityService).update(eq(TRIP_ID), eq(ACTIVITY_ID), eq(USER_ID), any(), eq(true));
@@ -619,7 +621,7 @@ class ActivityControllerTest {
                 .thenThrow(new ResourceNotFoundException("Activity", ACTIVITY_ID));
 
         assertThat(patch(ACTIVITY_URL, """
-                { "title": "Nham chuyen" }
+                { "version": 0, "title": "Nham chuyen" }
                 """))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
@@ -628,7 +630,7 @@ class ActivityControllerTest {
     @Test
     void updateWithNonNumericActivityIdReturns400() {
         assertThat(patch("/api/v1/trips/5/activities/abc", """
-                { "title": "X" }
+                { "version": 0, "title": "X" }
                 """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
