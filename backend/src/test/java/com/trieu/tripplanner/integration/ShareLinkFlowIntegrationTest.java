@@ -234,6 +234,20 @@ class ShareLinkFlowIntegrationTest {
                 .containsExactly(kept);
     }
 
+    @Test
+    void sharingAndUnsharingLeaveTheTripVersionAlone() {
+        String token = createLink(null);
+        assertThat(visibility()).isEqualTo("LINK");
+        assertThat(tripVersion()).isZero();
+
+        Long linkId = jdbcTemplate.queryForObject("SELECT id FROM share_links WHERE token = ?", Long.class, token);
+        assertThat(send("DELETE", linksUrl() + "/" + linkId, ownerBearer, null)).hasStatusOk();
+
+        // The last link is gone, so the trip is private again; an open "edit trip" form is not made stale
+        assertThat(visibility()).isEqualTo("PRIVATE");
+        assertThat(tripVersion()).isZero();
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------------
 
     /** Every refusal of the public page is the same 404: a guest cannot tell why. */
@@ -268,6 +282,10 @@ class ShareLinkFlowIntegrationTest {
 
     private String visibility() {
         return jdbcTemplate.queryForObject("SELECT visibility FROM trips WHERE id = ?", String.class, tripId);
+    }
+
+    private long tripVersion() {
+        return jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
     }
 
     private String linksUrl() {

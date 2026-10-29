@@ -104,18 +104,19 @@ class TripFlowIntegrationTest {
     void ownerChangesStatusFreelyAndTheListFiltersByIt() {
         long id = idOf(createTrip(ownerBearer, "Nha Trang", "2026-11-01", "2026-11-03"));
 
+        // The status is left out of the optimistic lock: a status change never makes an open edit form stale
         assertThat(patchStatus(ownerBearer, id, "PLANNED"))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
-                        { "data": { "status": "PLANNED", "title": "Nha Trang", "version": 1 } }
+                        { "data": { "status": "PLANNED", "title": "Nha Trang", "version": 0 } }
                         """);
         assertThat(titles(list(ownerBearer, "?status=PLANNED"))).containsExactly("Nha Trang");
         assertThat(titles(list(ownerBearer, "?status=DRAFT"))).isEmpty();
 
-        // Same status again: 200, nothing written, so the version does not move
+        // Same status again: 200, nothing written
         assertThat(patchStatus(ownerBearer, id, "PLANNED"))
                 .hasStatusOk()
-                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+                .bodyJson().extractingPath("$.data.version").isEqualTo(0);
 
         // Any transition is allowed, including back to DRAFT; the MySQL ENUM column accepts every value
         for (String status : List.of("ONGOING", "COMPLETED", "ARCHIVED", "DRAFT")) {
@@ -123,6 +124,14 @@ class TripFlowIntegrationTest {
             String stored = jdbcTemplate.queryForObject("SELECT status FROM trips WHERE id = ?", String.class, id);
             assertThat(stored).isEqualTo(status);
         }
+        assertThat(storedVersion(id)).isZero();
+
+        // What the edit form changes is still locked
+        assertThat(patch(ownerBearer, id, """
+                { "title": "Nha Trang mùa hè" }
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
     }
 
     @Test
@@ -259,6 +268,10 @@ class TripFlowIntegrationTest {
         return patch(bearer, id, "/status", """
                 { "status": "%s" }
                 """.formatted(status));
+    }
+
+    private long storedVersion(long id) {
+        return jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, id);
     }
 
     private MvcTestResult statusCounts(String bearer, String query) {

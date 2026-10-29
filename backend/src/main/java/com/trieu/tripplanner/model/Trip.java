@@ -21,6 +21,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OptimisticLock;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
@@ -36,6 +37,10 @@ import org.hibernate.type.SqlTypes;
  * {@code owner}, {@code slug} and {@code version} have no setters: the owner is fixed at creation (ownership
  * transfer is a separate action, design.md 14.7), the slug never changes so shared links keep working,
  * and the version belongs to Hibernate.
+ * <p>
+ * The version protects what the "edit trip" form changes (design.md 11.5): {@code status} and {@code visibility}
+ * are excluded from the optimistic lock, so changing the status or creating / revoking a share link never makes
+ * another user's open edit form stale. Same idea as the position of an activity.
  */
 @Entity
 @Table(name = "trips")
@@ -94,12 +99,16 @@ public class Trip extends BaseEntity {
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = DEFAULT_CURRENCY;
 
+    /** Changed only by PATCH /{id}/status, which carries no version (design.md 10.2). */
     @Builder.Default
+    @OptimisticLock(excluded = true)
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private TripStatus status = TripStatus.DRAFT;
 
+    /** Changed only by the share links of the trip (design.md rule 14.26). */
     @Builder.Default
+    @OptimisticLock(excluded = true)
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false)
     private TripVisibility visibility = TripVisibility.PRIVATE;
