@@ -3,6 +3,7 @@ package com.trieu.tripplanner.dto.request;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -14,6 +15,10 @@ import java.time.LocalDate;
  * No {@code status}: it changes only through PATCH /{id}/status. No {@code visibility}: only the share links
  * of the trip change it (design.md rule 14.26). Constraints mirror {@link CreateTripRequest}; every annotation
  * used here ignores null, so omitted fields are never rejected.
+ * <p>
+ * {@code version} is required: the version of the trip the client was looking at. Somebody saved it since →
+ * 409 STALE_VERSION and nothing is written, even with force=true (design.md 10.2, 11.5). A status change or a
+ * share link does not move it (Trip, @OptimisticLock).
  */
 public record UpdateTripRequest(
         // @NotBlank would reject null; this only rejects a present-but-blank title
@@ -50,5 +55,8 @@ public record UpdateTripRequest(
         BigDecimal budgetAmount,
 
         @Pattern(regexp = "^[A-Z]{3}$", message = "{validation.trip.currency.invalid}")
-        String currency) {
+        String currency,
+
+        @NotNull(message = "{validation.version.required}")
+        Long version) {
 }

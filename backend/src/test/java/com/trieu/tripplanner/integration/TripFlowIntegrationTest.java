@@ -207,6 +207,40 @@ class TripFlowIntegrationTest {
     }
 
     @Test
+    void ofTwoSavesMadeOnTheSameVersionTheSecondIsRefusedEvenWithForce() {
+        long id = idOf(createTrip(ownerBearer, "Đà Lạt", "2026-10-01", "2026-10-03"));
+
+        // Two edit forms opened at version 0. A status change in between is not part of the form (Task 5.1 Mốc 1)
+        assertThat(patchStatus(ownerBearer, id, "PLANNED")).hasStatusOk();
+        assertThat(patch(ownerBearer, id, "", """
+                { "version": 0, "description": "Từ tab A" }
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+
+        // The second form shortens the trip and already said yes to losing a day: still refused, no day removed
+        assertThat(patch(ownerBearer, id, "?force=true", """
+                { "version": 0, "title": "Từ tab B", "endDate": "2026-10-02" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("STALE_VERSION");
+        assertThat(jdbcTemplate.queryForMap("SELECT title, end_date FROM trips WHERE id = ?", id))
+                .containsEntry("title", "Đà Lạt").containsEntry("end_date", java.sql.Date.valueOf("2026-10-03"));
+        assertThat(dayCount(id)).isEqualTo(3);
+
+        // Saved again on version 1: what the second form sends wins, the description of the first one stays
+        assertThat(patch(ownerBearer, id, "?force=true", """
+                { "version": 1, "title": "Từ tab B", "endDate": "2026-10-02" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "title": "Từ tab B", "description": "Từ tab A", "endDate": "2026-10-02",
+                                    "status": "PLANNED", "version": 2 } }
+                        """);
+        assertThat(dayCount(id)).isEqualTo(2);
+    }
+
+    @Test
     void missingOrDeletedTripIs404EvenForAStranger() {
         long id = idOf(createTrip(ownerBearer, "Sẽ bị xoá", "2026-10-01", "2026-10-01"));
         assertThat(mvc.delete().uri(TRIPS_URL + "/" + id).header(HttpHeaders.AUTHORIZATION, ownerBearer))
@@ -278,6 +312,10 @@ class TripFlowIntegrationTest {
         return patch(bearer, id, "/status", """
                 { "status": "%s" }
                 """.formatted(status));
+    }
+
+    private int dayCount(long tripId) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM trip_days WHERE trip_id = ?", Integer.class, tripId);
     }
 
     private long storedVersion(long id) {
