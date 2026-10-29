@@ -4,23 +4,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.trieu.tripplanner.common.constant.ErrorCode;
 import com.trieu.tripplanner.config.SecurityConfig;
+import com.trieu.tripplanner.model.Trip;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 // /test/** is not public, so act as a logged-in user; the handler itself is auth-agnostic
 @WithMockUser
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {
 
     @Autowired
@@ -224,6 +231,25 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void twoOverlappingSavesOfTheSameRowAreAConflictNotAServerFailure(CapturedOutput output) {
+        assertThat(mvc.patch().uri("/test/concurrent-update"))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        {
+                          "success": false,
+                          "errorCode": "STALE_VERSION",
+                          "message": "Dữ liệu đã bị người khác thay đổi, vui lòng tải lại",
+                          "path": "/test/concurrent-update"
+                        }
+                        """);
+
+        // One WARN line naming the row: the caller's situation, not a bug, so no stack trace
+        assertThat(output).contains("WARN")
+                .contains("Concurrent update of com.trieu.tripplanner.model.Trip 42 on PATCH /test/concurrent-update");
+        assertThat(output).doesNotContain(ObjectOptimisticLockingFailureException.class.getName());
+    }
+
+    @Test
     void unexpectedExceptionReturnsGenericMessageWithoutInternalDetails() {
         MvcTestResult result = mvc.get().uri("/test/unexpected").exchange();
 
@@ -286,6 +312,12 @@ class GlobalExceptionHandlerTest {
         void serviceValidation() {
             // Same exception a @Validated service throws when its method arguments are invalid
             throw new ConstraintViolationException(validator.validate(new SampleRequest("", 0)));
+        }
+
+        @PatchMapping("/concurrent-update")
+        void concurrentUpdate() {
+            // What Spring throws when the UPDATE of a versioned row matches no row
+            throw new ObjectOptimisticLockingFailureException(Trip.class, 42L);
         }
 
         @GetMapping("/unexpected")
