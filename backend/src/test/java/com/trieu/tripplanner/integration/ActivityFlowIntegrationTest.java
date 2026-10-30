@@ -121,9 +121,9 @@ class ActivityFlowIntegrationTest {
         assertThat(row(second)).containsEntry("order_index", 2000).containsEntry("type", "OTHER");
 
         // partial update: only what is sent changes, "" clears the note, the version goes up
-        MvcTestResult updated = send("PATCH", activityUrl(first), ownerBearer, """
+        MvcTestResult updated = send("PATCH", activityUrl(first), ownerBearer, withVersion(first, """
                 { "title": "Săn mây Cầu Đất", "note": "", "endTime": "07:30" }
-                """);
+                """));
         assertThat(updated).hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Săn mây Cầu Đất", "note": null, "startTime": "03:00", "endTime": "07:30",
@@ -180,9 +180,9 @@ class ActivityFlowIntegrationTest {
                 .containsExactly("Ăn sáng", "Dạo phố", "Bảo tàng", "Ăn trưa");
 
         // a new start time moves it; the untimed activity keeps its place after "Ăn sáng"
-        assertThat(send("PATCH", activityUrl(noon), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(noon), ownerBearer, withVersion(noon, """
                 { "startTime": "07:00" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(titles(send("GET", dayUrl(0), ownerBearer, null)))
                 .containsExactly("Ăn trưa", "Ăn sáng", "Dạo phố", "Bảo tàng");
 
@@ -190,9 +190,9 @@ class ActivityFlowIntegrationTest {
         assertThat(send("PUT", TRIPS_URL + "/" + tripId + "/activities/reorder", ownerBearer, """
                 { "items": [ { "activityId": %d, "dayId": %d, "orderIndex": 1 } ] }
                 """.formatted(morning, dayIds.get(0)))).hasStatusOk();
-        assertThat(send("PATCH", activityUrl(morning), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(morning), ownerBearer, withVersion(morning, """
                 { "title": "Ăn sáng sớm", "startTime": "08:00" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(titles(send("GET", dayUrl(0), ownerBearer, null)))
                 .containsExactly("Ăn sáng sớm", "Ăn trưa", "Dạo phố", "Bảo tàng");
     }
@@ -237,32 +237,32 @@ class ActivityFlowIntegrationTest {
 
         // editing: moving into another activity is refused and leaves the row exactly as it was
         Map<String, Object> before = row(market);
-        assertThat(send("PATCH", activityUrl(market), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(market), ownerBearer, withVersion(market, """
                 { "title": "Không được lưu", "startTime": "09:45" }
-                """)).hasStatus(HttpStatus.CONFLICT);
+                """))).hasStatus(HttpStatus.CONFLICT);
         assertThat(row(market)).isEqualTo(before);
 
         // ...a changed range is checked again, even against a neighbour it already overlapped: "Cà phê"
         // (09:30–10:30) was added over "Đi chợ" (10:00–11:00) with allowOverlap, that gives no free pass later
-        assertThat(send("PATCH", activityUrl(market), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(market), ownerBearer, withVersion(market, """
                 { "endTime": "11:30" }
-                """)).hasStatus(HttpStatus.CONFLICT);
+                """))).hasStatus(HttpStatus.CONFLICT);
         assertThat(row(market)).isEqualTo(before);
 
         // ...an activity is never its own conflict: 20:00–21:00 may grow to 20:00–21:30
-        assertThat(send("PATCH", activityUrl(dinner), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(dinner), ownerBearer, withVersion(dinner, """
                 { "endTime": "21:30" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(row(dinner)).containsEntry("s", "20:00:00").containsEntry("e", "21:30:00");
 
         // ...and an unchanged range is not checked at all, so an overlapping activity can still be renamed
-        assertThat(send("PATCH", activityUrl(breakfast), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(breakfast), ownerBearer, withVersion(breakfast, """
                 { "title": "Ăn sáng muộn" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
 
-        assertThat(send("PATCH", activityUrl(market) + "?allowOverlap=true", ownerBearer, """
+        assertThat(send("PATCH", activityUrl(market) + "?allowOverlap=true", ownerBearer, withVersion(market, """
                 { "startTime": "09:45" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(row(market)).containsEntry("s", "09:45:00").containsEntry("e", "11:00:00");
     }
 
@@ -289,9 +289,9 @@ class ActivityFlowIntegrationTest {
 
         // on update the rule is checked against the stored value
         long activity = id(send("POST", dayUrl(0), ownerBearer, timed("Ăn sáng", "09:00", "10:00")));
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "endTime": "08:00" }
-                """))
+                """)))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[0].field").isEqualTo("endTime");
         assertThat(row(activity)).containsEntry("e", "10:00:00").containsEntry("version", 0L);
@@ -308,9 +308,9 @@ class ActivityFlowIntegrationTest {
         assertThat(send("POST", dayUrl(0), strangerBearer, """
                 { "title": "Thêm trộm" }
                 """)).hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(send("PATCH", activityUrl(activity), strangerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), strangerBearer, withVersion(activity, """
                 { "title": "Sửa trộm" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(send("DELETE", activityUrl(activity), strangerBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
 
         assertThat(mvc.get().uri(dayUrl(0))).hasStatus(HttpStatus.UNAUTHORIZED);
@@ -334,15 +334,49 @@ class ActivityFlowIntegrationTest {
                 { "title": "Nhầm ngày" }
                 """)).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(send("GET", wrongDayUrl, ownerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(send("PATCH", wrongActivityUrl, ownerBearer, """
+        assertThat(send("PATCH", wrongActivityUrl, ownerBearer, withVersion(activity, """
                 { "title": "Nhầm chuyến" }
-                """))
+                """)))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("RESOURCE_NOT_FOUND");
         assertThat(send("DELETE", wrongActivityUrl, ownerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
 
         assertThat(row(activity)).isEqualTo(before);
         assertThat(countActivities("1 = 1")).isEqualTo(1);
+    }
+
+    @Test
+    void ofTwoSavesMadeOnTheSameVersionTheSecondIsRefusedAndWritesNothing() {
+        long activity = id(send("POST", dayUrl(0), ownerBearer, timed("Ăn sáng", "09:00", "10:00")));
+
+        // Two clients opened the edit form while the activity was at version 0 (design.md 16, rule 14.29)
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+                { "version": 0, "note": "Từ tab A" }
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+        Map<String, Object> afterTheFirstSave = row(activity);
+
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+                { "version": 0, "title": "Từ tab B", "startTime": "09:30" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "STALE_VERSION",
+                          "message": "Dữ liệu đã bị người khác thay đổi, vui lòng tải lại" }
+                        """);
+        assertThat(row(activity)).isEqualTo(afterTheFirstSave);
+
+        // The second client reloads, takes version 1 and saves again on purpose: what it sends wins, the note of
+        // the first client stays because the second one did not send it
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+                { "version": 1, "title": "Từ tab B", "startTime": "09:30" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "title": "Từ tab B", "note": "Từ tab A", "startTime": "09:30", "endTime": "10:00",
+                                    "version": 2 } }
+                        """);
     }
 
     @Test
@@ -354,9 +388,9 @@ class ActivityFlowIntegrationTest {
         assertThat(send("POST", dayUrl(0), ownerBearer, """
                 { "title": "Sau khi xoá" }
                 """)).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "title": "Sau khi xoá" }
-                """)).hasStatus(HttpStatus.NOT_FOUND);
+                """))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(send("DELETE", activityUrl(activity), ownerBearer, null)).hasStatus(HttpStatus.NOT_FOUND);
 
         // Soft delete of the trip: the activity is still there, ready if the trip is ever restored
@@ -374,9 +408,9 @@ class ActivityFlowIntegrationTest {
         Map<String, Object> before = tripRow();
 
         // blocked: nothing at all may change, not even the title sent in the same request
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "title": "Tên không được lưu", "endDate": "2026-10-02" }
-                """))
+                """)))
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().isLenientlyEqualTo("""
                         { "success": false, "errorCode": "TRIP_DAY_HAS_ACTIVITIES",
@@ -390,24 +424,24 @@ class ActivityFlowIntegrationTest {
                 "2026-10-01=Ăn sáng", "2026-10-03=Chợ đêm", "2026-10-03=Ăn tối");
 
         // a day without activities can be added and cut again without force
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "endDate": "2026-10-04" }
-                """)).hasStatusOk();
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+                """))).hasStatusOk();
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "endDate": "2026-10-03" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
 
         // shifting the whole trip cuts nothing: not blocked, the activities follow their day
-        assertThat(send("PATCH", tripUrl, ownerBearer, """
+        assertThat(send("PATCH", tripUrl, ownerBearer, withTripVersion(tripId, """
                 { "startDate": "2026-10-08", "endDate": "2026-10-10" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(activitiesByDate()).containsExactly(
                 "2026-10-08=Ăn sáng", "2026-10-10=Chợ đêm", "2026-10-10=Ăn tối");
 
         // confirmed by the user: the day goes, and its activities with it
-        assertThat(send("PATCH", tripUrl + "?force=true", ownerBearer, """
+        assertThat(send("PATCH", tripUrl + "?force=true", ownerBearer, withTripVersion(tripId, """
                 { "title": "Đà Lạt 2 ngày", "endDate": "2026-10-09" }
-                """))
+                """)))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Đà Lạt 2 ngày", "startDate": "2026-10-08", "endDate": "2026-10-09" } }
@@ -449,8 +483,27 @@ class ActivityFlowIntegrationTest {
         return TRIPS_URL + "/" + tripId + "/days/" + dayIds.get(dayPosition) + "/activities";
     }
 
+    /**
+     * The body with the version the activity has now in the database, as a client that has just loaded it sends
+     * it (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withVersion(long activityId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM activities WHERE id = ?", Long.class,
+                activityId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
+    }
+
     private String activityUrl(long activityId) {
         return TRIPS_URL + "/" + tripId + "/activities/" + activityId;
+    }
+
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
     }
 
     private long createTrip(String title, String start, String end, String currency) {

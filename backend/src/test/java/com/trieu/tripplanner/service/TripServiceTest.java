@@ -31,6 +31,7 @@ import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.exception.SlugGenerationException;
+import com.trieu.tripplanner.exception.StaleVersionException;
 import com.trieu.tripplanner.dto.response.ActivityResponse;
 import com.trieu.tripplanner.dto.response.TripDayDetailResponse;
 import com.trieu.tripplanner.dto.response.TripDetailResponse;
@@ -229,6 +230,7 @@ class TripServiceTest {
                     .endDate(OCT_1.plusDays(2))
                     .status(TripStatus.PLANNED)
                     .build(), TRIP_ID);
+            ReflectionTestUtils.setField(stored, "version", 0L);
             when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(stored));
             lenient().when(tripRepository.saveAndFlush(stored)).thenReturn(stored);
         }
@@ -306,6 +308,45 @@ class TripServiceTest {
             // Moving start 70 days earlier makes the stored range 73 days long
             assertThatThrownBy(() -> update(updateRequest(null, OCT_1.minusDays(70), null, null)))
                     .satisfies(ex -> assertSingleViolation(ex, "endDate", "error.trip.too-long", 60));
+        }
+
+        // ---- optimistic lock (design.md 11.5) -------------------------------------------------------------------
+
+        @Test
+        void anOldVersionIsRefusedWith409AndNothingIsMergedReconciledOrSaved() {
+            ReflectionTestUtils.setField(stored, "version", 3L);
+
+            assertThatThrownBy(() -> update(updateRequest("Đà Lạt mùa hoa", null, OCT_1.plusDays(1), null, 2L)))
+                    .isInstanceOfSatisfying(StaleVersionException.class, ex -> {
+                        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.STALE_VERSION);
+                        assertThat(ex.getMessage()).isEqualTo("Trip 5: client sent version 2, stored version is 3");
+                    });
+
+            assertThat(stored.getTitle()).isEqualTo("Đà Lạt");
+            assertThat(stored.getEndDate()).isEqualTo(OCT_1.plusDays(2));
+            verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
+            verify(tripRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        void forceDoesNotGetPastAnOldVersion() {
+            ReflectionTestUtils.setField(stored, "version", 1L);
+
+            // "Yes, delete the days with activities" was answered about version 0: no day may go
+            assertThatThrownBy(() -> tripService.update(TRIP_ID,
+                    updateRequest(null, null, OCT_1.plusDays(1), null, 0L), true))
+                    .isInstanceOf(StaleVersionException.class);
+            verify(tripDayService, never()).reconcileDays(any(), any(), any(), anyBoolean());
+        }
+
+        @Test
+        void theStoredVersionIsAccepted() {
+            ReflectionTestUtils.setField(stored, "version", 4L);
+
+            update(updateRequest("Đà Lạt mùa hoa", null, null, null, 4L));
+
+            assertThat(stored.getTitle()).isEqualTo("Đà Lạt mùa hoa");
+            verify(tripRepository).saveAndFlush(stored);
         }
 
         @Test
@@ -544,9 +585,15 @@ class TripServiceTest {
         return new CreateTripRequest(title, null, null, null, lat, lng, start, end, null, null);
     }
 
+    /** Made on version 0, the version of a trip nobody has edited since it was created. */
     private static UpdateTripRequest updateRequest(String title, LocalDate start, LocalDate end,
                                                    BigDecimal lat) {
-        return new UpdateTripRequest(title, null, null, null, lat, null, start, end, null, null);
+        return updateRequest(title, start, end, lat, 0L);
+    }
+
+    private static UpdateTripRequest updateRequest(String title, LocalDate start, LocalDate end,
+                                                   BigDecimal lat, Long version) {
+        return new UpdateTripRequest(title, null, null, null, lat, null, start, end, null, null, version);
     }
 
     private static Trip minimalTrip() {

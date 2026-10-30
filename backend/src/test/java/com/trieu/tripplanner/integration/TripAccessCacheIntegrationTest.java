@@ -226,7 +226,7 @@ class TripAccessCacheIntegrationTest {
 
         // "Viewer" is stored: allowed to view, refused to edit. The refusal is read again and the trip is gone
         assertThat(mvc.patch().uri(tripUrl).header(HttpHeaders.AUTHORIZATION, viewerBearer)
-                .contentType(MediaType.APPLICATION_JSON).content("{ \"title\": \"Sau khi xoá\" }"))
+                .contentType(MediaType.APPLICATION_JSON).content("{ \"version\": 0, \"title\": \"Sau khi xoá\" }"))
                 .hasStatus(HttpStatus.NOT_FOUND);
     }
 

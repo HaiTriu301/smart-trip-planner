@@ -186,17 +186,17 @@ class SharingFlowIntegrationTest {
                         + ", \"ownerName\": \"Test owner@example.com\" } ] } }");
         assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatusOk()
                 .bodyJson().extractingPath("$.data.myRole").isEqualTo("VIEWER");
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, withTripVersion(tripId, """
                 { "title": "Chưa được sửa" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
 
         // 7. Promoted to editor: writes work on the very next request
         assertThat(send("PATCH", memberUrl(memberId), ownerBearer, """
                 { "role": "EDITOR" }
                 """)).hasStatusOk();
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, withTripVersion(tripId, """
                 { "title": "Đà Lạt mùa hoa" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(send("POST", activitiesUrl(), friendBearer, """
                 { "title": "Ăn sáng" }
                 """)).hasStatus(HttpStatus.CREATED);
@@ -206,9 +206,9 @@ class SharingFlowIntegrationTest {
         // 8. Removed: locked out at once, the row stays, the trip leaves the list
         assertThat(send("DELETE", memberUrl(memberId), ownerBearer, null)).hasStatusOk();
         assertThat(send("GET", TRIPS_URL + "/" + tripId, friendBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, friendBearer, withTripVersion(tripId, """
                 { "title": "Hết sửa được" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(send("GET", TRIPS_URL, friendBearer, null)).hasStatusOk()
                 .bodyJson().extractingPath("$.data.totalElements").isEqualTo(0);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM trip_members WHERE id = ?", String.class, memberId))
@@ -269,9 +269,9 @@ class SharingFlowIntegrationTest {
                 .hasStatusOk();
         assertThat(send("GET", "/api/v1/weather/trips/" + tripId, viewerBearer, null)).hasStatusOk();
 
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, withTripVersion(tripId, """
                 { "title": "Đổi tên" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(send("PATCH", TRIPS_URL + "/" + tripId + "/status", viewerBearer, """
                 { "status": "PLANNED" }
                 """)).hasStatus(HttpStatus.FORBIDDEN);
@@ -291,15 +291,15 @@ class SharingFlowIntegrationTest {
 
     @Test
     void editorEditsTheTripAndItsActivitiesButNeitherDeletesItNorManagesMembers() {
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, withTripVersion(tripId, """
                 { "title": "Đà Lạt mùa hoa" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         MvcTestResult activity = send("POST", activitiesUrl(), editorBearer, """
                 { "title": "Ăn sáng" }
                 """);
         assertThat(activity).hasStatus(HttpStatus.CREATED);
         assertThat(send("PATCH", TRIPS_URL + "/" + tripId + "/activities/" + id(activity), editorBearer, """
-                { "title": "Ăn sáng ở chợ" }
+                { "version": 0, "title": "Ăn sáng ở chợ" }
                 """)).hasStatusOk();
 
         assertThat(send("DELETE", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
@@ -319,9 +319,9 @@ class SharingFlowIntegrationTest {
         for (String bearer : new String[] {pendingBearer, removedBearer, strangerBearer}) {
             assertThat(send("GET", TRIPS_URL + "/" + tripId, bearer, null)).hasStatus(HttpStatus.FORBIDDEN);
             assertThat(send("GET", TRIPS_URL + "/" + tripId + "/days", bearer, null)).hasStatus(HttpStatus.FORBIDDEN);
-            assertThat(send("PATCH", TRIPS_URL + "/" + tripId, bearer, """
+            assertThat(send("PATCH", TRIPS_URL + "/" + tripId, bearer, withTripVersion(tripId, """
                     { "title": "Đổi tên" }
-                    """)).hasStatus(HttpStatus.FORBIDDEN);
+                    """))).hasStatus(HttpStatus.FORBIDDEN);
         }
     }
 
@@ -391,17 +391,17 @@ class SharingFlowIntegrationTest {
 
     @Test
     void promotingAViewerToEditorLetsThemEditOnTheVeryNextRequest() {
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, withTripVersion(tripId, """
                 { "title": "Chưa được" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
 
         assertThat(send("PATCH", memberUrl(viewerMemberId), ownerBearer, """
                 { "role": "EDITOR" }
                 """)).hasStatusOk().bodyJson().extractingPath("$.data.role").isEqualTo("EDITOR");
 
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, withTripVersion(tripId, """
                 { "title": "Giờ thì được" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(send("POST", activitiesUrl(), viewerBearer, """
                 { "title": "Ăn sáng" }
                 """)).hasStatus(HttpStatus.CREATED);
@@ -410,9 +410,9 @@ class SharingFlowIntegrationTest {
         assertThat(send("PATCH", memberUrl(viewerMemberId), ownerBearer, """
                 { "role": "VIEWER" }
                 """)).hasStatusOk();
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, viewerBearer, withTripVersion(tripId, """
                 { "title": "Hết được" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
@@ -439,17 +439,17 @@ class SharingFlowIntegrationTest {
 
     @Test
     void removingAnEditorCutsTheirAccessAtOnceAndReinvitingThemReusesTheRow() {
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, withTripVersion(tripId, """
                 { "title": "Còn sửa được" }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
 
         assertThat(send("DELETE", memberUrl(editorMemberId), ownerBearer, null)).hasStatusOk();
 
         // Gone from the trip on the very next request, and gone from the list
         assertThat(send("GET", TRIPS_URL + "/" + tripId, editorBearer, null)).hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, """
+        assertThat(send("PATCH", TRIPS_URL + "/" + tripId, editorBearer, withTripVersion(tripId, """
                 { "title": "Hết sửa được" }
-                """)).hasStatus(HttpStatus.FORBIDDEN);
+                """))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(body(send("GET", TRIPS_URL + "/" + tripId + "/members", ownerBearer, null)))
                 .doesNotContain("editor@example.com");
 
@@ -538,6 +538,15 @@ class SharingFlowIntegrationTest {
                 .invitedAt(SEPT_1)
                 .acceptedAt(status == MemberStatus.PENDING ? null : SEPT_1.plusSeconds(60))
                 .build();
+    }
+
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
     }
 
     private MvcTestResult send(String method, String url, String bearer, String json) {

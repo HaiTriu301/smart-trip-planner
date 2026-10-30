@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TIME_PATTERN } from '../../lib/timeInput'
 import { currencyCode, moneyText, urlText } from '../../lib/validation'
-import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../../types/activity'
+import type { Activity, ActivityChanges, CreateActivityRequest } from '../../types/activity'
 import { ACTIVITY_TYPES } from './activityType'
 
 // Mirrors backend dto/request (UpdateTripDayRequest...), same Vietnamese messages as messages.properties.
@@ -94,9 +94,10 @@ export function findClearedActivityFields(
  * placeId travels only when the place changed: sending back the place an activity already has is not needed,
  * and for a collaborator it could be refused (a place added by hand belongs to its creator, rule 14.19).
  * A place that was removed and not replaced is sent as clearPlace; the two never travel together.
+ * The version is added by the form: an empty result means "nothing to save".
  */
-export function toUpdateActivityRequest(activity: Activity, values: ActivityValues): UpdateActivityRequest {
-  const body: UpdateActivityRequest = {}
+export function toActivityChanges(activity: Activity, values: ActivityValues): ActivityChanges {
+  const body: ActivityChanges = {}
   if (values.title !== activity.title) body.title = values.title
   if (values.type !== activity.type) body.type = values.type
   if (values.startTime && values.startTime !== activity.startTime) body.startTime = values.startTime

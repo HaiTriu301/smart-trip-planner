@@ -33,26 +33,36 @@ public final class TestActivities {
                 request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId);
     }
 
-    /** Body of PATCH .../activities/{id} that leaves the place alone; null means "keep the current value". */
+    /**
+     * Body of PATCH .../activities/{id} that leaves the place alone; null means "keep the current value". Made on
+     * version 0, the version of an activity nobody has saved since it was created; {@link #withVersion} for another.
+     */
     public static UpdateActivityRequest updateRequest(String title, ActivityType type, LocalTime startTime,
                                                       LocalTime endTime, String note, BigDecimal costAmount,
                                                       String currency, String bookingUrl) {
         return new UpdateActivityRequest(title, type, startTime, endTime, note, costAmount, currency, bookingUrl,
-                null, null);
+                null, null, 0L);
+    }
+
+    /** The same body, made on {@code version} of the activity (design.md 11.5). */
+    public static UpdateActivityRequest withVersion(UpdateActivityRequest request, Long version) {
+        return new UpdateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
+                request.note(), request.costAmount(), request.currency(), request.bookingUrl(), request.placeId(),
+                request.clearPlace(), version);
     }
 
     /** The same body, also moving the activity to the place {@code placeId}. */
     public static UpdateActivityRequest withPlace(UpdateActivityRequest request, Long placeId) {
         return new UpdateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
                 request.note(), request.costAmount(), request.currency(), request.bookingUrl(), placeId,
-                request.clearPlace());
+                request.clearPlace(), request.version());
     }
 
     /** The same body with {@code clearPlace} as sent: true asks to remove the place of the activity. */
     public static UpdateActivityRequest withClearPlace(UpdateActivityRequest request, Boolean clearPlace) {
         return new UpdateActivityRequest(request.title(), request.type(), request.startTime(), request.endTime(),
                 request.note(), request.costAmount(), request.currency(), request.bookingUrl(), request.placeId(),
-                clearPlace);
+                clearPlace, request.version());
     }
 
     /** An activity as the API returns it, without a place. */

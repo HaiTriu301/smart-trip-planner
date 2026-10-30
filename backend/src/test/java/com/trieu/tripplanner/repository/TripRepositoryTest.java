@@ -1,6 +1,7 @@
 package com.trieu.tripplanner.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.trieu.tripplanner.TestcontainersConfiguration;
 import com.trieu.tripplanner.dto.internal.TripAccess;
@@ -27,6 +28,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
@@ -45,6 +48,9 @@ class TripRepositoryTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private User owner;
     private User stranger;
@@ -125,6 +131,24 @@ class TripRepositoryTest {
         });
         assertThat(tripRepository.findWithOwnerById(deleted.getId())).isEmpty();
         assertThat(tripRepository.findWithOwnerById(999_999L)).isEmpty();
+    }
+
+    @Test
+    void savingATripChangedSinceItWasReadFailsWithAnOptimisticLockError() {
+        Trip trip = tripRepository.saveAndFlush(trip(owner, "Đà Lạt", "da-lat-aaaaaa", OCT_1, OCT_1));
+        // Another request saved the same row after this one read it: version 0 -> 1 in the database
+        jdbcTemplate.update("UPDATE trips SET version = version + 1 WHERE id = ?", trip.getId());
+
+        trip.setTitle("Đà Lạt mùa hoa");
+
+        // UPDATE ... WHERE version = 0 matches no row; this is the exception GlobalExceptionHandler turns into 409
+        assertThatThrownBy(() -> tripRepository.saveAndFlush(trip))
+                .isInstanceOf(ObjectOptimisticLockingFailureException.class)
+                .satisfies(ex -> {
+                    ObjectOptimisticLockingFailureException lock = (ObjectOptimisticLockingFailureException) ex;
+                    assertThat(lock.getPersistentClassName()).isEqualTo(Trip.class.getName());
+                    assertThat(lock.getIdentifier()).isEqualTo(trip.getId());
+                });
     }
 
     @Test

@@ -104,18 +104,19 @@ class TripFlowIntegrationTest {
     void ownerChangesStatusFreelyAndTheListFiltersByIt() {
         long id = idOf(createTrip(ownerBearer, "Nha Trang", "2026-11-01", "2026-11-03"));
 
+        // The status is left out of the optimistic lock: a status change never makes an open edit form stale
         assertThat(patchStatus(ownerBearer, id, "PLANNED"))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
-                        { "data": { "status": "PLANNED", "title": "Nha Trang", "version": 1 } }
+                        { "data": { "status": "PLANNED", "title": "Nha Trang", "version": 0 } }
                         """);
         assertThat(titles(list(ownerBearer, "?status=PLANNED"))).containsExactly("Nha Trang");
         assertThat(titles(list(ownerBearer, "?status=DRAFT"))).isEmpty();
 
-        // Same status again: 200, nothing written, so the version does not move
+        // Same status again: 200, nothing written
         assertThat(patchStatus(ownerBearer, id, "PLANNED"))
                 .hasStatusOk()
-                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+                .bodyJson().extractingPath("$.data.version").isEqualTo(0);
 
         // Any transition is allowed, including back to DRAFT; the MySQL ENUM column accepts every value
         for (String status : List.of("ONGOING", "COMPLETED", "ARCHIVED", "DRAFT")) {
@@ -123,6 +124,14 @@ class TripFlowIntegrationTest {
             String stored = jdbcTemplate.queryForObject("SELECT status FROM trips WHERE id = ?", String.class, id);
             assertThat(stored).isEqualTo(status);
         }
+        assertThat(storedVersion(id)).isZero();
+
+        // What the edit form changes is still locked
+        assertThat(patch(ownerBearer, id, """
+                { "title": "Nha Trang mùa hè" }
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
     }
 
     @Test
@@ -198,6 +207,40 @@ class TripFlowIntegrationTest {
     }
 
     @Test
+    void ofTwoSavesMadeOnTheSameVersionTheSecondIsRefusedEvenWithForce() {
+        long id = idOf(createTrip(ownerBearer, "Đà Lạt", "2026-10-01", "2026-10-03"));
+
+        // Two edit forms opened at version 0. A status change in between is not part of the form (Task 5.1 Mốc 1)
+        assertThat(patchStatus(ownerBearer, id, "PLANNED")).hasStatusOk();
+        assertThat(patch(ownerBearer, id, "", """
+                { "version": 0, "description": "Từ tab A" }
+                """))
+                .hasStatusOk()
+                .bodyJson().extractingPath("$.data.version").isEqualTo(1);
+
+        // The second form shortens the trip and already said yes to losing a day: still refused, no day removed
+        assertThat(patch(ownerBearer, id, "?force=true", """
+                { "version": 0, "title": "Từ tab B", "endDate": "2026-10-02" }
+                """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().extractingPath("$.errorCode").isEqualTo("STALE_VERSION");
+        assertThat(jdbcTemplate.queryForMap("SELECT title, end_date FROM trips WHERE id = ?", id))
+                .containsEntry("title", "Đà Lạt").containsEntry("end_date", java.sql.Date.valueOf("2026-10-03"));
+        assertThat(dayCount(id)).isEqualTo(3);
+
+        // Saved again on version 1: what the second form sends wins, the description of the first one stays
+        assertThat(patch(ownerBearer, id, "?force=true", """
+                { "version": 1, "title": "Từ tab B", "endDate": "2026-10-02" }
+                """))
+                .hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        { "data": { "title": "Từ tab B", "description": "Từ tab A", "endDate": "2026-10-02",
+                                    "status": "PLANNED", "version": 2 } }
+                        """);
+        assertThat(dayCount(id)).isEqualTo(2);
+    }
+
+    @Test
     void missingOrDeletedTripIs404EvenForAStranger() {
         long id = idOf(createTrip(ownerBearer, "Sẽ bị xoá", "2026-10-01", "2026-10-01"));
         assertThat(mvc.delete().uri(TRIPS_URL + "/" + id).header(HttpHeaders.AUTHORIZATION, ownerBearer))
@@ -244,8 +287,18 @@ class TripFlowIntegrationTest {
                 .exchange();
     }
 
+    /**
+     * The body with the version the trip has now in the database, as a client that has just loaded it sends it
+     * (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withTripVersion(long tripId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, tripId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
+    }
+
+    /** PATCH /trips/{id} as the edit form sends it: with the version the trip has now. */
     private MvcTestResult patch(String bearer, long id, String json) {
-        return patch(bearer, id, "", json);
+        return patch(bearer, id, "", withTripVersion(id, json));
     }
 
     private MvcTestResult patch(String bearer, long id, String subPath, String json) {
@@ -259,6 +312,14 @@ class TripFlowIntegrationTest {
         return patch(bearer, id, "/status", """
                 { "status": "%s" }
                 """.formatted(status));
+    }
+
+    private int dayCount(long tripId) {
+        return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM trip_days WHERE trip_id = ?", Integer.class, tripId);
+    }
+
+    private long storedVersion(long id) {
+        return jdbcTemplate.queryForObject("SELECT version FROM trips WHERE id = ?", Long.class, id);
     }
 
     private MvcTestResult statusCounts(String bearer, String query) {

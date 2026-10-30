@@ -146,9 +146,9 @@ class ActivityPlaceFlowIntegrationTest {
 
         // change: another place, the content version goes up
         long lake = pick("da-lat-ho-xuan-huong");
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "placeId": %d }
-                """.formatted(lake)))
+                """.formatted(lake))))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Mua đặc sản", "version": 1, "place": { "name": "Hồ Xuân Hương" } } }
@@ -156,18 +156,18 @@ class ActivityPlaceFlowIntegrationTest {
         assertThat(row(activity)).containsEntry("place_id", lake).containsEntry("version", 1L);
 
         // an edit that does not mention the place keeps it
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "title": "Dạo hồ" }
-                """))
+                """)))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Dạo hồ", "version": 2, "place": { "name": "Hồ Xuân Hương" } } }
                         """);
 
         // remove: the activity has no place any more, both places are still stored for other activities
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "clearPlace": true }
-                """))
+                """)))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Dạo hồ", "version": 3, "place": null } }
@@ -176,9 +176,9 @@ class ActivityPlaceFlowIntegrationTest {
         assertThat(count("places")).isEqualTo(2);
 
         // removing again changes nothing: no error, and the version does not move
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "clearPlace": true }
-                """))
+                """)))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "version": 3, "place": null } }
@@ -240,9 +240,9 @@ class ActivityPlaceFlowIntegrationTest {
         assertThat(count("activities")).isEqualTo(1);
 
         // the same refusal on an edit, and the other fields of that request are not applied either
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "title": "Tên mới", "placeId": %d }
-                """.formatted(othersHome)))
+                """.formatted(othersHome))))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[0].field").isEqualTo("placeId");
         assertThat(row(activity))
@@ -261,9 +261,9 @@ class ActivityPlaceFlowIntegrationTest {
         becomeEditor(other);
 
         // The whole form sent back with a new title: the place it already has is no change (rule 14.19)
-        assertThat(send("PATCH", activityUrl(activity), otherBearer, """
+        assertThat(send("PATCH", activityUrl(activity), otherBearer, withVersion(activity, """
                 { "title": "Thăm bà ngoại", "placeId": %d }
-                """.formatted(grandma)))
+                """.formatted(grandma))))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
                         { "data": { "title": "Thăm bà ngoại", "place": { "provider": "MANUAL", "name": "Nhà bà ngoại" } } }
@@ -271,9 +271,9 @@ class ActivityPlaceFlowIntegrationTest {
         assertThat(row(activity)).containsEntry("title", "Thăm bà ngoại").containsEntry("place_id", grandma);
 
         // Another place the owner added by hand stays theirs alone, exactly as before
-        assertThat(send("PATCH", activityUrl(activity), otherBearer, """
+        assertThat(send("PATCH", activityUrl(activity), otherBearer, withVersion(activity, """
                 { "title": "Ngủ lại", "placeId": %d }
-                """.formatted(ownersHotel)))
+                """.formatted(ownersHotel))))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[0].field").isEqualTo("placeId");
         // and so is the same place on a new activity: nothing is kept there, it would be attached
@@ -294,9 +294,9 @@ class ActivityPlaceFlowIntegrationTest {
                 { "title": "Mua đặc sản", "placeId": %d }
                 """.formatted(market)));
 
-        assertThat(send("PATCH", activityUrl(activity), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(activity), ownerBearer, withVersion(activity, """
                 { "placeId": %d, "clearPlace": true }
-                """.formatted(lake)))
+                """.formatted(lake))))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().isLenientlyEqualTo("""
                         { "errorCode": "VALIDATION_ERROR",
@@ -350,12 +350,12 @@ class ActivityPlaceFlowIntegrationTest {
                 { "items": [ { "activityId": %d, "dayId": %d, "orderIndex": 500 } ] }
                 """.formatted(last, dayIds.get(0)))).isEqualTo(5);
         // edit: the place comes with the activity, so renaming one with a place costs what renaming one without does
-        assertThat(statementsFor("PATCH", activityUrl(last), """
+        assertThat(statementsFor("PATCH", activityUrl(last), withVersion(last, """
                 { "title": "Tên mới A" }
-                """))
-                .isEqualTo(statementsFor("PATCH", activityUrl(withoutPlace), """
+                """)))
+                .isEqualTo(statementsFor("PATCH", activityUrl(withoutPlace), withVersion(withoutPlace, """
                         { "title": "Tên mới B" }
-                        """));
+                        """)));
 
         // and the places are really there, not left out to save the queries
         List<String> names = JsonPath.read(body(send("GET", TRIPS_URL + "/" + tripId, ownerBearer, null)),
@@ -401,6 +401,16 @@ class ActivityPlaceFlowIntegrationTest {
 
     private String dayUrl(int dayPosition) {
         return TRIPS_URL + "/" + tripId + "/days/" + dayIds.get(dayPosition) + "/activities";
+    }
+
+    /**
+     * The body with the version the activity has now in the database, as a client that has just loaded it sends
+     * it (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withVersion(long activityId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM activities WHERE id = ?", Long.class,
+                activityId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
     }
 
     private String activityUrl(long activityId) {

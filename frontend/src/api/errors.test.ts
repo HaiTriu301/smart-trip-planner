@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios'
 import { describe, expect, it } from 'vitest'
-import { getErrorMessage, isRejectedByServer, isWorthRetrying } from './errors'
+import { getErrorMessage, isNotFound, isRejectedByServer, isStaleVersion, isWorthRetrying } from './errors'
 
 const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig
 
@@ -67,5 +67,25 @@ describe('isRejectedByServer', () => {
     expect(isRejectedByServer(answered(503, apiError('PROVIDER_UNAVAILABLE')))).toBe(false)
     expect(isRejectedByServer(networkDown)).toBe(false)
     expect(isRejectedByServer(new Error('boom'))).toBe(false)
+  })
+})
+
+describe('isStaleVersion', () => {
+  it('is true only for the 409 that says somebody saved first', () => {
+    expect(isStaleVersion(answered(409, apiError('STALE_VERSION')))).toBe(true)
+    // Another 409 of the same forms: the overlap is a question to the user, not a stale save
+    expect(isStaleVersion(answered(409, apiError('ACTIVITY_TIME_CONFLICT')))).toBe(false)
+    expect(isStaleVersion(answered(409, {}))).toBe(false)
+    expect(isStaleVersion(networkDown)).toBe(false)
+  })
+})
+
+describe('isNotFound', () => {
+  it('is true only for the 404 of the backend', () => {
+    expect(isNotFound(answered(404, apiError('RESOURCE_NOT_FOUND')))).toBe(true)
+    expect(isNotFound(answered(403, apiError('FORBIDDEN')))).toBe(false)
+    // A 404 without the backend body (a proxy page) says nothing about the activity
+    expect(isNotFound(answered(404, '<html>Not Found</html>'))).toBe(false)
+    expect(isNotFound(new Error('boom'))).toBe(false)
   })
 })

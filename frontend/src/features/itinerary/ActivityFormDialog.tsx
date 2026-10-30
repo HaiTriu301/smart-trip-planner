@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createActivity, updateActivity } from '../../api/activities'
-import { applyFieldErrors, getApiError, getErrorMessage } from '../../api/errors'
+import { applyFieldErrors, getApiError, getErrorMessage, isNotFound, isStaleVersion } from '../../api/errors'
+import { getTrip } from '../../api/trips'
 import { Alert } from '../../components/Alert'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -12,14 +13,15 @@ import { CANNOT_CLEAR_MESSAGE } from '../../lib/validation'
 import { toast } from '../../stores/toastStore'
 import type { Activity, CreateActivityRequest, UpdateActivityRequest } from '../../types/activity'
 import type { Coordinates } from '../../types/place'
-import type { TripDetail } from '../../types/trip'
+import type { TripDayDetail, TripDetail } from '../../types/trip'
 import { ActivityFormFields } from './ActivityFormFields'
+import { findActivity } from './findActivity'
 import {
   activitySchema,
   findClearedActivityFields,
   toActivityValues,
   toCreateActivityRequest,
-  toUpdateActivityRequest,
+  toActivityChanges,
   type ActivityValues,
 } from './schemas'
 
@@ -83,13 +85,26 @@ interface PendingOverlap {
   messages: string[]
 }
 
+/** Shown above the fields after a save refused with 409 STALE_VERSION (UI_GUIDE 10). */
+const STALE_MESSAGE =
+  'Hoạt động này vừa được người khác sửa. Bấm Lưu lần nữa để ghi đè bằng nội dung của bạn, hoặc Huỷ để xem bản mới.'
+
 /**
  * Create or partial update. 409 ACTIVITY_TIME_CONFLICT lists the overlapping activities and asks
  * "Vẫn lưu?"; yes resends the same body with allowOverlap=true (design.md rule 14.4).
+ *
+ * An update carries the version of the activity the form opened with. 409 STALE_VERSION: somebody saved it since;
+ * the form stays open with what the user typed, reloads the trip and takes the new version, so the next save
+ * overwrites on purpose. It still sends only the fields the user changed, compared with the activity as the form
+ * opened it: what the other person changed in the other fields stays (design.md 11.5). 404: deleted meanwhile.
  */
 function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<ActivityFormDialogProps, 'open'>) {
   const queryClient = useQueryClient()
   const [overlap, setOverlap] = useState<PendingOverlap | null>(null)
+  // Sent with the next update. Replaced only after the user was told somebody saved first, never by a quiet
+  // reload of the page: that would turn their save into an overwrite they did not choose
+  const [version, setVersion] = useState(activity?.version ?? 0)
+  const [stale, setStale] = useState(false)
   const near = destinationOf(queryClient.getQueryData<TripDetail>(['trip', tripId]))
   const form = useForm<ActivityValues>({
     mode: 'onTouched',
@@ -117,7 +132,25 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       onClose()
       toast.success(request.kind === 'create' ? 'Đã thêm hoạt động' : 'Đã lưu thay đổi')
     },
-    onError: (error, { request }) => {
+    // Awaited by the mutation: it stays pending while the trip reloads, so the dialog cannot be closed meanwhile
+    onError: async (error, { request }) => {
+      setStale(false)
+      if (request.kind === 'update' && isNotFound(error)) {
+        leaveDeletedActivity()
+        return
+      }
+      if (request.kind === 'update' && isStaleVersion(error)) {
+        const days = await reloadDays()
+        const latest = days && findActivity(days, request.activityId)
+        if (days && !latest) {
+          leaveDeletedActivity()
+          return
+        }
+        // Not read (network, access just lost): the version stays, the next save asks the server again
+        if (latest) setVersion(latest.version)
+        setStale(true)
+        return
+      }
       const apiError = getApiError(error)
       if (apiError?.errorCode === 'ACTIVITY_TIME_CONFLICT') {
         // details: 'Trùng giờ với hoạt động "Ăn sáng" (09:00 - 10:00)'
@@ -130,6 +163,29 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
     },
   })
 
+  /** The days as the server has them now, put in the cache the page reads; undefined when they cannot be read. */
+  async function reloadDays(): Promise<TripDayDetail[] | undefined> {
+    // The other person may have replaced the place: the loaded travel legs can be wrong, not just old
+    void queryClient.resetQueries({ queryKey: ['route', tripId] })
+    try {
+      const trip = await queryClient.fetchQuery({
+        queryKey: ['trip', tripId],
+        queryFn: () => getTrip(tripId),
+        staleTime: 0,
+      })
+      return trip.days
+    } catch {
+      return undefined
+    }
+  }
+
+  function leaveDeletedActivity() {
+    void queryClient.invalidateQueries({ queryKey: ['trip', tripId] })
+    void queryClient.invalidateQueries({ queryKey: ['route', tripId] })
+    onClose()
+    toast.error('Hoạt động này vừa bị xoá')
+  }
+
   function onSubmit(values: ActivityValues) {
     if (!activity) {
       mutation.mutate({ request: { kind: 'create', body: toCreateActivityRequest(values) }, allowOverlap: false })
@@ -140,11 +196,12 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
       for (const field of cleared) setError(field, { type: 'manual', message: CANNOT_CLEAR_MESSAGE })
       return
     }
-    const body = toUpdateActivityRequest(activity, values)
-    if (Object.keys(body).length === 0) {
+    const changes = toActivityChanges(activity, values)
+    if (Object.keys(changes).length === 0) {
       onClose()
       return
     }
+    const body = { ...changes, version }
     mutation.mutate({ request: { kind: 'update', activityId: activity.id, body }, allowOverlap: false })
   }
 
@@ -152,7 +209,8 @@ function ActivityForm({ tripId, dayId, tripCurrency, activity, onClose }: Omit<A
 
   return (
     <form noValidate className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-      {mutation.isError && !overlap && !isConflict && (
+      {stale && <Alert variant="warning">{STALE_MESSAGE}</Alert>}
+      {mutation.isError && !overlap && !isConflict && !stale && (
         <Alert variant="error">{getErrorMessage(mutation.error)}</Alert>
       )}
       <ActivityFormFields

@@ -25,6 +25,7 @@ import com.trieu.tripplanner.dto.response.TripSummaryResponse;
 import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.FieldViolation;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
+import com.trieu.tripplanner.exception.StaleVersionException;
 import com.trieu.tripplanner.model.enums.ActivityType;
 import com.trieu.tripplanner.model.enums.TripStatus;
 import com.trieu.tripplanner.model.enums.TripVisibility;
@@ -338,7 +339,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Da Lat moi" }
+                        { "version": 0, "title": "Da Lat moi" }
                         """))
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.data.id").isEqualTo(5);
@@ -358,7 +359,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Da Lat moi", "visibility": "PUBLIC" }
+                        { "version": 0, "title": "Da Lat moi", "visibility": "PUBLIC" }
                         """))
                 .hasStatusOk();
 
@@ -374,10 +375,46 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "Hack" }
+                        { "version": 0, "title": "Hack" }
                         """))
                 .hasStatus(HttpStatus.FORBIDDEN);
         verify(tripService, never()).update(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void updateWithoutVersionReturns400OnTheVersionFieldAndNeverReachesService() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+
+        assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "title": "Da Lat moi" }
+                        """))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "errorCode": "VALIDATION_ERROR",
+                          "details": [ { "field": "version",
+                                         "message": "Thiếu số phiên bản của dữ liệu, hãy tải lại trang rồi thử lại" } ] }
+                        """);
+        verify(tripService, never()).update(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void updateReturns409WhenTheVersionIsNoLongerTheStoredOne() {
+        when(tripPermission.canEdit(eq(TRIP_ID), any())).thenReturn(true);
+        when(tripService.update(eq(TRIP_ID), any(), eq(true)))
+                .thenThrow(new StaleVersionException("Trip", TRIP_ID, 2L, 3L));
+
+        assertThat(mvc.patch().uri(TRIP_URL + "?force=true").header(HttpHeaders.AUTHORIZATION, bearer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        { "version": 2, "endDate": "2026-10-02" }
+                        """))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().isLenientlyEqualTo("""
+                        { "success": false, "errorCode": "STALE_VERSION",
+                          "message": "Dữ liệu đã bị người khác thay đổi, vui lòng tải lại" }
+                        """);
     }
 
     @Test
@@ -387,7 +424,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "title": "   " }
+                        { "version": 0, "title": "   " }
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().isLenientlyEqualTo("""
@@ -408,7 +445,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "endDate": "2026-10-02" }
+                        { "version": 0, "endDate": "2026-10-02" }
                         """))
                 .hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().isLenientlyEqualTo("""
@@ -427,7 +464,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL + "?force=true").header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "endDate": "2026-10-02" }
+                        { "version": 0, "endDate": "2026-10-02" }
                         """))
                 .hasStatusOk();
         verify(tripService).update(eq(TRIP_ID), any(), eq(true));
@@ -440,7 +477,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL + "?force=yes-please").header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "endDate": "2026-10-02" }
+                        { "version": 0, "endDate": "2026-10-02" }
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errorCode").isEqualTo("VALIDATION_ERROR");
@@ -543,7 +580,7 @@ class TripControllerTest {
         assertThat(mvc.patch().uri(TRIP_URL).header(HttpHeaders.AUTHORIZATION, bearer)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        { "description": "%s" }
+                        { "version": 0, "description": "%s" }
                         """.formatted("a".repeat(1001))))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.details[0].field").isEqualTo("description");

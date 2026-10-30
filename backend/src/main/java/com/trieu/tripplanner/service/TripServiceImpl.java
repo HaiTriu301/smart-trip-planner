@@ -17,6 +17,7 @@ import com.trieu.tripplanner.exception.BusinessRuleException;
 import com.trieu.tripplanner.exception.ForbiddenException;
 import com.trieu.tripplanner.exception.ResourceNotFoundException;
 import com.trieu.tripplanner.exception.SlugGenerationException;
+import com.trieu.tripplanner.exception.StaleVersionException;
 import com.trieu.tripplanner.mapper.TripMapper;
 import com.trieu.tripplanner.model.Trip;
 import com.trieu.tripplanner.model.enums.MemberStatus;
@@ -145,6 +146,11 @@ public class TripServiceImpl implements TripService {
     @Transactional
     public TripResponse update(Long tripId, UpdateTripRequest request, boolean force) {
         Trip trip = findTrip(tripId);
+        // Before anything is merged and before the days are reconciled: force=true answers a question about the
+        // days of the version the user saw, so it must not delete days on a version somebody else has replaced
+        if (!trip.getVersion().equals(request.version())) {
+            throw new StaleVersionException("Trip", tripId, request.version(), trip.getVersion());
+        }
         LocalDate oldStart = trip.getStartDate();
         LocalDate oldEnd = trip.getEndDate();
         tripMapper.updateFromRequest(request, trip);

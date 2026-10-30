@@ -3,6 +3,7 @@ package com.trieu.tripplanner.dto.request;
 import com.trieu.tripplanner.model.enums.ActivityType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -19,6 +20,9 @@ import java.time.LocalTime;
  * POST /places/manual); whether that place may be used by this user is checked in the service.
  * {@code clearPlace: true} removes the place: a number has no "" to mean "clear", unlike the two texts. Sending
  * both is refused by the service, since the request then says two opposite things.
+ * <p>
+ * {@code version} is required: the version of the activity the client was looking at. Somebody saved it since →
+ * 409 STALE_VERSION and nothing is written, checked before every other rule (design.md 10.2, 11.5).
  * <p>
  * Not in the body on purpose: the day and orderIndex change only through the reorder endpoint (Task 2.4).
  * Constraints mirror {@link CreateActivityRequest}; every annotation used here ignores null, so omitted fields
@@ -53,5 +57,8 @@ public record UpdateActivityRequest(
 
         Long placeId,
 
-        Boolean clearPlace) {
+        Boolean clearPlace,
+
+        @NotNull(message = "{validation.version.required}")
+        Long version) {
 }

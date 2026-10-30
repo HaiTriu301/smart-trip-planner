@@ -167,9 +167,9 @@ class DayRouteFlowIntegrationTest {
         assertThat(JsonPath.<Integer>read(route, "$.data.totalDistanceMeters")).isEqualTo(9825);
 
         // Lunch loses its place: one leg, from the market straight to the pagoda
-        assertThat(send("PATCH", activityUrl(lunch), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(lunch), ownerBearer, withVersion(lunch, """
                 { "clearPlace": true }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(send("GET", routeUrl(0), ownerBearer, null))
                 .hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
@@ -179,9 +179,9 @@ class DayRouteFlowIntegrationTest {
                         """.formatted(market, pagoda));
 
         // The pagoda loses its place too: one place left, nothing to travel, still an answer and not an error
-        assertThat(send("PATCH", activityUrl(pagoda), ownerBearer, """
+        assertThat(send("PATCH", activityUrl(pagoda), ownerBearer, withVersion(pagoda, """
                 { "clearPlace": true }
-                """)).hasStatusOk();
+                """))).hasStatusOk();
         assertThat(send("GET", routeUrl(0), ownerBearer, null)).hasStatusOk().bodyJson().isLenientlyEqualTo(EMPTY_ROUTE);
     }
 
@@ -295,6 +295,16 @@ class DayRouteFlowIntegrationTest {
 
     private String activitiesUrl(int dayPosition) {
         return TRIPS_URL + "/" + tripId + "/days/" + dayIds.get(dayPosition) + "/activities";
+    }
+
+    /**
+     * The body with the version the activity has now in the database, as a client that has just loaded it sends
+     * it (design.md 10.2, Task 5.1). Read with JdbcTemplate, so it adds no statement to the Hibernate counts.
+     */
+    private String withVersion(long activityId, String json) {
+        Long version = jdbcTemplate.queryForObject("SELECT version FROM activities WHERE id = ?", Long.class,
+                activityId);
+        return json.replaceFirst("[{]", "{ \"version\": " + version + ",");
     }
 
     private String activityUrl(long activityId) {

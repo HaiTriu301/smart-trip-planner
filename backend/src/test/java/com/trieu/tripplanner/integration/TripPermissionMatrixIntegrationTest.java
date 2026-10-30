@@ -130,7 +130,7 @@ class TripPermissionMatrixIntegrationTest {
                     HttpStatus.OK, null),
             // Edit: owner and accepted editors
             new Action("Sửa chuyến đi", HttpMethod.PATCH, TRIP, Level.EDIT, HttpStatus.OK, """
-                    { "title": "Đà Lạt mùa hoa" }"""),
+                    { "version": 0, "title": "Đà Lạt mùa hoa" }"""),
             new Action("Đổi trạng thái", HttpMethod.PATCH, TRIP + "/status", Level.EDIT, HttpStatus.OK, """
                     { "status": "PLANNED" }"""),
             new Action("Sửa ngày", HttpMethod.PATCH, TRIP_OF + "/days/{dayId}", Level.EDIT, HttpStatus.OK, """
@@ -140,7 +140,7 @@ class TripPermissionMatrixIntegrationTest {
                     { "title": "Ăn trưa" }"""),
             new Action("Sửa hoạt động", HttpMethod.PATCH, TRIP_OF + "/activities/{activityId}", Level.EDIT,
                     HttpStatus.OK, """
-                    { "title": "Ăn sáng ở chợ" }"""),
+                    { "version": 0, "title": "Ăn sáng ở chợ" }"""),
             new Action("Sắp xếp lại hoạt động", HttpMethod.PUT, TRIP_OF + "/activities/reorder", Level.EDIT,
                     HttpStatus.OK, """
                     { "items": [ { "activityId": {activityId}, "dayId": {dayId}, "orderIndex": 500 } ] }"""),

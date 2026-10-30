@@ -19,6 +19,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -173,6 +174,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Access denied on {} {}: {}", request.getMethod(), loggablePath(request), ex.getMessage());
         ErrorCode errorCode = ErrorCode.FORBIDDEN;
+        return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
+    }
+
+    /**
+     * Two saves of the same row overlapped (design.md 11.5): both read the same version, the first UPDATE
+     * committed, the second matched no row. The caller can reload and save again, so it is the same 409 as a
+     * version sent stale, and a WARN without stack trace: nothing is wrong with the code.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(ObjectOptimisticLockingFailureException ex,
+                                                              HttpServletRequest request) {
+        log.warn("Concurrent update of {} {} on {} {}", ex.getPersistentClassName(), ex.getIdentifier(),
+                request.getMethod(), loggablePath(request));
+        ErrorCode errorCode = ErrorCode.STALE_VERSION;
         return build(errorCode, message(errorCode.getMessageKey()), List.of(), request);
     }
 
