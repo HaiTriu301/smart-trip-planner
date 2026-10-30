@@ -3091,6 +3091,7 @@ Mốc 9 — docs (main): README (link bản chạy thật, link Swagger, dòng "
 > 13. **Bỏ hẳn liên kết chia sẻ có quyền sửa** (design 2.2): người ghi dữ liệu phải có tài khoản (`created_by NOT NULL`, hạn mức theo người dùng); mời thành viên `EDITOR` đáp ứng nhu cầu. Trang công khai không có cập nhật tức thời. `share_links.permission` giữ `ENUM('VIEW')`. ✔
 > 14. **Giới hạn:** bước bắt tay `/ws` 30 lần / phút mỗi IP (một `Rule` mới của `RateLimitFilter`, CLAUDE.md rule 15); mỗi khung STOMP tối đa 8 KB. ✔
 > 15. **Test:** một class `@SpringBootTest(webEnvironment = RANDOM_PORT)` với client STOMP thật cho cả phase, các task sau thêm kịch bản vào đó (mỗi class như vậy tốn một lần khởi động ứng dụng). Frontend test hàm thuần ("sự kiện → query cần tải lại", mã của tab) bằng Vitest. Test thủ công ở `docs/testing/15-realtime.md` (file mới cho cả phase). ✔
+> 16. **Lần Lưu thứ hai sau 409 chỉ gửi ô đã sửa** (chốt 2026-10-29, lúc làm Task 5.1): form so từng ô với bản chụp lúc mở form và gửi kèm `version` mới; ô người kia vừa sửa mà mình không đụng vẫn giữ. ✔
 >
 > **Phụ thuộc:** backend `spring-boot-starter-websocket` (nằm trong BOM, không ghi version, CLAUDE.md rule 28); frontend `@stomp/stompjs` (Task 5.5, bản mới nhất lúc cài). Không migration, không biến môi trường mới.
 > **Máy chủ:** `frontend/nginx.conf` nằm trong image frontend nên đường `/ws` lên theo deploy, **không sửa tay trên máy**. Kiểm một lần trên Cloudflare: **Network → WebSockets** đang bật (mặc định bật), ghi ở nghiệm thu Task 5.2. Mỗi lần deploy mọi kết nối bị ngắt 30–60 giây; client tự kết nối lại và tải lại chuyến đang mở (Task 5.5).
@@ -3131,6 +3132,29 @@ Mốc 6 — feat(trip): reject a trip update made on an old version
 **Nghiệm thu:** hai trình duyệt, hai tài khoản (chủ + `EDITOR`), cùng mở "Sửa" một hoạt động → A lưu → B lưu → B thấy dòng báo, chữ vẫn còn → B bấm Lưu lần nữa → nội dung của B được lưu. A đổi trạng thái chuyến hoặc tạo liên kết chia sẻ trong lúc B mở "Sửa chuyến đi" → B lưu được ngay, không 409.
 
 **Nhớ:** frontend gửi `version` (Mốc 3–4) **trước** khi backend bắt buộc (Mốc 5–6), để mọi commit đều chạy được. Dòng `STALE_VERSION` của UI_GUIDE mục 10 và trạng thái "Đã làm" cập nhật trong commit giao diện (CLAUDE.md rule 38).
+
+> **Thực tế khi làm 5.1 (2026-10-29 → 2026-10-30):** 10 commit trên nhánh `feat/T5.1-stale-version` thay vì 6 mốc. Mỗi form tách làm hai commit ("gửi `version`" rồi "xử lý 409"); trước mỗi commit backend bắt buộc `version` có một commit chỉ sửa các test có sẵn cho chúng gửi `version` (không đổi hành vi), để commit bắt buộc chỉ gồm quy tắc mới và test của nó. Thứ tự "frontend gửi trước, backend bắt buộc sau" giữ nguyên. Số mốc trong `docs/testing/15-realtime.md` đánh theo 10 commit này.
+>
+> | Commit | File | Nội dung |
+> |---|:--:|---|
+> | `2ca5dd1` refactor(trip): leave status and visibility out of the optimistic lock | 3 | Mốc 1 kế hoạch |
+> | `7a0fae3` fix(error): answer 409 when two saves of the same row overlap | 3 | Mốc 2 kế hoạch; hai lần lưu chồng nhau thử ở `TripRepositoryTest` |
+> | `f91af35` feat(itinerary): send the version with an activity update | 3 | Nửa đầu Mốc 3: tách `ActivityChanges` (các ô của form) khỏi `UpdateActivityRequest = ActivityChanges & { version }` |
+> | `2df7208` feat(itinerary): keep the activity form open on a stale save | 7 | Nửa sau Mốc 3: `isStaleVersion` / `isNotFound` (`api/errors.ts`), `Alert` thêm kiểu `warning`, `features/itinerary/findActivity.ts` kèm test; UI_GUIDE |
+> | `dc3c8f3` feat(trips): send the version with a trip update | 3 | Nửa đầu Mốc 4, sửa luôn `BUG-UI-014` (có từ Task 2.5): form so các ô với chuyến đi đang nằm trong cache, trang tải lại ngầm khi quay về tab nên tên người khác vừa đổi bị ghi đè; nay so với bản chụp lúc mở form |
+> | `e08bba9` feat(trips): keep the trip form open on a stale save | 2 | Nửa sau Mốc 4; UI_GUIDE dòng Task 5.1 thành "Đã làm" |
+> | `fddd351` refactor(test): send the activity version in update tests | 6 | Ngoài kế hoạch: các test sửa hoạt động có sẵn gửi `version` (helper `withVersion`) |
+> | `ebc6c82` feat(activity): reject an activity update made on an old version | 8 | Mốc 5 kế hoạch; key `validation.version.required`; `TestActivities.updateRequest` mặc định `version = 0` |
+> | `dd3d461` refactor(test): send the trip version in update tests | 8 | Ngoài kế hoạch: helper `withTripVersion` ở 8 file test |
+> | `fd76fc7` feat(trip): reject a trip update made on an old version | 5 | Mốc 6 kế hoạch; `force=true` với `version` cũ vẫn 409, không ngày nào bị xoá |
+>
+> Lệch so với kế hoạch:
+> - **Quyết định 16** (chốt 2026-10-29): lần Lưu thứ hai sau 409 chỉ gửi những ô người dùng đã sửa so với bản chụp lúc mở form, kèm `version` mới, nên ô người kia vừa sửa mà mình không đụng vẫn giữ (design 11.5).
+> - Form chuyến đi rút ngắn ngày trên một bản cũ: lần Lưu đầu nhận 409 `STALE_VERSION` trước, **không** hỏi "Xoá hoạt động khi đổi ngày?" (máy chủ so `version` trước khi thêm / bớt ngày); lần Lưu thứ hai mới hỏi. Form hoạt động tương tự với hộp "Trùng giờ".
+>
+> Kết quả: backend 1547 lượt test, giao diện 244 test xanh; 6 bài thủ công `MT-RT-01` đến `06` chủ dự án chạy ngày 2026-10-30, đạt hết ở lần chạy đầu. Lỗi duy nhất là `BUG-UI-014` (tìm ra khi đọc code, đã sửa, kiểm lại ở `MT-RT-03`). Không migration, không biến môi trường mới.
+>
+> Bài học đưa vào CLAUDE.md mục 8: form so các ô với bản chụp lúc mở, không so với dữ liệu query đang sống.
 
 ---
 

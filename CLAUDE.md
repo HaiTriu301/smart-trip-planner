@@ -314,6 +314,7 @@ Khi review code, kiểm tra lại các điểm này:
 - nginx trỏ tới backend bằng tên cố định trong `proxy_pass`: nginx tra IP một lần lúc khởi động, backend được tạo lại khi deploy có IP mới → 502 tới khi nginx khởi động lại. `frontend/nginx.conf` dùng `resolver 127.0.0.11` + biến; đừng gỡ — Task 4.8
 - Thêm cấu hình Spring cho một dịch vụ ngoài (`spring.mail.host`...) mà không xem health indicator đi kèm: `/actuator/health` gọi luôn dịch vụ đó, dịch vụ chậm là container `unhealthy` và deploy đỏ. Profile `prod` tắt health của mail (`ProdProfileConfigTest` kiểm) — Task 4.8
 - Script `.sh` commit từ máy Windows (`core.autocrlf=true`) thành CRLF thì chạy trên Linux lỗi; file lưu trong Git với mode `100644` thì CI không chạy được. `.gitattributes` đã đặt `*.sh text eol=lf`; script mới phải `git update-index --chmod=+x` — Task 4.8
+- Form sửa so các ô với dữ liệu `useQuery` đang sống để chọn ô cần gửi: trang tải lại ngầm (quay về tab) thì ô người dùng không đụng khác bản mới, bị coi là "đã sửa" và gửi đi, ghi đè việc người khác vừa làm mà không ai biết. Form chụp bản ghi lúc mở (`const [base] = useState(trip)` trong `EditTripDialog`) rồi so các ô với bản chụp; lần Lưu lại sau 409 chỉ thay `version` — BUG-UI-014, Task 5.1
 
 ---
 

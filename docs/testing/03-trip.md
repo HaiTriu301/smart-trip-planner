@@ -1,6 +1,6 @@
 # 03 · Chuyến đi
 
-> Cập nhật: 2026-10-13 · Task 4.2 Mốc 2: tạo và sửa chuyến đi không còn nhận chế độ hiển thị từ người gọi (phần L, `TC-TRIP-066` đến `TC-TRIP-068`; `TC-TRIP-002` sửa lại), tại `2a1faec` (1072 lượt test) · 2026-10-09 · từ Task 4.1 Mốc 8, danh sách và chip trạng thái gồm cả chuyến được chia sẻ với mình (kịch bản ở [09-sharing.md](09-sharing.md) phần J; các kịch bản "của người khác" dưới đây hiểu là người khác **không** chia sẻ cho mình) · 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
+> Cập nhật: 2026-10-29 · Task 5.1 Mốc 1: đổi trạng thái không còn làm tăng số phiên bản (`TC-TRIP-043`, `MT-TRIP-05` sửa lại; kịch bản mới ở [15-realtime.md](15-realtime.md) phần A) · 2026-10-13 · Task 4.2 Mốc 2: tạo và sửa chuyến đi không còn nhận chế độ hiển thị từ người gọi (phần L, `TC-TRIP-066` đến `TC-TRIP-068`; `TC-TRIP-002` sửa lại), tại `2a1faec` (1072 lượt test) · 2026-10-09 · từ Task 4.1 Mốc 8, danh sách và chip trạng thái gồm cả chuyến được chia sẻ với mình (kịch bản ở [09-sharing.md](09-sharing.md) phần J; các kịch bản "của người khác" dưới đây hiểu là người khác **không** chia sẻ cho mình) · 2026-10-01 · build xanh tại commit `8f06d72` (merge Task 2.6) · [Về trang chính](README.md)
 
 Tính năng này cho người dùng tạo, xem danh sách, xem chi tiết, sửa và xoá chuyến đi. Làm ở Task 2.1.
 Đổi trạng thái chuyến đi (phần H) làm ở Task 2.5 Mốc 5. Giới hạn mô tả 1000 ký tự (phần I) chốt ở Task 2.5, trước đó là 5000. Số hoạt động trên thẻ chuyến đi (phần J) và số chuyến đi theo trạng thái (phần K) làm trên Task 2.6 (`feat/T2.6-ui-guide`).
@@ -118,7 +118,7 @@ Trạng thái gồm: nháp, đã lên kế hoạch, đang diễn ra, đã hoàn 
 
 | Mã | Kịch bản | Kết quả mong đợi | Loại | Trạng thái |
 |---|---|---|---|---|
-| TC-TRIP-043 | Chủ sở hữu đổi chuyến đi từ nháp sang "đã lên kế hoạch" | 200, trạng thái mới, số phiên bản tăng 1. Lọc danh sách theo "đã lên kế hoạch" thấy chuyến đi, lọc theo "nháp" thì không | Đúng | Đạt |
+| TC-TRIP-043 | Chủ sở hữu đổi chuyến đi từ nháp sang "đã lên kế hoạch" | 200, trạng thái mới, số phiên bản **không đổi** (từ Task 5.1, trước đó tăng 1; xem [15-realtime.md](15-realtime.md) phần A). Lọc danh sách theo "đã lên kế hoạch" thấy chuyến đi, lọc theo "nháp" thì không | Đúng | Đạt |
 | TC-TRIP-044 | Lần lượt đổi sang đang diễn ra, đã hoàn thành, đã lưu trữ, rồi quay về nháp | Lần nào cũng 200, database lưu đúng từng trạng thái | Đúng | Đạt |
 | TC-TRIP-045 | Gửi lại đúng trạng thái đang có | 200, không ghi gì vào database, số phiên bản không đổi | Biên | Đạt |
 | TC-TRIP-046 | Đổi trạng thái | Chỉ trạng thái thay đổi. Tên, ngày giữ nguyên, các ngày của chuyến đi không bị động tới | Đúng | Đạt |
@@ -237,7 +237,7 @@ SELECT id, title, deleted_at FROM trips ORDER BY id DESC LIMIT 5;
 
 Cần có: một chuyến đi của tài khoản A đang ở trạng thái `DRAFT`.
 
-- [ ] Đăng nhập bằng A. Gọi `PATCH /api/v1/trips/{id}/status` với body `{ "status": "PLANNED" }`. Trả 200, `status` là `PLANNED`, số phiên bản tăng 1.
+- [ ] Đăng nhập bằng A. Gọi `PATCH /api/v1/trips/{id}/status` với body `{ "status": "PLANNED" }`. Trả 200, `status` là `PLANNED`, số phiên bản **không** tăng (từ Task 5.1).
 - [ ] Gọi lại đúng body đó. Trả 200, số phiên bản **không** tăng.
 - [ ] Gọi danh sách với `status=PLANNED`. Có chuyến đi này.
 - [ ] Gửi body `{}`. Trả 400, lỗi ở ô `status`: "Trạng thái không được để trống".
